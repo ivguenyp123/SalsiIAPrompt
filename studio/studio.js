@@ -10,11 +10,19 @@
  * implémentation, donc rien ne peut diverger entre ce que l'auteur voit ici et ce que
  * la porte décidera là-bas.
  */
+import { requireSession, clear } from '../app/session.js';
+import { knownScopes, guessScope } from '../app/scopes.js';
 import { lint, ERROR } from '../lint/index.js';
 import { makeValidator } from '../lib/schema.js';
 import yaml from '../lib/yaml.js';
 import { formToArtifact } from './form-to-artifact.js';
 import { toYaml } from './to-yaml.js';
+
+const session = requireSession('../app/login.html');
+// Sans session, requireSession a déjà lancé la redirection. On suspend l'évaluation du
+// module plutôt que de lever : une exception ici s'afficherait en erreur console et
+// masquerait les vraies.
+if (!session) await new Promise(() => {});
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, attrs = {}, ...kids) => {
@@ -31,6 +39,22 @@ const [tools, targets, schema] = await Promise.all([
 ]);
 
 const ctx = { tools, targets, validateArtifact: makeValidator(schema) };
+
+// ── Identité : l'owner vient de la connexion, il ne se saisit pas ────────────
+// Un artefact est SIGNÉ. Laisser l'auteur taper le nom de quelqu'un d'autre — ou un
+// tiret — vide la propriété de son sens, et L013 ne rattrape que le tiret.
+$('who').innerHTML = session.avatar ? `<img alt="" src="${session.avatar}">` : '';
+$('who').append(session.username);
+$('ownerPerson').value = session.username;
+
+// Les périmètres sont DÉRIVÉS du registre des outils : la liste n'est pas une saisie.
+// Celui du dépôt de travail est présélectionné quand il correspond à un périmètre connu.
+const scopes = knownScopes(tools);
+const devine = guessScope(localStorage.getItem('salsi_ia_project_path') || '', scopes);
+const scopeSelect = $('ownerScope');
+scopeSelect.append(new Option('— choisir un périmètre —', ''));
+for (const s of scopes) scopeSelect.append(new Option(s, s, false, s === devine));
+scopeSelect.value = devine;
 
 // ── État du formulaire ───────────────────────────────────────────────────────
 const state = { variables: [], tools: [], criteria: [] };
@@ -119,7 +143,7 @@ function readForm() {
     title: $('title').value,
     kind: $('kind').value,
     targetLevel: $('targetLevel').value,
-    ownerPerson: $('ownerPerson').value,
+    ownerPerson: session.username,          // jamais la saisie : la connexion fait foi
     ownerScope: $('ownerScope').value,
     purpose: $('purpose').value,
     notFor: $('notFor').value,
@@ -165,7 +189,6 @@ function run() {
 // ── Exemples ─────────────────────────────────────────────────────────────────
 const EXEMPLE_OK = {
   title: 'Vérifier les migrations Flyway',
-  ownerPerson: 'm.dubois', ownerScope: 'Plateforme',
   purpose: 'Analyser les scripts de migration et signaler les ruptures de compatibilité ascendante.',
   notFor: 'Ne pas utiliser sur un dépôt sans migrations versionnées, ni pour appliquer une migration.',
   spec: 'Tu analyses les migrations du dépôt {{repo}}.\n\nPour la stack {{stack}} :\n'
@@ -181,7 +204,6 @@ const EXEMPLE_OK = {
 // Chaque défaut vise une règle : L002, L009, L011, L018, L019 et L013.
 const EXEMPLE_KO = {
   title: 'Analyser le code',
-  ownerPerson: '—', ownerScope: 'Plateforme',
   purpose: 'Faire une revue du code pour voir si tout va bien.',
   notFor: '',
   spec: 'Tu analyses le code de {{repo}} sur la branche {{branche}}.\n\n'
@@ -193,7 +215,8 @@ const EXEMPLE_KO = {
 };
 
 function apply(form) {
-  for (const k of ['title', 'ownerPerson', 'ownerScope', 'purpose', 'notFor', 'spec']) $(k).value = form[k] ?? '';
+  // L'owner n'est pas rechargeable : il vient de la session et du périmètre choisi.
+  for (const k of ['title', 'purpose', 'notFor', 'spec']) $(k).value = form[k] ?? '';
   state.variables = structuredClone(form.variables ?? []);
   state.tools = structuredClone(form.tools ?? []);
   state.criteria = structuredClone(form.criteria ?? []);
@@ -201,8 +224,8 @@ function apply(form) {
 }
 
 // ── Câblage ──────────────────────────────────────────────────────────────────
-for (const id of ['title', 'ownerPerson', 'ownerScope', 'purpose', 'notFor', 'spec']) $(id).oninput = run;
-for (const id of ['kind', 'targetLevel']) $(id).onchange = run;
+for (const id of ['title', 'purpose', 'notFor', 'spec']) $(id).oninput = run;
+for (const id of ['kind', 'targetLevel', 'ownerScope']) $(id).onchange = run;
 
 $('add-var').onclick = () => { state.variables.push({ name: '', source: 'repo' }); renderVariables(); run(); };
 $('add-tool').onclick = () => { state.tools.push({ id: '' }); renderTools(); run(); };

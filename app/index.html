@@ -81,6 +81,7 @@ if (session) {
   // Le dépôt courant est mémorisé côté navigateur : c'est une préférence d'affichage,
   // pas une donnée gouvernée.
   const REPO_KEY = 'salsi_ia_project';
+  const PATH_KEY = 'salsi_ia_project_path';   // le chemin sert à deviner le périmètre
   const select = $('projects');
 
   try {
@@ -95,6 +96,7 @@ if (session) {
     }
     select.onchange = () => {
       localStorage.setItem(REPO_KEY, select.value);
+      localStorage.setItem(PATH_KEY, select.selectedOptions[0]?.textContent || '');
       $('repoHint').textContent = select.value ? 'Dépôt retenu pour cette session.' : 'Aucun dépôt sélectionné.';
     };
   } catch (error) {

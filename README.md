@@ -78,7 +78,14 @@ et charge les registres réels. Aucune copie, aucun portage, aucun bundler : c'e
 exactement le code qui tourne en CI au moment 2. C'est la raison d'être du choix « sans
 dépendance », et ce qui garantit que l'auteur ne peut pas voir vert ici et rouge là-bas.
 
-Deux principes portés par le formulaire lui-même :
+Trois principes portés par le formulaire lui-même :
+
+- **l'owner ne se saisit pas** — la personne vient de la connexion GitLab, le périmètre
+  se choisit dans la liste dérivée du registre des outils. Un artefact est *signé* :
+  laisser taper le nom d'un autre, ou un tiret, vide la propriété de son sens. Le
+  périmètre du dépôt de travail est présélectionné quand il correspond à un périmètre
+  connu — mais il reste choisi, pas prouvé : le prouver suppose de vérifier
+  l'appartenance au groupe GitLab côté serveur, et c'est un travail de back.
 
 - **`mode` et `executor` ne se saisissent pas** — ils viennent du registre et s'affichent
   en pastilles. Un auteur ne peut donc pas confier une écriture au LLM : L005 cesse

@@ -77,15 +77,20 @@
   pre{margin:0;padding:12px 14px;font-family:var(--mono);font-size:12.5px;
       line-height:1.55;overflow:auto;max-height:46vh;white-space:pre;color:var(--txt)}
   .hint{color:var(--dim);font-size:12px;margin-top:8px;line-height:1.5}
+  .who{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--dim)}
+  .who img{width:22px;height:22px;border-radius:50%;border:1px solid var(--line)}
+  input[readonly]{opacity:.75;cursor:not-allowed}
   .count{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--dim)}
 </style>
 </head>
 <body>
 
 <header>
-  <h1>Studio — lint en direct</h1>
+  <a href="../app/index.html" style="color:var(--dim);text-decoration:none">←</a>
+  <h1>Studio</h1>
   <span class="sub">les mêmes règles qu'en CI, à la frappe · aucun LLM</span>
   <span class="spacer"></span>
+  <span class="who" id="who"></span>
   <button id="load-example">Charger un exemple conforme</button>
   <button id="load-broken">Charger un exemple fautif</button>
   <button id="reset">Vider</button>
@@ -99,9 +104,18 @@
       <label for="title">Titre</label>
       <input id="title" placeholder="Vérifier les migrations Flyway">
       <div class="grid2">
-        <div><label for="ownerPerson">Owner — personne</label><input id="ownerPerson" placeholder="m.dubois"></div>
-        <div><label for="ownerScope">Owner — périmètre</label><input id="ownerScope" placeholder="Plateforme"></div>
+        <div>
+          <label>Owner — personne</label>
+          <input id="ownerPerson" readonly title="Vient de ta connexion GitLab : un artefact est signé, il ne s'attribue pas.">
+        </div>
+        <div>
+          <label for="ownerScope">Owner — périmètre</label>
+          <select id="ownerScope"></select>
+        </div>
       </div>
+      <p class="hint">La personne vient de ta connexion GitLab. Le périmètre se choisit dans la
+        liste du registre — c'est lui qui décide des outils autorisés (<code>L006</code>), il ne
+        se saisit donc pas à la main.</p>
       <div class="grid2">
         <div><label for="kind">Type</label>
           <select id="kind"><option value="agent">agent</option><option value="prompt">prompt</option><option value="chain">chain</option></select>
