@@ -18,9 +18,30 @@ elle ne vérifie rien. C'est le code ci-dessous qui vérifie.
 
 ## Lancer
 
+**Rien à installer.** Aucune dépendance à l'exécution : ni `npm install`, ni réseau, ni
+LLM. Node ≥ 18 suffit — et `npm start` ne fait que lancer `node serve.js`.
+
 ```bash
-npm start        # puis http://localhost:8080
+npm start                       # ou : node serve.js   →  http://localhost:8080
 ```
+
+Sans Node sous la main (Chromebook, poste verrouillé), l'application est **entièrement
+statique** : n'importe quel serveur de fichiers convient, `serve.js` n'est qu'une
+commodité.
+
+```bash
+python3 -m http.server 8080     # puis http://localhost:8080/app/login.html
+```
+
+Ou, sans rien installer du tout : activer **GitHub Pages** sur le dépôt
+(Settings → Pages → Deploy from a branch → `main` / `/`), et l'ouvrir depuis n'importe
+quel appareil. Le jeton reste dans le navigateur — il n'y a aucun back où l'envoyer —
+mais le dépôt étant public, la page l'est aussi : utiliser un jeton **fine-grained**
+limité à ce seul dépôt.
+
+Ce qu'on ne peut pas faire par double-clic : ouvrir `app/login.html` en `file://`. Les
+navigateurs y interdisent les modules ES. Seule `maquette.html`, fichier unique sans
+module, s'ouvre directement.
 
 Connexion par jeton GitLab, comme le hub Salsifi — avec trois différences assumées :
 la session a sa propre clé de stockage (deux applications, deux cycles de vie), elle
