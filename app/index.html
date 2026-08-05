@@ -32,10 +32,23 @@
     et sort quand elle se dégrade. Le déterministe décide et bloque ; le LLM produit et
     conseille ; l'humain tranche.</p>
 
-  <h2>Dépôt de travail</h2>
-  <div class="card repo">
-    <select id="projects"><option>Chargement…</option></select>
-    <span class="hint" id="repoHint">Le dépôt sur lequel porteront les agents que tu écris.</span>
+  <h2>Dépôts</h2>
+  <div class="card">
+    <label for="registry">Dépôt du registre</label>
+    <div class="repo">
+      <select id="registry"><option>Chargement…</option></select>
+      <span class="hint">Là où les artefacts sont commités. C'est le dépôt gouverné.</span>
+    </div>
+
+    <label for="projects" style="margin-top:16px">Dépôt de travail</label>
+    <div class="repo">
+      <select id="projects"><option>Chargement…</option></select>
+      <span class="hint" id="repoHint">Ce sur quoi les agents portent. Sert à déduire le périmètre.</span>
+    </div>
+
+    <p class="hint" style="margin-top:14px">Deux dépôts distincts, et c'est volontaire : sur celui
+      du registre, branches protégées et règles d'approbation <em>sont</em> la gouvernance. Un auteur
+      qui soumet un agent n'a aucune raison d'écrire dans le dépôt qu'il analyse.</p>
   </div>
 
   <h2>Écrire &amp; gouverner</h2>
@@ -67,7 +80,7 @@
 
 <script type="module">
 import { requireSession, clear } from './session.js';
-import { createClient } from './gitlab.js';
+import { createForge } from './forge.js';
 
 const session = requireSession('./login.html');
 if (session) {
@@ -80,28 +93,32 @@ if (session) {
 
   // Le dépôt courant est mémorisé côté navigateur : c'est une préférence d'affichage,
   // pas une donnée gouvernée.
-  const REPO_KEY = 'salsi_ia_project';
-  const PATH_KEY = 'salsi_ia_project_path';   // le chemin sert à deviner le périmètre
-  const select = $('projects');
+  const KEYS = {
+    registry: 'salsi_ia_registry_repo',       // où les artefacts sont commités
+    work: 'salsi_ia_project',                 // ce sur quoi les agents portent
+    workPath: 'salsi_ia_project_path'         // son chemin, pour déduire le périmètre
+  };
+
+  const fill = (select, repos, storageKey, onPick) => {
+    select.textContent = '';
+    if (repos.length === 0) { select.append(new Option('Aucun dépôt accessible avec ce jeton', '')); return; }
+    select.append(new Option('— choisir un dépôt —', ''));
+    for (const r of repos) select.append(new Option(r.path, r.id));
+    select.value = localStorage.getItem(storageKey) || '';
+    select.onchange = () => { localStorage.setItem(storageKey, select.value); onPick?.(select); };
+  };
 
   try {
-    const projects = await createClient(session).listProjects({ perPage: 50 });
-    select.textContent = '';
-    if (projects.length === 0) {
-      select.append(new Option('Aucun dépôt accessible avec ce jeton', ''));
-    } else {
-      select.append(new Option('— choisir un dépôt —', ''));
-      for (const p of projects) select.append(new Option(p.path_with_namespace, String(p.id)));
-      select.value = localStorage.getItem(REPO_KEY) || '';
-    }
-    select.onchange = () => {
-      localStorage.setItem(REPO_KEY, select.value);
-      localStorage.setItem(PATH_KEY, select.selectedOptions[0]?.textContent || '');
-      $('repoHint').textContent = select.value ? 'Dépôt retenu pour cette session.' : 'Aucun dépôt sélectionné.';
-    };
+    const repos = await createForge(session).listRepos({ perPage: 100 });
+    fill($('registry'), repos, KEYS.registry);
+    fill($('projects'), repos, KEYS.work, (sel) => {
+      localStorage.setItem(KEYS.workPath, sel.selectedOptions[0]?.textContent || '');
+      $('repoHint').textContent = sel.value ? 'Dépôt retenu pour cette session.' : 'Aucun dépôt sélectionné.';
+    });
   } catch (error) {
-    select.textContent = '';
-    select.append(new Option('Dépôts illisibles', ''));
+    for (const id of ['registry', 'projects']) {
+      $(id).textContent = ''; $(id).append(new Option('Dépôts illisibles', ''));
+    }
     $('repoHint').textContent = error.message;
   }
 }

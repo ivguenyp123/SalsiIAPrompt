@@ -27,20 +27,39 @@ la session a sa propre clé de stockage (deux applications, deux cycles de vie),
 vit **dans l'onglet** par défaut plutôt que sur le navigateur, et une session Salsifi
 ouverte ne sert qu'à pré-remplir l'instance : le jeton est toujours ressaisi.
 
+## Publier
+
+Depuis le Studio, **Publier sur main** commite l'artefact en `artifacts/<id>.yaml` sur
+le dépôt du registre. Pas de merge request à ce stade : on veut voir le flux tourner de
+bout en bout. La revue humaine et la double validation reviendront par les **branches
+protégées et les règles d'approbation** du dépôt — leur place naturelle.
+
+Le lint reste la porte : le bouton est inerte tant qu'une erreur subsiste, et la CI du
+dépôt rejoue les mêmes règles côté serveur. Rien ne dépend de la bonne foi de la page.
+
+L'application parle **deux forges** : GitLab, qui est la cible, et GitHub, où vit ce
+prototype. Elle les distingue à l'URL de connexion. L'abstraction n'est pas spéculative —
+il y a deux implémentations réelles, et elles divergent là où ça compte : GitLab choisit
+création ou mise à jour par le verbe HTTP, GitHub exige le `sha` du fichier existant.
+Les deux ont leurs tests.
+
 ## Trois dépôts, pas un
 
 | Dépôt | Contenu |
 |---|---|
 | **celui-ci** | l'application : front, linter, schémas, registres |
-| *à créer* | les **artefacts gouvernés** — un `agents/*.yaml` par merge request |
+| *à créer* | les **artefacts gouvernés** — un `artifacts/*.yaml` par capacité |
 | `Salsifi` | la plateforme DevOps existante, indépendante |
 
 Le dépôt des artefacts doit rester distinct : sur lui, les branches protégées, les
 `CODEOWNERS` et les règles d'approbation **sont** la gouvernance — c'est le moment 3. Un
 `ai-maintainer` qui soumet un agent n'a aucune raison d'accéder au code de l'application.
 
-Le dossier `artifacts/` ci-dessous ne contient que des exemples canoniques, qui servent
-de fixtures aux tests. Il a vocation à partir dans ce troisième dépôt.
+Le dossier `artifacts/` ci-dessous contient les exemples canoniques qui servent de
+fixtures aux tests — et, pour l'instant, ce que le Studio publie. Il a vocation à partir
+dans ce troisième dépôt. L'accueil demande d'ailleurs déjà **deux** dépôts distincts :
+celui du registre, où les artefacts sont commités, et celui de travail, sur lequel les
+agents portent.
 
 **Aucun LLM n'intervient ici.** C'est délibéré : la porte doit être *vérifiable*,
 *reproductible* et *explicable*. Un auteur doit pouvoir corriger, resoumettre et

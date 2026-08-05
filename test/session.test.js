@@ -1,9 +1,8 @@
 /*
- * Tests de la connexion : session et client GitLab.
+ * Tests de la session.
  *
- * Les deux modules sont écrits pour être testables hors navigateur — le stockage est
- * isolé derrière quelques fonctions, et `fetch` est injectable. On vérifie donc la
- * logique de connexion sans navigateur, sans réseau et sans instance GitLab.
+ * Le stockage est isolé derrière quelques fonctions : la logique de session se vérifie
+ * donc sans navigateur. Le client de forge a ses propres tests, dans forge.test.js.
  */
 import { test, describe, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -22,9 +21,9 @@ globalThis.localStorage = new FakeStorage();
 
 const { normalizeGitlabUrl, checkToken, toSession, save, load, clear, hubHint } =
   await import('../app/session.js');
-const { createClient, GitlabError } = await import('../app/gitlab.js');
 
-const USER = { id: 7, username: 'm.dubois', name: 'Marie Dubois', avatar_url: 'https://x/a.png' };
+// La forge normalise déjà l'utilisateur : la session reçoit cette forme-là.
+const USER = { id: 7, username: 'm.dubois', name: 'Marie Dubois', avatar: 'https://x/a.png' };
 
 beforeEach(() => {
   globalThis.sessionStorage = new FakeStorage();
@@ -97,9 +96,11 @@ describe('stockage de session', () => {
     assert.equal(load(), null, 'sans jeton ni identité, ce n\'est pas une session');
   });
 
-  test('toSession ne retient que l\'utile', () => {
+  test('toSession ne retient que l\'utile, et note la forge', () => {
     const s = toSession('https://g.example.com', 'tok', { ...USER, email: 'secret@example.com' });
     assert.equal(s.username, 'm.dubois');
+    assert.equal(s.kind, 'gitlab');
+    assert.equal(toSession('https://github.com', 'tok', USER).kind, 'github');
     assert.ok(!('email' in s), 'aucune donnée personnelle superflue');
   });
 });
@@ -116,47 +117,4 @@ describe('hubHint — reprise depuis Salsifi', () => {
   });
 
   test('ne dit rien sans session hub', () => assert.equal(hubHint(), null));
-});
-
-describe('client GitLab', () => {
-  const ok = (body) => async () => ({ ok: true, status: 200, json: async () => body });
-
-  test('appelle /api/v4/user avec le jeton en en-tête', async () => {
-    let seen;
-    const client = createClient({ gitlabUrl: 'https://g.example.com', token: 'tok' },
-      async (url, opts) => { seen = { url, opts }; return { ok: true, status: 200, json: async () => USER }; });
-
-    assert.equal((await client.currentUser()).username, 'm.dubois');
-    assert.equal(seen.url, 'https://g.example.com/api/v4/user');
-    assert.equal(seen.opts.headers['PRIVATE-TOKEN'], 'tok');
-  });
-
-  test('traduit les codes HTTP en phrases actionnables', async () => {
-    for (const [status, motif] of [[401, /invalide/], [403, /portée/], [404, /Aucune API/], [500, /serveur/]]) {
-      const client = createClient({ gitlabUrl: 'https://g.example.com', token: 'tok' },
-        async () => ({ ok: false, status }));
-      await assert.rejects(() => client.currentUser(), (e) => e instanceof GitlabError && motif.test(e.message));
-    }
-  });
-
-  test('un échec réseau dit quoi vérifier, pas « failed to fetch »', async () => {
-    const client = createClient({ gitlabUrl: 'https://g.example.com', token: 'tok' },
-      async () => { throw new TypeError('Failed to fetch'); });
-    await assert.rejects(() => client.currentUser(), (e) => e.status === 0 && /VPN|CORS/.test(e.message));
-  });
-
-  test('listProjects se limite aux dépôts dont l\'utilisateur est membre', async () => {
-    let seen;
-    const client = createClient({ gitlabUrl: 'https://g.example.com', token: 'tok' },
-      async (url) => { seen = url; return { ok: true, status: 200, json: async () => [] }; });
-
-    await client.listProjects({ search: 'demo' });
-    const params = new URL(seen).searchParams;
-    assert.equal(params.get('membership'), 'true');
-    assert.equal(params.get('search'), 'demo');
-  });
-
-  test('exige une instance et un jeton', () => {
-    assert.throws(() => createClient({ gitlabUrl: '', token: '' }), /gitlabUrl et token/);
-  });
 });

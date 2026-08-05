@@ -23,6 +23,8 @@
  * en construction ; ce n'est pas la cible bancaire, qui demandera OAuth et un back.
  */
 
+import { detectKind } from './forge.js';
+
 const KEY = 'salsi_ia_session';
 const HUB_KEY = 'devops_hub_workspaces';   // lecture seule, pour le pré-remplissage
 
@@ -58,14 +60,15 @@ export function checkToken(raw) {
   return token;
 }
 
-/** Ce qu'on retient d'une identité GitLab — le strict nécessaire. */
+/** Ce qu'on retient d'une identité — le strict nécessaire, dans la forme de la forge. */
 export function toSession(gitlabUrl, token, user, remember = false) {
   return {
     gitlabUrl,
+    kind: detectKind(gitlabUrl),   // gitlab ou github, déduit de l'URL
     token,
     username: user.username,
     name: user.name || user.username,
-    avatar: user.avatar_url || '',
+    avatar: user.avatar || '',
     userId: user.id,
     connectedAt: new Date().toISOString(),
     remember: Boolean(remember)

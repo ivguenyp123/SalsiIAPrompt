@@ -21,17 +21,16 @@
 <main>
   <h1>SalsiIAPrompt</h1>
   <p class="lead">Registre de capacités IA certifiées.<br>
-    Connecte-toi à GitLab : ton identité devient celle qui signe les artefacts que tu écris.</p>
+    Connecte-toi à ta forge : ton identité devient celle qui signe les artefacts que tu écris.</p>
 
   <div class="card">
     <form id="form" autocomplete="off">
-      <label for="gitlabUrl">Instance GitLab</label>
-      <input id="gitlabUrl" type="text" placeholder="https://gitlab.example.com" autocomplete="url">
+      <label for="gitlabUrl">Forge</label>
+      <input id="gitlabUrl" type="text" placeholder="https://gitlab.example.com — ou https://github.com" autocomplete="url">
 
       <label for="token">Jeton d'accès personnel</label>
       <input id="token" type="password" placeholder="glpat-…" autocomplete="current-password">
-      <p class="hint" style="margin-top:7px">Portée <code>api</code> requise pour soumettre,
-        <code>read_api</code> suffit pour consulter.</p>
+      <p class="hint" id="scopeHint" style="margin-top:7px"></p>
 
       <div class="check">
         <input id="remember" type="checkbox">
@@ -57,7 +56,7 @@
 
 <script type="module">
 import { normalizeGitlabUrl, checkToken, toSession, save, load, hubHint } from './session.js';
-import { createClient, GitlabError } from './gitlab.js';
+import { createForge, ForgeError, detectKind } from './forge.js';
 
 const $ = (id) => document.getElementById(id);
 const msg = $('msg');
@@ -75,6 +74,17 @@ if (hint) {
   show(`Instance reprise de ta session Salsifi${hint.username ? ` (${hint.username})` : ''}. Le jeton est à ressaisir.`, 'ok');
 }
 
+// La portée attendue dépend de la forge : on l'annonce plutôt que de la faire deviner.
+const SCOPES = {
+  gitlab: 'Portée <code>api</code> pour publier, <code>read_api</code> pour consulter.',
+  github: 'Portée <code>repo</code> pour publier (<code>public_repo</code> si le dépôt est public).'
+};
+const refreshHint = () => {
+  $('scopeHint').innerHTML = SCOPES[detectKind($('gitlabUrl').value || 'https://gitlab.x')] || SCOPES.gitlab;
+};
+$('gitlabUrl').addEventListener('input', refreshHint);
+refreshHint();
+
 $('form').addEventListener('submit', async (event) => {
   event.preventDefault();
   hide();
@@ -88,13 +98,13 @@ $('form').addEventListener('submit', async (event) => {
     const token = checkToken($('token').value);
 
     // Le seul vrai test d'un jeton, c'est GitLab lui-même.
-    const user = await createClient({ gitlabUrl, token }).currentUser();
+    const user = await createForge({ gitlabUrl, token }).currentUser();
 
     save(toSession(gitlabUrl, token, user, $('remember').checked));
     show(`Connecté en tant que ${user.username}. Redirection…`, 'ok');
     setTimeout(() => location.replace('./index.html'), 500);
   } catch (error) {
-    show(error instanceof GitlabError ? error.message : error.message, 'err');
+    show(error.message, 'err');
     button.disabled = false;
     button.textContent = 'Se connecter';
   }

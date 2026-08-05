@@ -80,6 +80,11 @@
   .who{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--dim)}
   .who img{width:22px;height:22px;border-radius:50%;border:1px solid var(--line)}
   input[readonly]{opacity:.75;cursor:not-allowed}
+  button.pub{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:500}
+  button.pub:disabled{background:var(--panel2);border-color:var(--line);color:var(--dim)}
+  #pubMsg{padding:10px 14px;border-top:1px solid var(--line);font-size:13px;line-height:1.5;display:none}
+  #pubMsg.show{display:block}
+  #pubMsg.err{color:var(--err)} #pubMsg.ok{color:var(--ok)}
   .count{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--dim)}
 </style>
 </head>
@@ -95,6 +100,7 @@
   <button id="load-broken">Charger un exemple fautif</button>
   <button id="reset">Vider</button>
   <span id="verdict" class="verdict ok">—</span>
+  <button id="publish" class="pub">Publier sur main</button>
 </header>
 
 <main>
@@ -172,6 +178,7 @@
     <div class="panel">
       <h2>L'artefact soumis</h2>
       <pre id="yaml"></pre>
+      <div id="pubMsg"></div>
     </div>
     <p class="hint">C'est ce fichier qui part en merge request, qui est relu, versionné et audité —
       pas le formulaire. Le formulaire n'est qu'une commodité de saisie.</p>

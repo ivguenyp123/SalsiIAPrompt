@@ -10,7 +10,8 @@
  * implémentation, donc rien ne peut diverger entre ce que l'auteur voit ici et ce que
  * la porte décidera là-bas.
  */
-import { requireSession, clear } from '../app/session.js';
+import { requireSession } from '../app/session.js';
+import { createForge, toBase64 } from '../app/forge.js';
 import { knownScopes, guessScope } from '../app/scopes.js';
 import { lint, ERROR } from '../lint/index.js';
 import { makeValidator } from '../lib/schema.js';
@@ -184,6 +185,14 @@ function run() {
   }
 
   $('yaml').textContent = toYaml(artifact);
+
+  // La publication n'est offerte que si la porte est franchie. Un bouton grisé explique
+  // mieux qu'un refus après coup : l'auteur voit ce qui lui manque avant de tenter.
+  const publish = $('publish');
+  publish.disabled = report.blocked || !artifact.id;
+  publish.title = report.blocked
+    ? `Corrige les ${report.errors} erreur(s) avant de publier.`
+    : `Commite artifacts/${artifact.id}.yaml sur main`;
 }
 
 // ── Exemples ─────────────────────────────────────────────────────────────────
@@ -230,6 +239,48 @@ for (const id of ['kind', 'targetLevel', 'ownerScope']) $(id).onchange = run;
 $('add-var').onclick = () => { state.variables.push({ name: '', source: 'repo' }); renderVariables(); run(); };
 $('add-tool').onclick = () => { state.tools.push({ id: '' }); renderTools(); run(); };
 $('add-crit').onclick = () => { state.criteria.push({ target: '', op: 'eq', value: '' }); renderCriteria(); run(); };
+
+/*
+ * Publication — commit direct sur `main` du dépôt du registre.
+ *
+ * Pas de merge request à ce stade : on veut voir le flux tourner de bout en bout. La
+ * revue humaine (moment 3) et la double validation reviendront par les branches
+ * protégées et les règles d'approbation du dépôt, qui sont leur place naturelle.
+ *
+ * Le lint reste la porte : le bouton est inerte tant qu'une erreur subsiste, et la CI
+ * du dépôt rejoue les mêmes règles côté serveur — donc rien ne dépend de cette page.
+ */
+const pubMsg = $('pubMsg');
+const sayPub = (text, kind) => { pubMsg.textContent = text; pubMsg.className = `show ${kind}`; };
+
+$('publish').onclick = async () => {
+  const artifact = formToArtifact(readForm(), ctx);
+  const report = lint(artifact, ctx);
+  if (report.blocked) { sayPub('La porte est fermée : corrige les erreurs listées.', 'err'); return; }
+
+  const repo = localStorage.getItem('salsi_ia_registry_repo');
+  if (!repo) { sayPub('Aucun dépôt de registre choisi — reviens à l\'accueil pour le sélectionner.', 'err'); return; }
+
+  const button = $('publish');
+  button.disabled = true;
+  const label = button.textContent;
+  button.textContent = 'Publication…';
+
+  const path = `artifacts/${artifact.id}.yaml`;
+  try {
+    await createForge(session).putFile(repo, path, {
+      content: toBase64(toYaml(artifact)),
+      message: `registre : ${artifact.title}\n\nArtefact ${artifact.id} publié depuis le Studio par ${session.username}.\nLint : ${report.errors} erreur(s), ${report.warnings} avertissement(s).`,
+      branch: 'main'
+    });
+    sayPub(`✔ ${path} commité sur main de ${repo}.`, 'ok');
+  } catch (error) {
+    sayPub(error.message, 'err');
+  } finally {
+    button.textContent = label;
+    run();
+  }
+};
 
 $('load-example').onclick = () => apply(EXEMPLE_OK);
 $('load-broken').onclick = () => apply(EXEMPLE_KO);
