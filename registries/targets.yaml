@@ -1,0 +1,96 @@
+# Registre des cibles assertables — ce qu'un `criteria.target` a le droit de viser.
+#
+# class: state → porte sur l'état du monde après exécution. Exige un environnement de test
+#                réel au banc d'essai (dépôt fixture, CI isolée, reset entre exécutions).
+# class: form  → porte sur la sortie elle-même. Vérifiable sans infrastructure.
+#
+# Les cibles `form` sont ce qui rend la porte franchissable pour les agents de LECTURE
+# (expliquer, commenter, générer un message de commit) : ils n'ont aucun état du monde à
+# assertir, mais leur sortie a une forme vérifiable.
+
+targets:
+  # ── class: state ─────────────────────────────────────────────────────────
+  - target: pipeline.status
+    class: state
+    type: string
+    ops: [eq, neq]
+    description: Statut du pipeline déclenché par l'exécution (success, failed, canceled).
+    resolver: modules/targets/pipeline-status
+
+  - target: branch.mergeable
+    class: state
+    type: boolean
+    ops: [eq]
+    description: La branche est à jour et sans conflit avec sa cible.
+    resolver: modules/targets/branch-mergeable
+
+  - target: vulnerabilities.critical
+    class: state
+    type: number
+    ops: [eq, lte, lt]
+    description: Nombre de vulnérabilités critiques après exécution.
+    resolver: modules/targets/vulnerabilities
+
+  - target: tests.passed
+    class: state
+    type: boolean
+    ops: [eq]
+    description: La suite de tests passe intégralement.
+    resolver: modules/targets/tests
+
+  - target: kustomize.image_tag
+    class: state
+    type: string
+    ops: [eq, matches]
+    description: Tag d'image effectivement présent dans les overlays après synchronisation.
+    resolver: modules/targets/kustomize-image-tag
+
+  # ── class: form ──────────────────────────────────────────────────────────
+  - target: output.patch_applies
+    class: form
+    type: boolean
+    ops: [eq]
+    description: Le diff proposé s'applique proprement sur le dépôt cible.
+    resolver: modules/targets/patch-applies
+
+  - target: output.is_valid_json
+    class: form
+    type: boolean
+    ops: [eq]
+    description: La sortie parse comme du JSON valide.
+    resolver: modules/targets/valid-json
+
+  - target: output.files_touched
+    class: form
+    type: number
+    ops: [eq, lte, lt, gte, gt]
+    description: Nombre de fichiers touchés par la proposition. Sert aussi au seuil de volume du moment 5.
+    resolver: modules/targets/files-touched
+
+  - target: output.contains_secret
+    class: form
+    type: boolean
+    ops: [eq]
+    description: Un secret a été détecté dans le contenu GÉNÉRÉ — un LLM peut recracher un secret lu dans le dépôt.
+    resolver: modules/targets/output-secret-scan
+
+  - target: output.sections
+    class: form
+    type: array
+    ops: [contains, exists]
+    description: Sections présentes dans la sortie structurée (ex. Résumé, Risques, Étapes).
+    resolver: modules/targets/output-sections
+
+  - target: output.length
+    class: form
+    type: number
+    ops: [lte, lt, gte, gt]
+    description: Longueur de la sortie en caractères. Borne les réponses délirantes ou vides.
+    resolver: modules/targets/output-length
+
+  - target: output.matches_convention
+    class: form
+    type: boolean
+    ops: [eq]
+    description: La sortie respecte une convention maison vérifiable (ex. Conventional Commits).
+    resolver: modules/targets/output-convention

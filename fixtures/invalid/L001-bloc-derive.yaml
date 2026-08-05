@@ -1,0 +1,22 @@
+id: l001-derived
+kind: agent
+title: Artefact minimal
+owner: { person: m.dubois, scope: Plateforme }
+intent:
+  purpose: Faire une chose utile et suffisamment décrite pour le schéma.
+  not_for: Ne pas utiliser hors du périmètre décrit juste au-dessus.
+spec: |
+  Tu fais quelque chose d'utile à partir du dépôt {{repo}}.
+variables:
+  - { name: repo, source: repo }
+tools:
+  - { id: read_repo_metadata, mode: read, executor: llm }
+criteria:
+  - { target: output.length, op: lte, value: 500 }
+target_level: experimental
+
+# Le dérivé n'a pas le droit de figurer dans le fichier : personne ne s'auto-attribue
+# un taux de réussite. C'est le §02 rendu mécanique.
+derived:
+  success: 95
+  uses: 480

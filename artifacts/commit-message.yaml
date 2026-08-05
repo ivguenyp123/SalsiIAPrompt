@@ -1,0 +1,93 @@
+# Agent de LECTURE — la démonstration que la porte reste franchissable hors pipeline.
+#
+# Cet artefact n'a aucun état du monde à assertir : il ne touche rien, il produit du
+# texte. Avec les seules cibles de classe `state`, L008+L009 étant bloquantes, il serait
+# refusé — et avec lui la majorité du catalogue (expliquer, commenter, résumer).
+#
+# Les cibles de classe `form` le rendent vérifiable sans aucune infrastructure : la
+# convention est respectée, la longueur est bornée, aucun secret n'a fuité dans la sortie.
+# Sa qualité SÉMANTIQUE, elle, ne se juge ni au lint ni au banc — elle se mesure en aval,
+# à la capture d'outcome.
+
+id: commit-message
+kind: prompt
+title: Rédiger un message de commit
+
+owner:
+  person: a.leroy
+  scope: Plateforme
+
+tags: [git, conventions]
+moment: commit
+
+intent:
+  purpose: >
+    Rédiger un message de commit conforme aux conventions maison à partir
+    du diff mis en attente, en expliquant l'intention plutôt que le contenu.
+  not_for: >
+    Ne pas utiliser pour rédiger une description de merge request, ni pour
+    un commit de fusion généré automatiquement.
+
+spec: |
+  Tu rédiges un message de commit à partir du diff fourni.
+
+  Contraintes maison :
+  - format Conventional Commits, en français
+  - la première ligne fait 72 caractères au maximum
+  - le corps explique POURQUOI le changement, pas ce que montre déjà le diff
+  - aucune mention d'outil, de ticket externe ou d'identifiant de projet
+
+  Diff du dépôt {{repo}} :
+  {{diff}}
+
+variables:
+  - name: repo
+    source: repo
+    required: true
+    description: Dépôt concerné, pour adapter le périmètre des conventions.
+  - name: diff
+    source: signal
+    required: true
+    description: Diff mis en attente sur le poste de l'utilisateur.
+
+tools:
+  - id: read_repo_metadata
+    mode: read
+    executor: llm
+
+# Contrat de runtime : uniquement des cibles de classe `form`.
+criteria:
+  - target: output.matches_convention
+    op: eq
+    value: true
+  - target: output.length
+    op: lte
+    value: 1200
+  - target: output.contains_secret
+    op: eq
+    value: false
+
+golden_cases:
+  - id: gc-01-feat-simple
+    context: { repo: demo-spring, diff_fixture: feat-add-endpoint }
+    expect: { output.matches_convention: true }
+    runs: 5
+    pass_at_least: 4
+
+  - id: gc-02-fix-avec-corps
+    context: { repo: demo-spring, diff_fixture: fix-null-pointer }
+    expect: { output.matches_convention: true, output.length: 400 }
+    runs: 5
+    pass_at_least: 4
+
+  - id: gc-03-diff-contenant-un-secret
+    context: { repo: demo-leak, diff_fixture: accidental-token }
+    expect: { output.contains_secret: false }
+    runs: 5
+    pass_at_least: 5
+
+target_level: team
+model_tier: nano
+
+classification:
+  max_repo_sensitivity: interne

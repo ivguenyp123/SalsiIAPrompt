@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://salsi.internal/schema/artifact.schema.json",
+  "title": "Artefact du registre de capacités IA",
+  "description": "Forme d'un agent, d'un prompt ou d'une chaîne. Ce fichier ne contient QUE du déclaré : tout ce que la plateforme calcule (statut, usages, taux de réussite, certification) vit dans l'état dérivé et n'a pas le droit de figurer ici. Le schéma décrit la FORME ; les invariants sémantiques sont dans les règles de lint L002-L016.",
+
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "kind", "title", "owner", "intent", "spec", "criteria"],
+
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "minLength": 3,
+      "maxLength": 64,
+      "description": "Identifiant stable, en minuscules-tirets. Sert de clé de jointure avec l'état dérivé."
+    },
+    "kind": {
+      "enum": ["agent", "prompt", "chain"],
+      "description": "chain : séquence gouvernée d'autres artefacts (vague 4)."
+    },
+    "title": { "type": "string", "minLength": 3, "maxLength": 120 },
+
+    "owner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["person", "scope"],
+      "description": "Personne ET périmètre (L013). Le périmètre détermine les outils autorisés (L006).",
+      "properties": {
+        "person": { "type": "string", "minLength": 2 },
+        "scope": { "type": "string", "minLength": 2 }
+      }
+    },
+
+    "tags": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "moment": { "type": "string", "description": "Point d'entrée UX dans le catalogue." },
+
+    "intent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["purpose"],
+      "properties": {
+        "purpose": { "type": "string", "minLength": 10 },
+        "not_for": {
+          "type": "string",
+          "minLength": 10,
+          "description": "Quand NE PAS l'utiliser. Coûte une ligne, évite la moitié des mauvais usages (L011)."
+        }
+      }
+    },
+
+    "spec": {
+      "type": "string",
+      "minLength": 20,
+      "description": "Le template. Les seules interpolations autorisées sont les {{variables}} déclarées (L002). Pas de condition, pas de boucle : le schéma reste non Turing-complet — toute logique appartient à un module."
+    },
+
+    "variables": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "source"],
+        "properties": {
+          "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+          "source": {
+            "enum": ["user", "signal", "repo"],
+            "description": "user : saisie · signal : signal du poste · repo : métadonnée du dépôt."
+          },
+          "required": { "type": "boolean", "default": true },
+          "description": { "type": "string" }
+        }
+      }
+    },
+
+    "tools": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "mode", "executor"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9]+(_[a-z0-9]+)*$" },
+          "mode": { "enum": ["read", "write"] },
+          "executor": { "enum": ["llm", "module"] }
+        }
+      },
+      "description": "INVARIANT (L005) : mode:write => executor:module. Volontairement NON encodé ici — un if/then JSON Schema produit un message illisible, et cet invariant est le contrôle de sécurité central : il mérite sa règle nommée."
+    },
+
+    "criteria": {
+      "type": "array",
+      "description": "Le « non vide » est délibérément laissé à L008 plutôt qu'à un minItems : la règle nommée peut expliquer qu'un agent de lecture assertit sur la FORME de sa sortie. Un minItems ici ne dirait que « moins de 1 élément ». CONTRAT DE RUNTIME, évalué au moment 5 (post-vol) sur CHAQUE exécution en production. Déclaratif par nécessité : la plateforme l'applique et le relecteur l'inspecte. À ne pas confondre avec golden_cases, qui sont des tests de développement.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["target", "op", "value"],
+        "properties": {
+          "target": { "type": "string", "description": "Doit exister au registre des cibles assertables (L009)." },
+          "op": { "enum": ["eq", "neq", "lt", "lte", "gt", "gte", "matches", "contains", "exists"] },
+          "value": {}
+        }
+      }
+    },
+
+    "golden_cases": {
+      "type": "array",
+      "description": "TESTS de développement, joués au banc d'essai (vague 2). Le seuil de nombre dépend du niveau visé (L010).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "context", "expect"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+          "context": { "type": "object" },
+          "expect": { "type": "object", "minProperties": 1 },
+          "runs": {
+            "type": "integer", "minimum": 1, "maximum": 20, "default": 3,
+            "description": "Un LLM n'est pas reproductible : un cas d'or se joue n fois."
+          },
+          "pass_at_least": {
+            "type": "integer", "minimum": 1,
+            "description": "Nombre de succès requis sur `runs`. Sans k/n, le banc d'essai est une météo, pas une porte (L017)."
+          }
+        }
+      }
+    },
+
+    "target_level": {
+      "enum": ["experimental", "team", "officiel"],
+      "default": "experimental",
+      "description": "Niveau VISÉ par l'auteur — sert à choisir le seuil de cas d'or (L010). Le niveau ATTEINT est dérivé : il se mérite sur preuve, il ne se déclare pas."
+    },
+
+    "model_tier": {
+      "enum": ["nano", "small", "mid", "large"],
+      "description": "Palier demandé. La version exacte du modèle de certification est DÉRIVÉE (octroyée après passage du banc), pas déclarée ici."
+    },
+
+    "classification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_repo_sensitivity"],
+      "description": "Plafond de sensibilité des dépôts sur lesquels l'artefact peut tourner. Champ déclaré mais NON auto-attestable : toute modification exige la revue sécurité (contrôle appliqué en moment 3, pas au lint).",
+      "properties": {
+        "max_repo_sensitivity": { "enum": ["public", "interne", "confidentiel", "secret"] }
+      }
+    }
+  }
+}

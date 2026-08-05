@@ -1,0 +1,77 @@
+# Registre des outils — référentiel maison.
+# Fait autorité sur `mode` et `executor` : un artefact qui déclare autre chose est refusé (L004).
+# INVARIANT structurant : mode:write => executor:module. Le chemin qui parle au LLM ne détient
+# jamais le droit d'écrire ; seuls les modules listés ici écrivent, après confirmation humaine.
+
+tools:
+  # ── Lecture · dépôt ──────────────────────────────────────────────────────
+  - id: check_branch
+    mode: read
+    executor: llm
+    scopes: ['*']
+    description: Vérifie qu'une branche est à jour et mergeable par rapport à sa cible.
+
+  - id: read_repo_metadata
+    mode: read
+    executor: llm
+    scopes: ['*']
+    description: Lit la stack, le langage, la branche par défaut et les fichiers de configuration.
+
+  - id: read_pipeline_status
+    mode: read
+    executor: llm
+    scopes: ['*']
+    description: Lit le statut et les journaux du dernier pipeline du dépôt.
+
+  # ── Lecture · qualité & sécurité ─────────────────────────────────────────
+  - id: scan_vulnerabilities
+    mode: read
+    executor: llm
+    scopes: ['*']
+    description: Déclenche et lit le scan de vulnérabilités des dépendances.
+
+  - id: run_tests
+    mode: read
+    executor: llm
+    scopes: ['*']
+    description: Exécute la suite de tests et renvoie le rapport.
+
+  - id: scan_secrets
+    mode: read
+    executor: module
+    scopes: ['*']
+    description: Détection de secrets par motifs. Déterministe — jamais confié au LLM.
+    module: modules/security/scan-secrets
+
+  # ── Écriture · toutes en executor:module, par invariant ──────────────────
+  - id: bump_image_tag
+    mode: write
+    executor: module
+    scopes: [Plateforme, Livraison]
+    description: Met à jour IMAGE_TAG et synchronise les overlays Kustomize.
+    module: modules/delivery/bump-image-tag
+    requires_confirmation: true
+
+  - id: create_mr
+    mode: write
+    executor: module
+    scopes: [Plateforme, Livraison, Data]
+    description: Ouvre une merge request GitLab avec le libellé de traçabilité du run.
+    module: modules/gitlab/create-mr
+    requires_confirmation: true
+
+  - id: write_file
+    mode: write
+    executor: module
+    scopes: [Plateforme]
+    description: Écrit un fichier dans une branche de travail. Zones interdites appliquées en moment 5.
+    module: modules/repo/write-file
+    requires_confirmation: true
+
+  - id: trigger_pipeline
+    mode: write
+    executor: module
+    scopes: [Plateforme, Livraison]
+    description: Déclenche un pipeline sur une branche donnée.
+    module: modules/gitlab/trigger-pipeline
+    requires_confirmation: true

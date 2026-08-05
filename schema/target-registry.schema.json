@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://salsi.internal/schema/target-registry.schema.json",
+  "title": "Registre des cibles assertables",
+  "description": "Référentiel des cibles qu'un `criteria.target` peut viser. Sans lui, la règle L009 (« chaque critère est assertable ») ne peut pas être vérifiée mécaniquement : rien ne distingue `pipeline.status` de `foo.bar`.\n\nDeux CLASSES de cibles, et c'est ce qui rend le registre utilisable au-delà des agents qui touchent un pipeline :\n  · state — porte sur l'état du monde APRÈS exécution (pipeline, branche, vulnérabilités). Exige un environnement de test réel au banc d'essai.\n  · form  — porte sur la SORTIE elle-même (patch applicable, JSON valide, sections présentes, aucun secret). Vérifiable sans infrastructure.\n\nSans la classe `form`, L008+L009 étant bloquantes, la porte serait infranchissable pour tous les agents de lecture — c'est-à-dire la majorité du catalogue.",
+
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["targets"],
+  "properties": {
+    "targets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["target", "class", "type", "ops", "description"],
+        "properties": {
+          "target": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$",
+            "description": "Chemin pointé, ex. pipeline.status"
+          },
+
+          "class": {
+            "enum": ["state", "form"],
+            "description": "state : état du monde après exécution · form : propriété de la sortie."
+          },
+
+          "type": {
+            "enum": ["string", "number", "boolean", "array", "object"],
+            "description": "Type de la valeur résolue. Sert à refuser un critère mal typé (L009)."
+          },
+
+          "ops": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "enum": ["eq", "neq", "lt", "lte", "gt", "gte", "matches", "contains", "exists"] },
+            "description": "Opérateurs autorisés sur cette cible. `matches` sur un booléen n'a pas de sens."
+          },
+
+          "description": { "type": "string", "minLength": 10 },
+
+          "resolver": {
+            "type": "string",
+            "description": "Module déterministe qui calcule la valeur au moment 5. Une cible sans résolveur est déclarative et donc inutilisable."
+          }
+        }
+      }
+    }
+  }
+}

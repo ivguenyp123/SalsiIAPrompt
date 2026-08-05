@@ -1,0 +1,16 @@
+id: l004-bypass
+kind: agent
+title: Artefact minimal
+owner: { person: m.dubois, scope: Plateforme }
+intent:
+  purpose: Faire une chose utile et suffisamment décrite pour le schéma.
+  not_for: Ne pas utiliser hors du périmètre décrit juste au-dessus.
+spec: |
+  Tu fais quelque chose d'utile à partir du dépôt {{repo}}.
+variables:
+  - { name: repo, source: repo }
+tools:
+  - { id: bump_image_tag, mode: read, executor: llm }
+criteria:
+  - { target: output.length, op: lte, value: 500 }
+target_level: experimental

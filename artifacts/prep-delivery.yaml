@@ -1,0 +1,119 @@
+# Artefact de référence — sert d'exemple canonique et de fixture valide aux tests.
+#
+# Ce fichier ne contient QUE du déclaré. Tout ce que la plateforme calcule — statut,
+# usages, taux de réussite, corrections humaines, coût, certification — vit dans l'état
+# dérivé, jamais ici. Le linter refuse un bloc `derived` (L001).
+
+id: prep-delivery
+kind: agent
+title: Préparer la livraison en préproduction
+
+owner:
+  person: m.dubois
+  scope: Plateforme
+
+tags: [livraison, kubernetes]
+moment: prep-delivery
+
+intent:
+  purpose: >
+    Orienter une livraison en préproduction : mise à jour du tag d'image,
+    synchronisation des overlays, vérifications avant merge request.
+  not_for: >
+    Ne pas utiliser pour une livraison en production, ni pour un dépôt
+    sans overlays Kustomize.
+
+spec: |
+  Tu orientes une livraison en préproduction.
+  Tu N'EXÉCUTES PAS les écritures : le module Livraison le fait après
+  confirmation humaine.
+
+  À partir du dépôt {{repo}} (stack {{stack}}) :
+  1. vérifie que la branche est à jour et mergeable
+  2. propose le bump IMAGE_TAG et la synchro des overlays Kustomize
+  3. déclenche le scan de vulnérabilités et la vérification des tests
+  4. rédige l'explication des changements pour la merge request
+
+variables:
+  - name: repo
+    source: repo
+    required: true
+    description: Dépôt cible de la livraison.
+  - name: stack
+    source: repo
+    required: true
+    description: Stack technique détectée, pour adapter les vérifications.
+
+tools:
+  - id: check_branch
+    mode: read
+    executor: llm
+  - id: bump_image_tag
+    mode: write
+    executor: module        # imposé par l'invariant L005
+  - id: scan_vulnerabilities
+    mode: read
+    executor: llm
+  - id: run_tests
+    mode: read
+    executor: llm
+  - id: create_mr
+    mode: write
+    executor: module        # imposé par l'invariant L005
+
+# Contrat de runtime, évalué au post-vol sur chaque exécution.
+criteria:
+  - target: branch.mergeable
+    op: eq
+    value: true
+  - target: kustomize.image_tag
+    op: matches
+    value: "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
+  - target: vulnerabilities.critical
+    op: eq
+    value: 0
+  - target: pipeline.status
+    op: eq
+    value: success
+  - target: output.files_touched
+    op: lte
+    value: 20
+
+# Tests de développement, joués au banc d'essai. `runs`/`pass_at_least` parce qu'un
+# LLM n'est pas reproductible : un cas joué une fois est un tirage, pas une porte.
+golden_cases:
+  - id: gc-01-nominal
+    context: { repo: demo-spring, branch: feat/refunds }
+    expect: { branch.mergeable: true, pipeline.status: success }
+    runs: 5
+    pass_at_least: 5
+
+  - id: gc-02-conflits
+    context: { repo: demo-spring, branch: feat/conflict }
+    expect: { branch.mergeable: false }
+    runs: 5
+    pass_at_least: 5
+
+  - id: gc-03-vuln
+    context: { repo: demo-vuln, branch: main }
+    expect: { vulnerabilities.critical: 1 }
+    runs: 5
+    pass_at_least: 4
+
+  - id: gc-04-sans-overlays
+    context: { repo: demo-no-kustomize, branch: main }
+    expect: { pipeline.status: failed }
+    runs: 3
+    pass_at_least: 3
+
+  - id: gc-05-volume
+    context: { repo: demo-spring, branch: feat/large-refactor }
+    expect: { output.files_touched: 47 }
+    runs: 3
+    pass_at_least: 2
+
+target_level: officiel
+model_tier: mid
+
+classification:
+  max_repo_sensitivity: interne

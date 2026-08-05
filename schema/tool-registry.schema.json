@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://salsi.internal/schema/tool-registry.schema.json",
+  "title": "Registre des outils",
+  "description": "Référentiel des outils invocables par un artefact. Sans lui, les règles L004 (l'outil existe) et L006 (l'outil est autorisé pour le périmètre) ne sont pas mécanisables — elles restent des vœux. C'est un livrable de socle au même rang que le schéma de l'artefact.",
+
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["tools"],
+  "properties": {
+    "tools": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "mode", "executor", "scopes", "description"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9]+(_[a-z0-9]+)*$" },
+
+          "mode": {
+            "enum": ["read", "write"],
+            "description": "Fait autorité. Un artefact qui déclare un mode différent est refusé (L004)."
+          },
+
+          "executor": {
+            "enum": ["llm", "module"],
+            "description": "Fait autorité, comme mode. INVARIANT : mode:write => executor:module, y compris ici."
+          },
+
+          "scopes": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" },
+            "description": "Périmètres autorisés à invoquer cet outil. '*' = tous. L'équipe Data ne peut pas invoquer un outil de livraison (L006)."
+          },
+
+          "description": { "type": "string", "minLength": 10 },
+
+          "module": {
+            "type": "string",
+            "description": "Chemin du module déterministe qui exécute l'outil. Obligatoire quand executor:module — c'est ce module, et lui seul, qui détient le droit d'écrire."
+          },
+
+          "requires_confirmation": {
+            "type": "boolean",
+            "default": false,
+            "description": "Impose le dry-run + diff + confirmation humaine (moment 6). Implicite pour tout mode:write."
+          }
+        }
+      }
+    }
+  }
+}
