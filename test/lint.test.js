@@ -10,10 +10,10 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import yaml from 'js-yaml';
+import yaml from '../lib/yaml.js';
 
 import { lint, ERROR, WARN } from '../lint/index.js';
-import { makeValidator } from '../lint/validator.js';
+import { makeValidator } from '../lib/schema.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const loadYaml = (p) => yaml.load(readFileSync(p, 'utf8'));

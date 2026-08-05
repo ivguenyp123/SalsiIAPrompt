@@ -3,13 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Registre de capacités IA — schémas, registres et linter déterministe. Aucun LLM : la porte d'entrée du registre est vérifiable, reproductible et explicable.",
-  "engines": { "node": ">=18" },
+  "description": "Registre de capacités IA — schémas, registres et linter déterministe. Aucune dépendance à l'exécution : ni npm install, ni réseau, ni LLM.",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "lint": "node lint/cli.js artifacts",
     "test": "node --test test/*.test.js"
   },
-  "dependencies": {
+  "devDependencies": {
     "ajv": "^8.17.1",
     "js-yaml": "^4.1.0"
   }

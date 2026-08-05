@@ -10,10 +10,10 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import yaml from 'js-yaml';
+import yaml from '../lib/yaml.js';
 
 import { lint, format } from './index.js';
-import { makeValidator } from './validator.js';
+import { makeValidator } from '../lib/schema.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');

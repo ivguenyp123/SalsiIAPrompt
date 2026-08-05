@@ -7,10 +7,21 @@ il dépend, et le linter qui garde la porte d'entrée (moment 2, couche 1).
 *reproductible* et *explicable*. Un auteur doit pouvoir corriger, resoumettre et
 comprendre — et en audit, un refus non reproductible est indéfendable.
 
+**Aucune dépendance à l'exécution : ni `npm install`, ni réseau, ni LLM.** Node ≥ 18 suffit.
+
 ```bash
-npm install
-npm run lint      # vérifie artifacts/ — code de sortie 1 si un artefact est bloqué
-npm test          # 30 tests
+node lint/cli.js artifacts    # la porte — sortie 1 si un artefact est bloqué
+node lint/cli.js fixtures/    # voir des refus réels
+node --test test/*.test.js    # 30 tests
+```
+
+`lib/yaml.js` et `lib/schema.js` remplacent `js-yaml` et `ajv`. Ceux-ci restent en
+devDependencies facultatives : quand ils sont installés, `test/conformance.test.js`
+compare ligne à ligne le code maison aux implémentations de référence (5 tests de plus).
+Sans eux, ces tests se sautent et le reste tourne à l'identique.
+
+```bash
+npm install && npm test       # 35 tests, conformité croisée comprise
 ```
 
 ## Ce qu'il y a dedans
@@ -22,13 +33,13 @@ npm test          # 30 tests
 | `schema/target-registry.schema.json` | forme du registre des cibles assertables |
 | `registries/tools.yaml` | les outils réels, avec `mode`, `executor` et périmètres |
 | `registries/targets.yaml` | les cibles qu'un critère a le droit de viser |
-| `lint/` | les 17 règles, sans dépendance hors validation de schéma |
+| `lib/yaml.js` · `lib/schema.js` | lecteur YAML et évaluateur JSON Schema maison, sans dépendance |
+| `lint/` | les 17 règles |
 | `artifacts/` | les artefacts du registre (deux exemples canoniques) |
 | `fixtures/invalid/` · `fixtures/warn/` | une fixture par règle, adossée aux tests |
 
-Le linter tourne à l'identique **en CI et dans le navigateur** : `lint/index.js` et les
-règles n'ont aucune dépendance, la validation de schéma est injectée via
-`ctx.validateArtifact`. Le lint en direct du Studio (moment 1) et le job de CI (moment 2)
+Le linter tourne à l'identique **en CI et dans le navigateur** : rien n'a de dépendance,
+et la validation de schéma est injectée via `ctx.validateArtifact`. Le lint en direct du Studio (moment 1) et le job de CI (moment 2)
 partagent donc **une seule implémentation** — il n'y a rien qui puisse diverger.
 
 ```js
