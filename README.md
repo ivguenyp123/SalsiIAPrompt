@@ -1,7 +1,8 @@
 # Registre de capacités IA — socle déterministe
 
 Vague 1 du document d'architecture : le schéma de l'artefact, les deux registres dont
-il dépend, et le linter qui garde la porte d'entrée (moment 2, couche 1).
+il dépend, le linter qui garde la porte d'entrée (moment 2, couche 1), et le Studio qui
+joue les mêmes règles à la frappe (moment 1).
 
 **Aucun LLM n'intervient ici.** C'est délibéré : la porte doit être *vérifiable*,
 *reproductible* et *explicable*. Un auteur doit pouvoir corriger, resoumettre et
@@ -21,8 +22,40 @@ compare ligne à ligne le code maison aux implémentations de référence (5 tes
 Sans eux, ces tests se sautent et le reste tourne à l'identique.
 
 ```bash
-npm install && npm test       # 35 tests, conformité croisée comprise
+npm install && npm test       # conformité croisée comprise
 ```
+
+## Le Studio — lint en direct (moment 1)
+
+```bash
+npm run studio                # puis http://localhost:8080
+```
+
+Un formulaire d'écriture d'artefact où **les 20 règles s'exécutent à la frappe**. Deux
+boutons chargent un exemple conforme et un exemple fautif, pour voir la porte s'ouvrir
+et se fermer.
+
+La page importe les **vrais** modules — `lint/index.js`, `lib/schema.js`, `lib/yaml.js` —
+et charge les registres réels. Aucune copie, aucun portage, aucun bundler : c'est
+exactement le code qui tourne en CI au moment 2. C'est la raison d'être du choix « sans
+dépendance », et ce qui garantit que l'auteur ne peut pas voir vert ici et rouge là-bas.
+
+Deux principes portés par le formulaire lui-même :
+
+- **`mode` et `executor` ne se saisissent pas** — ils viennent du registre et s'affichent
+  en pastilles. Un auteur ne peut donc pas confier une écriture au LLM : L005 cesse
+  d'être une règle qu'on lui oppose, elle devient une saisie impossible. Le moment 1
+  bien fait ne signale pas les erreurs, il les empêche.
+- **les cibles et opérateurs proposés viennent du registre** — un critère non assertable
+  devient difficile à écrire plutôt que refusé après coup.
+
+L'aperçu montre l'**artefact YAML** qui partira en merge request : c'est lui qui sera relu
+et audité, pas le formulaire. Un test d'aller-retour garantit que le YAML affiché est
+exactement l'artefact évalué.
+
+Un serveur est nécessaire (`npm run studio`) parce que les navigateurs interdisent les
+modules ES en `file://`. Inliner le linter dans la page créerait une copie qui
+divergerait au premier correctif — précisément ce qu'on évite.
 
 ## Ce qu'il y a dedans
 
@@ -34,7 +67,8 @@ npm install && npm test       # 35 tests, conformité croisée comprise
 | `registries/tools.yaml` | les outils réels, avec `mode`, `executor` et périmètres |
 | `registries/targets.yaml` | les cibles qu'un critère a le droit de viser |
 | `lib/yaml.js` · `lib/schema.js` | lecteur YAML et évaluateur JSON Schema maison, sans dépendance |
-| `lint/` | les 17 règles |
+| `lint/` | les 20 règles |
+| `studio/` | le formulaire, le pont vers l'artefact, le serveur local |
 | `artifacts/` | les artefacts du registre (deux exemples canoniques) |
 | `fixtures/invalid/` · `fixtures/warn/` | une fixture par règle, adossée aux tests |
 
@@ -107,6 +141,9 @@ Le contournement est couvert par `fixtures/invalid/L004-contournement-invariant.
 | `L015` | Similarité élevée avec un artefact existant | 🟡 |
 | `L016` | Certification présente et non périmée — *contextuelle, cf. écart 1* | 🔴 |
 | `L017` | Cohérence statistique des cas d'or (`pass_at_least` ≤ `runs`) | 🔴 |
+| `L018` | Aucun reste de rédaction dans le spec (`TODO`, `[à compléter]`…) | 🔴 |
+| `L019` | Pas de logique dans le spec — condition ou boucle | 🟡 |
+| `L020` | Taille du spec dans des bornes exploitables | 🔴 |
 
 ## Tests
 

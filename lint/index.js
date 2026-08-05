@@ -17,6 +17,7 @@ import { L004, L005, L006 } from './rules/tools.js';
 import { L008, L009, L017 } from './rules/criteria.js';
 import { L007, L012 } from './rules/safety.js';
 import { L010, L014, L015, L016 } from './rules/lifecycle.js';
+import { L018, L019, L020 } from './rules/format.js';
 
 export { ERROR, WARN, isBlocked };
 
@@ -38,7 +39,10 @@ export const RULES = [
   { code: 'L014', fn: L014, severity: WARN,  title: 'Palier de modèle cohérent' },
   { code: 'L015', fn: L015, severity: WARN,  title: 'Similarité avec un artefact existant' },
   { code: 'L016', fn: L016, severity: ERROR, title: 'Certification présente et non périmée' },
-  { code: 'L017', fn: L017, severity: ERROR, title: 'Cohérence statistique des cas d\'or' }
+  { code: 'L017', fn: L017, severity: ERROR, title: 'Cohérence statistique des cas d\'or' },
+  { code: 'L018', fn: L018, severity: ERROR, title: 'Aucun reste de rédaction dans le spec' },
+  { code: 'L019', fn: L019, severity: WARN,  title: 'Pas de logique dans le spec' },
+  { code: 'L020', fn: L020, severity: ERROR, title: 'Taille du spec dans les bornes' }
 ];
 
 /**

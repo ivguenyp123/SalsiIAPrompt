@@ -9,7 +9,8 @@
   },
   "scripts": {
     "lint": "node lint/cli.js artifacts",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "studio": "node studio/serve.js"
   },
   "devDependencies": {
     "ajv": "^8.17.1",
