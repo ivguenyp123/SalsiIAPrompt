@@ -1,0 +1,22 @@
+# Porte d'entrée du registre — moment 2, couche 1.
+#
+# Aucun LLM dans ce pipeline. Le verdict est déterministe, reproductible et explicable :
+# un auteur peut corriger, resoumettre et comprendre, et un refus est défendable en audit.
+
+stages: [lint]
+
+registry:lint:
+  stage: lint
+  image: node:22-alpine
+  cache:
+    key: { files: [package.json] }
+    paths: [node_modules]
+  script:
+    # Le socle n'a aucune dépendance à l'exécution. On installe quand même les
+    # devDependencies : elles activent test/conformance.test.js, qui compare le lecteur
+    # YAML et l'évaluateur de schéma maison à js-yaml et ajv.
+    - npm install --no-audit --no-fund
+    - npm test          # les 21 règles, leurs fixtures, et la conformité croisée
+    - npm run lint      # tous les artefacts
+  # Bloquant : c'est ce code de sortie qui fait de la porte une porte.
+  allow_failure: false

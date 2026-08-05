@@ -1,0 +1,1934 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Salsifi — Démo Catalogue IA</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧂</text></svg>">
+<style>
+ html,body{margin:0;height:100%;background:#0f0a1f;font-family:'Manrope',system-ui,sans-serif}
+ .tabs{position:fixed;top:0;left:0;right:0;height:50px;display:flex;gap:6px;align-items:center;padding:0 16px;background:#160f2b;border-bottom:1px solid rgba(255,255,255,.1);z-index:10;box-sizing:border-box}
+ .tabs .brand{color:#f5f1ff;font-weight:800;font-size:15px;margin-right:14px;letter-spacing:-.01em}
+ .tabs .brand small{color:#7a6fa3;font-weight:600;font-size:11px;margin-left:6px}
+ .tabs button{font:inherit;font-weight:700;font-size:13px;color:#b8aed8;background:transparent;border:1px solid transparent;border-radius:9px;padding:8px 14px;cursor:pointer;transition:.15s}
+ .tabs button:hover{color:#f5f1ff}
+ .tabs button.on{color:#fff;background:rgba(124,92,252,.22)}
+ .tabs .sp{flex:1}
+ .tabs .demo{color:#0f0a1f;background:linear-gradient(135deg,#a78bfa,#2dd4bf);font-weight:800}
+ .frames{position:fixed;top:50px;left:0;right:0;bottom:0}
+ iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:none;background:#0f0a1f}
+ iframe.on{display:block}
+ /* Coach — scénario guidé */
+ #coach{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:50;width:min(680px,calc(100% - 32px));background:#160f2b;border:1px solid rgba(167,139,250,.5);border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.5);padding:16px 18px;display:none}
+ #coach.on{display:block}
+ #coach .ch{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+ #coach .step{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#a78bfa}
+ #coach .ct{font-family:'Bricolage Grotesque',system-ui,sans-serif;font-weight:800;font-size:16px;color:#f5f1ff}
+ #coach .cx{margin-left:auto;cursor:pointer;color:#7a6fa3;font-size:18px;background:none;border:none}
+ #coach .cbody{font-size:13px;color:#b8aed8;line-height:1.55}
+ #coach .cbody b{color:#f5f1ff}
+ #coach .dots{display:flex;gap:6px;margin:12px 0 0}
+ #coach .dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.18)}
+ #coach .dot.on{background:#a78bfa}
+ #coach .cbtns{display:flex;gap:8px;margin-top:12px;align-items:center}
+ #coach .cbtn{font:inherit;font-weight:800;font-size:13px;border:none;border-radius:10px;padding:10px 16px;cursor:pointer}
+ #coach .cbtn.go{color:#0f0a1f;background:linear-gradient(135deg,#a78bfa,#2dd4bf)}
+ #coach .cbtn.ghost{color:#b8aed8;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.16)}
+</style></head><body>
+ <div class="tabs"><span class="brand">🧂 Salsifi<small>démo · un seul fichier</small></span>
+   <button data-t="catalogue" class="on">🧰 Catalogue</button>
+   <button data-t="studio">🛠️ Studio</button>
+   <button data-t="metrics">📊 Admin</button>
+   <span class="sp"></span>
+   <button class="demo" id="startDemo">▶ Démo guidée</button>
+   <button data-t="favoris">⭐ Favoris</button>
+ </div>
+
+ <div id="coach">
+   <div class="ch"><span class="step" id="cstep"></span><span class="ct" id="ctitle"></span><button class="cx" id="cclose">✕</button></div>
+   <div class="cbody" id="cbody"></div>
+   <div class="dots" id="cdots"></div>
+   <div class="cbtns">
+     <button class="cbtn ghost" id="cprev">← Précédent</button>
+     <button class="cbtn go" id="cnext">Suivant →</button>
+   </div>
+ </div>
+ <div class="frames">
+   <iframe id="f-catalogue" class="on" allow="clipboard-read; clipboard-write" srcdoc="<!DOCTYPE html>
+<html lang=&quot;fr&quot; data-theme=&quot;dark&quot;>
+<head>
+<meta charset=&quot;UTF-8&quot;>
+<meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;>
+<title>Catalogue IA — agents &amp;amp; prompts (maquette)</title>
+<link rel=&quot;icon&quot; href=&quot;data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧰</text></svg>&quot;>
+<link rel=&quot;preconnect&quot; href=&quot;https://fonts.googleapis.com&quot;>
+<link href=&quot;https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&amp;family=Manrope:wght@400;500;600;700&amp;display=swap&quot; rel=&quot;stylesheet&quot;>
+<style>
+:root{
+  --bg-deep:#0f0a1f; --bg-card:rgba(28,20,50,.55); --bg-card-h:rgba(40,28,70,.7);
+  --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.16);
+  --tp:#f5f1ff; --ts:#b8aed8; --tm:#7a6fa3;
+  --accent:#a78bfa; --deliver:#2dd4bf; --info:#60a5fa; --warn:#fbbf24; --err:#f87171; --ok:#34d399;
+  --fd:'Bricolage Grotesque',system-ui,sans-serif; --fb:'Manrope',system-ui,sans-serif; --fm:ui-monospace,'SF Mono',Menlo,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-font-smoothing:antialiased}
+body{font-family:var(--fb);background:var(--bg-deep);color:var(--tp);min-height:100vh;overflow-x:hidden;padding:0 0 70px}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(60% 50% at 10% 0%,rgba(124,92,252,.16),transparent),radial-gradient(50% 40% at 92% 6%,rgba(45,212,191,.10),transparent)}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px;position:relative;z-index:1}
+header{display:flex;align-items:center;gap:15px;padding:24px 0 6px;flex-wrap:wrap}
+.logo{width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--deliver));display:grid;place-items:center;font-size:24px}
+header h1{font-family:var(--fd);font-size:23px;font-weight:800;letter-spacing:-.02em}
+header .sub{font-size:12.5px;color:var(--ts);margin-top:1px}
+.ctx-pill{margin-left:auto;display:flex;align-items:center;gap:8px;background:var(--bg-card);border:1px solid var(--line);border-radius:12px;padding:8px 13px;font-size:12px;color:var(--ts)}
+.ctx-pill b{color:var(--tp)}
+.nav{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 2px;font-size:12.5px}
+.nav a{color:var(--ts);text-decoration:none;background:var(--bg-card);border:1px solid var(--line);border-radius:20px;padding:6px 13px}
+.nav a.on{color:var(--tp);border-color:var(--accent);background:rgba(124,92,252,.12)}
+
+/* HERO */
+.hero{margin:16px 0 8px;border:1px solid var(--line2);border-radius:20px;background:linear-gradient(180deg,rgba(124,92,252,.09),rgba(45,212,191,.03));padding:22px 26px}
+.hero h2{font-family:var(--fd);font-size:20px;font-weight:800;margin-bottom:4px}
+.hero p{font-size:13px;color:var(--ts);margin-bottom:15px;max-width:780px}
+.hero p .rk{color:var(--deliver);font-weight:700} .hero p .pk{color:var(--accent);font-weight:700}
+.ask{display:flex;gap:10px;flex-wrap:wrap}
+.ask input{flex:1;min-width:260px;font-family:var(--fb);font-size:15px;color:var(--tp);background:rgba(10,7,22,.6);border:1px solid var(--line2);border-radius:13px;padding:13px 16px;outline:none}
+.ask input:focus{border-color:var(--accent)}
+.ask button{font-family:var(--fb);font-weight:800;font-size:14px;color:#0f0a1f;background:linear-gradient(135deg,var(--accent),var(--deliver));border:none;border-radius:13px;padding:13px 20px;cursor:pointer}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.chip{font-size:12px;color:var(--ts);background:var(--bg-card);border:1px solid var(--line);border-radius:20px;padding:6px 12px;cursor:pointer;transition:.15s}
+.chip:hover{border-color:var(--accent);color:var(--tp)}
+#intentResult{margin-top:16px}
+
+/* Toolbar — le toggle est la clé */
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:22px 0 14px}
+.kindseg{display:flex;gap:4px;background:var(--bg-card);border:1px solid var(--line2);border-radius:13px;padding:5px}
+.kindseg button{font-family:var(--fb);font-size:13px;font-weight:800;color:var(--ts);background:transparent;border:none;border-radius:10px;padding:9px 15px;cursor:pointer;transition:.15s}
+.kindseg button[data-k=&quot;recipe&quot;].on{background:rgba(45,212,191,.18);color:var(--deliver)}
+.kindseg button[data-k=&quot;prompt&quot;].on{background:rgba(124,92,252,.2);color:var(--accent)}
+.kindseg button[data-k=&quot;&quot;].on{background:rgba(255,255,255,.08);color:var(--tp)}
+.tagbar{display:flex;gap:7px;flex-wrap:wrap}
+.tag{font-size:11.5px;color:var(--ts);background:var(--bg-card);border:1px solid var(--line);border-radius:20px;padding:5px 11px;cursor:pointer}
+.tag.on{border-color:var(--accent);color:var(--accent);background:rgba(124,92,252,.12)}
+.filts{margin-left:auto;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.ck{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ts);cursor:pointer}
+.ck input{width:16px;height:16px;accent-color:var(--accent)}
+.favbanner{display:flex;align-items:center;gap:12px;margin:6px 0 16px;padding:15px 18px;border:1px solid rgba(251,191,36,.3);border-radius:16px;background:linear-gradient(180deg,rgba(251,191,36,.08),rgba(251,191,36,.02))}
+.favbanner .fbt{font-family:var(--fd);font-weight:800;font-size:17px}
+.favbanner .fbs{font-size:12.5px;color:var(--ts);margin-top:2px;max-width:760px;line-height:1.5}
+/* Golden path */
+.gpath{border:1px solid var(--line2);border-radius:22px;background:linear-gradient(180deg,rgba(45,212,191,.10),rgba(124,92,252,.05));padding:26px 28px;margin:18px 0 22px}
+.gp-eyebrow{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--deliver);margin-bottom:8px}
+.gpath h2{font-family:var(--fd);font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1.15}
+.gpath p{font-size:13.5px;color:var(--ts);margin:8px 0 18px;max-width:720px;line-height:1.55}
+.gsteps{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+.gstep{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ts);background:var(--bg-card);border:1px solid var(--line);border-radius:20px;padding:8px 14px}
+.gstep b{color:var(--tp)}
+.gstep .n{width:19px;height:19px;border-radius:50%;background:rgba(124,92,252,.28);color:#fff;font-size:11px;font-weight:800;display:grid;place-items:center}
+.garrow{color:var(--tm);font-size:15px}
+.gcta{font-family:var(--fb);font-weight:800;font-size:15.5px;color:#0f0a1f;background:linear-gradient(135deg,var(--accent),var(--deliver));border:none;border-radius:14px;padding:15px 26px;cursor:pointer;transition:.15s}
+.gcta:hover{transform:translateY(-1px);filter:brightness(1.05)}
+.gp-note{font-size:11.5px;color:var(--tm);margin-top:12px}
+.gwhy{all:unset;cursor:pointer;font-size:12px;color:var(--ts);text-decoration:underline;text-underline-offset:3px;margin-left:10px}
+.gwhy:hover{color:var(--tp)}
+.gchain-cta{font-family:var(--fb);font-weight:700;font-size:12.5px;color:var(--accent);background:rgba(124,92,252,.1);border:1px solid rgba(124,92,252,.3);border-radius:10px;padding:9px 14px;cursor:pointer;margin-left:8px}
+/* Moments */
+.moments h3{font-family:var(--fd);font-size:16px;font-weight:800}
+.moments .mcap{font-size:12.5px;color:var(--tm);margin:2px 0 13px}
+.mtiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:12px}
+.mtile{display:flex;align-items:center;gap:13px;border:1px solid var(--line);border-radius:14px;background:var(--bg-card);padding:14px 16px;cursor:pointer;transition:.15s}
+.mtile:hover{border-color:var(--accent);background:var(--bg-card-h);transform:translateY(-2px)}
+.mtile .mi{font-size:25px;line-height:1}
+.mtile .mt{font-family:var(--fd);font-weight:700;font-size:14px;line-height:1.2}
+.mtile .md{font-size:11.5px;color:var(--tm);margin-top:3px}
+.moments .ask{margin-top:16px}
+.browsetoggle{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:9px;color:var(--ts);font-size:13px;font-weight:700;margin:22px 0 6px;padding:9px 0}
+.browsetoggle:hover{color:var(--tp)}
+.browsetoggle .adv{font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--tm);border:1px solid var(--line2);border-radius:20px;padding:2px 8px}
+/* Sélecteur de mode (bien visible) */
+.modeseg{display:inline-flex;gap:5px;background:var(--bg-card);border:1px solid var(--line2);border-radius:13px;padding:5px;margin:16px 0 6px}
+.modeseg button{font-family:var(--fb);font-weight:800;font-size:13.5px;color:var(--ts);background:transparent;border:none;border-radius:10px;padding:9px 16px;cursor:pointer;transition:.15s}
+.modeseg button:hover{color:var(--tp)}
+.modeseg button.on{background:rgba(124,92,252,.22);color:var(--tp)}
+/* Suggestions IA de favoris */
+.suggest{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:0 0 16px;font-size:12.5px;color:var(--ts)}
+.suggest .sg-t{color:var(--tm);font-weight:700}
+.suggest .sg{display:inline-flex;align-items:center;gap:7px;background:var(--bg-card);border:1px dashed var(--line2);border-radius:20px;padding:6px 12px;cursor:pointer;transition:.15s}
+.suggest .sg:hover{border-color:var(--accent);color:var(--tp)}
+.suggest .sg b{color:var(--tp)}
+
+/* Grid */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px}
+.card{border:1px solid var(--line);border-radius:16px;background:var(--bg-card);padding:16px 18px;cursor:pointer;transition:.15s;display:flex;flex-direction:column;gap:10px;position:relative}
+.card:hover{border-color:var(--line2);background:var(--bg-card-h);transform:translateY(-2px)}
+.card.recipe{border-left:3px solid rgba(45,212,191,.5)}
+.card.prompt{border-left:3px solid rgba(124,92,252,.5)}
+.card .top{display:flex;align-items:flex-start;gap:10px}
+.card .ic{font-size:22px}
+.card .ti{font-family:var(--fd);font-weight:800;font-size:15px;line-height:1.25;flex:1}
+.kindbadge{font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:3px 8px;border-radius:6px;white-space:nowrap}
+.kindbadge.recipe{color:var(--deliver);background:rgba(45,212,191,.12);border:1px solid rgba(45,212,191,.3)}
+.kindbadge.prompt{color:var(--accent);background:rgba(124,92,252,.12);border:1px solid rgba(124,92,252,.3)}
+.lvl{font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:3px 8px;border-radius:20px;white-space:nowrap}
+.lvl.off,.lvl.official{color:var(--ok);background:rgba(52,211,153,.14);border:1px solid rgba(52,211,153,.35)}
+.lvl.team{color:var(--info);background:rgba(96,165,250,.14);border:1px solid rgba(96,165,250,.35)}
+.lvl.exp{color:var(--warn);background:rgba(251,191,36,.12);border:1px dashed rgba(251,191,36,.5)}
+.lvl.mine{color:var(--accent);background:rgba(124,92,252,.14);border:1px solid rgba(124,92,252,.35)}
+.card .desc{font-size:12.5px;color:var(--ts);line-height:1.5}
+.card .tags{display:flex;gap:5px;flex-wrap:wrap}
+.card .tags span{font-size:10.5px;color:var(--tm);background:rgba(255,255,255,.04);border-radius:6px;padding:2px 7px}
+.snippet{font-family:var(--fm);font-size:11px;color:var(--tm);background:rgba(10,7,22,.5);border:1px solid var(--line);border-radius:9px;padding:8px 10px;line-height:1.5;max-height:52px;overflow:hidden}
+.snippet .v{color:var(--deliver)}
+.metrics{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--ts);border-top:1px solid var(--line);padding-top:10px}
+.metrics b{color:var(--tp);font-size:13px;font-weight:800}
+.metrics .m{display:flex;flex-direction:column}
+.foot{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--tm);border-top:1px solid var(--line);padding-top:9px}
+.star{all:unset;cursor:pointer;font-size:15px;line-height:1;opacity:.4;transition:.15s}.star.on{opacity:1}
+.act{margin-left:auto;font-family:var(--fb);font-weight:800;font-size:12px;color:#0f0a1f;border:none;border-radius:9px;padding:7px 13px;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.act.run{background:linear-gradient(135deg,#2dd4bf,#34d399)}
+.act.copy{background:linear-gradient(135deg,var(--accent),#c4b5fd)}
+.varpill{font-size:10px;color:var(--deliver);border:1px solid rgba(45,212,191,.4);border-radius:20px;padding:2px 8px}
+.autopill{font-size:10px;color:var(--info);border:1px solid rgba(96,165,250,.4);background:rgba(96,165,250,.08);border-radius:20px;padding:2px 8px}
+.agentic{font-size:10px;color:var(--deliver);border:1px solid rgba(45,212,191,.4);border-radius:20px;padding:2px 8px}
+/* contexte injecté + conventions */
+.ctxbn{border:1px solid rgba(96,165,250,.35);background:rgba(96,165,250,.07);border-radius:12px;padding:11px 14px;margin-top:12px;font-size:12.5px;color:var(--ts);line-height:1.5}
+.ctxbn b{color:var(--tp)}
+.ctxbn .srcs{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+.src{font-size:10.5px;color:var(--info);background:rgba(96,165,250,.1);border:1px solid rgba(96,165,250,.3);border-radius:6px;padding:2px 7px;font-family:var(--fm)}
+.varrow.filled input,.varrow.filled textarea{border-color:rgba(96,165,250,.45);background:rgba(96,165,250,.05)}
+.vtag{font-size:10px;color:var(--info);margin-left:7px;font-weight:600}
+.conv{display:flex;gap:6px;flex-wrap:wrap}
+.conv span{font-size:11px;color:var(--deliver);background:rgba(45,212,191,.08);border:1px solid rgba(45,212,191,.28);border-radius:7px;padding:3px 9px}
+.cmp{margin-top:11px;border-top:1px solid var(--line);padding-top:10px}
+.cmp summary{cursor:pointer;font-size:12px;color:var(--ts);font-weight:700;list-style:none}
+.cmp summary::-webkit-details-marker{display:none}
+.cmp summary::before{content:'▸ ';color:var(--tm)}
+.cmp[open] summary::before{content:'▾ '}
+.rawbox{font-family:var(--fm);font-size:12px;color:var(--tm);background:rgba(248,113,113,.04);border:1px solid rgba(248,113,113,.22);border-radius:10px;padding:11px 13px;line-height:1.6;white-space:pre-wrap;margin-top:9px}
+.delta{font-size:11.5px;color:var(--warn);margin-top:8px;line-height:1.5}
+/* diff + preuve (continuité prompt→agent) */
+.hunk{border:1px solid var(--line);border-radius:9px;overflow:hidden;margin-top:9px;background:rgba(10,7,22,.5)}
+.hwhy{font-size:11.5px;color:var(--ts);padding:7px 11px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.02)}
+.dl{font-family:var(--fm);font-size:11.5px;padding:2px 11px;white-space:pre-wrap;word-break:break-word;line-height:1.55}
+.dl.del{color:#f6a5a5;background:rgba(248,113,113,.08)}
+.dl.add{color:#7ee6c9;background:rgba(45,212,191,.08)}
+.proof{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:12.5px;color:var(--ts);align-items:baseline}
+.proof .pl2{color:var(--tm);font-weight:700;white-space:nowrap}
+.proof b{color:var(--tp)}
+
+/* Modal */
+.ov{position:fixed;inset:0;z-index:60;background:rgba(6,4,14,.74);display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto}
+.ov.show{display:flex}
+.modal{width:100%;max-width:680px;background:#160f2b;border:1px solid var(--line2);border-radius:20px;padding:22px 24px}
+.modal .mh{display:flex;align-items:flex-start;gap:12px;margin-bottom:6px}
+.modal .mh .ic{font-size:26px}
+.modal h3{font-family:var(--fd);font-size:19px;font-weight:800;flex:1}
+.x{all:unset;cursor:pointer;font-size:20px;color:var(--tm)}
+.field{border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.02);padding:12px 14px;margin-top:12px}
+.field .fl{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);margin-bottom:6px}
+.field .fv{font-size:13px;color:var(--ts);line-height:1.55}
+.field .fv b{color:var(--tp)}
+.promptbox{font-family:var(--fm);font-size:12.5px;color:var(--tp);background:rgba(10,7,22,.6);border:1px solid var(--line);border-radius:10px;padding:13px 15px;line-height:1.65;white-space:pre-wrap;word-break:break-word}
+.promptbox .v{color:var(--deliver);background:rgba(45,212,191,.1);border-radius:4px;padding:0 3px}
+.varform{display:grid;gap:9px;margin-top:4px}
+.varrow{display:flex;flex-direction:column;gap:4px}
+.varrow label{font-size:11px;color:var(--ts);font-weight:700}
+.varrow input,.varrow textarea{font-family:var(--fb);font-size:13px;color:var(--tp);background:rgba(10,7,22,.6);border:1px solid var(--line2);border-radius:9px;padding:9px 11px;outline:none;resize:vertical}
+.varrow input:focus,.varrow textarea:focus{border-color:var(--accent)}
+.tool{display:inline-flex;align-items:center;gap:6px;font-size:12px;border-radius:8px;padding:4px 9px;margin:3px 4px 0 0}
+.tool.read{color:var(--ts);background:rgba(255,255,255,.05);border:1px solid var(--line)}
+.tool.write{color:var(--warn);background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3)}
+.chk{display:flex;align-items:center;gap:10px;font-size:13px;padding:7px 0;border-top:1px solid var(--line)}
+.mbtns{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;align-items:center}
+.mbtn{font-family:var(--fb);font-weight:800;font-size:13px;border-radius:11px;padding:11px 18px;cursor:pointer;border:none}
+.mbtn.go{color:#0f0a1f;background:linear-gradient(135deg,var(--accent),var(--deliver))}
+.mbtn.run{color:#0f0a1f;background:linear-gradient(135deg,#2dd4bf,#34d399)}
+.mbtn.ghost{color:var(--ts);background:rgba(255,255,255,.05);border:1px solid var(--line2)}
+.mbtn.mini{padding:8px 12px;font-size:12px}
+.note{font-size:11px;color:var(--tm);margin-top:12px;line-height:1.5}
+.thumbs{display:flex;gap:8px;margin-left:auto}
+.thumb{all:unset;cursor:pointer;font-size:16px;padding:4px 8px;border-radius:8px;border:1px solid var(--line)}
+.empty{color:var(--tm);font-size:13px;text-align:center;padding:30px}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:99;background:rgba(40,28,70,.97);color:var(--tp);font-weight:700;font-size:13px;padding:11px 18px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.4);opacity:0;transition:.3s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class=&quot;wrap&quot;>
+  <header>
+    <div class=&quot;logo&quot;>🧰</div>
+    <div>
+      <h1>Catalogue IA</h1>
+      <div class=&quot;sub&quot;>Agents &amp;amp; prompts au même endroit · le LLM oriente, les outils déterministes exécutent</div>
+    </div>
+    <div class=&quot;ctx-pill&quot;>📦 <b>platformengineering</b> · Java 21 · Spring · Kubernetes · GitLab CI</div>
+  </header>
+
+  <div class=&quot;nav&quot;>
+    <a href=&quot;#&quot; class=&quot;on&quot;>🧰 Catalogue</a>
+    <a href=&quot;#&quot; data-go=&quot;studio&quot;>🛠️ Studio</a>
+    <a href=&quot;#&quot; data-go=&quot;metrics&quot;>📊 Admin</a>
+  </div>
+
+  <div class=&quot;modeseg&quot; id=&quot;modeSeg&quot;>
+    <button data-m=&quot;guided&quot; class=&quot;on&quot;>✨ Guidé</button>
+    <button data-m=&quot;full&quot;>🧰 Catalogue complet</button>
+    <button data-m=&quot;favoris&quot;>⭐ Favoris</button>
+  </div>
+
+  <!-- LANDING : golden path + moments (langage humain, guidé) -->
+  <div id=&quot;landing&quot;>
+    <div class=&quot;gpath&quot; id=&quot;gpath&quot;></div>
+
+    <div class=&quot;moments&quot;>
+      <h3>Ou pars de ton besoin</h3>
+      <div class=&quot;mcap&quot;>Dis-le en clair — on t'emmène directement au bon endroit.</div>
+      <div class=&quot;mtiles&quot; id=&quot;mtiles&quot;></div>
+      <div class=&quot;ask&quot;>
+        <input id=&quot;ask&quot; placeholder=&quot;décris ton besoin en une phrase…&quot; autocomplete=&quot;off&quot;>
+        <button id=&quot;askGo&quot;>Trouver →</button>
+      </div>
+      <div class=&quot;chips&quot; id=&quot;chips&quot;></div>
+      <div id=&quot;intentResult&quot;></div>
+    </div>
+  </div>
+
+  <div id=&quot;favWrap&quot; style=&quot;display:none&quot;>
+    <div class=&quot;favbanner&quot; id=&quot;favBanner&quot;>
+      <div>
+        <div class=&quot;fbt&quot;>⭐ Tes favoris</div>
+        <div class=&quot;fbs&quot;>Ce que <b>tu</b> as choisi — un clic pour lancer. Ajoute/retire avec l'étoile ☆ sur n'importe quelle carte. Tu décides, l'IA ne fait que <b>suggérer</b>.</div>
+      </div>
+    </div>
+    <div class=&quot;suggest&quot; id=&quot;suggest&quot;></div>
+  </div>
+
+  <!-- BROWSE : le catalogue technique complet (masqué par défaut) -->
+  <div id=&quot;browse&quot; style=&quot;display:none&quot;>
+    <div class=&quot;toolbar&quot;>
+      <div class=&quot;kindseg&quot; id=&quot;kindSeg&quot;>
+        <button data-k=&quot;&quot; class=&quot;on&quot;>Tout</button>
+        <button data-k=&quot;recipe&quot;>🤖 Agents · agir</button>
+        <button data-k=&quot;prompt&quot;>📚 Prompts · générer</button>
+      </div>
+      <div class=&quot;tagbar&quot; id=&quot;tagbar&quot;></div>
+      <div class=&quot;filts&quot;>
+        <label class=&quot;ck&quot;><input type=&quot;checkbox&quot; id=&quot;ctxOnly&quot; checked> Compatibles avec mon dépôt</label>
+        <label class=&quot;ck&quot;><input type=&quot;checkbox&quot; id=&quot;favOnly&quot;> ⭐ Favoris</label>
+      </div>
+    </div>
+    <div class=&quot;grid&quot; id=&quot;grid&quot;></div>
+  </div>
+</div>
+
+<div class=&quot;ov&quot; id=&quot;ov&quot;><div class=&quot;modal&quot; id=&quot;modal&quot;></div></div>
+<div class=&quot;toast&quot; id=&quot;toast&quot;></div>
+
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id);};
+  function esc(s){return String(s==null?'':s).replace(/&amp;/g,'&amp;amp;').replace(/</g,'&amp;lt;').replace(/>/g,'&amp;gt;');}
+  function toast(m){ var t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._x); t._x=setTimeout(function(){t.classList.remove('show');},2200); }
+  function copy(text){ if(navigator.clipboard&amp;&amp;navigator.clipboard.writeText){navigator.clipboard.writeText(text).catch(function(){fb(text);});}else fb(text); }
+  function fb(text){ var ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');}catch(e){} document.body.removeChild(ta); }
+  function vars(b){ var m,re=/\{\{\s*([\wÀ-ÿ][\wÀ-ÿ .-]*?)\s*\}\}/g,s=[]; while((m=re.exec(b))){var n=m[1].trim(); if(s.indexOf(n)===-1)s.push(n);} return s; }
+  function hl(b){ return esc(b).replace(/\{\{\s*([\wÀ-ÿ][\wÀ-ÿ .-]*?)\s*\}\}/g,'<span class=&quot;v&quot;>{{$1}}</span>'); }
+  function fill(b,v){ return b.replace(/\{\{\s*([\wÀ-ÿ][\wÀ-ÿ .-]*?)\s*\}\}/g,function(m,n){var x=v[n.trim()];return (x!==undefined&amp;&amp;x!=='')?x:m;}); }
+
+  var CTX={ repo:'platformengineering', stack:['java','spring','kubernetes','java21'] };
+  var LVL_LABEL={off:'Officiel',team:'Équipe',exp:'Expérimental',official:'Officiel',mine:'Perso'};
+  var LVL_ICON={off:'🛡',team:'👥',exp:'🧪',official:'🟢',mine:'👤'};
+
+  // ── Modèle &amp; coût (simulation) — pour que l'utilisateur sache ce qu'il consomme ──
+  var MODELS={nano:{n:'Nano',c:0.002},small:{n:'Small',c:0.008},mid:{n:'Mid',c:0.03},large:{n:'Large',c:0.10}};
+  // par entrée : [modèle utilisé, modèle recommandé pour la tâche]
+  var ITEM_MODEL={
+    'tests-junit':['large','mid'], 'migrate-java21':['large','large'], 'analyze-vuln':['large','large'],
+    'prep-delivery':['mid','mid'], 'react-tests':['mid','small'],
+    'commit':['mid','nano'], 'analyze-code':['mid','small'], 'explain':['mid','small'],
+    'review':['large','mid'], 'debug':['mid','small'], 'story':['mid','small'], 'sql':['mid','small'], 'learn':['small','small']
+  };
+  function eur(x){ var s=(x<1?x.toFixed(3):x<100?x.toFixed(2):(''+Math.round(x))); return '€'+s.replace('.',','); }
+  function modelInfo(r){ var mm=ITEM_MODEL[r.id]||['mid','mid']; var cur=MODELS[mm[0]], opt=MODELS[mm[1]]; return {curK:mm[0],optK:mm[1],cur:cur,opt:opt,save:cur.c-opt.c}; }
+  function costPill(r){ var mi=modelInfo(r); return '<span class=&quot;autopill&quot; style=&quot;color:var(--ts);border-color:var(--line2);background:rgba(255,255,255,.03)&quot;>🧠 '+mi.cur.n+' · '+eur(mi.cur.c)+'</span>'; }
+  function modelField(r){
+    var mi=modelInfo(r);
+    var hint = mi.save>0.0005 ? '<div class=&quot;note&quot; style=&quot;margin-top:8px;color:var(--ok)&quot;>💡 <b>'+mi.opt.n+'</b> suffirait pour cette tâche → '+eur(mi.opt.c)+'/exéc (−'+eur(mi.save)+' par appel). Réglable par un <b>ai-maintainer</b> dans le Studio.</div>'
+                             : '<div class=&quot;note&quot; style=&quot;margin-top:8px&quot;>Modèle bien dimensionné pour la difficulté de la tâche.</div>';
+    return '<div class=&quot;field&quot;><div class=&quot;fl&quot;>🧠 Modèle &amp;amp; coût <span style=&quot;color:var(--tm);font-weight:600;text-transform:none;letter-spacing:0&quot;>— ce que tu consommes</span></div>'+
+      '<div class=&quot;fv&quot;>Modèle utilisé : <b>'+mi.cur.n+'</b> · <b>'+eur(mi.cur.c)+'</b> / exécution <span style=&quot;color:var(--tm)&quot;>(simulation)</span></div>'+hint+'</div>';
+  }
+
+  // ── Données unifiées (kind: recipe | prompt) ──
+  var R=[
+    // ——— AGENTS (s'exécutent) ———
+    {kind:'recipe', id:'tests-junit', ic:'🧪', title:'Générer des tests unitaires', lvl:'off', owner:'Plateforme', tags:['java','tests'], stack:['java'], engine:'gentests',
+      usage:340, success:88, humanFix:12, timeSaved:'~25 min', ctx:'Java · JUnit 5 · code non testé', version:'v3', verified:'12 mai 2026',
+      tools:[['Lire le dépôt','read'],['Générer le fichier de test (dry-run)','write'],['Exécuter la suite de tests','read']], security:['Écriture du seul fichier de test, sur ta branche. Dry-run avant création.'],
+      expected:'Une classe de tests JUnit couvrant cas nominaux et limites.', criteria:['Les tests compilent','Les tests passent','Couverture > 70 %'], agentic:true},
+    {kind:'recipe', id:'migrate-java21', ic:'🚚', title:'Préparer une migration Spring → Java 21', lvl:'off', owner:'Archi', tags:['java','spring','migration'], stack:['java','spring'],
+      usage:56, success:74, humanFix:30, timeSaved:'~2 h', ctx:'Spring Boot · JDK cible 21', version:'v2', verified:'28 avr. 2026',
+      tools:[['Lire le dépôt','read'],['Créer une branche + patch (dry-run)','write']], security:['Écriture sur branche dédiée, jamais sur main.','Dry-run + revue humaine avant merge.'],
+      expected:'Un plan de migration + une branche avec les changements mécaniques.', criteria:['Compile en JDK 21','Aucune API supprimée résiduelle','Tests verts'], agentic:true},
+    {kind:'recipe', id:'analyze-vuln', ic:'🔒', title:'Analyser une vulnérabilité', lvl:'off', owner:'Sécurité', tags:['securite'], stack:['java','spring','kubernetes'],
+      usage:210, success:91, humanFix:9, timeSaved:'~40 min', ctx:'Finding OSV/CVE · composant identifié', version:'v4', verified:'02 mai 2026',
+      tools:[['Secrets Scanner (lecture)','read'],['Repo Analyzer (lecture)','read']], security:['⚠ La valeur d\'un secret n\'est JAMAIS envoyée au modèle — seulement type et emplacement.'],
+      expected:'Impact (exploitable ici ?), blast radius, remédiation.', criteria:['Composant et version confirmés','Remédiation applicable','Faux positif écarté'], agentic:false},
+    {kind:'recipe', id:'prep-delivery', ic:'🚀', title:'Préparer la livraison en préprod', lvl:'off', owner:'Plateforme', tags:['kubernetes','ci','livraison'], stack:['kubernetes','gitlab'], fav:true,
+      usage:480, success:95, humanFix:5, timeSaved:'~30 min', ctx:'App conteneurisée · overlays Kustomize · GitLab CI', version:'v5', verified:'20 mai 2026',
+      tools:[['Vérifier la branche','read'],['Bump IMAGE_TAG + overlays','write'],['Scanner vulnérabilités','read'],['Vérifier les tests','read'],['Créer la MR','write']],
+      security:['Le LLM oriente ; le module Livraison déterministe exécute.','Dry-run obligatoire : rien sans ta confirmation.'],
+      expected:'Une MR de livraison prête (version bumpée, overlays synchro).', criteria:['Branche mergeable','Kustomize cohérent','Aucune vuln critique','Tests verts'], agentic:true, isDelivery:true},
+    {kind:'recipe', id:'react-tests', ic:'⚛️', title:'Générer des tests React', lvl:'off', owner:'Front Guild', tags:['react','tests'], stack:['react'],
+      usage:190, success:86, humanFix:14, timeSaved:'~20 min', ctx:'Composant React · Testing Library', version:'v2', verified:'10 mai 2026',
+      tools:[['Lire le dépôt','read'],['Exécuter les tests','read']], security:['Lecture seule.'],
+      expected:'Des tests de rendu et d\'interaction.', criteria:['Tests passent','Interactions couvertes'], agentic:false},
+    // ——— PROMPTS (se copient) ———
+    {kind:'prompt', id:'commit', ic:'✍️', title:'Message de commit conventionnel', lvl:'official', owner:'Plateforme', tags:['git'], stack:[], uses:812, timeSaved:'~5 min', fav:false, verified:'20 mai 2026',
+      body:'Rédige un message de commit conventionnel (type(scope): résumé) puis une description de MR structurée pour ce diff.\n\n- résumé à l\'impératif, < 72 caractères\n- corps : QUOI et POURQUOI\n- signale tout breaking change\n\nDiff :\n{{diff}}'},
+    {kind:'prompt', id:'analyze-code', ic:'🔍', title:'Analyser ce code', lvl:'official', owner:'Plateforme', tags:['revue','debug'], stack:[], uses:263, timeSaved:'~15 min', fav:true, verified:'30 mai 2026', engine:'analyze',
+      body:'Analyse ce code selon les règles de la plateforme (NPE, null retournés, nombres magiques, debug oublié, imbrication, couverture) et remonte les problèmes avec leur ligne.\n\nCode :\n{{code}}'},
+    {kind:'prompt', id:'explain', ic:'📖', title:'Explique-moi ce code', lvl:'mine', owner:'marie.d', tags:['debug','apprentissage'], stack:[], uses:57, timeSaved:'~15 min', fav:true, verified:'28 mai 2026',
+      body:'Explique ce code à un développeur de niveau {{niveau}}.\n\n1. Résumé en une phrase.\n2. Déroulé étape par étape.\n3. Pièges / effets de bord non évidents.\n\nCode :\n{{code}}'},
+    {kind:'prompt', id:'review', ic:'👀', title:'Revue de code façon senior', lvl:'team', owner:'Tribu Paiements', tags:['revue','git'], stack:[], uses:298, timeSaved:'~20 min', fav:false, verified:'18 mai 2026',
+      body:'Relis ce diff comme un reviewer senior bienveillant.\n\nClasse : 🔴 bloquant · 🟡 à discuter · 🟢 suggestion.\nPour chaque point : fichier, ligne, pourquoi, proposition concrète.\nNe relève pas le style géré par le linter.\n\nDiff :\n{{diff}}'},
+    {kind:'prompt', id:'debug', ic:'🐞', title:'Comprendre une stack trace', lvl:'official', owner:'Plateforme', tags:['debug'], stack:[], uses:415, timeSaved:'~15 min', fav:false, verified:'15 mai 2026',
+      body:'Voici une erreur dans un projet {{stack}}.\n\n1. Cause probable, en clair.\n2. La ligne / l\'appel le plus suspect.\n3. Deux pistes de correction (simple → robuste).\n\nErreur :\n{{erreur}}\n\nContexte :\n{{contexte}}'},
+    {kind:'prompt', id:'story', ic:'🏗', title:'Découper une user story', lvl:'team', owner:'Tribu Paiements', tags:['produit'], stack:[], uses:96, timeSaved:'~20 min', fav:false, verified:'22 mai 2026',
+      body:'Découpe cette user story en tâches livrables indépendamment.\n\nPour chaque tâche : titre, critère d\'acceptation vérifiable, estimation (S/M/L).\nSignale dépendances et incertitudes à lever.\n\nStory :\n{{story}}'},
+    {kind:'prompt', id:'sql', ic:'⚡', title:'Optimiser une requête SQL', lvl:'official', owner:'Tribu Data', tags:['sql','data'], stack:[], uses:150, timeSaved:'~25 min', fav:false, verified:'02 mai 2026',
+      body:'Analyse cette requête {{sgbd}} et propose une version plus rapide.\n\n- explique le coût actuel (jointures, scans)\n- propose index et réécriture\n- garde un résultat identique\n\nRequête :\n{{requete}}'},
+    {kind:'prompt', id:'learn', ic:'🎓', title:'M\'apprendre un concept', lvl:'mine', owner:'marie.d', tags:['apprentissage'], stack:[], uses:41, timeSaved:'—', fav:true, verified:'29 mai 2026',
+      body:'Apprends-moi « {{concept}} » à un niveau {{niveau}}.\n\n1. L\'intuition en une analogie.\n2. Le minimum théorique utile.\n3. Un exemple de code commenté.\n4. Une erreur classique à éviter.\n5. Un mini-exercice.'}
+  ];
+  var TAGS=['tests','java','git','revue','debug','securite','migration','livraison','sql','produit','apprentissage','react'];
+
+  // ── Ce que la plateforme injecte et que l'utilisateur ne peut PAS taper ──
+  // 1) Contexte courant du poste (fichier ouvert, pipeline cassé, MR courante)
+  var AUTOFILL={
+    code:{val:'public BigDecimal price(Order o) {\n    // TODO: gérer la devise\n    BigDecimal rate = o.getCustomer().getContract().getRate();\n    if (o.getItems().size() > 0) {\n        return rate.multiply(new BigDecimal(42));\n    }\n    return null;\n}', src:'fichier ouvert · PaymentService.java:88'},
+    diff:{val:'+ if (iban == null || !IbanValidator.valid(iban))\n+   throw new BadRequestException(&quot;IBAN invalide&quot;);', src:'MR !312 · diff courant'},
+    erreur:{val:'java.lang.NullPointerException\n  at InvoiceService.getZip(InvoiceService.java:127)', src:'pipeline #4821 en échec'},
+    stack:{val:'Java 21 · Spring Boot 3.2', src:'stack déclarée du dépôt'},
+    contexte:{val:'au démarrage de l\'app en préproduction', src:'run préprod #4821'}
+  };
+  // 2) Conventions maison embarquées dans le prompt (jamais retapées)
+  var CONV={
+    commit:['Conventional Commits','footer « Refs: PAY-xxx »','impératif · < 72 car.'],
+    review:['Grille interne 🔴/🟡/🟢','ignorer le style (Spotless)','1 test exigé par bug corrigé'],
+    sql:['Index nommés idx_&amp;lt;table&amp;gt;_&amp;lt;cols&amp;gt;','jamais de fonction sur colonne filtrée','EXPLAIN attendu'],
+    debug:['2 pistes : simple → robuste','pointer fichier:ligne'],
+    story:['Tâches ≤ 1 j','critère d\'acceptation vérifiable par tâche']
+  };
+  // 3) Ce qu'un chat nu (sans contexte ni conventions) aurait répondu — pour le contraste
+  var ANSRAW={
+    commit:'Update PaymentService\n\nFixed a bug related to IBAN handling.',
+    review:'Le code a l\'air correct dans l\'ensemble. Tu pourrais ajouter quelques commentaires et vérifier le nommage des variables.',
+    sql:'Tu peux essayer d\'ajouter un index sur created_at pour accélérer la requête, et voir si ça change quelque chose.'
+  };
+
+  // réponses IA simulées (maquette) — ce que « Lancer » renverrait pour chaque prompt
+  var ANS={
+    commit:'feat(payments): valider l\'IBAN avant l\'appel au PSP\n\nLes IBAN mal formés provoquaient un 500 côté PSP. On valide désormais le\nformat (mod 97) en amont et on renvoie un 422 explicite.\n\n- ajout IbanValidator + tests\n- message d\'erreur i18n\n\nBREAKING CHANGE: le endpoint /pay refuse maintenant un IBAN invalide (422).',
+    explain:'1. En une phrase : la fonction additionne deux entiers et renvoie le résultat.\n2. Étapes : elle reçoit a et b, calcule a+b, retourne la valeur — aucun état modifié.\n3. Piège : pas de gestion du dépassement (int overflow) si a+b dépasse la borne max.',
+    review:'🔴 PaymentService:42 — l\'appel réseau n\'a pas de timeout : un PSP lent bloque le thread. Ajoute un timeout + retry borné.\n🟡 RefundMapper:88 — logique dupliquée avec OrderMapper ; à extraire.\n🟢 Nommage `tmp2` peu parlant, renommer en `pspResponse`.',
+    debug:'Cause probable : NullPointerException car `customer.getAddress()` est null pour les comptes créés avant la v2.\nLigne suspecte : InvoiceService.java:127 — `address.getZip()`.\nCorrections : (1) garde `if (address != null)` ; (2) plus robuste : rendre l\'adresse obligatoire à la création + migration des comptes existants.',
+    story:'1. [S] Endpoint POST /refunds (validation montant ≤ paiement).\n2. [M] Intégration PSP refund + gestion des erreurs asynchrones.\n3. [S] Écran « Demander un remboursement » + états.\n4. [M] Webhook de confirmation + idempotence.\nDépendance : 4 dépend de 2. Incertitude : politique de remboursement partiel à confirmer avec le produit.',
+    sql:'Le coût vient d\'un full scan sur `orders(customer_id, created_at)`.\n\n-- index composite couvrant le filtre + le tri\nCREATE INDEX idx_orders_cust_date ON orders (customer_id, created_at DESC);\n\nRéécris ensuite sans fonction sur la colonne indexée (évite WHERE date(created_at)=…). Résultat identique, ~40× plus rapide sur 2M lignes.',
+    learn:'Intuition : un index, c\'est la table des matières d\'un livre — tu vas direct à la page au lieu de tout feuilleter.\nMinimum utile : structure B-tree, tri, sélectivité.\nExemple : CREATE INDEX … puis EXPLAIN pour voir le scan disparaître.\nErreur classique : indexer une colonne à faible sélectivité (ex. booléen) — inutile.\nExercice : sur quelle colonne indexerais-tu une table users(email, is_active) pour un login ?'
+  };
+
+  var fKind='', fTag='', ctxOnly=true, favOnly=false, favMode=false;
+
+  function compatible(r){ if(r.kind==='prompt') return true; return r.stack.some(function(s){return CTX.stack.indexOf(s)!==-1;}); }
+  function succCol(v){ return v>=85?'var(--ok)':v>=70?'var(--warn)':'var(--err)'; }
+
+  function card(r){
+    var isRec=r.kind==='recipe';
+    var incompat=!compatible(r);
+    var badge='<span class=&quot;kindbadge '+r.kind+'&quot;>'+(isRec?'⚙️ Agent':'💬 Prompt')+'</span>';
+    var lvlb='<span class=&quot;lvl '+r.lvl+'&quot;>'+LVL_ICON[r.lvl]+' '+LVL_LABEL[r.lvl]+'</span>';
+    var body;
+    if(isRec){
+      body='<div class=&quot;tags&quot;>'+r.tags.map(function(t){return '<span>'+t+'</span>';}).join('')+(r.agentic?'<span class=&quot;agentic&quot;>⚙️ agentique</span>':'')+costPill(r)+'</div>'+
+        '<div class=&quot;metrics&quot;>'+
+          '<div class=&quot;m&quot;><b>'+r.usage+'</b>usages</div>'+
+          '<div class=&quot;m&quot;><b style=&quot;color:'+succCol(r.success)+'&quot;>'+r.success+'%</b>réussite</div>'+
+          '<div class=&quot;m&quot;><b>'+r.humanFix+'%</b>corrigés</div>'+
+          '<div class=&quot;m&quot;><b>'+r.timeSaved+'</b>gagné</div>'+
+        '</div>'+
+        '<div class=&quot;foot&quot;>'+r.version+' · '+esc(r.owner)+(incompat?' <span style=&quot;color:var(--warn)&quot;>· hors stack</span>':'')+
+          '<button class=&quot;act run&quot; data-act=&quot;'+r.id+'&quot;>Lancer →</button></div>';
+    } else {
+      var vs=vars(r.body);
+      var auto=vs.filter(function(v){return AUTOFILL[v];}).length;
+      body='<div class=&quot;tags&quot;>'+r.tags.map(function(t){return '<span>'+t+'</span>';}).join('')+(vs.length?'<span class=&quot;varpill&quot;>'+vs.length+' variable'+(vs.length>1?'s':'')+'</span>':'')+(auto?'<span class=&quot;autopill&quot;>⚡ '+auto+' pré-rempli'+(auto>1?'s':'')+'</span>':'')+costPill(r)+'</div>'+
+        '<div class=&quot;snippet&quot;>'+hl(r.body.replace(/\n+/g,' ').slice(0,140))+'</div>'+
+        '<div class=&quot;foot&quot;>'+LVL_ICON[r.lvl]+' '+esc(r.owner)+' · <b style=&quot;color:var(--ts)&quot;>'+r.uses+'</b>&amp;nbsp;usages'+
+          '<button class=&quot;act copy&quot; data-act=&quot;'+r.id+'&quot;>▶ Lancer</button></div>';
+    }
+    return '<div class=&quot;card '+r.kind+'&quot; data-id=&quot;'+r.id+'&quot;>'+
+      '<div class=&quot;top&quot;><span class=&quot;ic&quot;>'+r.ic+'</span><div class=&quot;ti&quot;>'+esc(r.title)+'</div>'+
+        '<button class=&quot;star'+(r.fav?' on':'')+'&quot; data-fav=&quot;'+r.id+'&quot; title=&quot;Favori — je l\'utilise tous les jours&quot;>'+(r.fav?'⭐':'☆')+'</button>'+
+        badge+lvlb+'</div>'+body+'</div>';
+  }
+  function toggleFav(id){ var r=R.find(function(x){return x.id===id;}); if(!r)return; r.fav=!r.fav; renderGrid(); if(typeof view!=='undefined'&amp;&amp;view==='favoris') renderSuggest(); if($('gpath')){ renderForYou(); renderMoments(); } toast(r.fav?'⭐ Ajouté à tes favoris':'Retiré des favoris'); }
+
+  function renderGrid(){
+    var list=R.filter(function(r){
+      if(favMode) return r.fav;              // vue Favoris : uniquement les étoilés
+      if(fKind &amp;&amp; r.kind!==fKind) return false;
+      if(fTag &amp;&amp; r.tags.indexOf(fTag)===-1) return false;
+      if(ctxOnly &amp;&amp; !compatible(r)) return false;
+      if(favOnly &amp;&amp; !r.fav) return false;
+      return true;
+    });
+    var emptyMsg = favMode
+      ? '<div class=&quot;empty&quot;>Aucun favori pour l\'instant.<br>Clique l\'étoile ☆ sur une carte du Catalogue pour l\'ajouter ici.</div>'
+      : '<div class=&quot;empty&quot;>Aucune entrée pour ces filtres.</div>';
+    $('grid').innerHTML = list.length ? list.map(card).join('') : emptyMsg;
+    $('grid').querySelectorAll('.card').forEach(function(el){ el.addEventListener('click',function(e){ if(e.target.closest('[data-act]')||e.target.closest('[data-fav]')) return; openDetail(el.dataset.id); }); });
+    $('grid').querySelectorAll('[data-act]').forEach(function(b){ b.addEventListener('click',function(){ primary(b.dataset.act); }); });
+    $('grid').querySelectorAll('[data-fav]').forEach(function(b){ b.addEventListener('click',function(){ toggleFav(b.dataset.fav); }); });
+  }
+  function renderTags(){
+    $('tagbar').innerHTML=TAGS.map(function(t){return '<span class=&quot;tag'+(fTag===t?' on':'')+'&quot; data-tag=&quot;'+t+'&quot;>'+t+'</span>';}).join('');
+    $('tagbar').querySelectorAll('[data-tag]').forEach(function(el){ el.addEventListener('click',function(){ fTag=fTag===el.dataset.tag?'':el.dataset.tag; renderTags(); renderGrid(); }); });
+  }
+
+  // action primaire : tout se lance. Agent -> workflow ; prompt -> génération.
+  function primary(id){ var r=R.find(function(x){return x.id===id;}); if(!r) return; if(r.kind==='recipe') runRecipe(r); else quickLaunch(r); }
+  function quickLaunch(r){ var vs=vars(r.body); if(vs.length){ openDetail(r.id); toast('Remplis les variables puis lance ⤵'); return; } promptDetail(r, true); }
+
+  // ── Fiche (kind-aware) ──
+  function openDetail(id){
+    var r=R.find(function(x){return x.id===id;}); if(!r) return;
+    if(r.kind==='recipe') return recipeDetail(r);
+    return promptDetail(r);
+  }
+
+  function recipeDetail(r){
+    var tools=r.tools.map(function(t){var cls=t[1]==='write'?'write':'read';var ic=t[1]==='write'?'✏️':'👁';return '<span class=&quot;tool '+cls+'&quot;>'+ic+' '+esc(t[0])+'</span>';}).join('');
+    modal(
+      '<div class=&quot;mh&quot;><span class=&quot;ic&quot;>'+r.ic+'</span><div style=&quot;flex:1&quot;><h3>'+esc(r.title)+'</h3>'+
+        '<div style=&quot;font-size:12px;color:var(--tm);margin-top:2px&quot;><span class=&quot;kindbadge recipe&quot;>⚙️ Agent</span> <span class=&quot;lvl '+r.lvl+'&quot;>'+LVL_LABEL[r.lvl]+'</span> · '+r.version+' · '+esc(r.owner)+' · vérifiée '+r.verified+'</div></div>'+
+        '<button class=&quot;x&quot; data-close>✕</button></div>'+
+      '<div class=&quot;field&quot;><div class=&quot;fl&quot;>🧩 Contexte attendu</div><div class=&quot;fv&quot;>'+esc(r.ctx)+'</div></div>'+
+      '<div class=&quot;field&quot;><div class=&quot;fl&quot;>🛠 Outils autorisés</div><div class=&quot;fv&quot;>'+tools+'<div class=&quot;note&quot;>Lecture 👁 · écriture ✏️ (confirmation humaine). L\'allowlist est appliquée à l\'exécution.</div></div></div>'+
+      '<div class=&quot;field&quot;><div class=&quot;fl&quot;>🔒 Sécurité</div><div class=&quot;fv&quot;>'+r.security.map(function(s){return '• '+esc(s);}).join('<br>')+'</div></div>'+
+      '<div class=&quot;field&quot;><div class=&quot;fl&quot;>✅ Résultat &amp;amp; critères</div><div class=&quot;fv&quot;><b>'+esc(r.expected)+'</b><br>'+r.criteria.map(function(c){return '☑ '+esc(c);}).join('<br>')+'</div></div>'+
+      '<div class=&quot;field&quot;><div class=&quot;fl&quot;>📊 Métriques</div><div class=&quot;fv&quot;><b>'+r.usage+'</b> usages · réussite <b style=&quot;color:'+succCol(r.success)+'&quot;>'+r.success+'%</b> · <b>'+r.humanFix+'%</b> corrigés · gagné <b>'+r.timeSaved+'</b></div></div>'+
+      modelField(r)+
+      '<div class=&quot;field&quot; style=&quot;border-style:dashed&quot;><div class=&quot;fl&quot;>📝 Prompt</div><div class=&quot;fv&quot; style=&quot;color:var(--tm)&quot;>Masqué — on n\'expose pas le prompt d\'un agent. Éditable par un <b>ai-maintainer</b> dans le Studio.</div></div>'+
+      '<div class=&quot;mbtns&quot;><button class=&quot;mbtn run&quot; data-run=&quot;'+r.id+'&quot;>🚀 Lancer l\'agent</button><button class=&quot;mbtn ghost&quot; data-close>Fermer</button>'+
+        '<div class=&quot;thumbs&quot;><button class=&quot;thumb&quot; data-fb=&quot;up&quot;>👍</button><button class=&quot;thumb&quot; data-fb=&quot;down&quot;>👎</button></div></div>'
+    );
+    $('modal').querySelectorAll('[data-run]').forEach(function(b){b.addEventListener('click',function(){runRecipe(r);});});
+    wireFb();
+  }
+
+  function runRecipe(r){
+    if(r.isDelivery) return runDelivery(r);
+    if(r.engine==='gentests') return runGenTests(r);
+    var writes=r.tools.some(function(t){return t[1]==='write';});
+    modal(
+      '<div class=&quot;mh&quot;><span class=&quot;ic&quot;>'+r.ic+'</span><h3>'+esc(r.title)+'</h3><button class=&quot;x&quot; data-close>✕</button></div>'+
+      '<div style=&quot;font-size:12.5px;color:var(--ts);margin-bottom:8px&quot;>Contexte du dépôt injecté : <b style=&quot;color:var(--tp)&quot;>'+CTX.repo+'</b> · Java 21 · Spring.</div>'+
+      (writes?'<div class=&quot;field&quot; style=&quot;border-color:rgba(251,191,36,.35)&quot;><div class=&quot;fl&quot; style=&quot;color:var(--warn)&quot;>Dry-run — rien n\'est écrit</div><div class=&quot;fv&quot;>Cet agent peut écrire ; il te montre d\'abord ce qu\'il ferait, puis attend ta confirmation.</div></div>':'')+
+      '<div class=&quot;field&quot;><div class=&quot;fl&quot;>Résultat</div><div class=&quot;fv&quot;><b>'+esc(r.expected)+'</b><br><span style=&quot;color:var(--tm)&quot;>(sortie IA simulée — maquette)</span></div></div>'+
+      '<div class=&quot;field&quot;><div class=&quot;fl&quot;>Vérification automatique</div><div class=&quot;fv&quot;>'+r.criteria.map(function(c){return '☑ '+esc(c);}).join('<br>')+'</div></div>'+
+      '<div class=&quot;mbtns&quot;><button class=&quot;mbtn run&quot; data-close>'+(writes?'✔ Confirmer':'Terminer')+'</button><button class=&quot;mbtn ghost&quot; data-close>Fermer</button>'+
+        '<div class=&quot;thumbs&quot;><button class=&quot;thumb&quot; data-fb=&quot;up&quot;>👍</button><button class=&quot;thumb&quot; data-fb=&quot;down&quot;>👎</button></div></div>'
+    );
+    wireFb();
+  }
+
+  function runGenTests(r){
+    modal(
+      '<div class=&quot;mh&quot;><span class=&quot;ic&quot;>'+r.ic+'</span><div style=&quot;flex:1&quot;><h3>Générer des tests unitaires</h3>'+
+        '<div style=&quot;font-size:12px;color:var(--deliver);margin-top:2px&quot;>⚙️ agent · produit un fichier de test à partir de ton code</div></div><button class=&quot;x&quot; data-close>✕</button></div>'+
+      '<div class=&quot;ctxbn&quot;>⚡ <b>Code injecté depuis ton poste</b> — tu peux l\'ajuster.<div class=&quot;srcs&quot;><span class=&quot;src&quot;>'+esc(AUTOFILL.code.src)+'</span></div></div>'+
+      '<div class=&quot;field&quot;><div class=&quot;fl&quot;>Code source</div><textarea class=&quot;promptbox&quot; id=&quot;gtCode&quot; style=&quot;width:100%;min-height:120px;border:1px solid var(--line2)&quot;>'+esc(AUTOFILL.code.val)+'</textarea></div>'+
+      '<div id=&quot;gtOut&quot;></div>'+
+      '<div class=&quot;mbtns&quot;><button class=&quot;mbtn run&quot; id=&quot;gtRun&quot;>▶ Générer les tests (dry-run)</button><button class=&quot;mbtn ghost&quot; data-close>Fermer</button></div>'+
+      '<div class=&quot;note&quot;>Différence avec un prompt : l\'agent ne se contente pas de répondre — il <b>produit un fichier</b> et propose de le <b>créer sur ta branche</b> (après ta confirmation). Rien n\'est écrit sans « ✔ Créer ».</div>'
+    );
+    $('gtRun').addEventListener('click',function(){
+      var code=$('gtCode').value; var g=genTests(code); var out=$('gtOut');
+      if(g.name==='—'){ out.innerHTML='<div class=&quot;field&quot; style=&quot;border-color:rgba(251,191,36,.35)&quot;><div class=&quot;fv&quot; style=&quot;color:var(--warn)&quot;>Aucune fonction détectée — colle du code avec au moins une méthode.</div></div>'; return; }
+      out.innerHTML='<div class=&quot;field&quot; style=&quot;border-color:rgba(251,191,36,.35)&quot;><div class=&quot;fl&quot; style=&quot;color:var(--warn)&quot;>Dry-run — fichier proposé, pas encore créé</div>'+
+          '<div class=&quot;fv&quot;><b style=&quot;font-family:var(--fm)&quot;>'+esc(g.name)+'</b> · '+g.count+' méthode'+(g.count>1?'s':'')+' détectée'+(g.count>1?'s':'')+' → 2 tests chacune (nominal + cas limite)</div>'+
+          '<div class=&quot;promptbox&quot; style=&quot;color:var(--tp);margin-top:9px;max-height:260px;overflow:auto&quot;>'+esc(g.text)+'</div>'+
+          '<div class=&quot;mbtns&quot; style=&quot;margin-top:12px&quot;><button class=&quot;mbtn run mini&quot; id=&quot;gtConfirm&quot;>✔ Créer '+esc(g.name)+' sur ma branche</button><button class=&quot;mbtn ghost mini&quot; id=&quot;gtCopy&quot;>📋 Copier</button></div></div>';
+      $('gtConfirm').addEventListener('click',function(){ toast('✅ '+g.name+' créé sur ta branche (simulation) — l\'agent a écrit, pas juste répondu'); });
+      $('gtCopy').addEventListener('click',function(){ copy(g.text); toast('📋 Fichier de test copié'); });
+      $('gtOut').scrollIntoView({behavior:'smooth',block:'nearest'});
+      toast('🧪 Tests générés à partir de ton code');
+    });
+    wireFb();
+  }
+
+  function runDelivery(r){
+    var checks=['Branche à jour et mergeable','IMAGE_TAG 1.4.2 → 1.5.0','Overlays Kustomize synchronisés (2 fichiers)','Scan vulnérabilités : aucune critique','Tests : 214 verts'];
+    modal(
+      '<div class=&quot;mh&quot;><span class=&quot;ic&quot;>🚀</span><div style=&quot;flex:1&quot;><h3>Préparer la livraison en préprod</h3>'+
+        '<div style=&quot;font-size:12px;color:var(--deliver);margin-top:2px&quot;>⚙️ agentique · le module Livraison déterministe exécute</div></div><button class=&quot;x&quot; data-close>✕</button></div>'+
+      '<div class=&quot;field&quot; style=&quot;border-color:rgba(251,191,36,.35)&quot;><div class=&quot;fl&quot; style=&quot;color:var(--warn)&quot;>Dry-run — aucune écriture</div><div class=&quot;fv&quot;><b>Rien n\'est commité tant que tu ne confirmes pas.</b></div></div>'+
+      '<div class=&quot;field&quot;><div class=&quot;fl&quot;>Contrôles</div><div class=&quot;fv&quot; style=&quot;padding:0&quot;>'+checks.map(function(c){return '<div class=&quot;chk&quot;><span style=&quot;color:var(--ok)&quot;>✓</span><span>'+esc(c)+'</span></div>';}).join('')+'</div></div>'+
+      '<div class=&quot;mbtns&quot;><button class=&quot;mbtn run&quot; id=&quot;dlv&quot;>✔ Créer la MR de livraison</button><button class=&quot;mbtn ghost&quot; data-close>Annuler</button>'+
+        '<div class=&quot;thumbs&quot;><button class=&quot;thumb&quot; data-fb=&quot;up&quot;>👍</button><button class=&quot;thumb&quot; data-fb=&quot;down&quot;>👎</button></div></div>'+
+      '<div class=&quot;note&quot;>L\'action irréversible (créer la MR) passe par cette confirmation humaine — jamais déclenchée par le modèle.</div>'
+    );
+    var c=$('dlv'); if(c) c.addEventListener('click',function(){ toast('🚀 MR de livraison créée'); closeM(); });
+    wireFb();
+  }
+
+  function promptDetail(r){
+    var vs=vars(r.body);
+    var autoVars=vs.filter(function(v){return AUTOFILL[v];});
+    // bandeau « contexte injecté » : sources réellement utilisées par ce prompt
+    var srcs=[]; autoVars.forEach(function(v){ if(srcs.indexOf(AUTOFILL[v].src)===-1) srcs.push(AUTOFILL[v].src); });
+    var ctxBanner=autoVars.length?
+      '<div class=&quot;ctxbn&quot;>⚡ <b>Contexte injecté depuis ton poste</b> — '+autoVars.length+' variable'+(autoVars.length>1?'s':'')+' déjà remplie'+(autoVars.length>1?'s':'')+', tu n\'as rien à retaper. <span style=&quot;color:var(--tm)&quot;>(ce qu\'un chat nu ne peut pas savoir)</span>'+
+        '<div class=&quot;srcs&quot;>'+srcs.map(function(s){return '<span class=&quot;src&quot;>'+esc(s)+'</span>';}).join('')+'</div></div>':'';
+    var varForm=vs.length?
+      '<div class=&quot;field&quot;><div class=&quot;fl&quot;>✏️ Variables '+(autoVars.length?'<span style=&quot;color:var(--info);font-weight:600;text-transform:none;letter-spacing:0&quot;>— '+autoVars.length+' pré-remplie'+(autoVars.length>1?'s':'')+' par la plateforme</span>':'')+'</div><div class=&quot;varform&quot; id=&quot;vf&quot;>'+
+        vs.map(function(v){var big=/code|diff|texte|requete|story|erreur|contexte/i.test(v);var af=AUTOFILL[v];var val=af?esc(af.val):'';
+          return '<div class=&quot;varrow'+(af?' filled':'')+'&quot;><label>{{'+esc(v)+'}}'+(af?'<span class=&quot;vtag&quot;>⚡ '+esc(af.src)+'</span>':'')+'</label>'+
+            (big?'<textarea rows=&quot;'+(af?'3':'3')+'&quot; data-v=&quot;'+esc(v)+'&quot;>'+val+'</textarea>':'<input data-v=&quot;'+esc(v)+'&quot; value=&quot;'+val+'&quot;>')+'</div>';}).join('')+
+      '</div><div class=&quot;note&quot;>Champs bleutés = injectés du contexte. Tu peux les ajuster ; les autres sont à toi (niveau, cible…).</div></div>':'';
+    var convBlock=CONV[r.id]?
+      '<div class=&quot;field&quot;><div class=&quot;fl&quot;>🏷 Conventions maison <span style=&quot;color:var(--tm);font-weight:600;text-transform:none;letter-spacing:0&quot;>— injectées dans le prompt, jamais retapées</span></div>'+
+        '<div class=&quot;conv&quot;>'+CONV[r.id].map(function(c){return '<span>'+c+'</span>';}).join('')+'</div>'+
+        '<div class=&quot;note&quot;>C\'est ça qui rend la sortie « à ta norme » plutôt que générique. Éditable par un <b>ai-maintainer</b> dans le Studio.</div></div>':'';
+    modal(
+      '<div class=&quot;mh&quot;><span class=&quot;ic&quot;>'+r.ic+'</span><div style=&quot;flex:1&quot;><h3>'+esc(r.title)+'</h3>'+
+        '<div style=&quot;font-size:12px;color:var(--tm);margin-top:2px&quot;><span class=&quot;kindbadge prompt&quot;>💬 Prompt</span> <span class=&quot;lvl '+r.lvl+'&quot;>'+LVL_LABEL[r.lvl]+'</span> · '+esc(r.owner)+' · maj '+r.verified+' · lance une <b style=&quot;color:var(--accent)&quot;>génération</b></div></div>'+
+        '<button class=&quot;x&quot; data-close>✕</button></div>'+
+      ctxBanner+
+      varForm+
+      convBlock+
+      '<div class=&quot;field&quot;><div class=&quot;fl&quot;>📄 Le prompt <span style=&quot;color:var(--tm);font-weight:600;text-transform:none;letter-spacing:0&quot;>— variables + conventions, prêt à partir</span></div><div class=&quot;promptbox&quot; id=&quot;pv&quot;>'+hl(r.body)+'</div></div>'+
+      modelField(r)+
+      '<div id=&quot;promptOut&quot;></div>'+
+      '<div class=&quot;mbtns&quot;><button class=&quot;mbtn go&quot; id=&quot;cf&quot;>▶ Lancer le prompt</button><button class=&quot;mbtn ghost mini&quot; id=&quot;cp&quot;>📋 Copier le prompt</button><button class=&quot;mbtn ghost mini&quot; data-close>Fermer</button>'+
+        '<div class=&quot;thumbs&quot;><button class=&quot;thumb&quot; data-fb=&quot;up&quot;>👍</button><button class=&quot;thumb&quot; data-fb=&quot;down&quot;>👎</button></div></div>'+
+      '<div class=&quot;note&quot;>« Lancer » envoie le prompt (contexte + conventions) à l\'IA de la plateforme et affiche la réponse ici. « Copier » ne sert que si tu préfères le jouer dans ton outil — mais tu perds le contexte injecté. Pour une action qui <b>touche le dépôt</b> (écriture, MR…), c\'est une <b>agent</b>.</div>'
+    );
+    function convSuffix(){ return CONV[r.id]?('\n\n— Conventions maison appliquées : '+CONV[r.id].join(' · ').replace(/&amp;lt;/g,'<').replace(/&amp;gt;/g,'>')):''; }
+    function refresh(){ var vals={}; $('modal').querySelectorAll('[data-v]').forEach(function(i){vals[i.dataset.v]=i.value;}); $('pv').innerHTML=hl(fill(r.body,vals))+(CONV[r.id]?'<span style=&quot;color:var(--deliver);opacity:.8&quot;>'+esc(convSuffix())+'</span>':''); return vals; }
+    $('modal').querySelectorAll('[data-v]').forEach(function(i){ i.addEventListener('input',refresh); });
+    refresh();
+    $('cf').addEventListener('click',function(){ runPrompt(r); });
+    $('cp').addEventListener('click',function(){ var vals=refresh(); copy(fill(r.body,vals)+convSuffix()); toast('📋 Prompt copié (avec conventions)'); });
+    wireFb();
+  }
+
+  function runPrompt(r){
+    var vals={}; $('modal').querySelectorAll('[data-v]').forEach(function(i){vals[i.dataset.v]=i.value;});
+    var missing=vars(r.body).filter(function(v){return !vals[v];});
+    if(missing.length){ toast('Renseigne : '+missing.map(function(m){return '{{'+m+'}}';}).join(', ')); return; }
+    var out=$('promptOut'); r.uses++;
+    var live=r.engine==='analyze';
+    out.innerHTML='<div class=&quot;field&quot; style=&quot;border-color:var(--accent)&quot;><div class=&quot;fl&quot;>▶ '+(live?'Analyse en cours…':'Génération en cours…')+'</div><div class=&quot;fv&quot; style=&quot;color:var(--tm)&quot;>'+(live?'Application des règles de la plateforme au code…':'L\'IA de la plateforme traite le prompt rempli…')+'</div></div>';
+    setTimeout(function(){
+      var bodyHtml, text;
+      if(live){ var a=analyzeCode(vals.code||''); bodyHtml='<div class=&quot;promptbox&quot; style=&quot;color:var(--tp)&quot;>'+a.html+'</div>'; text=a.text; }
+      else {
+        text=ANS[r.id]||'(réponse simulée — maquette)\n\nL\'IA a traité le prompt rempli et te renvoie ici sa réponse.';
+        bodyHtml='<div class=&quot;promptbox&quot; style=&quot;color:var(--tp)&quot;>'+esc(text)+'</div>';
+      }
+      var raw=ANSRAW[r.id];
+      var cmp=raw?'<details class=&quot;cmp&quot;><summary>Comparer : ce qu\'un chat nu aurait répondu</summary>'+
+        '<div class=&quot;rawbox&quot;>'+esc(raw)+'</div>'+
+        '<div class=&quot;delta&quot;>⚠ Sans le contexte de ton dépôt ni tes conventions : réponse générique, à retravailler. Le catalogue part du bon code et de tes standards → utilisable tel quel.</div></details>':'';
+      var fixable=live &amp;&amp; a &amp;&amp; (a.r+a.y)>0;
+      var fixBtn=fixable?'<button class=&quot;mbtn run mini&quot; id=&quot;toFix&quot;>🔧 Corriger avec un agent →</button>':'';
+      out.innerHTML='<div class=&quot;field&quot; style=&quot;border-color:var(--accent)&quot;><div class=&quot;fl&quot;>✅ '+(live?'Analyse du code':'Réponse de l\'IA')+' <span style=&quot;color:var(--tm);font-weight:600;text-transform:none;letter-spacing:0&quot;>— '+(live?'calculée en direct sur ton code':'contexte + conventions appliqués (simulée)')+'</span></div>'+
+        bodyHtml+cmp+
+        '<div class=&quot;mbtns&quot; style=&quot;margin-top:12px&quot;>'+fixBtn+'<button class=&quot;mbtn go mini&quot; id=&quot;copyRes&quot;>📋 Copier le résultat</button><button class=&quot;mbtn ghost mini&quot; id=&quot;relaunch&quot;>↻ Relancer</button>'+
+          '<div class=&quot;thumbs&quot;><button class=&quot;thumb&quot; data-fb2=&quot;up&quot;>👍</button><button class=&quot;thumb&quot; data-fb2=&quot;down&quot;>👎</button></div></div></div>';
+      if(fixable) $('toFix').addEventListener('click',function(){ var code=(($('modal').querySelector('[data-v=&quot;code&quot;]')||{}).value)||vals.code; startFix(code); });
+      $('copyRes').addEventListener('click',function(){ copy(text); toast('📋 Résultat copié'); });
+      $('relaunch').addEventListener('click',function(){ runPrompt(r); });
+      out.querySelectorAll('[data-fb2]').forEach(function(b){b.addEventListener('click',function(){toast(b.dataset.fb2==='up'?'👍 Merci — ça remonte le score':'👎 Noté — corrections = amélioration');});});
+      out.scrollIntoView({behavior:'smooth',block:'nearest'});
+    },520);
+    toast(live?'🔍 Analyse lancée':'▶ Prompt lancé');
+  }
+
+  function wireFb(){ $('modal').querySelectorAll('[data-fb]').forEach(function(b){b.addEventListener('click',function(){toast(b.dataset.fb==='up'?'👍 Merci — ça remonte le score':'👎 Noté — corrections = amélioration');});}); }
+
+  // ═══════════════════════════════════════════════════════════════
+  //  MOTEURS RÉELS (maquette qui marche pour de vrai, pas de canned)
+  //  → calculés côté client à partir du code que tu colles.
+  // ═══════════════════════════════════════════════════════════════
+  function detectLang(c){
+    if(/import java|System\.out|@Override|@Test/.test(c)) return 'java';
+    if(/\b(public|private|protected)\b/.test(c) &amp;&amp; /;\s*$/m.test(c)) return 'java';
+    if(/\bdef\s+\w+\s*\(|^\s*print\s*\(/m.test(c)) return 'python';
+    if(/\bfunction\b|=>|\b(const|let)\b|console\.log|\bexport\b/.test(c)) return 'js';
+    if(/;\s*$/m.test(c) &amp;&amp; /\)\s*\{/.test(c)) return 'java';
+    return 'js';
+  }
+  function extractFns(c,lang){
+    var out=[],m,re;
+    if(lang==='java'){ re=/(?:public|private|protected|static|final|\s)+[\w<>\[\],\s]+?\s+(\w+)\s*\(([^)]*)\)\s*\{/g; }
+    else if(lang==='python'){ re=/def\s+(\w+)\s*\(([^)]*)\)/g; }
+    else { re=/(?:function\s+(\w+)|(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>|(\w+)\s*\(([^)]*)\)\s*\{)/g; }
+    var seen={};
+    while((m=re.exec(c))){ var n=m[1]||m[2]||m[3]; if(n &amp;&amp; !seen[n] &amp;&amp; !/^(if|for|while|switch|catch|return|function)$/.test(n)){ seen[n]=1; out.push({name:n,args:(m[2]||m[4]||'').trim()}); } }
+    return out;
+  }
+  function analyzeCode(code){
+    code=code||'';
+    var lines=code.split('\n'), lang=detectLang(code);
+    var loc=lines.filter(function(l){return l.trim() &amp;&amp; !/^\s*(\/\/|#|\*)/.test(l);}).length;
+    var fns=extractFns(code,lang);
+    var F=[]; // findings {sev,line,msg}
+    lines.forEach(function(l,i){
+      var n=i+1, t=l.trim();
+      if(/\b(TODO|FIXME|XXX)\b/.test(l)) F.push({sev:'y',line:n,msg:'Marqueur '+(l.match(/TODO|FIXME|XXX/)[0])+' laissé dans le code'});
+      if(/console\.log|System\.out\.print|\bprint\s*\(/.test(l)) F.push({sev:'y',line:n,msg:'Trace de debug à retirer'});
+      if(/\.\w+\(\)\.\w+\(\)\.\w+\(/.test(l)) F.push({sev:'r',line:n,msg:'Chaîne d\'appels — risque de NullPointerException (loi de Déméter)'});
+      if(/\breturn\s+null\s*;?\s*$/.test(l)) F.push({sev:'y',line:n,msg:'Retourne null — préférer Optional/exception'});
+      if(/catch\s*\([^)]*\)\s*\{\s*$/.test(l) &amp;&amp; (lines[i+1]||'').trim()==='}' ) F.push({sev:'r',line:n,msg:'Bloc catch vide — erreur avalée'});
+      if(/[^=!<>]==[^=]/.test(l) &amp;&amp; lang==='js') F.push({sev:'y',line:n,msg:'Égalité faible == — préférer ==='});
+      if(/\bnew\s+\w*\(?\s*\d{2,}\b|\*\s*\d{2,}\b|\bmultiply\(new \w+\(\d+/.test(l)) F.push({sev:'y',line:n,msg:'Nombre magique — extraire une constante nommée'});
+      if(l.length>120) F.push({sev:'g',line:n,msg:'Ligne longue ('+l.length+' car.)'});
+    });
+    var depth=0,maxd=0; for(var i=0;i<code.length;i++){ if(code[i]==='{'){depth++;maxd=Math.max(maxd,depth);} else if(code[i]==='}')depth--; }
+    if(maxd>=4) F.push({sev:'y',line:0,msg:'Imbrication profonde ('+maxd+' niveaux) — extraire des méthodes'});
+    if(fns.length &amp;&amp; !/@Test|\btest\w*\(|it\(|describe\(|def test_/.test(code)) F.push({sev:'g',line:0,msg:'Aucun test détecté pour '+fns.length+' fonction'+(fns.length>1?'s':'')});
+    var r=F.filter(function(x){return x.sev==='r';}).length, y=F.filter(function(x){return x.sev==='y';}).length, g=F.filter(function(x){return x.sev==='g';}).length;
+    var score=Math.max(0,100-r*20-y*8-g*3);
+    var SEV={r:['🔴','var(--err)'],y:['🟡','var(--warn)'],g:['🟢','var(--ok)']};
+    var html='<div style=&quot;display:flex;align-items:center;gap:14px;margin-bottom:10px;flex-wrap:wrap&quot;>'+
+      '<div style=&quot;font-family:var(--fd);font-size:26px;font-weight:800;color:'+(score>=80?'var(--ok)':score>=55?'var(--warn)':'var(--err)')+'&quot;>'+score+'<span style=&quot;font-size:14px;color:var(--tm)&quot;>/100</span></div>'+
+      '<div style=&quot;font-size:12px;color:var(--ts)&quot;>'+lang.toUpperCase()+' · '+loc+' LOC · '+fns.length+' fonction'+(fns.length>1?'s':'')+' · <span style=&quot;color:var(--err)&quot;>'+r+' 🔴</span> <span style=&quot;color:var(--warn)&quot;>'+y+' 🟡</span> <span style=&quot;color:var(--ok)&quot;>'+g+' 🟢</span></div></div>';
+    if(!code.trim()) html='<div style=&quot;color:var(--tm)&quot;>Colle du code dans {{code}} pour lancer l\'analyse.</div>';
+    else if(!F.length) html+='<div style=&quot;color:var(--ok)&quot;>✅ Aucun problème détecté par les règles de la plateforme.</div>';
+    else html+=F.sort(function(a,b){return ('ryg'.indexOf(a.sev))-('ryg'.indexOf(b.sev));}).map(function(f){
+      return '<div style=&quot;display:flex;gap:9px;padding:6px 0;border-top:1px solid var(--line);font-size:12.5px&quot;><span>'+SEV[f.sev][0]+'</span>'+
+        (f.line?'<span style=&quot;font-family:var(--fm);color:var(--tm);min-width:34px&quot;>L'+f.line+'</span>':'<span style=&quot;min-width:34px&quot;></span>')+
+        '<span style=&quot;color:var(--ts)&quot;>'+esc(f.msg)+'</span></div>';
+    }).join('');
+    var text='Analyse ('+lang+') — score '+score+'/100 · '+loc+' LOC · '+fns.length+' fonctions\n'+
+      F.map(function(f){return (f.sev==='r'?'[BLOQUANT]':f.sev==='y'?'[ATTENTION]':'[INFO]')+(f.line?' L'+f.line:'')+' — '+f.msg;}).join('\n');
+    return {html:html, text:text, score:score, r:r, y:y, g:g, total:F.length, lang:lang, fns:fns.length};
+  }
+  function genTests(code){
+    code=code||''; var lang=detectLang(code), fns=extractFns(code,lang);
+    if(!fns.length) return {text:'// Aucune fonction détectée dans le code fourni.', name:'—', lang:lang};
+    var cls=(code.match(/class\s+(\w+)/)||[])[1] || 'Unit';
+    var out,name;
+    if(lang==='java'){
+      name=cls+'Test.java';
+      out='import org.junit.jupiter.api.Test;\nimport static org.assertj.core.api.Assertions.*;\n\nclass '+cls+'Test {\n\n'+
+        fns.map(function(f){return '    @Test\n    void '+f.name+'_nominal() {\n        // given\n        // when\n        var result = '+/*  */ 'subject.'+f.name+'(/* '+f.args+' */);\n        // then\n        assertThat(result).isNotNull();\n    }\n\n    @Test\n    void '+f.name+'_casLimite() {\n        // TODO: entrée invalide / limite\n        assertThatThrownBy(() -> subject.'+f.name+'(/* … */)).isInstanceOf(IllegalArgumentException.class);\n    }';}).join('\n\n')+'\n}';
+    } else if(lang==='python'){
+      name='test_'+(cls.toLowerCase())+'.py';
+      out='import pytest\n\n'+fns.map(function(f){return 'def test_'+f.name+'_nominal():\n    # given / when\n    result = '+f.name+'(  )  # '+f.args+'\n    # then\n    assert result is not None\n\n\ndef test_'+f.name+'_cas_limite():\n    with pytest.raises(ValueError):\n        '+f.name+'(  )';}).join('\n\n\n');
+    } else {
+      name=cls.toLowerCase()+'.test.js';
+      out='import { describe, it, expect } from \'vitest\';\n\ndescribe(\''+cls+'\', () => {\n'+
+        fns.map(function(f){return '  it(\''+f.name+' — cas nominal\', () => {\n    const result = '+f.name+'(/* '+f.args+' */);\n    expect(result).toBeDefined();\n  });\n\n  it(\''+f.name+' — cas limite\', () => {\n    expect(() => '+f.name+'(/* … */)).toThrow();\n  });';}).join('\n\n')+'\n});';
+    }
+    return {text:out, name:name, lang:lang, count:fns.length};
+  }
+  function cap(s){return s?s.charAt(0).toUpperCase()+s.slice(1):s;}
+  function methodName(code){ var m=code.match(/(?:public|private|protected|static|final|\s)+[\w<>\[\]]+\s+(\w+)\s*\(|function\s+(\w+)|def\s+(\w+)/); return m?(m[1]||m[2]||m[3]):null; }
+  // Moteur de CORRECTION — dérive un patch réel des problèmes détectés.
+  function proposeFix(code){
+    var lines=(code||'').split('\n'), out=lines.slice(), changes=[], consts=[];
+    var ind=function(s){return (s.match(/^\s*/)||[''])[0];};
+    for(var i=0;i<out.length;i++){
+      var l=out[i];
+      // chaîne d'appels a.b().c().d() -> extraction + garde null (anti-NPE)
+      var ch=l.match(/^(\s*)(?:([\w<>\[\]]+)\s+)?(\w+)\s*=\s*(\w+)\.(\w+)\(\)\.(\w+)\(\)\.(\w+)\(\)\s*;/);
+      if(ch){
+        var sp=ch[1], type=ch[2]||'var', tgt=ch[3], root=ch[4], a=ch[5], bcall=ch[6], ccall=ch[7];
+        var v1=root+cap(a), v2=v1+cap(bcall);
+        var repl=[sp+'var '+v1+' = '+root+'.'+a+'();',
+                  sp+'if ('+v1+' == null) throw new IllegalArgumentException(&quot;'+a+' manquant&quot;);',
+                  sp+'var '+v2+' = '+v1+'.'+bcall+'();',
+                  sp+type+' '+tgt+' = '+v2+'.'+ccall+'();'].join('\n');
+        changes.push({line:i+1,before:l,after:repl,why:'chaîne d\'appels → variables intermédiaires + garde null (anti-NPE)'});
+        out[i]=repl; l=repl;
+      }
+      // nombre magique new X(NN) -> constante nommée (en String pour éviter re-flag)
+      var mg=l.match(/new\s+(\w+)\((\d{2,})\)/);
+      if(mg){
+        var cname='FACTEUR_'+mg[2];
+        consts.push('private static final '+mg[1]+' '+cname+' = new '+mg[1]+'(&quot;'+mg[2]+'&quot;);');
+        out[i]=l.replace(mg[0], cname);
+        changes.push({line:i+1,before:l,after:out[i],why:'nombre magique '+mg[2]+' → constante '+cname});
+        l=out[i];
+      }
+      // return null -> exception explicite
+      if(/^\s*return\s+null\s*;\s*$/.test(l)){
+        out[i]=ind(l)+'throw new IllegalStateException(&quot;valeur indisponible&quot;);';
+        changes.push({line:i+1,before:l,after:out[i],why:'return null → exception explicite'});
+      }
+      // trace de debug -> suppression
+      if(/console\.log|System\.out\.print/.test(l)){
+        changes.push({line:i+1,before:l,after:'(ligne supprimée)',why:'trace de debug retirée'});
+        out[i]='__DEL__';
+      }
+    }
+    out=out.filter(function(x){return x!=='__DEL__';});
+    if(consts.length){
+      var idx=0; for(var k=0;k<out.length;k++){ if(/\b(public|private|protected|function|def)\b/.test(out[k])){idx=k;break;} }
+      var pad=ind(out[idx]||'');
+      out.splice.apply(out,[idx,0].concat(consts.map(function(c){return pad+c;})).concat(['']));
+    }
+    return {patched:out.join('\n'), changes:changes};
+  }
+  function renderDiff(changes){
+    return changes.map(function(c){
+      var bef=c.before.split('\n'), aft=(/supprim/.test(c.after)?[]:c.after.split('\n'));
+      return '<div class=&quot;hunk&quot;><div class=&quot;hwhy&quot;>🔧 '+esc(c.why)+' <span style=&quot;color:var(--tm)&quot;>· L'+c.line+'</span></div>'+
+        bef.map(function(x){return '<div class=&quot;dl del&quot;>- '+esc(x)+'</div>';}).join('')+
+        aft.map(function(x){return '<div class=&quot;dl add&quot;>+ '+esc(x)+'</div>';}).join('')+'</div>';
+    }).join('');
+  }
+  // L\'agent de correction — appelé depuis le résultat d'une analyse (continuité).
+  function startFix(code){
+    var fx=proposeFix(code);
+    if(!fx.changes.length){ toast('Rien d\'automatiquement corrigeable ici'); return; }
+    var before=analyzeCode(code);
+    modal(
+      '<div class=&quot;mh&quot;><span class=&quot;ic&quot;>🔧</span><div style=&quot;flex:1&quot;><h3>Corriger avec un agent</h3>'+
+        '<div style=&quot;font-size:12px;color:var(--deliver);margin-top:2px&quot;>⚙️ agent · déclenché depuis l\'analyse · le LLM oriente, l\'agent écrit</div></div><button class=&quot;x&quot; data-close>✕</button></div>'+
+      '<div class=&quot;ctxbn&quot;>↩ <b>Enchaînement depuis « Analyser ce code »</b> — score actuel <b style=&quot;color:var(--warn)&quot;>'+before.score+'/100</b>, '+before.total+' problème'+(before.total>1?'s':'')+' détecté'+(before.total>1?'s':'')+'. L\'agent propose un patch pour les corriger.</div>'+
+      '<div class=&quot;field&quot;><div class=&quot;fl&quot;>Ce que je corrige ('+fx.changes.length+')</div><div class=&quot;fv&quot;>'+fx.changes.map(function(c){return '• '+esc(c.why);}).join('<br>')+'</div></div>'+
+      '<div class=&quot;field&quot; style=&quot;border-color:rgba(251,191,36,.35)&quot;><div class=&quot;fl&quot; style=&quot;color:var(--warn)&quot;>Patch — dry-run, rien n\'est écrit</div><div id=&quot;diffBox&quot;>'+renderDiff(fx.changes)+'</div></div>'+
+      '<div id=&quot;fixOut&quot;></div>'+
+      '<div class=&quot;mbtns&quot;><button class=&quot;mbtn run&quot; id=&quot;fixGo&quot;>✔ Créer la branche + la MR</button><button class=&quot;mbtn ghost&quot; data-close>Annuler</button></div>'+
+      '<div class=&quot;note&quot;>Écriture uniquement sur une branche dédiée (jamais main). La MR déclenche la CI ; rien n\'est mergé sans revue. Confirmation humaine obligatoire.</div>'
+    );
+    $('fixGo').addEventListener('click',function(){
+      var after=analyzeCode(fx.patched), gt=genTests(fx.patched);
+      var mn=methodName(code)||'auto', branch='fix/'+mn.toLowerCase()+'-hardening';
+      var tests=(gt.count||3)*2;
+      var delta=after.score-before.score;
+      $('fixOut').innerHTML=
+        '<div class=&quot;field&quot; style=&quot;border-color:var(--ok)&quot;><div class=&quot;fl&quot; style=&quot;color:var(--ok)&quot;>✅ Corrigé — preuve</div>'+
+        '<div class=&quot;proof&quot;><div class=&quot;pl2&quot;>🌿 Branche</div><div><b style=&quot;font-family:var(--fm)&quot;>'+esc(branch)+'</b> créée · <b>MR !313</b> ouverte</div>'+
+          '<div class=&quot;pl2&quot;>🧪 Tests</div><div><span style=&quot;color:var(--ok)&quot;>✔ '+tests+' verts</span> (CI relancée sur la MR)</div>'+
+          '<div class=&quot;pl2&quot;>📈 Ré-analyse</div><div>score <b style=&quot;color:var(--warn)&quot;>'+before.score+'</b> → <b style=&quot;color:var(--ok)&quot;>'+after.score+'/100</b> <span style=&quot;color:var(--ok)&quot;>(+'+delta+')</span> · problèmes '+before.total+' → '+after.total+'</div></div>'+
+        '<div class=&quot;mbtns&quot; style=&quot;margin-top:12px&quot;><button class=&quot;mbtn go mini&quot; id=&quot;seeMr&quot;>Voir la MR !313 →</button><button class=&quot;mbtn ghost mini&quot; id=&quot;seeDiff&quot;>📋 Copier le patch</button></div>'+
+        '<div class=&quot;note&quot;>C\'est ça la continuité : un <b>prompt</b> a trouvé le problème, une <b>agent</b> l\'a corrigé sur une branche, et la <b>ré-analyse + les tests</b> le prouvent — sans quitter le catalogue.</div></div>';
+      $('fixGo').disabled=true; $('fixGo').style.opacity=.5;
+      $('seeMr').addEventListener('click',function(){ toast('Ouverture de la MR !313 (maquette)'); });
+      $('seeDiff').addEventListener('click',function(){ copy(fx.patched); toast('📋 Code corrigé copié'); });
+      $('fixOut').scrollIntoView({behavior:'smooth',block:'nearest'});
+      toast('✅ Branche + MR créées, tests verts');
+    });
+    wireFb();
+  }
+
+  // ── Que veux-tu faire (intent → agent OU prompt) ──
+  var EXAMPLES=['analyser du code','générer des tests','préparer la livraison','expliquer ce code','message de commit','optimiser une requête SQL'];
+  function renderChips(){ $('chips').innerHTML=EXAMPLES.map(function(e){return '<span class=&quot;chip&quot; data-ex=&quot;'+e+'&quot;>'+e+'</span>';}).join(''); $('chips').querySelectorAll('[data-ex]').forEach(function(el){el.addEventListener('click',function(){$('ask').value=el.dataset.ex; doAsk();});}); }
+  function match(q){
+    q=q.toLowerCase();
+    var kw=[['migr','migrate-java21'],['java 21','migrate-java21'],['livrai','prep-delivery'],['préprod','prep-delivery'],['deploy','prep-delivery'],['vulnér','analyze-vuln'],['vuln','analyze-vuln'],['secur','analyze-vuln'],['test react','react-tests'],['react','react-tests'],['test','tests-junit'],['analyse du code','analyze-code'],['analyser du code','analyze-code'],['analyse de code','analyze-code'],['analyser le code','analyze-code'],['revue','analyze-code'],['review','review'],['commit','commit'],['message','commit'],['stack','debug'],['trace','debug'],['erreur','debug'],['explique','explain'],['comprendre ce code','explain'],['story','story'],['découpe','story'],['sql','sql'],['requête','sql'],['apprendre','learn'],['concept','learn']];
+    for(var i=0;i<kw.length;i++){ if(q.indexOf(kw[i][0])!==-1){ return R.find(function(r){return r.id===kw[i][1];}); } }
+    return null;
+  }
+  function doAsk(){
+    var q=$('ask').value.trim(); if(!q){ $('intentResult').innerHTML=''; return; }
+    var r=match(q);
+    if(!r){ $('intentResult').innerHTML='<div class=&quot;field&quot; style=&quot;border-style:dashed&quot;><div class=&quot;fv&quot;>Aucune entrée <b>validée</b> pour « '+esc(q)+' ».<br><span style=&quot;color:var(--tm)&quot;>Tu peux en brouillonner une dans le Studio.</span></div></div>'; return; }
+    var isRec=r.kind==='recipe';
+    $('intentResult').innerHTML=
+      '<div class=&quot;field&quot; style=&quot;border-color:'+(isRec?'var(--deliver)':'var(--accent)')+'&quot;><div class=&quot;fl&quot; style=&quot;color:'+(isRec?'var(--deliver)':'var(--accent)')+'&quot;>'+(isRec?'🤖 Agent trouvé — lance un workflow':'📚 Prompt trouvé — lance une génération')+'</div>'+
+      '<div style=&quot;display:flex;align-items:center;gap:12px;flex-wrap:wrap&quot;>'+
+        '<span style=&quot;font-size:22px&quot;>'+r.ic+'</span>'+
+        '<div style=&quot;flex:1;min-width:180px&quot;><div style=&quot;font-family:var(--fd);font-weight:800;font-size:15px&quot;>'+esc(r.title)+'</div>'+
+          '<div style=&quot;font-size:12px;color:var(--ts);margin-top:2px&quot;><span class=&quot;kindbadge '+r.kind+'&quot;>'+(isRec?'⚙️ Agent':'💬 Prompt')+'</span> <span class=&quot;lvl '+r.lvl+'&quot;>'+LVL_LABEL[r.lvl]+'</span></div></div>'+
+        '<button class=&quot;act '+(isRec?'run':'copy')+'&quot; data-act=&quot;'+r.id+'&quot; style=&quot;padding:9px 15px&quot;>'+(isRec?'Lancer →':'▶ Lancer')+'</button>'+
+        '<button class=&quot;mbtn ghost mini&quot; data-open=&quot;'+r.id+'&quot;>Voir la fiche</button>'+
+      '</div></div>';
+    $('intentResult').querySelectorAll('[data-act]').forEach(function(b){b.addEventListener('click',function(){primary(b.dataset.act);});});
+    $('intentResult').querySelectorAll('[data-open]').forEach(function(b){b.addEventListener('click',function(){openDetail(b.dataset.open);});});
+  }
+
+  // ── modale util ──
+  function modal(html){ $('modal').innerHTML=html; $('ov').classList.add('show'); $('modal').querySelectorAll('[data-close]').forEach(function(b){b.addEventListener('click',closeM);}); }
+  function closeM(){ $('ov').classList.remove('show'); }
+  $('ov').addEventListener('click',function(e){ if(e.target===$('ov')) closeM(); });
+
+  // ── Moments : golden path secondaire (langage humain -> bon endroit) ──
+  var MOMENTS=[
+    {ic:'🧩',t:'Je viens d\'écrire du code',d:'L\'analyser &amp; le sécuriser',id:'analyze-code'},
+    {ic:'🧪',t:'Il me faut des tests',d:'Les générer à ma norme',id:'tests-junit'},
+    {ic:'🐞',t:'Quelque chose plante',d:'Comprendre l\'erreur',id:'debug'},
+    {ic:'🚀',t:'Je veux livrer',d:'Préparer la préprod',id:'prep-delivery'},
+    {ic:'✍️',t:'Rédiger un commit',d:'Message + description de MR',id:'commit'},
+    {ic:'🎓',t:'Comprendre / apprendre',d:'Expliquer un bout de code',id:'explain'}
+  ];
+  function renderMoments(){
+    // déterministe : les moments les plus probables (selon score) d'abord
+    var ord=MOMENTS.slice().sort(function(a,b){ return scoreOf(b.id)-scoreOf(a.id); });
+    $('mtiles').innerHTML=ord.map(function(m){ return '<div class=&quot;mtile&quot; data-open=&quot;'+m.id+'&quot;><span class=&quot;mi&quot;>'+m.ic+'</span><div><div class=&quot;mt&quot;>'+esc(m.t)+'</div><div class=&quot;md&quot;>'+esc(m.d)+'</div></div></div>'; }).join('');
+    $('mtiles').querySelectorAll('[data-open]').forEach(function(el){ el.addEventListener('click',function(){ openDetail(el.dataset.open); }); });
+  }
+
+  // ── Recommandation DÉTERMINISTE : calcule ce que tu utilises le plus + ton contexte ──
+  var SIGNALS={ openFile:'PaymentService.java', failedPipeline:'#4821' };  // signaux du poste (maquette)
+  var STEP={ 'debug':['🐞','Comprendre'], 'analyze-code':['🔍','Analyser'], 'tests-junit':['🧪','Tester'], 'commit':['✍️','Commit'], 'prep-delivery':['🚀','Livrer'], 'review':['👀','Revue'] };
+  function usesOf(r){ return (r.usage||r.uses||0); }
+  function scoreDetail(r){
+    var f=[], s=usesOf(r)/900;
+    if(usesOf(r)>=200) f.push(usesOf(r)+' usages');
+    if(r.fav){ s+=0.4; f.push('dans tes favoris'); }
+    if(SIGNALS.failedPipeline &amp;&amp; (r.id==='debug'||r.id==='analyze-code')){ s+=0.7; f.push('pipeline '+SIGNALS.failedPipeline+' en échec'); }
+    if(SIGNALS.openFile &amp;&amp; ['analyze-code','tests-junit','commit','explain','review'].indexOf(r.id)>=0){ s+=0.3; f.push('fichier '+SIGNALS.openFile+' ouvert'); }
+    if(compatible(r)) s+=0.05;
+    return { s:s, f:f };
+  }
+  function scoreOf(id){ var r=R.find(function(x){return x.id===id;}); return r?scoreDetail(r).s:0; }
+  function topPick(){ var best=null,bs=-1; R.forEach(function(r){ var sc=scoreDetail(r).s; if(sc>bs){bs=sc;best=r;} }); return best; }
+  var NEXT={ 'debug':['analyze-code','tests-junit','prep-delivery'], 'analyze-code':['tests-junit','commit','prep-delivery'], 'tests-junit':['commit','prep-delivery'], 'commit':['prep-delivery'], 'review':['tests-junit','commit'], 'prep-delivery':[] };
+  function chainFrom(id){ var c=[id].concat(NEXT[id]||[]); return c.slice(0,4); }
+  function renderForYou(){
+    var top=topPick(), sd=scoreDetail(top), chain=chainFrom(top.id);
+    var ctxClause = (SIGNALS.failedPipeline &amp;&amp; (top.id==='debug'||top.id==='analyze-code'))
+      ? 'Ton pipeline <b>'+SIGNALS.failedPipeline+'</b> a cassé'
+      : 'Tu bosses sur <b>'+esc(SIGNALS.openFile)+'</b>';
+    var reason = ctxClause+' — le plus utile pour toi maintenant : <b>'+esc(top.title)+'</b>.';
+    var steps=chain.map(function(id,i){ var s=STEP[id]||['•',id]; return (i?'<span class=&quot;garrow&quot;>→</span>':'')+'<span class=&quot;gstep&quot;><span class=&quot;n&quot;>'+(i+1)+'</span> '+s[0]+' <b>'+s[1]+'</b></span>'; }).join('');
+    $('gpath').innerHTML=
+      '<div class=&quot;gp-eyebrow&quot;>✨ Pour toi · recommandation déterministe</div>'+
+      '<h2>'+reason+'</h2>'+
+      '<p>Calculé à partir de <b>tes usages</b>, <b>tes favoris</b> et <b>ton contexte</b> (fichier ouvert, pipeline) — pas d\'IA qui devine : une reco transparente, que tu peux ignorer.</p>'+
+      '<div class=&quot;gsteps&quot;>'+steps+'</div>'+
+      '<button class=&quot;gcta&quot; id=&quot;gstart&quot;>▶ '+(top.kind==='recipe'?'Lancer':'Lancer')+' : '+esc(top.title)+'</button>'+
+      '<button class=&quot;gchain-cta&quot; id=&quot;gchain&quot;>Suivre tout le chemin →</button>'+
+      '<button class=&quot;gwhy&quot; id=&quot;gwhy&quot;>pourquoi ?</button>'+
+      '<div class=&quot;gp-note&quot; id=&quot;gwhyd&quot; style=&quot;display:none&quot;>Retenu parce que : '+sd.f.join(' · ')+'. C\'est le score le plus élevé du moment (popularité + contexte + favoris). Tout se recalcule quand tes usages changent.</div>';
+    $('gstart').addEventListener('click',function(){ openDetail(top.id); });
+    $('gchain').addEventListener('click',function(){ openDetail(chain[0]); toast('Chemin : '+chain.map(function(id){return (STEP[id]||['',id])[1];}).join(' → ')); });
+    $('gwhy').addEventListener('click',function(){ var d=$('gwhyd'); d.style.display=d.style.display==='none'?'':'none'; });
+  }
+
+  // ── wiring ──
+  $('askGo').addEventListener('click',doAsk);
+  $('ask').addEventListener('keydown',function(e){ if(e.key==='Enter') doAsk(); });
+  $('kindSeg').querySelectorAll('[data-k]').forEach(function(b){ b.addEventListener('click',function(){ fKind=b.dataset.k; $('kindSeg').querySelectorAll('button').forEach(function(x){x.classList.remove('on');}); b.classList.add('on'); renderGrid(); }); });
+  $('ctxOnly').addEventListener('change',function(){ ctxOnly=this.checked; renderGrid(); });
+  $('favOnly').addEventListener('change',function(){ favOnly=this.checked; renderGrid(); });
+
+  // ── 3 vues : Guidé (golden path) · Catalogue complet (comme avant) · Favoris ──
+  var view='guided';
+  function renderSuggest(){
+    // l'IA suggère (l'utilisateur confirme) : entrées très utilisées, pas encore en favori
+    var sug=R.filter(function(r){ return !r.fav &amp;&amp; (r.usage||r.uses||0)>=300; })
+            .sort(function(a,b){ return (b.usage||b.uses||0)-(a.usage||a.uses||0); }).slice(0,3);
+    if(!sug.length){ $('suggest').innerHTML=''; return; }
+    $('suggest').innerHTML='<span class=&quot;sg-t&quot;>💡 L\'IA suggère :</span>'+sug.map(function(r){ return '<span class=&quot;sg&quot; data-add=&quot;'+r.id+'&quot;>'+r.ic+' <b>'+esc(r.title)+'</b> <span style=&quot;color:var(--tm)&quot;>· '+(r.usage||r.uses)+'× · ＋ ajouter</span></span>'; }).join('');
+    $('suggest').querySelectorAll('[data-add]').forEach(function(el){ el.addEventListener('click',function(){ toggleFav(el.dataset.add); }); });
+  }
+  function applyView(){
+    favMode=(view==='favoris');
+    $('modeSeg').querySelectorAll('[data-m]').forEach(function(b){ b.classList.toggle('on', b.dataset.m===view); });
+    $('landing').style.display=(view==='guided')?'':'none';
+    $('favWrap').style.display=(view==='favoris')?'':'none';
+    var full=(view==='full'||view==='favoris');
+    $('browse').style.display=full?'':'none';
+    var tb=document.querySelector('#browse .toolbar'); if(tb) tb.style.display=(view==='favoris')?'none':'';
+    if(view==='favoris') renderSuggest();
+    renderGrid();
+  }
+  function setView(v){ view=v; applyView(); }
+  $('modeSeg').querySelectorAll('[data-m]').forEach(function(b){ b.addEventListener('click',function(){ setView(b.dataset.m); }); });
+
+  // pilotage externe (onglets du fichier démo) + deep-link
+  window.addEventListener('message',function(e){ if(e.data &amp;&amp; e.data.mode) setView(e.data.mode==='favoris'?'favoris':'guided'); });
+  function favFromHash(){ if((location.hash||'')==='#favoris') setView('favoris'); }
+  window.addEventListener('hashchange',favFromHash);
+
+  renderChips(); renderTags(); renderForYou(); renderMoments();
+  applyView(); favFromHash();
+})();
+</script>
+<script>(function(){document.addEventListener('click',function(e){var a=e.target.closest('[data-go]');if(a){e.preventDefault();parent.postMessage({go:a.dataset.go,hash:a.dataset.hash||''},'*');}});})();</script></body>
+</html>
+"></iframe>
+   <iframe id="f-studio" allow="clipboard-read; clipboard-write" srcdoc="<!DOCTYPE html>
+<html lang=&quot;fr&quot; data-theme=&quot;dark&quot;>
+<head>
+<meta charset=&quot;UTF-8&quot;>
+<meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;>
+<title>Studio ai-maintainer — écrire &amp;amp; gouverner les agents (maquette)</title>
+<link rel=&quot;icon&quot; href=&quot;data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛠️</text></svg>&quot;>
+<link rel=&quot;preconnect&quot; href=&quot;https://fonts.googleapis.com&quot;>
+<link href=&quot;https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&amp;family=Manrope:wght@400;500;600;700&amp;display=swap&quot; rel=&quot;stylesheet&quot;>
+<style>
+:root{
+  --bg-deep:#0f0a1f; --bg-card:rgba(28,20,50,.55); --bg-card-h:rgba(40,28,70,.7);
+  --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.16);
+  --tp:#f5f1ff; --ts:#b8aed8; --tm:#7a6fa3;
+  --accent:#a78bfa; --deliver:#2dd4bf; --info:#60a5fa; --warn:#fbbf24; --err:#f87171; --ok:#34d399;
+  --fd:'Bricolage Grotesque',system-ui,sans-serif; --fb:'Manrope',system-ui,sans-serif; --fm:ui-monospace,'SF Mono',Menlo,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-font-smoothing:antialiased}
+body{font-family:var(--fb);background:var(--bg-deep);color:var(--tp);min-height:100vh;overflow-x:hidden;padding:0 0 70px}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(60% 50% at 10% 0%,rgba(124,92,252,.16),transparent),radial-gradient(50% 40% at 92% 6%,rgba(45,212,191,.10),transparent)}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px;position:relative;z-index:1}
+header{display:flex;align-items:center;gap:15px;padding:24px 0 6px;flex-wrap:wrap}
+.logo{width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--deliver));display:grid;place-items:center;font-size:24px}
+header h1{font-family:var(--fd);font-size:23px;font-weight:800;letter-spacing:-.02em}
+header .sub{font-size:12.5px;color:var(--ts);margin-top:1px}
+.role-pill{margin-left:auto;display:flex;align-items:center;gap:8px;background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);border-radius:12px;padding:8px 13px;font-size:12px;color:var(--ok);font-weight:700}
+.nav{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 2px;font-size:12.5px}
+.nav a{color:var(--ts);text-decoration:none;background:var(--bg-card);border:1px solid var(--line);border-radius:20px;padding:6px 13px}
+.nav a.on{color:var(--tp);border-color:var(--accent);background:rgba(124,92,252,.12)}
+
+.intro{font-size:13px;color:var(--ts);line-height:1.55;margin:14px 0 4px;max-width:780px}
+.intro b{color:var(--tp)}
+
+/* Toolbar */
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:18px 0 14px}
+.seg{display:flex;gap:4px;background:var(--bg-card);border:1px solid var(--line);border-radius:12px;padding:4px}
+.seg button{font-family:var(--fb);font-size:12.5px;font-weight:700;color:var(--ts);background:transparent;border:none;border-radius:9px;padding:7px 13px;cursor:pointer}
+.seg button.on{background:rgba(124,92,252,.2);color:var(--tp)}
+.newbtn{margin-left:auto;font-family:var(--fb);font-weight:800;font-size:13px;color:#0f0a1f;background:linear-gradient(135deg,var(--accent),var(--deliver));border:none;border-radius:11px;padding:10px 16px;cursor:pointer}
+
+/* List */
+.list{display:flex;flex-direction:column;gap:10px}
+.row{display:flex;align-items:center;gap:13px;border:1px solid var(--line);border-radius:14px;background:var(--bg-card);padding:14px 16px;cursor:pointer;transition:.15s}
+.row:hover{border-color:var(--line2);background:var(--bg-card-h)}
+.row .ic{font-size:22px}
+.row .main{flex:1;min-width:0}
+.row .ti{font-family:var(--fd);font-weight:800;font-size:15px}
+.row .meta{font-size:11.5px;color:var(--tm);margin-top:2px}
+.kind{font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:3px 8px;border-radius:6px;white-space:nowrap}
+.kind.recipe{color:var(--deliver);background:rgba(45,212,191,.1);border:1px solid rgba(45,212,191,.3)}
+.kind.prompt{color:var(--accent);background:rgba(124,92,252,.1);border:1px solid rgba(124,92,252,.3)}
+.status{font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:3px 9px;border-radius:20px;white-space:nowrap}
+.status.published{color:var(--ok);background:rgba(52,211,153,.14);border:1px solid rgba(52,211,153,.35)}
+.status.review{color:var(--warn);background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.35)}
+.status.draft{color:var(--tm);background:rgba(255,255,255,.04);border:1px solid var(--line2)}
+.status.deprecated{color:var(--err);background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3)}
+.row .health{font-size:11px;color:var(--ts);text-align:right;white-space:nowrap}
+.row .health b{color:var(--tp)}
+.flag{color:var(--warn)}
+
+/* Editor */
+.editor{display:none}
+.editor.show{display:block}
+.back{all:unset;cursor:pointer;color:var(--ts);font-size:13px;font-weight:700;margin:6px 0 4px;display:inline-flex;gap:6px;align-items:center}
+.ehead{display:flex;align-items:flex-start;gap:13px;margin:8px 0 4px;flex-wrap:wrap}
+.ehead .ic{font-size:30px}
+.ehead h2{font-family:var(--fd);font-size:21px;font-weight:800}
+.ehead .sub{font-size:12px;color:var(--tm);margin-top:3px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start;margin-top:14px}
+@media(max-width:860px){.grid2{grid-template-columns:1fr}}
+.panel{border:1px solid var(--line);border-radius:14px;background:var(--bg-card);padding:16px 18px}
+.panel + .panel{margin-top:14px}
+.pl{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);margin-bottom:9px;display:flex;align-items:center;gap:8px}
+.pl .hint{color:var(--tm);font-weight:600;text-transform:none;letter-spacing:0;font-size:11px}
+input.tin,textarea.tin,select.tin{font-family:var(--fb);font-size:13.5px;color:var(--tp);background:rgba(10,7,22,.6);border:1px solid var(--line2);border-radius:10px;padding:11px 13px;outline:none;width:100%}
+textarea.tin{font-family:var(--fm);font-size:12.5px;line-height:1.65;resize:vertical;min-height:150px}
+input.tin:focus,textarea.tin:focus,select.tin:focus{border-color:var(--accent)}
+.detected{font-size:11.5px;color:var(--ts);margin-top:8px}
+.detected .v{color:var(--deliver);font-family:var(--fm)}
+.toolrow{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
+.toolrow:first-of-type{border-top:none}
+.toolrow .tn{flex:1;font-size:13px;color:var(--ts)}
+.toolrow select{width:auto;font-size:12px;padding:6px 9px}
+.perm-read{color:var(--ts)} .perm-write{color:var(--warn)} .perm-danger{color:var(--err)}
+.crit{display:flex;align-items:center;gap:9px;padding:7px 0;border-top:1px solid var(--line);font-size:13px;color:var(--ts)}
+.crit:first-of-type{border-top:none}
+.crit .del{all:unset;cursor:pointer;color:var(--tm);font-size:14px;margin-left:auto}
+.addline{display:flex;gap:8px;margin-top:9px}
+.addline input{flex:1}
+.addline button{font-family:var(--fb);font-weight:700;font-size:12px;color:var(--ts);background:rgba(255,255,255,.05);border:1px solid var(--line2);border-radius:9px;padding:0 13px;cursor:pointer}
+.mini{font-size:11px;color:var(--tm);margin-top:9px;line-height:1.5}
+
+/* right rail */
+.gov .step{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--tm);padding:5px 0}
+.gov .step.done{color:var(--ok)} .gov .step.cur{color:var(--tp);font-weight:700}
+.gov .dot{width:9px;height:9px;border-radius:50%;background:var(--line2)}
+.gov .step.done .dot{background:var(--ok)} .gov .step.cur .dot{background:var(--warn)}
+.govbtns{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.gb{font-family:var(--fb);font-weight:800;font-size:13px;border-radius:10px;padding:11px 14px;cursor:pointer;border:none;text-align:center}
+.gb.go{color:#0f0a1f;background:linear-gradient(135deg,var(--accent),var(--deliver))}
+.gb.warn{color:var(--warn);background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.35)}
+.gb.ghost{color:var(--ts);background:rgba(255,255,255,.05);border:1px solid var(--line2)}
+.metric{display:flex;justify-content:space-between;font-size:12.5px;color:var(--ts);padding:6px 0;border-top:1px solid var(--line)}
+.metric:first-of-type{border-top:none}
+.metric b{color:var(--tp)}
+.ver{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--ts);padding:7px 0;border-top:1px solid var(--line)}
+.ver:first-of-type{border-top:none}
+.ver .vn{font-family:var(--fm);color:var(--tp);font-weight:700}
+.ver .vd{color:var(--tm)}
+.ver .rb{all:unset;cursor:pointer;color:var(--accent);font-size:11px;margin-left:auto}
+.testout{margin-top:10px;border:1px solid var(--line);border-radius:10px;background:rgba(10,7,22,.5);padding:12px 14px;font-size:12.5px;color:var(--ts);line-height:1.6;display:none}
+.testout.show{display:block}
+.testout .ck{color:var(--ok)}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:99;background:rgba(40,28,70,.97);color:var(--tp);font-weight:700;font-size:13px;padding:11px 18px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.4);opacity:0;transition:.3s;pointer-events:none}
+.toast.show{opacity:1}
+.empty{color:var(--tm);font-size:13px;text-align:center;padding:30px}
+</style>
+</head>
+<body>
+<div class=&quot;wrap&quot;>
+  <header>
+    <div class=&quot;logo&quot;>🛠️</div>
+    <div>
+      <h1>Studio <span style=&quot;color:var(--accent)&quot;>ai-maintainer</span></h1>
+      <div class=&quot;sub&quot;>Écrire, tester, gouverner et versionner les agents &amp;amp; prompts officiels</div>
+    </div>
+    <div class=&quot;role-pill&quot;>🔒 ai-maintainer · accès restreint</div>
+  </header>
+
+  <div class=&quot;nav&quot;>
+    <a href=&quot;#&quot; data-go=&quot;catalogue&quot;>🧰 Catalogue</a>
+    <a href=&quot;#&quot; class=&quot;on&quot;>🛠️ Studio</a>
+    <a href=&quot;#&quot; data-go=&quot;metrics&quot;>📊 Admin</a>
+  </div>
+
+  <p class=&quot;intro&quot;>Le prompt brut n'est <b>jamais</b> exposé aux utilisateurs — il vit ici. Le Studio est le seul endroit où l'on <b>écrit la spécification</b>, où l'on <b>déclare les outils autorisés</b> et les <b>critères de validation</b>, où l'on <b>teste</b> avant publication, et où chaque <b>version</b> est tracée. Réservé au rôle <b>ai-maintainer</b> (Staff AI Enablement).</p>
+
+  <!-- LISTE -->
+  <div id=&quot;listView&quot;>
+    <div class=&quot;toolbar&quot;>
+      <div class=&quot;seg&quot; id=&quot;statusSeg&quot;>
+        <button data-st=&quot;&quot; class=&quot;on&quot;>Tout</button>
+        <button data-st=&quot;published&quot;>🟢 Publiés</button>
+        <button data-st=&quot;review&quot;>🟡 En revue</button>
+        <button data-st=&quot;draft&quot;>Brouillons</button>
+      </div>
+      <button class=&quot;newbtn&quot; id=&quot;newBtn&quot;>＋ Nouvel agent / prompt</button>
+    </div>
+    <div class=&quot;list&quot; id=&quot;list&quot;></div>
+  </div>
+
+  <!-- EDITEUR -->
+  <div class=&quot;editor&quot; id=&quot;editView&quot;></div>
+</div>
+
+<div class=&quot;toast&quot; id=&quot;toast&quot;></div>
+
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id);};
+  function esc(s){return String(s==null?'':s).replace(/&amp;/g,'&amp;amp;').replace(/</g,'&amp;lt;').replace(/>/g,'&amp;gt;');}
+  function toast(m){ var t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._x); t._x=setTimeout(function(){t.classList.remove('show');},2300); }
+  function vars(b){ var m,re=/\{\{\s*([\wÀ-ÿ][\wÀ-ÿ .-]*?)\s*\}\}/g,seen=[]; while((m=re.exec(b))){var n=m[1].trim(); if(seen.indexOf(n)===-1)seen.push(n);} return seen; }
+  function hl(b){ return esc(b).replace(/\{\{\s*([\wÀ-ÿ][\wÀ-ÿ .-]*?)\s*\}\}/g,'<span class=&quot;v&quot;>{{$1}}</span>'); }
+
+  var STATUS_LABEL={published:'Publié',review:'En revue',draft:'Brouillon',deprecated:'Déprécié'};
+  var PERM={read:'👁 Lecture',write:'✏️ Écriture',danger:'⛔ Sensible'};
+
+  // ── Données (agents + prompts gouvernés) ──
+  var A=[
+    {id:'prep-delivery', kind:'recipe', ic:'🚀', title:'Préparer la livraison en préprod', status:'published', version:5, owner:'Plateforme', updated:'20 mai 2026',
+      spec:'Tu orientes une livraison en préproduction. Tu N\'EXÉCUTES PAS les écritures : le module Livraison déterministe le fait après confirmation humaine.\n\nÀ partir du dépôt {{repo}} (stack {{stack}}) :\n1. vérifie que la branche est à jour et mergeable\n2. propose le bump IMAGE_TAG et la synchro des overlays Kustomize\n3. déclenche le scan de vulnérabilités et la vérif des tests\n4. rédige l\'explication des changements pour la MR\n\nRends un plan clair ; rien n\'est écrit sans « ✔ Confirmer ».',
+      tools:[['Vérifier la branche','read'],['Bump IMAGE_TAG + overlays','write'],['Scanner vulnérabilités','read'],['Vérifier les tests','read'],['Créer la MR','write']],
+      security:['Le LLM oriente ; l\'écriture passe par le module Livraison.','Dry-run obligatoire, confirmation humaine avant toute écriture.'],
+      criteria:['Branche à jour et mergeable','Kustomize cohérent avec IMAGE_TAG','Aucune vuln critique','Tests verts'],
+      metrics:{uses:480,success:95,humanFix:5,saved:'~30 min'},
+      versions:[[5,'20 mai 2026','durcissement du dry-run'],[4,'2 mai 2026','ajout scan vuln'],[3,'12 avr. 2026','overlays Kustomize']]},
+    {id:'migrate-java21', kind:'recipe', ic:'🚚', title:'Préparer une migration Spring → Java 21', status:'review', version:2, owner:'Archi', updated:'28 avr. 2026',
+      spec:'Prépare une migration vers le JDK {{jdk_cible}} pour un projet Spring Boot.\n\nProduis un plan + une branche avec les changements mécaniques (API dépréciées, records, pattern matching). Écriture UNIQUEMENT sur une branche dédiée, jamais sur main.\n\nCode / contexte :\n{{contexte}}',
+      tools:[['Lire le dépôt','read'],['Créer une branche + patch (dry-run)','write']],
+      security:['Écriture sur branche dédiée seulement.','Revue humaine obligatoire avant merge.'],
+      criteria:['Le projet compile en JDK 21','Aucune API supprimée résiduelle','Tests existants toujours verts'],
+      metrics:{uses:56,success:74,humanFix:30,saved:'~2 h'},
+      versions:[[2,'28 avr. 2026','pattern matching'],[1,'2 avr. 2026','version initiale']]},
+    {id:'tests-junit', kind:'prompt', ic:'🧪', title:'Générer des tests unitaires', status:'published', version:3, owner:'Archi', updated:'12 mai 2026',
+      spec:'Écris des tests unitaires en {{langage}} (framework {{framework}}) pour le code ci-dessous.\n\nCouvre le cas nominal, les cas limites, les entrées invalides. Un test par comportement, nommage explicite. Pas de test tautologique.\n\nCode :\n{{code}}',
+      tools:[['Lire le dépôt','read'],['Exécuter la suite de tests','read']],
+      security:['Lecture seule. Aucun secret transmis au modèle.'],
+      criteria:['Les tests compilent','Les tests passent','Couverture de la classe cible > 70 %'],
+      metrics:{uses:640,success:88,humanFix:12,saved:'~25 min'},
+      versions:[[3,'12 mai 2026','cas limites renforcés'],[2,'20 avr. 2026','nommage'],[1,'1 avr. 2026','initial']]},
+    {id:'refacto-legacy', kind:'prompt', ic:'🧹', title:'Refactorer une classe legacy', status:'review', version:1, owner:'Tribu Core', updated:'30 avr. 2026',
+      spec:'Propose un refactoring à comportement identique de ce code : extrais les responsabilités, réduis la complexité, garde la signature publique. Propose un diff ciblé, pas une réécriture. Liste les risques.\n\nCode :\n{{code}}',
+      tools:[['Lire le dépôt','read'],['Proposer un patch (l\'humain applique)','read']],
+      security:['Propose un diff ; n\'écrit rien.'],
+      criteria:['Comportement inchangé (tests verts)','Complexité réduite'],
+      metrics:{uses:130,success:70,humanFix:35,saved:'~45 min'},
+      versions:[[1,'30 avr. 2026','brouillon initial']]},
+    {id:'regex-sql', kind:'prompt', ic:'🔤', title:'Générer une regex / une requête SQL', status:'review', version:1, owner:'—', updated:'25 mai 2026',
+      spec:'À partir d\'une description en langage naturel, produis une expression régulière ({{saveur}}) OU une requête SQL ({{sgbd}}).\n\nDonne la sortie, une explication token par token, et un cas limite à tester avant usage.\n\nBesoin :\n{{besoin}}',
+      tools:[['Aucun (génération de texte)','read']],
+      security:['Expérimental — sortie à vérifier avant tout usage en production.'],
+      criteria:['Testée sur au moins un exemple par l\'utilisateur','Explication fournie'],
+      metrics:{uses:45,success:60,humanFix:40,saved:'~10 min'},
+      versions:[[1,'25 mai 2026','brouillon expérimental — réussite faible, à retravailler']]},
+    {id:'oncall-summary', kind:'prompt', ic:'🌙', title:'Résumer un incident d\'astreinte', status:'draft', version:1, owner:'marie.d', updated:'aujourd\'hui',
+      spec:'À partir des logs et de la timeline, rédige un post-mortem court : impact, cause racine probable, actions correctives. Ton factuel, pas de blâme.\n\nÉléments :\n{{timeline}}',
+      tools:[['Aucun (génération de texte)','read']],
+      security:['Rappel : caviarder les données sensibles avant de coller.'],
+      criteria:['Impact chiffré','Cause plausible','Actions actionnables'],
+      metrics:{uses:0,success:0,humanFix:0,saved:'—'},
+      versions:[[1,'aujourd\'hui','brouillon']]}
+  ];
+
+  var fStatus='';
+
+  function healthFlag(a){ return (a.metrics.uses>20 &amp;&amp; (a.metrics.success<75 || a.metrics.humanFix>30)); }
+
+  function renderList(){
+    var list=A.filter(function(a){ return !fStatus || a.status===fStatus; });
+    $('list').innerHTML = list.length ? list.map(function(a){
+      var flag=healthFlag(a);
+      return '<div class=&quot;row&quot; data-id=&quot;'+a.id+'&quot;>'+
+        '<span class=&quot;ic&quot;>'+a.ic+'</span>'+
+        '<div class=&quot;main&quot;><div class=&quot;ti&quot;>'+esc(a.title)+'</div>'+
+          '<div class=&quot;meta&quot;>'+esc(a.owner)+' · v'+a.version+' · maj '+a.updated+' · '+vars(a.spec).length+' variables'+(a.kind==='recipe'?' · '+a.tools.length+' outils':'')+'</div></div>'+
+        '<span class=&quot;kind '+a.kind+'&quot;>'+(a.kind==='recipe'?'⚙️ agent':'💬 prompt')+'</span>'+
+        '<span class=&quot;status '+a.status+'&quot;>'+STATUS_LABEL[a.status]+'</span>'+
+        '<div class=&quot;health&quot;>'+(a.metrics.uses?('<b>'+a.metrics.success+'%</b> réussite'+(flag?'<br><span class=&quot;flag&quot;>⚠ à améliorer</span>':'')):'<span style=&quot;color:var(--tm)&quot;>jamais utilisé</span>')+'</div>'+
+      '</div>';
+    }).join('') : '<div class=&quot;empty&quot;>Rien dans ce statut.</div>';
+    $('list').querySelectorAll('.row').forEach(function(el){ el.addEventListener('click',function(){ openEditor(el.dataset.id); }); });
+  }
+
+  // ── Éditeur ──
+  var cur=null;
+  function openEditor(id){
+    cur=A.find(function(x){return x.id===id;}); if(!cur) return;
+    $('listView').style.display='none'; $('editView').classList.add('show');
+    var a=cur;
+    var steps=['draft','review','published'];
+    var si=steps.indexOf(a.status==='deprecated'?'published':a.status);
+    var govSteps=[['Brouillon',0],['En revue',1],['Publié (officiel)',2]].map(function(s){
+      var cls=s[1]<si?'done':s[1]===si?'cur':''; return '<div class=&quot;step '+cls+'&quot;><span class=&quot;dot&quot;></span>'+s[0]+'</div>';
+    }).join('');
+    var govBtns = a.status==='draft'
+        ? '<button class=&quot;gb go&quot; data-act=&quot;review&quot;>Soumettre à revue →</button>'
+      : a.status==='review'
+        ? '<button class=&quot;gb go&quot; data-act=&quot;publish&quot;>🟢 Publier (officiel)</button><button class=&quot;gb ghost&quot; data-act=&quot;draft&quot;>← Renvoyer en brouillon</button>'
+      : '<button class=&quot;gb go&quot; data-act=&quot;version&quot;>＋ Publier une nouvelle version</button><button class=&quot;gb warn&quot; data-act=&quot;deprecate&quot;>Déprécier</button>';
+
+    $('editView').innerHTML =
+      '<button class=&quot;back&quot; id=&quot;backBtn&quot;>← Retour à la liste</button>'+
+      '<div class=&quot;ehead&quot;><span class=&quot;ic&quot;>'+a.ic+'</span><div style=&quot;flex:1&quot;><h2>'+esc(a.title)+'</h2>'+
+        '<div class=&quot;sub&quot;><span class=&quot;kind '+a.kind+'&quot;>'+(a.kind==='recipe'?'⚙️ agent':'💬 prompt')+'</span><span class=&quot;status '+a.status+'&quot;>'+STATUS_LABEL[a.status]+'</span> · v'+a.version+' · '+esc(a.owner)+'</div></div></div>'+
+      '<div class=&quot;grid2&quot;><div>'+
+        '<div class=&quot;panel&quot;><div class=&quot;pl&quot;>🎯 Intention <span class=&quot;hint&quot;>— ce que voit l\'utilisateur</span></div><input class=&quot;tin&quot; id=&quot;e_title&quot; value=&quot;'+esc(a.title)+'&quot;></div>'+
+        '<div class=&quot;panel&quot;><div class=&quot;pl&quot;>📄 Prompt / spécification <span class=&quot;hint&quot;>— masqué aux utilisateurs, éditable ici</span></div>'+
+          '<textarea class=&quot;tin&quot; id=&quot;e_spec&quot;>'+esc(a.spec)+'</textarea>'+
+          '<div class=&quot;detected&quot; id=&quot;e_detected&quot;></div></div>'+
+        (a.kind==='recipe'?
+        '<div class=&quot;panel&quot;><div class=&quot;pl&quot;>🛠 Outils autorisés (allowlist) <span class=&quot;hint&quot;>— appliquée à l\'exécution</span></div><div id=&quot;e_tools&quot;>'+
+          a.tools.map(function(t,i){ return '<div class=&quot;toolrow&quot;><span class=&quot;tn&quot;>'+esc(t[0])+'</span>'+
+            '<select class=&quot;tin&quot; data-tool=&quot;'+i+'&quot;>'+Object.keys(PERM).map(function(k){return '<option value=&quot;'+k+'&quot;'+(t[1]===k?' selected':'')+'>'+PERM[k]+'</option>';}).join('')+'</select></div>'; }).join('')+
+          '</div><div class=&quot;mini&quot;>Un agent ne peut jamais faire plus que son allowlist. Toute action <span class=&quot;perm-write&quot;>✏️ écriture</span> exige une confirmation humaine (dry-run).</div></div>' : '')+
+        '<div class=&quot;panel&quot;><div class=&quot;pl&quot;>🔒 Règles de sécurité</div><div id=&quot;e_sec&quot;>'+
+          a.security.map(function(s,i){return '<div class=&quot;crit&quot;><span>🔒</span><span>'+esc(s)+'</span><button class=&quot;del&quot; data-delsec=&quot;'+i+'&quot;>✕</button></div>';}).join('')+'</div>'+
+          '<div class=&quot;addline&quot;><input class=&quot;tin&quot; id=&quot;e_secnew&quot; placeholder=&quot;ajouter une règle…&quot;><button id=&quot;e_secadd&quot;>Ajouter</button></div></div>'+
+        '<div class=&quot;panel&quot;><div class=&quot;pl&quot;>✅ Critères de validation <span class=&quot;hint&quot;>— vérifiés après exécution</span></div><div id=&quot;e_crit&quot;>'+
+          a.criteria.map(function(c,i){return '<div class=&quot;crit&quot;><span>☑</span><span>'+esc(c)+'</span><button class=&quot;del&quot; data-delcrit=&quot;'+i+'&quot;>✕</button></div>';}).join('')+'</div>'+
+          '<div class=&quot;addline&quot;><input class=&quot;tin&quot; id=&quot;e_critnew&quot; placeholder=&quot;ajouter un critère vérifiable…&quot;><button id=&quot;e_critadd&quot;>Ajouter</button></div></div>'+
+        '<div class=&quot;panel&quot;><div class=&quot;pl&quot;>🧪 Banc d\'essai <span class=&quot;hint&quot;>— tester avant de publier</span></div>'+
+          '<textarea class=&quot;tin&quot; id=&quot;e_sample&quot; style=&quot;min-height:80px&quot; placeholder=&quot;colle un exemple d\'entrée (code, diff, story…)&quot;></textarea>'+
+          '<div class=&quot;addline&quot;><button id=&quot;e_run&quot; style=&quot;background:rgba(124,92,252,.15);border-color:var(--accent);color:var(--tp)&quot;>▶ Tester (simulation)</button></div>'+
+          '<div class=&quot;testout&quot; id=&quot;e_testout&quot;></div></div>'+
+      '</div><div>'+
+        '<div class=&quot;panel gov&quot;><div class=&quot;pl&quot;>🚦 Gouvernance</div>'+govSteps+'<div class=&quot;govbtns&quot;>'+govBtns+'</div>'+
+          '<div class=&quot;mini&quot;>Seul un <b>ai-maintainer</b> peut publier. La publication rend l\'agent visible dans le catalogue en niveau <b>Officiel</b>.</div></div>'+
+        '<div class=&quot;panel&quot;><div class=&quot;pl&quot;>📊 Métriques (lecture seule)</div>'+
+          '<div class=&quot;metric&quot;><span>Usages</span><b>'+a.metrics.uses+'</b></div>'+
+          '<div class=&quot;metric&quot;><span>Réussite</span><b style=&quot;color:'+(a.metrics.success>=85?'var(--ok)':a.metrics.success>=70?'var(--warn)':'var(--err)')+'&quot;>'+a.metrics.success+'%</b></div>'+
+          '<div class=&quot;metric&quot;><span>Corrigés à la main</span><b>'+a.metrics.humanFix+'%</b></div>'+
+          '<div class=&quot;metric&quot;><span>Temps gagné (est.)</span><b>'+a.metrics.saved+'</b></div>'+
+          (healthFlag(a)?'<div class=&quot;mini&quot; style=&quot;color:var(--warn)&quot;>⚠ Réussite basse / corrections fréquentes → candidate à une nouvelle version.</div>':'')+'</div>'+
+        '<div class=&quot;panel&quot;><div class=&quot;pl&quot;>🕘 Versions</div><div id=&quot;e_vers&quot;>'+
+          a.versions.map(function(v,i){return '<div class=&quot;ver&quot;><span class=&quot;vn&quot;>v'+v[0]+'</span><span class=&quot;vd&quot;>'+esc(v[1])+' — '+esc(v[2])+'</span>'+(i>0?'<button class=&quot;rb&quot; data-roll=&quot;'+v[0]+'&quot;>rollback</button>':'')+'</div>';}).join('')+'</div></div>'+
+      '</div></div>';
+
+    // wiring
+    $('backBtn').addEventListener('click',backToList);
+    function detect(){ var vs=vars($('e_spec').value); $('e_detected').innerHTML=vs.length?'Variables : '+vs.map(function(v){return '<span class=&quot;v&quot;>{{'+esc(v)+'}}</span>';}).join(', '):'<span style=&quot;color:var(--tm)&quot;>Aucune variable.</span>'; }
+    $('e_spec').addEventListener('input',detect); detect();
+    // tools
+    $('editView').querySelectorAll('[data-tool]').forEach(function(s){ s.addEventListener('change',function(){ a.tools[+s.dataset.tool][1]=s.value; toast('Permission mise à jour (brouillon local)'); }); });
+    // security add/del
+    $('e_secadd')&amp;&amp;$('e_secadd').addEventListener('click',function(){ var v=$('e_secnew').value.trim(); if(!v)return; a.security.push(v); openEditor(a.id); });
+    $('editView').querySelectorAll('[data-delsec]').forEach(function(b){ b.addEventListener('click',function(){ a.security.splice(+b.dataset.delsec,1); openEditor(a.id); }); });
+    // criteria add/del
+    $('e_critadd').addEventListener('click',function(){ var v=$('e_critnew').value.trim(); if(!v)return; a.criteria.push(v); openEditor(a.id); });
+    $('editView').querySelectorAll('[data-delcrit]').forEach(function(b){ b.addEventListener('click',function(){ a.criteria.splice(+b.dataset.delcrit,1); openEditor(a.id); }); });
+    // title/spec persist on the fly
+    $('e_title').addEventListener('input',function(){ a.title=$('e_title').value; });
+    $('e_spec').addEventListener('input',function(){ a.spec=$('e_spec').value; });
+    // test bench
+    $('e_run').addEventListener('click',function(){
+      var s=$('e_sample').value.trim();
+      var out=$('e_testout'); out.classList.add('show');
+      out.innerHTML='<div style=&quot;color:var(--tp);font-weight:700;margin-bottom:6px&quot;>Sortie simulée (maquette)</div>'+
+        (s?'Le prompt a été appliqué à ton exemple avec le contexte injecté.':'<span style=&quot;color:var(--warn)&quot;>Astuce : colle un exemple pour un test plus réaliste.</span>')+
+        '<div style=&quot;margin-top:9px;border-top:1px solid var(--line);padding-top:8px&quot;>Vérification automatique des critères :</div>'+
+        a.criteria.map(function(c){return '<div style=&quot;margin-top:4px&quot;><span class=&quot;ck&quot;>✓</span> '+esc(c)+'</div>';}).join('')+
+        '<div class=&quot;mini&quot;>En vrai : l\'agent tournerait en dry-run contre l\'exemple, puis les critères seraient évalués avant tout OK.</div>';
+      toast('🧪 Test simulé — critères passés');
+    });
+    // rollback
+    $('editView').querySelectorAll('[data-roll]').forEach(function(b){ b.addEventListener('click',function(){ toast('↩ Rollback vers v'+b.dataset.roll+' (simulation)'); }); });
+    // governance
+    $('editView').querySelectorAll('[data-act]').forEach(function(b){ b.addEventListener('click',function(){ gov(a,b.dataset.act); }); });
+  }
+
+  function gov(a,act){
+    if(act==='review'){ a.status='review'; toast('🟡 Soumis à revue'); }
+    else if(act==='draft'){ a.status='draft'; toast('Renvoyé en brouillon'); }
+    else if(act==='publish'){ a.status='published'; a.updated='aujourd\'hui'; toast('🟢 Publié en Officiel — visible dans le catalogue'); }
+    else if(act==='deprecate'){ a.status='deprecated'; toast('Agent déprécié'); }
+    else if(act==='version'){ a.version++; a.versions.unshift([a.version,'aujourd\'hui','nouvelle version']); toast('＋ Version v'+a.version+' publiée'); }
+    openEditor(a.id);
+  }
+
+  function backToList(){ $('editView').classList.remove('show'); $('editView').innerHTML=''; $('listView').style.display=''; renderList(); cur=null; }
+
+  function newAsset(){
+    var id='new-'+Date.now();
+    A.unshift({id:id,kind:'prompt',ic:'✨',title:'Nouveau prompt',status:'draft',version:1,owner:'marie.d',updated:'aujourd\'hui',
+      spec:'Décris l\'intention, puis insère des variables {{comme_ça}}.\n\n{{entrée}}',
+      tools:[['Aucun (génération de texte)','read']],security:['Rappel : ne pas coller de secret.'],criteria:['Résultat conforme à l\'attendu'],
+      metrics:{uses:0,success:0,humanFix:0,saved:'—'},versions:[[1,'aujourd\'hui','brouillon']]});
+    openEditor(id);
+  }
+
+  // wiring global
+  $('statusSeg').querySelectorAll('[data-st]').forEach(function(b){ b.addEventListener('click',function(){ fStatus=b.dataset.st; $('statusSeg').querySelectorAll('button').forEach(function(x){x.classList.remove('on');}); b.classList.add('on'); renderList(); }); });
+  $('newBtn').addEventListener('click',newAsset);
+  renderList();
+
+  // deep-link : #<id> ouvre directement l'éditeur (ex. depuis Métriques → « Ouvrir dans le Studio »)
+  function openFromHash(){ var h=(location.hash||'').replace('#',''); if(h &amp;&amp; A.find(function(x){return x.id===h;})) openEditor(h); }
+  window.addEventListener('hashchange',openFromHash);
+  openFromHash();
+})();
+</script>
+<script>(function(){document.addEventListener('click',function(e){var a=e.target.closest('[data-go]');if(a){e.preventDefault();parent.postMessage({go:a.dataset.go,hash:a.dataset.hash||''},'*');}});})();</script></body>
+</html>
+"></iframe>
+   <iframe id="f-metrics" allow="clipboard-read; clipboard-write" srcdoc="<!DOCTYPE html>
+<html lang=&quot;fr&quot; data-theme=&quot;dark&quot;>
+<head>
+<meta charset=&quot;UTF-8&quot;>
+<meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;>
+<title>Admin — tableau de bord, parc &amp;amp; validation (maquette)</title>
+<link rel=&quot;icon&quot; href=&quot;data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛠️</text></svg>&quot;>
+<link rel=&quot;preconnect&quot; href=&quot;https://fonts.googleapis.com&quot;>
+<link href=&quot;https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&amp;family=Manrope:wght@400;500;600;700&amp;display=swap&quot; rel=&quot;stylesheet&quot;>
+<style>
+:root{
+  --bg-deep:#0f0a1f; --bg-card:rgba(28,20,50,.55); --bg-card-h:rgba(40,28,70,.7);
+  --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.16);
+  --tp:#f5f1ff; --ts:#b8aed8; --tm:#7a6fa3;
+  --accent:#a78bfa; --deliver:#2dd4bf; --info:#60a5fa; --warn:#fbbf24; --err:#f87171; --ok:#34d399;
+  --fd:'Bricolage Grotesque',system-ui,sans-serif; --fb:'Manrope',system-ui,sans-serif; --fm:ui-monospace,'SF Mono',Menlo,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-font-smoothing:antialiased}
+body{font-family:var(--fb);background:var(--bg-deep);color:var(--tp);min-height:100vh;overflow-x:hidden;padding:0 0 70px}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(60% 50% at 10% 0%,rgba(124,92,252,.16),transparent),radial-gradient(50% 40% at 92% 6%,rgba(45,212,191,.10),transparent)}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px;position:relative;z-index:1}
+header{display:flex;align-items:center;gap:15px;padding:24px 0 6px;flex-wrap:wrap}
+.logo{width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--deliver));display:grid;place-items:center;font-size:24px}
+header h1{font-family:var(--fd);font-size:23px;font-weight:800;letter-spacing:-.02em}
+header .sub{font-size:12.5px;color:var(--ts);margin-top:1px}
+.nav{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 2px;font-size:12.5px}
+.nav a{color:var(--ts);text-decoration:none;background:var(--bg-card);border:1px solid var(--line);border-radius:20px;padding:6px 13px}
+.nav a.on{color:var(--tp);border-color:var(--accent);background:rgba(124,92,252,.12)}
+
+/* sous-onglets */
+.subtabs{display:inline-flex;gap:5px;background:var(--bg-card);border:1px solid var(--line2);border-radius:13px;padding:5px;margin:18px 0 6px}
+.subtabs button{font-family:var(--fb);font-weight:800;font-size:13.5px;color:var(--ts);background:transparent;border:none;border-radius:10px;padding:9px 15px;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:7px}
+.subtabs button:hover{color:var(--tp)}
+.subtabs button.on{background:rgba(124,92,252,.22);color:var(--tp)}
+.subtabs .cnt{font-size:11px;font-weight:800;color:#0f0a1f;background:var(--warn);border-radius:20px;padding:1px 7px}
+[hidden]{display:none!important}
+.vintro{font-size:13px;color:var(--ts);line-height:1.55;margin:6px 0 4px;max-width:800px}
+.vintro b{color:var(--tp)}
+
+.period{display:inline-flex;gap:4px;background:var(--bg-card);border:1px solid var(--line);border-radius:12px;padding:4px;margin:6px 0 2px}
+.period button{font-family:var(--fb);font-size:12px;font-weight:700;color:var(--ts);background:transparent;border:none;border-radius:9px;padding:7px 12px;cursor:pointer}
+.period button.on{background:rgba(124,92,252,.2);color:var(--tp)}
+
+/* ═══ Tableau de bord ═══ */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:14px;margin:14px 0}
+.kpi{border:1px solid var(--line);border-radius:16px;background:var(--bg-card);padding:16px 18px}
+.kpi .k{font-size:11.5px;color:var(--ts);display:flex;align-items:center;gap:6px}
+.kpi .val{font-family:var(--fd);font-size:28px;font-weight:800;margin-top:6px;letter-spacing:-.02em}
+.kpi .tr{font-size:11.5px;margin-top:4px;color:var(--tm)}
+.kpi .tr.up{color:var(--ok)} .kpi .tr.down{color:var(--err)}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:820px){.cols{grid-template-columns:1fr}}
+.panel{border:1px solid var(--line);border-radius:16px;background:var(--bg-card);padding:17px 19px;margin-bottom:16px}
+.panel h3{font-family:var(--fd);font-size:15px;font-weight:800;margin-bottom:3px}
+.panel .cap{font-size:11.5px;color:var(--tm);margin-bottom:14px}
+.bars{display:flex;flex-direction:column;gap:11px}
+.bar{display:grid;grid-template-columns:150px 1fr 46px;align-items:center;gap:11px;font-size:12.5px}
+.bar .lbl{color:var(--ts);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar .track{height:9px;border-radius:6px;background:rgba(255,255,255,.05);overflow:hidden}
+.bar .fill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--accent),var(--deliver))}
+.bar .num{text-align:right;color:var(--tp);font-weight:700;font-size:12px}
+.sbar .fill.ok{background:linear-gradient(90deg,#2dd4bf,#34d399)}
+.sbar .fill.warn{background:linear-gradient(90deg,#fbbf24,#f0a92c)}
+.sbar .fill.err{background:linear-gradient(90deg,#f87171,#ef5350)}
+.trend{width:100%;height:150px}
+.trend .grid-l{stroke:var(--line);stroke-width:1}
+.trend .area{fill:url(#g);opacity:.5}
+.trend .ln{fill:none;stroke:var(--deliver);stroke-width:2.5}
+.trend .dot{fill:var(--deliver)}
+.xlab{display:flex;justify-content:space-between;font-size:10.5px;color:var(--tm);margin-top:4px}
+.donutwrap{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.leg{display:flex;flex-direction:column;gap:8px;font-size:12.5px}
+.leg .li{display:flex;align-items:center;gap:8px;color:var(--ts)}
+.leg .sw{width:11px;height:11px;border-radius:3px}
+.leg b{color:var(--tp)}
+.imp{display:flex;flex-direction:column;gap:9px}
+.imp .it{display:flex;align-items:center;gap:11px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.02);padding:11px 13px}
+.imp .ic{font-size:19px}
+.imp .mn{flex:1;min-width:0}
+.imp .mt{font-family:var(--fd);font-weight:700;font-size:13.5px}
+.imp .ms{font-size:11.5px;color:var(--warn);margin-top:2px}
+.imp .lnk{all:unset;cursor:pointer;font-size:11.5px;font-weight:800;color:#0f0a1f;background:linear-gradient(135deg,var(--accent),var(--deliver));border-radius:9px;padding:7px 11px;white-space:nowrap}
+.imp .why{font-size:11px;color:var(--tm);text-align:right;white-space:nowrap}
+.loop{border:1px dashed var(--line2);border-radius:14px;background:rgba(45,212,191,.04);padding:15px 17px;font-size:12.5px;color:var(--ts);line-height:1.6}
+.loop b{color:var(--tp)}
+.loop .flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--tp);font-weight:700}
+.loop .flow span{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:20px;padding:5px 11px}
+.loop .flow .ar{background:none;border:none;color:var(--tm);padding:0}
+.mtable{display:flex;flex-direction:column;gap:1px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.mrow{display:grid;grid-template-columns:1.4fr 1fr 34px 1fr;gap:8px;align-items:center;padding:9px 11px;background:var(--bg-card);font-size:12px}
+.mrow.head{background:rgba(255,255,255,.03);color:var(--tm);font-weight:700;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em}
+.mrow .tk{color:var(--ts);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mtag{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap;display:inline-block}
+.m-nano{color:#9ca3af;background:rgba(156,163,175,.12)} .m-small{color:var(--ok);background:rgba(52,211,153,.12)}
+.m-mid{color:var(--info);background:rgba(96,165,250,.12)} .m-large{color:var(--warn);background:rgba(251,191,36,.12)}
+.mrow .arr{color:var(--tm);text-align:center}
+.mrow .save{font-weight:800;font-size:11.5px}
+.save.pos{color:var(--ok)} .save.zero{color:var(--tm)}
+.savecallout{border:1px solid rgba(52,211,153,.3);background:rgba(52,211,153,.06);border-radius:11px;padding:11px 14px;font-size:12.5px;color:var(--ts);margin-bottom:11px;line-height:1.5}
+.savecallout b{color:var(--ok)}
+
+/* ═══ Le parc (gestion) ═══ */
+.summary{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 4px}
+.sm{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:12px;background:var(--bg-card);padding:9px 14px;font-size:13px;color:var(--ts)}
+.sm b{font-family:var(--fd);font-size:17px;color:var(--tp)}
+.sm .d{width:9px;height:9px;border-radius:50%}
+.d-actif{background:var(--ok)} .d-desactive{background:var(--tm)} .d-brouillon{background:var(--line2)} .d-revue{background:var(--warn)}
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:16px 0 12px}
+.search{flex:1;min-width:200px;font-family:var(--fb);font-size:13.5px;color:var(--tp);background:rgba(10,7,22,.6);border:1px solid var(--line2);border-radius:11px;padding:11px 14px;outline:none}
+.search:focus{border-color:var(--accent)}
+.seg{display:flex;gap:4px;background:var(--bg-card);border:1px solid var(--line);border-radius:11px;padding:4px}
+.seg button{font-family:var(--fb);font-size:12.5px;font-weight:700;color:var(--ts);background:transparent;border:none;border-radius:8px;padding:8px 13px;cursor:pointer}
+.seg button.on{background:rgba(124,92,252,.2);color:var(--tp)}
+.stsel{font-family:var(--fb);font-size:12.5px;font-weight:700;color:var(--tp);background:rgba(10,7,22,.6);border:1px solid var(--line2);border-radius:11px;padding:9px 12px;outline:none;cursor:pointer}
+.tbl{border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.thead,.trow{display:grid;grid-template-columns:2.4fr 90px 110px 96px 70px 210px;gap:10px;align-items:center;padding:12px 15px}
+.thead{background:rgba(255,255,255,.03);color:var(--tm);font-weight:700;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em}
+.trow{border-top:1px solid var(--line);font-size:13px}
+.trow:hover{background:rgba(255,255,255,.02)}
+.trow.off{opacity:.55}
+.nm{display:flex;align-items:center;gap:10px;min-width:0}
+.nm .ic{font-size:19px}
+.nm .t{font-weight:700;color:var(--tp);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nm .o{font-size:11px;color:var(--tm)}
+.kb{font-size:10px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;padding:3px 8px;border-radius:6px;white-space:nowrap;display:inline-block}
+.kb.agent{color:var(--deliver);background:rgba(45,212,191,.12);border:1px solid rgba(45,212,191,.3)}
+.kb.prompt{color:var(--accent);background:rgba(124,92,252,.12);border:1px solid rgba(124,92,252,.3)}
+.st{font-size:10.5px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;padding:3px 9px;border-radius:20px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+.st .d{width:7px;height:7px;border-radius:50%}
+.st.actif{color:var(--ok);background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.32)}
+.st.desactive{color:var(--tm);background:rgba(255,255,255,.04);border:1px solid var(--line2)}
+.st.brouillon{color:var(--ts);background:rgba(255,255,255,.04);border:1px solid var(--line2)}
+.st.revue{color:var(--warn);background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.32)}
+.health b{font-weight:800}
+.health .flag{font-size:10px;color:var(--warn);display:block;margin-top:1px}
+.uses{color:var(--ts);font-size:12.5px}
+.acts{display:flex;gap:7px;justify-content:flex-end;flex-wrap:wrap}
+.btn{font-family:var(--fb);font-weight:800;font-size:11.5px;border-radius:8px;padding:7px 11px;cursor:pointer;border:none;white-space:nowrap}
+.btn.off{color:var(--warn);background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.32)}
+.btn.on{color:#0f0a1f;background:linear-gradient(135deg,var(--accent),var(--deliver))}
+.btn.ghost{color:var(--ts);background:rgba(255,255,255,.05);border:1px solid var(--line2)}
+.btn.pub{color:#0f0a1f;background:linear-gradient(135deg,#2dd4bf,#34d399)}
+.empty{color:var(--tm);font-size:13px;text-align:center;padding:26px}
+@media(max-width:860px){
+  .thead,.trow{grid-template-columns:2fr 96px 110px}
+  .thead .h3,.thead .h4,.thead .h5,.trow .c3,.trow .c4,.trow .c5{display:none}
+}
+
+/* ═══ À valider ═══ */
+.policy{border:1px dashed var(--line2);border-radius:12px;background:rgba(255,255,255,.02);padding:13px 15px;font-size:12.5px;color:var(--ts);line-height:1.6;margin:8px 0 16px}
+.policy b{color:var(--tp)}
+.badge{font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:20px;white-space:nowrap}
+.b-write{color:var(--warn);background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.35)}
+.b-read{color:var(--ts);background:rgba(255,255,255,.05);border:1px solid var(--line)}
+.qrow{border:1px solid var(--line);border-radius:13px;background:rgba(255,255,255,.02);padding:14px 16px;margin-bottom:10px}
+.qrow .top{display:flex;align-items:center;gap:11px;flex-wrap:wrap}
+.qrow .ti{font-family:var(--fd);font-weight:700;font-size:14px}
+.qrow .sc{font-size:11.5px;color:var(--tm);margin-left:auto}
+.appr{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.ap{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--ts);border-top:1px solid var(--line);padding-top:9px}
+.ap:first-child{border-top:none;padding-top:0}
+.ap .apst{width:20px;text-align:center}
+.ap .rl{flex:1}.ap .rl b{color:var(--tp)}
+.ap .who{color:var(--tm);font-size:11.5px}
+.apbtn{font-family:var(--fb);font-weight:800;font-size:12px;color:#0f0a1f;background:linear-gradient(135deg,var(--accent),var(--deliver));border:none;border-radius:9px;padding:7px 12px;cursor:pointer}
+.apbtn.done{background:rgba(52,211,153,.15);color:var(--ok);cursor:default}
+.qstatus{font-size:12px;font-weight:700;margin-top:11px;padding:9px 12px;border-radius:10px}
+.qs-block{color:var(--warn);background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.3)}
+.qs-ready{color:var(--ok);background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.3)}
+.genbtn{font-family:var(--fb);font-weight:800;font-size:13px;color:#0f0a1f;background:linear-gradient(135deg,#2dd4bf,#34d399);border:none;border-radius:11px;padding:11px 18px;cursor:pointer}
+.mini{font-size:11px;color:var(--tm);margin-top:9px;line-height:1.5}
+
+/* ═══ Journal d'audit ═══ */
+.jfilter{font-size:11.5px;color:var(--tm);margin:8px 0 10px}
+.jtable{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.jhead,.jrow{display:grid;grid-template-columns:120px 1fr 70px 90px 1.1fr;gap:10px;padding:10px 13px;align-items:center;font-size:12px}
+.jhead{background:rgba(255,255,255,.03);color:var(--tm);font-weight:700;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em}
+.jrow{border-top:1px solid var(--line);cursor:pointer}
+.jrow:hover{background:rgba(255,255,255,.02)}
+.jrow .rc{color:var(--tp);font-weight:600}
+.jrow .jwho{color:var(--ts)}
+.jmodel{font-size:10px;font-weight:700;padding:2px 6px;border-radius:5px;background:rgba(96,165,250,.12);color:var(--info)}
+.tool{font-size:10.5px;border-radius:6px;padding:2px 7px;margin:0 3px 3px 0;display:inline-block}
+.tool.read{color:var(--ts);background:rgba(255,255,255,.05);border:1px solid var(--line)}
+.tool.write{color:var(--warn);background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3)}
+.jdetail{grid-column:1/-1;border-top:1px dashed var(--line);margin-top:9px;padding-top:10px;font-size:12px;color:var(--ts);line-height:1.6;display:none}
+.jrow.open .jdetail{display:block}
+.jdetail .dl{color:var(--tm);font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.03em;margin:8px 0 3px}
+.proof{color:var(--ok)}
+@media(max-width:820px){.jhead,.jrow{grid-template-columns:100px 1fr 60px}.jhead .h3,.jhead .h4,.jhead .h5,.jrow .c3,.jrow .c4,.jrow .c5{display:none}}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:99;background:rgba(40,28,70,.97);color:var(--tp);font-weight:700;font-size:13px;padding:11px 18px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.4);opacity:0;transition:.3s;pointer-events:none}
+.toast.show{opacity:1}
+.spotlight{outline:3px solid var(--accent)!important;outline-offset:4px;border-radius:14px;animation:spotpulse 1.2s ease-in-out infinite;scroll-margin:90px}
+@keyframes spotpulse{0%,100%{box-shadow:0 0 0 0 rgba(167,139,250,.55)}50%{box-shadow:0 0 0 12px rgba(167,139,250,0)}}
+</style>
+</head>
+<body>
+<div class=&quot;wrap&quot;>
+  <header>
+    <div class=&quot;logo&quot;>🛠️</div>
+    <div>
+      <h1>Admin</h1>
+      <div class=&quot;sub&quot;>Piloter ton parc IA — chiffres, gestion &amp;amp; validations</div>
+    </div>
+  </header>
+
+  <div class=&quot;nav&quot;>
+    <a href=&quot;#&quot; data-go=&quot;catalogue&quot;>🧰 Catalogue</a>
+    <a href=&quot;#&quot; data-go=&quot;studio&quot;>🛠️ Studio</a>
+    <a href=&quot;#&quot; class=&quot;on&quot;>📊 Admin</a>
+  </div>
+
+  <div class=&quot;subtabs&quot; id=&quot;subtabs&quot;>
+    <button data-v=&quot;dash&quot; class=&quot;on&quot;>📊 Tableau de bord</button>
+    <button data-v=&quot;parc&quot;>🗂️ Le parc</button>
+    <button data-v=&quot;valider&quot;>✅ À valider <span class=&quot;cnt&quot; id=&quot;validCnt&quot; hidden></span></button>
+    <button data-v=&quot;journal&quot;>📜 Journal</button>
+  </div>
+
+  <!-- ══════════ VUE 1 : TABLEAU DE BORD ══════════ -->
+  <div id=&quot;view-dash&quot;>
+    <div style=&quot;display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:6px&quot;>
+      <div class=&quot;vintro&quot; style=&quot;flex:1;min-width:220px;margin:0&quot;>Adoption, réussite et <b>coûts</b> de l'IA à l'échelle de LCL.</div>
+      <div class=&quot;period&quot; id=&quot;period&quot;><button data-p=&quot;7&quot;>7 j</button><button data-p=&quot;30&quot; class=&quot;on&quot;>30 j</button><button data-p=&quot;90&quot;>90 j</button></div>
+    </div>
+    <div class=&quot;kpis&quot; id=&quot;kpis&quot;></div>
+    <div class=&quot;cols&quot;>
+      <div class=&quot;panel&quot;><h3>Adoption dans le temps</h3><div class=&quot;cap&quot;>Exécutions d'agents + usages de prompts, par semaine.</div>
+        <svg class=&quot;trend&quot; id=&quot;trend&quot; viewBox=&quot;0 0 520 150&quot; preserveAspectRatio=&quot;none&quot;><defs><linearGradient id=&quot;g&quot; x1=&quot;0&quot; y1=&quot;0&quot; x2=&quot;0&quot; y2=&quot;1&quot;><stop offset=&quot;0&quot; stop-color=&quot;#2dd4bf&quot; stop-opacity=&quot;.5&quot;/><stop offset=&quot;1&quot; stop-color=&quot;#2dd4bf&quot; stop-opacity=&quot;0&quot;/></linearGradient></defs></svg>
+        <div class=&quot;xlab&quot; id=&quot;xlab&quot;></div></div>
+      <div class=&quot;panel&quot;><h3>Répartition par niveau</h3><div class=&quot;cap&quot;>Part des usages selon la gouvernance de l'agent/prompt.</div>
+        <div class=&quot;donutwrap&quot;><svg width=&quot;140&quot; height=&quot;140&quot; viewBox=&quot;0 0 42 42&quot; id=&quot;donut&quot;></svg><div class=&quot;leg&quot; id=&quot;donutLeg&quot;></div></div></div>
+    </div>
+    <div class=&quot;cols&quot;>
+      <div class=&quot;panel&quot;><h3>Les plus utilisés</h3><div class=&quot;cap&quot;>Top agents &amp;amp; prompts par nombre d'usages.</div><div class=&quot;bars&quot; id=&quot;topUse&quot;></div></div>
+      <div class=&quot;panel&quot;><h3>Taux de réussite</h3><div class=&quot;cap&quot;>Part des exécutions validées sans correction humaine.</div><div class=&quot;bars sbar&quot; id=&quot;successBars&quot;></div></div>
+    </div>
+    <div class=&quot;panel&quot;><h3>⚠ À améliorer <span style=&quot;font-weight:600;color:var(--tm);font-size:12px&quot;>— faible réussite ou corrections fréquentes</span></h3>
+      <div class=&quot;cap&quot;>Les agents candidats à une nouvelle version. Un clic ouvre le Studio.</div><div class=&quot;imp&quot; id=&quot;improve&quot;></div></div>
+    <div class=&quot;panel&quot;><h3>💰 Coûts &amp;amp; efficience <span style=&quot;font-weight:600;color:var(--tm);font-size:12px&quot;>— FinOps IA (simulation)</span></h3>
+      <div class=&quot;cap&quot;>Ce que l'IA coûte, et où l'argent est bien (ou mal) dépensé.</div>
+      <div class=&quot;kpis&quot; id=&quot;costKpis&quot; style=&quot;margin:0 0 18px&quot;></div>
+      <div class=&quot;cols&quot;>
+        <div><h3 style=&quot;font-size:14px&quot;>Coût par équipe</h3><div class=&quot;cap&quot;>Dépense IA sur la période, par tribu.</div><div class=&quot;bars&quot; id=&quot;teamCost&quot;></div>
+          <h3 style=&quot;font-size:14px;margin-top:18px&quot;>Reprise humaine par équipe</h3><div class=&quot;cap&quot;>Part des résultats retravaillés à la main.</div><div class=&quot;bars sbar&quot; id=&quot;teamRework&quot;></div></div>
+        <div><h3 style=&quot;font-size:14px&quot;>Modèle optimal par tâche</h3><div class=&quot;cap&quot;>Le bon modèle pour la difficulté : trop gros = gaspillage.</div><div id=&quot;modelSaving&quot;></div><div class=&quot;mtable&quot; id=&quot;modelTable&quot;></div></div>
+      </div></div>
+    <div class=&quot;panel&quot;><h3>🔁 Boucle d'apprentissage</h3><div class=&quot;loop&quot;>Chaque exécution laisse une trace : <b>réussite</b>, <b>correction humaine</b>, <b>👍/👎</b>. Ces signaux nourrissent les scores et font remonter ce qu'il faut améliorer.
+      <div class=&quot;flow&quot;><span>Usage</span><span class=&quot;ar&quot;>→</span><span>Signal 👍/👎</span><span class=&quot;ar&quot;>→</span><span>Score</span><span class=&quot;ar&quot;>→</span><span>À améliorer</span><span class=&quot;ar&quot;>→</span><span>Studio : nouvelle version</span><span class=&quot;ar&quot;>↺</span></div></div></div>
+  </div>
+
+  <!-- ══════════ VUE 2 : LE PARC (gestion) ══════════ -->
+  <div id=&quot;view-parc&quot; hidden>
+    <p class=&quot;vintro&quot;>Tout ton parc, à plat. Vois le <b>statut</b> de chaque agent &amp;amp; prompt et <b>active / désactive</b> en un clic. Un prompt qui déraille ? Tu le coupes. Pour éditer le contenu → le Studio.</p>
+    <div class=&quot;summary&quot; id=&quot;summary&quot;></div>
+    <div class=&quot;toolbar&quot;>
+      <input class=&quot;search&quot; id=&quot;search&quot; placeholder=&quot;rechercher un agent ou un prompt…&quot; autocomplete=&quot;off&quot;>
+      <div class=&quot;seg&quot; id=&quot;kindSeg&quot;><button data-k=&quot;&quot; class=&quot;on&quot;>Tout</button><button data-k=&quot;agent&quot;>🤖 Agents</button><button data-k=&quot;prompt&quot;>📚 Prompts</button></div>
+      <select class=&quot;stsel&quot; id=&quot;stSel&quot;><option value=&quot;&quot;>Tous les statuts</option><option value=&quot;actif&quot;>Actif</option><option value=&quot;desactive&quot;>Désactivé</option><option value=&quot;revue&quot;>En revue</option><option value=&quot;brouillon&quot;>Brouillon</option></select>
+    </div>
+    <div class=&quot;tbl&quot;>
+      <div class=&quot;thead&quot;><span>Nom</span><span>Type</span><span>Statut</span><span class=&quot;h3&quot;>Santé</span><span class=&quot;h4&quot;>Usages</span><span class=&quot;h5&quot;>Actions</span></div>
+      <div id=&quot;rows&quot;></div>
+    </div>
+  </div>
+
+  <!-- ══════════ VUE 3 : À VALIDER ══════════ -->
+  <div id=&quot;view-valider&quot; hidden>
+    <p class=&quot;vintro&quot;>Le <b>sas</b> avant qu'un agent devienne officiel. Rien qui <b>écrit</b> (branche, MR, fichier) n'est publié sans <b>double validation</b> — c'est ce qui débloque le « oui » du risque.</p>
+    <div class=&quot;policy&quot;>
+      <b>Agent en lecture seule</b> → 1 validation <b>ai-maintainer</b>.<br>
+      <b>Agent capable d'écrire</b> → <b>double validation</b> : 1 <b>ai-maintainer</b> (qualité) + 1 <b>Owner de périmètre</b> (accepte le risque) + une <b>revue sécurité</b>. Tant que tout n'est pas signé, l'agent reste bloqué.
+    </div>
+    <div id=&quot;queue&quot;></div>
+  </div>
+
+  <!-- ══════════ VUE 4 : JOURNAL D'AUDIT ══════════ -->
+  <div id=&quot;view-journal&quot; hidden>
+    <p class=&quot;vintro&quot;>La <b>preuve</b> pour le risque &amp;amp; le RSSI : qui a lancé quoi, quand, avec quel modèle, le contexte injecté, les outils appelés et le <b>résultat prouvé</b>. Immuable, exportable. <span style=&quot;color:var(--tm)&quot;>C'est ce qui débloque le « oui » de la conformité.</span></p>
+    <div class=&quot;jfilter&quot; id=&quot;jfilter&quot;></div>
+    <div class=&quot;jtable&quot;>
+      <div class=&quot;jhead&quot;><span>Quand</span><span>Agent · qui</span><span class=&quot;h3&quot;>Modèle</span><span class=&quot;h4&quot;>Version</span><span class=&quot;h5&quot;>Preuve</span></div>
+      <div id=&quot;jrows&quot;></div>
+    </div>
+  </div>
+</div>
+
+<div class=&quot;toast&quot; id=&quot;toast&quot;></div>
+
+<script>
+  // helper partagé : ouvrir une fiche au Studio (via l'onglet démo si iframe, sinon navigation)
+  function openStudioHash(id){ try{ if(window.parent &amp;&amp; window.parent!==window){ window.parent.postMessage({go:'studio',hash:id||''},'*'); return; } }catch(_){} location.href='../studio/studio.html'+(id?('#'+id):''); }
+  function toastMsg(m){ var t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._x); t._x=setTimeout(function(){t.classList.remove('show');},2300); }
+</script>
+
+<!-- Sous-onglets -->
+<script>
+(function(){
+  var V={dash:'view-dash',parc:'view-parc',valider:'view-valider',journal:'view-journal'};
+  function show(v){
+    Object.keys(V).forEach(function(k){ document.getElementById(V[k]).hidden = (k!==v); });
+    document.querySelectorAll('#subtabs button').forEach(function(b){ b.classList.toggle('on', b.dataset.v===v); });
+  }
+  document.querySelectorAll('#subtabs button').forEach(function(b){ b.addEventListener('click',function(){ show(b.dataset.v); }); });
+  window.showAdminView=show;
+  function fromHash(){ var h=(location.hash||'').replace('#',''); if(V[h]) show(h); }
+  window.addEventListener('hashchange',fromHash); fromHash();
+})();
+</script>
+
+<!-- Vue 1 : Tableau de bord -->
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id);};
+  function esc(s){return String(s==null?'':s).replace(/&amp;/g,'&amp;amp;').replace(/</g,'&amp;lt;').replace(/>/g,'&amp;gt;');}
+  var ITEMS=[
+    {ic:'🚀',name:'Livraison préprod',kind:'agent',lvl:'off',uses:480,success:95,humanFix:5,saved:30,team:'Crédit',model:'mid',optimal:'mid'},
+    {ic:'✍️',name:'Message de commit',kind:'prompt',lvl:'off',uses:812,success:88,humanFix:12,saved:5,team:'EAC',model:'mid',optimal:'nano'},
+    {ic:'🧪',name:'Tests unitaires',kind:'agent',lvl:'off',uses:640,success:88,humanFix:12,saved:25,team:'Crédit',model:'large',optimal:'mid'},
+    {ic:'🔒',name:'Analyse de vuln',kind:'agent',lvl:'off',uses:210,success:91,humanFix:9,saved:40,team:'FBI',model:'large',optimal:'large'},
+    {ic:'👀',name:'Revue de code',kind:'prompt',lvl:'team',uses:298,success:82,humanFix:22,saved:20,team:'EAC',model:'large',optimal:'mid'},
+    {ic:'🐞',name:'Stack trace',kind:'prompt',lvl:'team',uses:300,success:85,humanFix:18,saved:15,team:'Data',model:'mid',optimal:'small'},
+    {ic:'🧹',name:'Refacto legacy',kind:'prompt',lvl:'team',uses:130,success:70,humanFix:35,saved:45,studio:'refacto-legacy',team:'CIA',model:'large',optimal:'mid'},
+    {ic:'🚚',name:'Migration Java 21',kind:'agent',lvl:'off',uses:56,success:74,humanFix:30,saved:120,studio:'migrate-java21',team:'Crédit',model:'large',optimal:'large'},
+    {ic:'🔤',name:'Regex / SQL',kind:'prompt',lvl:'exp',uses:45,success:60,humanFix:40,saved:10,studio:'regex-sql',team:'Data',model:'small',optimal:'nano'},
+    {ic:'⚛️',name:'Tests React',kind:'prompt',lvl:'off',uses:190,success:86,humanFix:14,saved:20,team:'FBI',model:'mid',optimal:'small'}
+  ];
+  var LVL={off:['Officiel','#34d399'],team:['Équipe','#60a5fa'],exp:['Expérimental','#fbbf24']};
+  var MODELS={nano:{n:'Nano',c:0.002},small:{n:'Small',c:0.008},mid:{n:'Mid',c:0.03},large:{n:'Large',c:0.10}};
+  function eur(x){ var s=(x<1?x.toFixed(3):x<1000?x.toFixed(2):(''+Math.round(x))); return '€'+s.replace('.',','); }
+  var SCALE={7:.25,30:1,90:2.8};
+  function fmt(n){ return n>=1000?(n/1000).toFixed(1).replace('.0','')+'k':(''+Math.round(n)); }
+
+  function render(days){
+    var s=SCALE[days];
+    var items=ITEMS.map(function(it){ var c=Object.assign({},it); c.u=Math.round(it.uses*s); return c; });
+    var totalUses=items.reduce(function(a,b){return a+b.u;},0);
+    var timeSaved=items.reduce(function(a,b){return a+b.u*b.saved;},0)/60;
+    var wAvg=Math.round(items.reduce(function(a,b){return a+b.success*b.u;},0)/totalUses);
+    var wFix=Math.round(items.reduce(function(a,b){return a+b.humanFix*b.u;},0)/totalUses);
+    var active=items.filter(function(i){return i.u>0;}).length;
+    $('kpis').innerHTML=[
+      ['⚡','Usages',fmt(totalUses),'up','+'+(days===30?'18':days===7?'6':'34')+'% vs période préc.'],
+      ['⏱','Temps gagné (est.)','~'+fmt(timeSaved)+' h','up','soit ~'+Math.round(timeSaved/7)+' j·homme'],
+      ['✅','Réussite moyenne',wAvg+'%',wAvg>=85?'up':'down',(wAvg>=85?'au-dessus':'sous')+' la cible 85%'],
+      ['🖐','Corrigés à la main',wFix+'%','down','part relue/ajustée'],
+      ['🧩','Agents actifs',''+active,'','sur '+ITEMS.length+' publiés'],
+      ['👥','Contributeurs','23','up','+3 ce mois']
+    ].map(function(k){ return '<div class=&quot;kpi&quot;><div class=&quot;k&quot;>'+k[0]+' '+k[1]+'</div><div class=&quot;val&quot;>'+k[2]+'</div><div class=&quot;tr '+k[3]+'&quot;>'+(k[3]==='up'?'▲ ':k[3]==='down'?'▼ ':'')+k[4]+'</div></div>'; }).join('');
+    var pts=[]; var base=totalUses/9;
+    for(var i=0;i<8;i++){ var v=base*(0.55+i*0.075)+ (i%3-1)*base*0.06; pts.push(Math.max(base*.4,v)); }
+    var max=Math.max.apply(null,pts)*1.15, W=520,H=150,pad=6;
+    var xs=function(i){return pad+i*(W-2*pad)/7;}, ys=function(v){return H-pad-(v/max)*(H-2*pad);};
+    var d='',area='M'+xs(0)+' '+H;
+    pts.forEach(function(v,i){ d+=(i?'L':'M')+xs(i).toFixed(1)+' '+ys(v).toFixed(1)+' '; area+='L'+xs(i).toFixed(1)+' '+ys(v).toFixed(1)+' '; });
+    area+='L'+xs(7)+' '+H+' Z';
+    var dots=pts.map(function(v,i){return '<circle class=&quot;dot&quot; cx=&quot;'+xs(i).toFixed(1)+'&quot; cy=&quot;'+ys(v).toFixed(1)+'&quot; r=&quot;3&quot;/>';}).join('');
+    var glines=[0,.5,1].map(function(f){var y=pad+f*(H-2*pad);return '<line class=&quot;grid-l&quot; x1=&quot;0&quot; y1=&quot;'+y+'&quot; x2=&quot;'+W+'&quot; y2=&quot;'+y+'&quot;/>';}).join('');
+    $('trend').innerHTML='<defs><linearGradient id=&quot;g&quot; x1=&quot;0&quot; y1=&quot;0&quot; x2=&quot;0&quot; y2=&quot;1&quot;><stop offset=&quot;0&quot; stop-color=&quot;#2dd4bf&quot; stop-opacity=&quot;.45&quot;/><stop offset=&quot;1&quot; stop-color=&quot;#2dd4bf&quot; stop-opacity=&quot;0&quot;/></linearGradient></defs>'+glines+'<path class=&quot;area&quot; d=&quot;'+area+'&quot;/><path class=&quot;ln&quot; d=&quot;'+d+'&quot;/>'+dots;
+    $('xlab').innerHTML=['S-7','S-6','S-5','S-4','S-3','S-2','S-1','Cette sem.'].map(function(l){return '<span>'+l+'</span>';}).join('');
+    var byLvl={off:0,team:0,exp:0}; items.forEach(function(i){ byLvl[i.lvl]+=i.u; });
+    var tot=byLvl.off+byLvl.team+byLvl.exp, off=0, seg='';
+    ['off','team','exp'].forEach(function(k){ var pct=byLvl[k]/tot*100; seg+='<circle r=&quot;15.915&quot; cx=&quot;21&quot; cy=&quot;21&quot; fill=&quot;transparent&quot; stroke=&quot;'+LVL[k][1]+'&quot; stroke-width=&quot;6&quot; stroke-dasharray=&quot;'+pct.toFixed(1)+' '+(100-pct).toFixed(1)+'&quot; stroke-dashoffset=&quot;'+(25-off).toFixed(1)+'&quot;/>'; off+=pct; });
+    $('donut').innerHTML='<circle r=&quot;15.915&quot; cx=&quot;21&quot; cy=&quot;21&quot; fill=&quot;transparent&quot; stroke=&quot;rgba(255,255,255,.05)&quot; stroke-width=&quot;6&quot;/>'+seg+'<text x=&quot;21&quot; y=&quot;20.5&quot; text-anchor=&quot;middle&quot; font-size=&quot;6.5&quot; fill=&quot;#f5f1ff&quot; font-weight=&quot;800&quot; font-family=&quot;Bricolage Grotesque&quot;>'+fmt(tot)+'</text><text x=&quot;21&quot; y=&quot;26&quot; text-anchor=&quot;middle&quot; font-size=&quot;3.2&quot; fill=&quot;#7a6fa3&quot; font-family=&quot;Manrope&quot;>usages</text>';
+    $('donutLeg').innerHTML=['off','team','exp'].map(function(k){ return '<div class=&quot;li&quot;><span class=&quot;sw&quot; style=&quot;background:'+LVL[k][1]+'&quot;></span>'+LVL[k][0]+' · <b>'+Math.round(byLvl[k]/tot*100)+'%</b></div>'; }).join('');
+    var top=items.slice().sort(function(a,b){return b.u-a.u;}).slice(0,7); var mx=top[0].u;
+    $('topUse').innerHTML=top.map(function(i){ return '<div class=&quot;bar&quot;><span class=&quot;lbl&quot;>'+i.ic+' '+esc(i.name)+'</span><div class=&quot;track&quot;><div class=&quot;fill&quot; style=&quot;width:'+(i.u/mx*100).toFixed(0)+'%&quot;></div></div><span class=&quot;num&quot;>'+fmt(i.u)+'</span></div>'; }).join('');
+    var bysucc=items.slice().sort(function(a,b){return a.success-b.success;}).slice(0,7);
+    $('successBars').innerHTML=bysucc.map(function(i){ var cls=i.success>=85?'ok':i.success>=70?'warn':'err'; return '<div class=&quot;bar&quot;><span class=&quot;lbl&quot;>'+i.ic+' '+esc(i.name)+'</span><div class=&quot;track&quot;><div class=&quot;fill '+cls+'&quot; style=&quot;width:'+i.success+'%&quot;></div></div><span class=&quot;num&quot;>'+i.success+'%</span></div>'; }).join('');
+    var flagged=items.filter(function(i){return i.u>10 &amp;&amp; (i.success<75||i.humanFix>30);}).sort(function(a,b){return a.success-b.success;});
+    $('improve').innerHTML=flagged.length?flagged.map(function(i){
+      var why=i.success<75?('réussite '+i.success+'%'):('corrigés '+i.humanFix+'%');
+      return '<div class=&quot;it&quot;><span class=&quot;ic&quot;>'+i.ic+'</span><div class=&quot;mn&quot;><div class=&quot;mt&quot;>'+esc(i.name)+'</div><div class=&quot;ms&quot;>⚠ '+why+' — candidat à une nouvelle version</div></div>'+
+        '<span class=&quot;why&quot;>'+i.success+'% · '+i.humanFix+'% corr.</span>'+
+        '<button class=&quot;lnk&quot; data-studio=&quot;'+esc(i.studio||'')+'&quot;>Ouvrir dans le Studio →</button></div>';
+    }).join(''):'<div style=&quot;color:var(--tm);font-size:13px;padding:10px&quot;>Rien à signaler sur cette période 🎉</div>';
+    $('improve').querySelectorAll('[data-studio]').forEach(function(b){ b.addEventListener('click',function(){ openStudioHash(b.dataset.studio); }); });
+    renderCosts(items);
+  }
+  function renderCosts(items){
+    var totalUses=0, totalCost=0, totalOptimal=0, totalSuccess=0, wasted=0, wastedCost=0, reworkNum=0;
+    items.forEach(function(i){
+      var c=MODELS[i.model].c, oc=MODELS[i.optimal].c;
+      i._cost=i.u*c; i._opt=i.u*oc;
+      totalUses+=i.u; totalCost+=i._cost; totalOptimal+=i._opt;
+      totalSuccess+=i.u*i.success/100; reworkNum+=i.u*i.humanFix/100;
+      var w=i.u*(1-i.success/100); wasted+=w; wastedCost+=w*c;
+    });
+    var costPerExec=totalCost/totalUses, costPerSuccess=totalCost/totalSuccess;
+    var reworkPct=Math.round(reworkNum/totalUses*100); var potential=totalCost-totalOptimal;
+    $('costKpis').innerHTML=[
+      ['💶','Coût total (période)',eur(totalCost),'','budget IA consommé'],
+      ['⚙️','Coût / exécution',eur(costPerExec),'','moyenne tous modèles'],
+      ['🎯','Coût / résultat réussi',eur(costPerSuccess),'up','on paie aussi les échecs'],
+      ['🖐','Reprise humaine',reworkPct+'%','down','résultats retravaillés'],
+      ['🗑','Appels inutiles',fmt(wasted),'down',eur(wastedCost)+' gaspillés (échecs)']
+    ].map(function(k){ return '<div class=&quot;kpi&quot;><div class=&quot;k&quot;>'+k[0]+' '+k[1]+'</div><div class=&quot;val&quot;>'+k[2]+'</div><div class=&quot;tr '+k[3]+'&quot;>'+(k[3]==='up'?'▲ ':k[3]==='down'?'▼ ':'')+k[4]+'</div></div>'; }).join('');
+    var teams={}; items.forEach(function(i){ if(!teams[i.team])teams[i.team]={cost:0,uses:0,rew:0}; teams[i.team].cost+=i._cost; teams[i.team].uses+=i.u; teams[i.team].rew+=i.u*i.humanFix/100; });
+    var tarr=Object.keys(teams).map(function(t){return {t:t,cost:teams[t].cost,rew:Math.round(teams[t].rew/teams[t].uses*100)};});
+    var tmax=Math.max.apply(null,tarr.map(function(x){return x.cost;}));
+    $('teamCost').innerHTML=tarr.sort(function(a,b){return b.cost-a.cost;}).map(function(x){ return '<div class=&quot;bar&quot;><span class=&quot;lbl&quot;>'+esc(x.t)+'</span><div class=&quot;track&quot;><div class=&quot;fill&quot; style=&quot;width:'+(x.cost/tmax*100).toFixed(0)+'%&quot;></div></div><span class=&quot;num&quot;>'+eur(x.cost)+'</span></div>'; }).join('');
+    $('teamRework').innerHTML=tarr.slice().sort(function(a,b){return b.rew-a.rew;}).map(function(x){ var cls=x.rew<=15?'ok':x.rew<=25?'warn':'err'; return '<div class=&quot;bar&quot;><span class=&quot;lbl&quot;>'+esc(x.t)+'</span><div class=&quot;track&quot;><div class=&quot;fill '+cls+'&quot; style=&quot;width:'+x.rew+'%&quot;></div></div><span class=&quot;num&quot;>'+x.rew+'%</span></div>'; }).join('');
+    if(potential>0.5) $('modelSaving').innerHTML='<div class=&quot;savecallout&quot;>💡 Aligner chaque tâche sur son modèle optimal : <b>−'+eur(potential)+'</b> sur la période (<b>−'+Math.round(potential/totalCost*100)+'%</b>) sans perte de qualité.</div>';
+    else $('modelSaving').innerHTML='';
+    var rows=items.slice().sort(function(a,b){return (b._cost-b._opt)-(a._cost-a._opt);});
+    $('modelTable').innerHTML='<div class=&quot;mrow head&quot;><span>Tâche</span><span>Actuel</span><span></span><span>Recommandé</span></div>'+
+      rows.map(function(i){ var save=i._cost-i._opt; var same=i.model===i.optimal;
+        return '<div class=&quot;mrow&quot;><span class=&quot;tk&quot;>'+i.ic+' '+esc(i.name)+'</span><span><span class=&quot;mtag m-'+i.model+'&quot;>'+MODELS[i.model].n+'</span></span><span class=&quot;arr&quot;>'+(same?'=':'→')+'</span><span><span class=&quot;mtag m-'+i.optimal+'&quot;>'+MODELS[i.optimal].n+'</span> <span class=&quot;save '+(save>0.5?'pos':'zero')+'&quot;>'+(save>0.5?'−'+eur(save):'ok')+'</span></span></div>';
+      }).join('');
+  }
+  var days=30;
+  $('period').querySelectorAll('[data-p]').forEach(function(b){ b.addEventListener('click',function(){ days=+b.dataset.p; $('period').querySelectorAll('button').forEach(function(x){x.classList.remove('on');}); b.classList.add('on'); render(days); }); });
+  render(days);
+})();
+</script>
+
+<!-- Vue 2 : Le parc (gestion) -->
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id);};
+  function esc(s){return String(s==null?'':s).replace(/&amp;/g,'&amp;amp;').replace(/</g,'&amp;lt;').replace(/>/g,'&amp;gt;');}
+  var STL={actif:'Actif',desactive:'Désactivé',brouillon:'Brouillon',revue:'En revue'};
+  var STC={actif:'actif',desactive:'desactive',brouillon:'brouillon',revue:'revue'};
+  var D=[
+    {id:'prep-delivery',ic:'🚀',t:'Livraison préprod',kind:'agent',status:'actif',owner:'Plateforme',uses:480,success:95,upd:'20 mai'},
+    {id:'tests-junit',ic:'🧪',t:'Générer des tests',kind:'agent',status:'actif',owner:'Plateforme',uses:640,success:88,upd:'12 mai'},
+    {id:'analyze-vuln',ic:'🔒',t:'Analyser une vulnérabilité',kind:'agent',status:'actif',owner:'Sécurité',uses:210,success:91,upd:'02 mai'},
+    {id:'migrate-java21',ic:'🚚',t:'Migration Java 21',kind:'agent',status:'revue',owner:'Archi',uses:56,success:74,upd:'28 avr.'},
+    {id:'repo-diet',ic:'🧹',t:'Nettoyer un dépôt',kind:'agent',status:'desactive',owner:'Core',uses:130,success:70,upd:'30 avr.'},
+    {id:'commit',ic:'✍️',t:'Message de commit',kind:'prompt',status:'actif',owner:'Plateforme',uses:812,success:88,upd:'20 mai'},
+    {id:'analyze-code',ic:'🔍',t:'Analyser ce code',kind:'prompt',status:'actif',owner:'Plateforme',uses:263,success:90,upd:'30 mai'},
+    {id:'explain',ic:'📖',t:'Explique-moi ce code',kind:'prompt',status:'actif',owner:'marie.d',uses:57,success:0,upd:'28 mai'},
+    {id:'review',ic:'👀',t:'Revue de code',kind:'prompt',status:'actif',owner:'Tribu EAC',uses:298,success:82,upd:'18 mai'},
+    {id:'sql',ic:'⚡',t:'Optimiser une requête SQL',kind:'prompt',status:'actif',owner:'Tribu Data',uses:150,success:86,upd:'02 mai'},
+    {id:'regex-sql',ic:'🔤',t:'Regex / SQL',kind:'prompt',status:'desactive',owner:'—',uses:45,success:60,upd:'25 mai'},
+    {id:'story',ic:'🏗',t:'Découper une user story',kind:'prompt',status:'actif',owner:'Tribu EAC',uses:96,success:0,upd:'22 mai'},
+    {id:'oncall',ic:'🌙',t:'Résumer un incident',kind:'prompt',status:'brouillon',owner:'marie.d',uses:0,success:0,upd:'auj.'}
+  ];
+  var fKind='', fStatus='', query='';
+  function healthCell(x){
+    if(!x.success) return '<span style=&quot;color:var(--tm)&quot;>—</span>';
+    var c=x.success>=85?'var(--ok)':x.success>=75?'var(--warn)':'var(--err)'; var low=x.success<75;
+    return '<b style=&quot;color:'+c+'&quot;>'+x.success+'%</b>'+(low?'<span class=&quot;flag&quot;>⚠ à surveiller</span>':'');
+  }
+  function renderSummary(){
+    var c={actif:0,desactive:0,revue:0,brouillon:0}; D.forEach(function(x){c[x.status]++;});
+    $('summary').innerHTML=[['actif','Actifs'],['desactive','Désactivés'],['revue','En revue'],['brouillon','Brouillons']].map(function(s){
+      return '<div class=&quot;sm&quot;><span class=&quot;d d-'+s[0]+'&quot;></span><b>'+c[s[0]]+'</b> '+s[1]+'</div>'; }).join('')+'<div class=&quot;sm&quot; style=&quot;margin-left:auto&quot;><b>'+D.length+'</b> au total</div>';
+  }
+  function render(){
+    renderSummary();
+    var q=query.toLowerCase();
+    var list=D.filter(function(x){
+      if(fKind &amp;&amp; x.kind!==fKind) return false;
+      if(fStatus &amp;&amp; x.status!==fStatus) return false;
+      if(q &amp;&amp; (x.t+' '+x.owner+' '+x.kind).toLowerCase().indexOf(q)===-1) return false;
+      return true;
+    });
+    $('rows').innerHTML = list.length ? list.map(function(x){
+      var toggle = x.status==='actif' ? '<button class=&quot;btn off&quot; data-tog=&quot;'+x.id+'&quot;>⏸ Désactiver</button>'
+                 : x.status==='desactive' ? '<button class=&quot;btn on&quot; data-tog=&quot;'+x.id+'&quot;>▶ Activer</button>'
+                 : x.status==='revue' ? '<button class=&quot;btn pub&quot; data-valid=&quot;'+x.id+'&quot;>À valider →</button>'
+                 : '<button class=&quot;btn pub&quot; data-edit=&quot;'+x.id+'&quot;>Finir →</button>';
+      return '<div class=&quot;trow'+(x.status==='desactive'?' off':'')+'&quot; data-row=&quot;'+x.id+'&quot;>'+
+        '<div class=&quot;nm&quot;><span class=&quot;ic&quot;>'+x.ic+'</span><div style=&quot;min-width:0&quot;><div class=&quot;t&quot;>'+esc(x.t)+'</div><div class=&quot;o&quot;>'+esc(x.owner)+' · maj '+esc(x.upd)+'</div></div></div>'+
+        '<span><span class=&quot;kb '+x.kind+'&quot;>'+(x.kind==='agent'?'🤖 Agent':'📚 Prompt')+'</span></span>'+
+        '<span><span class=&quot;st '+STC[x.status]+'&quot;><span class=&quot;d d-'+STC[x.status]+'&quot;></span>'+STL[x.status]+'</span></span>'+
+        '<span class=&quot;c3 health&quot;>'+healthCell(x)+'</span>'+
+        '<span class=&quot;c4 uses&quot;>'+(x.uses||'—')+'</span>'+
+        '<span class=&quot;c5 acts&quot;>'+toggle+'<button class=&quot;btn ghost&quot; data-edit=&quot;'+x.id+'&quot;>Éditer</button></div>'+
+      '</div>';
+    }).join('') : '<div class=&quot;empty&quot;>Aucun résultat pour ces filtres.</div>';
+    $('rows').querySelectorAll('[data-tog]').forEach(function(b){ b.addEventListener('click',function(){ toggle(b.dataset.tog); }); });
+    $('rows').querySelectorAll('[data-edit]').forEach(function(b){ b.addEventListener('click',function(){ openStudioHash(b.dataset.edit); }); });
+    $('rows').querySelectorAll('[data-valid]').forEach(function(b){ b.addEventListener('click',function(){ if(window.showAdminView) window.showAdminView('valider'); }); });
+  }
+  function toggle(id){
+    var x=D.find(function(y){return y.id===id;}); if(!x) return;
+    x.status = x.status==='actif' ? 'desactive' : 'actif';
+    render(); toastMsg(x.status==='actif' ? '▶ « '+x.t+' » réactivé' : '⏸ « '+x.t+' » désactivé — plus lançable au catalogue');
+  }
+  $('search').addEventListener('input',function(){ query=this.value; render(); });
+  $('kindSeg').querySelectorAll('[data-k]').forEach(function(b){ b.addEventListener('click',function(){ fKind=b.dataset.k; $('kindSeg').querySelectorAll('button').forEach(function(x){x.classList.remove('on');}); b.classList.add('on'); render(); }); });
+  $('stSel').addEventListener('change',function(){ fStatus=this.value; render(); });
+  render();
+})();
+</script>
+
+<!-- Vue 3 : À valider -->
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id);};
+  function esc(s){return String(s==null?'':s).replace(/&amp;/g,'&amp;amp;').replace(/</g,'&amp;lt;').replace(/>/g,'&amp;gt;');}
+  var QUEUE=[
+    {id:'migrate',ic:'🚚',title:'Migration Java 21',writes:true,owner:'Archi',security:'en attente',
+      approvals:[{role:'ai-maintainer',who:'M. Dubois',done:true},{role:'Owner de périmètre',who:'',done:false}]},
+    {id:'diet',ic:'🧹',title:'Nettoyer un dépôt (archivage)',writes:true,owner:'Core',security:'ok',
+      approvals:[{role:'ai-maintainer',who:'',done:false},{role:'Owner de périmètre',who:'',done:false}]},
+    {id:'notes',ic:'📝',title:'Générer des release notes',writes:false,owner:'FBI',security:'ok',
+      approvals:[{role:'ai-maintainer',who:'',done:false}]}
+  ];
+  function pendingCount(){ return QUEUE.length; }
+  function updCnt(){ var c=$('validCnt'); if(!c) return; if(QUEUE.length){ c.hidden=false; c.textContent=QUEUE.length; } else c.hidden=true; }
+  function render(){
+    if(!QUEUE.length){ $('queue').innerHTML='<div class=&quot;mini&quot;>Rien en attente — tout est validé 🎉</div>'; updCnt(); return; }
+    $('queue').innerHTML=QUEUE.map(function(x){
+      var idx=QUEUE.indexOf(x);
+      var need = x.writes ? x.approvals.length : 1;
+      var got = x.approvals.filter(function(a){return a.done;}).length;
+      var ready = (got>=need) &amp;&amp; (!x.writes || x.security==='ok');
+      var aps=x.approvals.map(function(a,ai){
+        return '<div class=&quot;ap&quot;><span class=&quot;apst&quot;>'+(a.done?'✅':'⬜')+'</span>'+
+          '<span class=&quot;rl&quot;><b>'+esc(a.role)+'</b>'+(a.done?' — <span class=&quot;who&quot;>'+esc(a.who||'validé')+'</span>':'')+'</span>'+
+          (a.done?'<span class=&quot;apbtn done&quot;>signé</span>':'<button class=&quot;apbtn&quot; data-ap=&quot;'+idx+'-'+ai+'&quot;>Approuver</button>')+'</div>';
+      }).join('');
+      var sec = x.writes ? '<div class=&quot;ap&quot;><span class=&quot;apst&quot;>'+(x.security==='ok'?'✅':'⬜')+'</span><span class=&quot;rl&quot;><b>Revue sécurité</b> (agent capable d\'écrire)</span>'+(x.security==='ok'?'<span class=&quot;apbtn done&quot;>ok</span>':'<button class=&quot;apbtn&quot; data-sec=&quot;'+idx+'&quot;>Marquer OK</button>')+'</div>' : '';
+      var status = ready ? '<div class=&quot;qstatus qs-ready&quot;>✅ Prêt à publier — '+got+'/'+need+' validations'+(x.writes?' + sécurité OK':'')+'</div>'
+                         : '<div class=&quot;qstatus qs-block&quot;>⏳ En attente — '+got+'/'+need+' validations'+(x.writes&amp;&amp;x.security!=='ok'?' · sécurité à passer':'')+'</div>';
+      return '<div class=&quot;qrow&quot;><div class=&quot;top&quot;><span style=&quot;font-size:19px&quot;>'+x.ic+'</span><span class=&quot;ti&quot;>'+esc(x.title)+'</span>'+
+        '<span class=&quot;badge '+(x.writes?'b-write&quot;>✍️ écrit':'b-read&quot;>👁 lecture')+'</span><span class=&quot;sc&quot;>'+esc(x.owner)+'</span></div>'+
+        '<div class=&quot;appr&quot;>'+aps+sec+'</div>'+status+
+        (ready?'<button class=&quot;genbtn&quot; data-pub=&quot;'+idx+'&quot; style=&quot;margin-top:11px&quot;>🟢 Publier officiellement</button>':'')+'</div>';
+    }).join('');
+    updCnt();
+    $('queue').querySelectorAll('[data-ap]').forEach(function(b){ b.addEventListener('click',function(){ var p=b.dataset.ap.split('-'); QUEUE[+p[0]].approvals[+p[1]].done=true; QUEUE[+p[0]].approvals[+p[1]].who='toi (Owner)'; render(); toastMsg('✅ Validation enregistrée'); }); });
+    $('queue').querySelectorAll('[data-sec]').forEach(function(b){ b.addEventListener('click',function(){ QUEUE[+b.dataset.sec].security='ok'; render(); toastMsg('🔒 Revue sécurité marquée OK'); }); });
+    $('queue').querySelectorAll('[data-pub]').forEach(function(b){ b.addEventListener('click',function(){ var x=QUEUE.splice(+b.dataset.pub,1)[0]; render(); toastMsg('🟢 « '+x.title+' » publié — double validation tracée'); }); });
+  }
+  render();
+})();
+</script>
+
+<!-- Vue 4 : Journal d'audit -->
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id);};
+  function esc(s){return String(s==null?'':s).replace(/&amp;/g,'&amp;amp;').replace(/</g,'&amp;lt;').replace(/>/g,'&amp;gt;');}
+  var LOG=[
+    {t:&quot;auj. 14:32&quot;,who:'marie.d',team:'EAC-Run',rc:'Livraison préprod',ver:'v5',model:'Mid',ctx:'branche feat/refunds · IMAGE_TAG 1.4.2 → 1.5.0 · overlays préprod',tools:[['bump IMAGE_TAG','write'],['scan vuln','read'],['créer MR','write']],res:'MR !313 créée',proof:'MR !313 · CI verte · 214 tests'},
+    {t:&quot;auj. 11:07&quot;,who:'k.otsu',team:'Crédit-Scoring',rc:'Générer des tests',ver:'v3',model:'Large',ctx:'ScoringService.java · 4 méthodes',tools:[['lire dépôt','read'],['écrire fichier test','write']],res:'ScoringServiceTest.java (8 tests)',proof:'branche fix/tests · verts'},
+    {t:&quot;hier 17:41&quot;,who:'a.leroy',team:'FBI-Fraude',rc:'Analyser une vulnérabilité',ver:'v4',model:'Large',ctx:'CVE-2025-1234 · lib xml',tools:[['scanner','read']],res:'faux positif écarté',proof:'rapport #A-112'},
+    {t:&quot;hier 09:15&quot;,who:'marie.d',team:'EAC-Run',rc:'Message de commit',ver:'v2',model:'Nano',ctx:'diff en cours (12 fichiers)',tools:[['lire diff','read']],res:'commit conventionnel',proof:'commit 4f2a1b'},
+    {t:&quot;lun. 16:20&quot;,who:'RSSI',team:'CIA-Sécu',rc:'Analyser une vulnérabilité',ver:'v4',model:'Large',ctx:'audit trimestriel',tools:[['scanner','read']],res:'3 findings',proof:'rapport #A-108'}
+  ];
+  function render(){
+    $('jfilter').innerHTML='<b style=&quot;color:var(--ts)&quot;>'+LOG.length+'</b> exécutions tracées · toutes tribus · <span style=&quot;color:var(--tm)&quot;>clique une ligne pour le détail</span>';
+    $('jrows').innerHTML=LOG.map(function(l,i){
+      var tools=l.tools.map(function(t){return '<span class=&quot;tool '+t[1]+'&quot;>'+(t[1]==='write'?'✏️':'👁')+' '+esc(t[0])+'</span>';}).join('');
+      return '<div class=&quot;jrow&quot; data-j=&quot;'+i+'&quot;>'+
+        '<span>'+esc(l.t)+'</span>'+
+        '<span><span class=&quot;rc&quot;>'+esc(l.rc)+'</span> · <span class=&quot;jwho&quot;>'+esc(l.who)+' ('+esc(l.team)+')</span></span>'+
+        '<span class=&quot;c3&quot;><span class=&quot;jmodel&quot;>'+esc(l.model)+'</span></span>'+
+        '<span class=&quot;c4&quot;>'+esc(l.ver)+'</span>'+
+        '<span class=&quot;c5 proof&quot;>✔ '+esc(l.proof)+'</span>'+
+        '<div class=&quot;jdetail&quot;>'+
+          '<div class=&quot;dl&quot;>Contexte injecté</div>'+esc(l.ctx)+
+          '<div class=&quot;dl&quot;>Outils appelés</div>'+tools+
+          '<div class=&quot;dl&quot;>Résultat &amp;amp; preuve</div>'+esc(l.res)+' — <span class=&quot;proof&quot;>'+esc(l.proof)+'</span>'+
+          '<div class=&quot;dl&quot;>Traçabilité</div>modèle <b>'+esc(l.model)+'</b> · version <b>'+esc(l.ver)+'</b> · '+esc(l.who)+' · '+esc(l.team)+
+        '</div></div>';
+    }).join('');
+    $('jrows').querySelectorAll('.jrow[data-j]').forEach(function(el){ el.addEventListener('click',function(){ el.classList.toggle('open'); }); });
+  }
+  render();
+})();
+</script>
+
+<script>
+window.addEventListener('message',function(e){
+  if(e&amp;&amp;e.data&amp;&amp;e.data.spot){ try{
+    var el=document.querySelector(e.data.spot);
+    if(el){ document.querySelectorAll('.spotlight').forEach(function(x){x.classList.remove('spotlight');});
+      el.classList.add('spotlight'); el.scrollIntoView({behavior:'smooth',block:'center'});
+      setTimeout(function(){ el.classList.remove('spotlight'); }, 7000); }
+  }catch(_){} }
+});
+</script>
+<script>(function(){document.addEventListener('click',function(e){var a=e.target.closest('[data-go]');if(a){e.preventDefault();parent.postMessage({go:a.dataset.go,hash:a.dataset.hash||''},'*');}});})();</script></body>
+</html>
+"></iframe>
+ </div>
+ <script>
+   var FRAME={catalogue:'catalogue',favoris:'catalogue',studio:'studio',metrics:'metrics'};
+   function go(name,hash){
+     document.querySelectorAll('.tabs button').forEach(function(b){b.classList.toggle('on',b.dataset.t===name);});
+     var fid='f-'+FRAME[name];
+     document.querySelectorAll('.frames iframe').forEach(function(f){f.classList.toggle('on',f.id===fid);});
+     var cf=document.getElementById('f-catalogue');
+     try{ if(name==='favoris') cf.contentWindow.postMessage({mode:'favoris'},'*');
+          else if(name==='catalogue') cf.contentWindow.postMessage({mode:'all'},'*'); }catch(e){}
+     if(hash){ var f=document.getElementById(fid); try{ f.contentWindow.location.hash=hash; }catch(e){} }
+   }
+   document.querySelectorAll('.tabs button[data-t]').forEach(function(b){b.addEventListener('click',function(){go(b.dataset.t);});});
+   window.addEventListener('message',function(e){ if(e.data&&e.data.go) go(e.data.go, e.data.hash?('#'+e.data.hash):''); });
+
+   // ── Scénario guidé : un agent défaillant traverse la plateforme ──
+   var SCENARIO=[
+     { tab:'metrics', hash:'dash', title:'Détecter — Admin', body:'Dans <b>Admin → Tableau de bord</b>, <b>Migration Java 21</b> remonte dans « ⚠ À améliorer » : <b>74%</b> de réussite. Clique <b>« Ouvrir dans le Studio »</b> (ou Suivant).' },
+     { tab:'studio', hash:'migrate-java21', title:'Corriger — Studio', body:'La fiche s\'ouvre sur la spécification (le prompt, masqué aux utilisateurs). L\'<b>ai-maintainer</b> ajuste, teste au banc d\'essai, puis <b>« Publier une nouvelle version »</b> (v3).' },
+     { tab:'metrics', hash:'valider', title:'Valider — Admin', body:'Cet agent <b>écrit</b> → <b>double validation</b> (Admin → <b>À valider</b>) : ai-maintainer + Owner de périmètre + revue sécurité. Approuve, puis <b>Publier officiellement</b>.' },
+     { tab:'catalogue', title:'Retrouvé — Catalogue', body:'Bouclé : les devs retrouvent <b>Migration Java 21</b> au catalogue, désormais <b>officiel et amélioré</b>, prêt à lancer. Et chaque exécution est tracée dans <b>Admin → Journal</b>. Détecté, corrigé, validé, prouvé — sans quitter la plateforme.' }
+   ];
+   var si=0;
+   function renderCoach(){
+     var s=SCENARIO[si];
+     document.getElementById('cstep').textContent='Étape '+(si+1)+'/'+SCENARIO.length;
+     document.getElementById('ctitle').textContent=s.title;
+     document.getElementById('cbody').innerHTML=s.body;
+     document.getElementById('cdots').innerHTML=SCENARIO.map(function(_,i){return '<span class="dot'+(i===si?' on':'')+'"></span>';}).join('');
+     document.getElementById('cprev').style.visibility=si?'':'hidden';
+     document.getElementById('cnext').textContent=(si===SCENARIO.length-1)?'Terminer ✓':'Suivant →';
+     go(s.tab, s.hash?('#'+s.hash):'');
+   }
+   function openCoach(){ si=0; document.getElementById('coach').classList.add('on'); renderCoach(); }
+   function closeCoach(){ document.getElementById('coach').classList.remove('on'); }
+   document.getElementById('startDemo').addEventListener('click',openCoach);
+   document.getElementById('cclose').addEventListener('click',closeCoach);
+   document.getElementById('cprev').addEventListener('click',function(){ if(si){si--;renderCoach();} });
+   document.getElementById('cnext').addEventListener('click',function(){ if(si<SCENARIO.length-1){si++;renderCoach();} else closeCoach(); });
+ </script>
+</body></html>

@@ -1,8 +1,35 @@
-# Registre de capacités IA — socle déterministe
+# SalsiIAPrompt — registre de capacités IA
 
-Vague 1 du document d'architecture : le schéma de l'artefact, les deux registres dont
-il dépend, le linter qui garde la porte d'entrée (moment 2, couche 1), et le Studio qui
-joue les mêmes règles à la frappe (moment 1).
+Un registre d'agents et de prompts IA **certifiés** : une capacité y entre par une porte
+contrôlée, monte en maturité **sur preuve**, est surveillée en continu, et sort quand
+elle se dégrade ou se périme.
+
+> **L'IA traduit l'intention, le noyau gouverne, l'humain valide.**
+> Le déterministe est premier : il décide, filtre, bloque et mesure. Le LLM produit et
+> conseille. L'humain tranche. À aucun point de contrôle l'IA n'a de droit de veto.
+
+État : **vague 1**. Le schéma de l'artefact, les deux registres dont il dépend, le linter
+qui garde la porte d'entrée (moment 2, couche 1), et le Studio qui joue les mêmes règles
+à la frappe (moment 1). Pas encore de back, donc pas encore d'état dérivé ni de jobs.
+
+`maquette.html` est la maquette d'origine du produit — Catalogue, Studio, Admin, en un
+seul fichier, données en dur. Elle s'ouvre par double-clic. Elle montre l'intention ;
+elle ne vérifie rien. C'est le code ci-dessous qui vérifie.
+
+## Trois dépôts, pas un
+
+| Dépôt | Contenu |
+|---|---|
+| **celui-ci** | l'application : front, linter, schémas, registres |
+| *à créer* | les **artefacts gouvernés** — un `agents/*.yaml` par merge request |
+| `Salsifi` | la plateforme DevOps existante, indépendante |
+
+Le dépôt des artefacts doit rester distinct : sur lui, les branches protégées, les
+`CODEOWNERS` et les règles d'approbation **sont** la gouvernance — c'est le moment 3. Un
+`ai-maintainer` qui soumet un agent n'a aucune raison d'accéder au code de l'application.
+
+Le dossier `artifacts/` ci-dessous ne contient que des exemples canoniques, qui servent
+de fixtures aux tests. Il a vocation à partir dans ce troisième dépôt.
 
 **Aucun LLM n'intervient ici.** C'est délibéré : la porte doit être *vérifiable*,
 *reproductible* et *explicable*. Un auteur doit pouvoir corriger, resoumettre et
@@ -13,7 +40,7 @@ comprendre — et en audit, un refus non reproductible est indéfendable.
 ```bash
 node lint/cli.js artifacts    # la porte — sortie 1 si un artefact est bloqué
 node lint/cli.js fixtures/    # voir des refus réels
-node --test test/*.test.js    # 30 tests
+node --test test/*.test.js    # 47 tests
 ```
 
 `lib/yaml.js` et `lib/schema.js` remplacent `js-yaml` et `ajv`. Ceux-ci restent en
