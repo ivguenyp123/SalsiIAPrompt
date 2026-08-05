@@ -12,7 +12,7 @@
  */
 import { ERROR, WARN, isBlocked } from './core.js';
 import { L001, L011, L013 } from './rules/structure.js';
-import { L002, L003 } from './rules/variables.js';
+import { L002, L003, L021 } from './rules/variables.js';
 import { L004, L005, L006 } from './rules/tools.js';
 import { L008, L009, L017 } from './rules/criteria.js';
 import { L007, L012 } from './rules/safety.js';
@@ -42,7 +42,8 @@ export const RULES = [
   { code: 'L017', fn: L017, severity: ERROR, title: 'Cohérence statistique des cas d\'or' },
   { code: 'L018', fn: L018, severity: ERROR, title: 'Aucun reste de rédaction dans le spec' },
   { code: 'L019', fn: L019, severity: WARN,  title: 'Pas de logique dans le spec' },
-  { code: 'L020', fn: L020, severity: ERROR, title: 'Taille du spec dans les bornes' }
+  { code: 'L020', fn: L020, severity: ERROR, title: 'Taille du spec dans les bornes' },
+  { code: 'L021', fn: L021, severity: ERROR, title: 'Le spec utilise au moins une variable déclarée' }
 ];
 
 /**

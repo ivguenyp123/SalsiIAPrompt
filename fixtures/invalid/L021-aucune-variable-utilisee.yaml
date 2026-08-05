@@ -1,0 +1,19 @@
+# Le spec déclare des entrées et n'en interpole aucune : il ne peut pas faire ce qu'il
+# annonce. Incohérence STRUCTURELLE, donc vérifiable — contrairement au sens, qui ne
+# l'est pas et relève du banc d'essai.
+id: l021-variables-ignorees
+kind: agent
+title: Artefact minimal
+owner: { person: m.dubois, scope: Plateforme }
+intent:
+  purpose: Faire une chose utile et suffisamment décrite pour le schéma.
+  not_for: Ne pas utiliser hors du périmètre décrit juste au-dessus.
+spec: |
+  Tu fais quelque chose, mais sans jamais te servir de tes entrées.
+variables:
+  - { name: repo, source: repo }
+tools:
+  - { id: read_repo_metadata, mode: read, executor: llm }
+criteria:
+  - { target: output.length, op: lte, value: 500 }
+target_level: experimental

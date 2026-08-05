@@ -79,6 +79,7 @@ export function L019(artifact) {
 }
 
 /** Bornes hautes. La borne basse est déjà portée par le `minLength` du schéma. */
+const SPEC_MIN_WARN = 150;   // en-deçà, ce n'est pas une consigne, c'est une note
 const SPEC_WARN = 12000;
 const SPEC_MAX = 30000;
 
@@ -92,6 +93,9 @@ export function L020(artifact) {
 
   if (size > SPEC_MAX) {
     return [finding('L020', ERROR, `Spec de ${size} caractères (maximum ${SPEC_MAX}) : à découper, ou à déporter dans un module.`, 'spec')];
+  }
+  if (size > 0 && size < SPEC_MIN_WARN) {
+    return [finding('L020', WARN, `Spec de ${size} caractères : en-deçà de ${SPEC_MIN_WARN}, on décrit rarement une tâche complète. À vérifier en revue.`, 'spec')];
   }
   if (size > SPEC_WARN) {
     return [finding('L020', WARN, `Spec de ${size} caractères : au-delà de ${SPEC_WARN}, les consignes qui comptent se diluent et le coût par exécution grimpe.`, 'spec')];

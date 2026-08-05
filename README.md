@@ -31,7 +31,7 @@ npm install && npm test       # conformité croisée comprise
 npm run studio                # puis http://localhost:8080
 ```
 
-Un formulaire d'écriture d'artefact où **les 20 règles s'exécutent à la frappe**. Deux
+Un formulaire d'écriture d'artefact où **les 21 règles s'exécutent à la frappe**. Deux
 boutons chargent un exemple conforme et un exemple fautif, pour voir la porte s'ouvrir
 et se fermer.
 
@@ -67,7 +67,7 @@ divergerait au premier correctif — précisément ce qu'on évite.
 | `registries/tools.yaml` | les outils réels, avec `mode`, `executor` et périmètres |
 | `registries/targets.yaml` | les cibles qu'un critère a le droit de viser |
 | `lib/yaml.js` · `lib/schema.js` | lecteur YAML et évaluateur JSON Schema maison, sans dépendance |
-| `lint/` | les 20 règles |
+| `lint/` | les 21 règles |
 | `studio/` | le formulaire, le pont vers l'artefact, le serveur local |
 | `artifacts/` | les artefacts du registre (deux exemples canoniques) |
 | `fixtures/invalid/` · `fixtures/warn/` | une fixture par règle, adossée aux tests |
@@ -144,12 +144,35 @@ Le contournement est couvert par `fixtures/invalid/L004-contournement-invariant.
 | `L018` | Aucun reste de rédaction dans le spec (`TODO`, `[à compléter]`…) | 🔴 |
 | `L019` | Pas de logique dans le spec — condition ou boucle | 🟡 |
 | `L020` | Taille du spec dans des bornes exploitables | 🔴 |
+| `L021` | Le spec utilise au moins une des variables qu'il déclare | 🔴 |
 
 ## Tests
 
 Le nom d'une fixture porte le code de la règle qu'elle doit déclencher
 (`L009-cible-non-assertable.yaml`). Ajouter une fixture crée donc son test : il n'y a
 pas de liste à tenir à jour à côté, donc rien à oublier.
+
+## Ce que le lint ne peut pas faire, par construction
+
+Le lint vérifie la **forme**, jamais le **sens**. Un spec syntaxiquement irréprochable
+qui ne veut rien dire franchit la porte — aucune règle déterministe ne peut juger qu'un
+texte décrit une tâche utile.
+
+`L021` en attrape la variante structurelle la plus courante : déclarer des entrées et
+n'en utiliser aucune. Mais un artefact sans variable, avec un spec creux assez long et un
+critère valide, passe — et c'est assumé.
+
+Trois remparts existent en aval, et c'est là que le sens se juge :
+
+| Rempart | Ce qu'il fait |
+|---|---|
+| **Cycle de vie** | le creux ne passe qu'en `expérimental`. `équipe` exige 3 cas d'or, `officiel` 5 — et une réussite **mesurée**. Aucun bouton ne promeut. |
+| **Banc d'essai** | joue les cas d'or : un spec creux échoue à tous |
+| **Revue humaine** | moment 3, avec le rapport de banc sous les yeux |
+
+C'est la répartition du §00 : la machine vérifie ce qui est vérifiable, l'IA commente ce
+qui ne l'est pas, l'humain tranche. Attendre du lint qu'il juge la pertinence, c'est lui
+demander le travail du banc d'essai.
 
 ## Ce que ce socle ne fait pas encore
 

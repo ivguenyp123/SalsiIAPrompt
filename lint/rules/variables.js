@@ -41,3 +41,36 @@ export function L003(artifact) {
       )
     );
 }
+
+/**
+ * L021 — Un spec qui déclare des entrées doit en utiliser au moins une. 🔴
+ *
+ * Règle de COHÉRENCE STRUCTURELLE, pas de jugement : un artefact qui déclare recevoir
+ * le dépôt et la stack, puis n'interpole rien, ne peut pas faire le travail qu'il
+ * annonce. Le spec et les variables décrivent alors deux choses différentes.
+ *
+ * C'est la seule prise déterministe sérieuse sur le prompt vide de sens : « prout prout
+ * prout » passe la longueur, le schéma et les critères, mais n'utilise aucune de ses
+ * entrées. Le sens, lui, reste hors de portée du lint — c'est le banc d'essai qui
+ * tranche, en jouant les cas d'or.
+ *
+ * L003 signale la même incohérence variable par variable, mais en avertissement : une
+ * variable morte est du bruit. Zéro variable vivante, c'est un artefact cassé.
+ */
+export function L021(artifact) {
+  const declared = artifact?.variables || [];
+  if (declared.length === 0) return [];
+
+  const used = new Set(interpolations(artifact?.spec));
+  if (declared.some((v) => used.has(v.name))) return [];
+
+  return [
+    finding(
+      'L021', ERROR,
+      `Le spec déclare ${declared.length} variable(s) (${declared.map((v) => v.name).join(', ')}) ` +
+      'et n\'en interpole aucune : il ne peut pas faire ce qu\'il annonce. ' +
+      'Utiliser {{' + declared[0].name + '}} dans le spec, ou retirer la déclaration.',
+      'spec'
+    )
+  ];
+}
