@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SalsiIAPrompt — connexion</title>
+<link rel="stylesheet" href="./app.css">
+<style>
+  main{max-width:460px;margin:7vh auto;padding:0 20px}
+  h1{font-size:20px;margin:0 0 4px}
+  .lead{color:var(--dim);font-size:13.5px;margin:0 0 26px;line-height:1.6}
+  button.primary{width:100%;margin-top:20px;padding:10px}
+  .foot{margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}
+  details summary{cursor:pointer;color:var(--dim);font-size:12.5px}
+  details p{margin:9px 0 0}
+  code{font-family:var(--mono);font-size:12px;background:var(--panel2);
+       padding:1px 5px;border-radius:4px}
+</style>
+</head>
+<body>
+<main>
+  <h1>SalsiIAPrompt</h1>
+  <p class="lead">Registre de capacités IA certifiées.<br>
+    Connecte-toi à GitLab : ton identité devient celle qui signe les artefacts que tu écris.</p>
+
+  <div class="card">
+    <form id="form" autocomplete="off">
+      <label for="gitlabUrl">Instance GitLab</label>
+      <input id="gitlabUrl" type="text" placeholder="https://gitlab.example.com" autocomplete="url">
+
+      <label for="token">Jeton d'accès personnel</label>
+      <input id="token" type="password" placeholder="glpat-…" autocomplete="current-password">
+      <p class="hint" style="margin-top:7px">Portée <code>api</code> requise pour soumettre,
+        <code>read_api</code> suffit pour consulter.</p>
+
+      <div class="check">
+        <input id="remember" type="checkbox">
+        <label for="remember" style="margin:0">Rester connecté sur ce navigateur</label>
+      </div>
+
+      <button id="submit" class="primary" type="submit">Se connecter</button>
+      <div id="msg" class="msg"></div>
+    </form>
+
+    <div class="foot">
+      <details>
+        <summary>Où va mon jeton ?</summary>
+        <p class="hint">Il ne quitte pas ton navigateur : il sert uniquement à signer tes appels
+          vers ton instance GitLab. Aucun serveur intermédiaire, et il n'est jamais recopié dans
+          un artefact — la règle <code>L007</code> refuse d'ailleurs tout secret en dur.</p>
+        <p class="hint">Par défaut il vit dans l'onglet et disparaît quand tu le fermes.
+          « Rester connecté » le conserve sur ce navigateur : plus pratique, moins étanche.</p>
+      </details>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+import { normalizeGitlabUrl, checkToken, toSession, save, load, hubHint } from './session.js';
+import { createClient, GitlabError } from './gitlab.js';
+
+const $ = (id) => document.getElementById(id);
+const msg = $('msg');
+
+const show = (text, kind) => { msg.textContent = text; msg.className = `msg show ${kind}`; };
+const hide = () => { msg.className = 'msg'; };
+
+// Déjà connecté : on ne redemande rien.
+if (load()) location.replace('./index.html');
+
+// Une session Salsifi ouverte ? On pré-remplit l'instance — jamais le jeton.
+const hint = hubHint();
+if (hint) {
+  $('gitlabUrl').value = hint.gitlabUrl;
+  show(`Instance reprise de ta session Salsifi${hint.username ? ` (${hint.username})` : ''}. Le jeton est à ressaisir.`, 'ok');
+}
+
+$('form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  hide();
+
+  const button = $('submit');
+  button.disabled = true;
+  button.textContent = 'Vérification…';
+
+  try {
+    const gitlabUrl = normalizeGitlabUrl($('gitlabUrl').value);
+    const token = checkToken($('token').value);
+
+    // Le seul vrai test d'un jeton, c'est GitLab lui-même.
+    const user = await createClient({ gitlabUrl, token }).currentUser();
+
+    save(toSession(gitlabUrl, token, user, $('remember').checked));
+    show(`Connecté en tant que ${user.username}. Redirection…`, 'ok');
+    setTimeout(() => location.replace('./index.html'), 500);
+  } catch (error) {
+    show(error instanceof GitlabError ? error.message : error.message, 'err');
+    button.disabled = false;
+    button.textContent = 'Se connecter';
+  }
+});
+</script>
+</body>
+</html>

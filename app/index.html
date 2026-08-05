@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SalsiIAPrompt — registre</title>
+<link rel="stylesheet" href="./app.css">
+<style>
+  main{max-width:1000px;margin:32px auto;padding:0 20px}
+  h1{font-size:19px;margin:0 0 5px}
+  .lead{color:var(--dim);font-size:13.5px;margin:0 0 26px;line-height:1.6;max-width:70ch}
+  h2{font-size:12px;text-transform:uppercase;letter-spacing:.7px;color:var(--dim);
+     margin:30px 0 12px;font-weight:600}
+  .repo{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px}
+  select{background:var(--bg);color:var(--txt);border:1px solid var(--line);
+         border-radius:6px;padding:7px 10px;font-size:13.5px;font-family:inherit;min-width:280px}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <span class="brand">SalsiIAPrompt</span>
+  <span class="sub">registre de capacités IA</span>
+  <span class="spacer"></span>
+  <span class="who" id="who"></span>
+  <button id="logout">Se déconnecter</button>
+</header>
+
+<main>
+  <h1>Registre de capacités IA</h1>
+  <p class="lead">Une capacité entre par une porte contrôlée, monte en maturité sur preuve,
+    et sort quand elle se dégrade. Le déterministe décide et bloque ; le LLM produit et
+    conseille ; l'humain tranche.</p>
+
+  <h2>Dépôt de travail</h2>
+  <div class="card repo">
+    <select id="projects"><option>Chargement…</option></select>
+    <span class="hint" id="repoHint">Le dépôt sur lequel porteront les agents que tu écris.</span>
+  </div>
+
+  <h2>Écrire &amp; gouverner</h2>
+  <div class="grid">
+    <a class="tile" href="../studio/index.html">
+      <h3>Studio</h3>
+      <p>Écrire un agent ou un prompt. Les 21 règles s'exécutent à la frappe : la porte
+        se ferme avant la soumission, pas après.</p>
+    </a>
+    <span class="tile soon">
+      <h3>Catalogue <span class="tag">à venir</span></h3>
+      <p>Trouver une capacité par intention, la lancer, la mettre en favori.</p>
+    </span>
+    <span class="tile soon">
+      <h3>Admin <span class="tag">à venir</span></h3>
+      <p>File de validation, parc, journal des exécutions et leurs preuves.</p>
+    </span>
+  </div>
+
+  <h2>Voir l'intention</h2>
+  <div class="grid">
+    <a class="tile" href="../maquette.html">
+      <h3>Maquette</h3>
+      <p>Catalogue, Studio et Admin en un seul fichier, données en dur. Elle montre où
+        l'on va ; elle ne vérifie rien.</p>
+    </a>
+  </div>
+</main>
+
+<script type="module">
+import { requireSession, clear } from './session.js';
+import { createClient } from './gitlab.js';
+
+const session = requireSession('./login.html');
+if (session) {
+  const $ = (id) => document.getElementById(id);
+
+  $('who').innerHTML = session.avatar ? `<img alt="" src="${session.avatar}">` : '';
+  $('who').append(`${session.name} · ${new URL(session.gitlabUrl).host}`);
+
+  $('logout').onclick = () => { clear(); location.replace('./login.html'); };
+
+  // Le dépôt courant est mémorisé côté navigateur : c'est une préférence d'affichage,
+  // pas une donnée gouvernée.
+  const REPO_KEY = 'salsi_ia_project';
+  const select = $('projects');
+
+  try {
+    const projects = await createClient(session).listProjects({ perPage: 50 });
+    select.textContent = '';
+    if (projects.length === 0) {
+      select.append(new Option('Aucun dépôt accessible avec ce jeton', ''));
+    } else {
+      select.append(new Option('— choisir un dépôt —', ''));
+      for (const p of projects) select.append(new Option(p.path_with_namespace, String(p.id)));
+      select.value = localStorage.getItem(REPO_KEY) || '';
+    }
+    select.onchange = () => {
+      localStorage.setItem(REPO_KEY, select.value);
+      $('repoHint').textContent = select.value ? 'Dépôt retenu pour cette session.' : 'Aucun dépôt sélectionné.';
+    };
+  } catch (error) {
+    select.textContent = '';
+    select.append(new Option('Dépôts illisibles', ''));
+    $('repoHint').textContent = error.message;
+  }
+}
+</script>
+</body>
+</html>

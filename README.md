@@ -16,6 +16,17 @@ qui garde la porte d'entrée (moment 2, couche 1), et le Studio qui joue les mê
 seul fichier, données en dur. Elle s'ouvre par double-clic. Elle montre l'intention ;
 elle ne vérifie rien. C'est le code ci-dessous qui vérifie.
 
+## Lancer
+
+```bash
+npm start        # puis http://localhost:8080
+```
+
+Connexion par jeton GitLab, comme le hub Salsifi — avec trois différences assumées :
+la session a sa propre clé de stockage (deux applications, deux cycles de vie), elle
+vit **dans l'onglet** par défaut plutôt que sur le navigateur, et une session Salsifi
+ouverte ne sert qu'à pré-remplir l'instance : le jeton est toujours ressaisi.
+
 ## Trois dépôts, pas un
 
 | Dépôt | Contenu |

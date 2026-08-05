@@ -1,16 +1,16 @@
 {
-  "name": "salsi-registry",
+  "name": "salsi-ia-prompt",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Registre de capacités IA — schémas, registres et linter déterministe. Aucune dépendance à l'exécution : ni npm install, ni réseau, ni LLM.",
+  "description": "Registre de capacités IA certifiées. Le déterministe décide et bloque, le LLM conseille, l'humain tranche.",
   "engines": {
     "node": ">=18"
   },
   "scripts": {
+    "start": "node serve.js",
     "lint": "node lint/cli.js artifacts",
-    "test": "node --test test/*.test.js",
-    "studio": "node studio/serve.js"
+    "test": "node --test test/*.test.js"
   },
   "devDependencies": {
     "ajv": "^8.17.1",

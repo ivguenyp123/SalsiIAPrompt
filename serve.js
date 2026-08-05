@@ -2,7 +2,7 @@
 /*
  * Serveur statique minimal, pour ouvrir le Studio.
  *
- *   node studio/serve.js        puis http://localhost:8080
+ *   node serve.js        puis http://localhost:8080
  *
  * Pourquoi un serveur et pas un double-clic : les navigateurs interdisent les modules
  * ES chargés depuis file:// (politique d'origine). Or la page importe les VRAIS modules
@@ -17,7 +17,7 @@ import { join, extname, resolve, normalize } from 'node:path';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const ROOT = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 8080);
 
 const TYPES = {
@@ -37,12 +37,12 @@ createServer(async (req, res) => {
     // Rediriger plutôt que servir la page à la racine : sinon l'URL du document reste
     // `/` et toutes les URL relatives de la page (./studio.js, ../registries/…) se
     // résolvent au mauvais endroit.
-    if (url.pathname === '/') { res.writeHead(302, { Location: '/studio/' }).end(); return; }
+    if (url.pathname === '/') { res.writeHead(302, { Location: '/app/' }).end(); return; }
     if (url.pathname === '/favicon.ico') { res.writeHead(204).end(); return; }
 
     const rel = decodeURIComponent(url.pathname.endsWith('/') ? `${url.pathname}index.html` : url.pathname);
 
-    // Confinement : rien au-dessus de registry/, quoi qu'on demande.
+    // Confinement : rien au-dessus de la racine du dépôt, quoi qu'on demande.
     const path = normalize(join(ROOT, rel));
     if (!path.startsWith(ROOT)) { res.writeHead(403).end('403'); return; }
 
@@ -55,5 +55,5 @@ createServer(async (req, res) => {
     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }).end('404');
   }
 }).listen(PORT, () => {
-  console.log(`\n  Studio — lint en direct\n  http://localhost:${PORT}\n\n  Ctrl+C pour arrêter.\n`);
+  console.log(`\n  SalsiIAPrompt\n  http://localhost:${PORT}\n\n  Ctrl+C pour arrêter.\n`);
 });
