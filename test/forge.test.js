@@ -66,6 +66,19 @@ describe('GitLab', () => {
     assert.equal(fetchImpl.calls[0].params.membership, 'true');
   });
 
+  test('listFiles normalise l\'arbre GitLab', async () => {
+    const fetchImpl = fakeFetch({ '/api/v4/projects/42/repository/tree': [
+      { name: 'a.yaml', path: 'artifacts/a.yaml', type: 'blob' },
+      { name: 'sous', path: 'artifacts/sous', type: 'tree' }
+    ] });
+    const files = await createForge(GITLAB, fetchImpl).listFiles('42', 'artifacts');
+    assert.deepEqual(files, [
+      { name: 'a.yaml', path: 'artifacts/a.yaml', type: 'file' },
+      { name: 'sous', path: 'artifacts/sous', type: 'dir' }
+    ]);
+    assert.equal(fetchImpl.calls[0].params.ref, 'main');
+  });
+
   test('un fichier absent renvoie null, ce n\'est pas une erreur', async () => {
     const forge = createForge(GITLAB, fakeFetch({}));
     assert.equal(await forge.getFile('42', 'artifacts/x.yaml'), null);
@@ -113,11 +126,34 @@ describe('GitHub', () => {
     assert.equal(put.body.branch, 'main');
   });
 
+  test('listFiles normalise le contenu GitHub', async () => {
+    const fetchImpl = fakeFetch({ '/repos/o/r/contents/artifacts': [
+      { name: 'a.yaml', path: 'artifacts/a.yaml', type: 'file' },
+      { name: 'sous', path: 'artifacts/sous', type: 'dir' }
+    ] });
+    const files = await createForge(GITHUB, fetchImpl).listFiles('o/r', 'artifacts');
+    assert.deepEqual(files.map((f) => f.type), ['file', 'dir']);
+  });
+
+  test('listFiles sur un chemin de FICHIER renvoie une liste vide, pas un plantage', async () => {
+    // GitHub renvoie un objet et non un tableau dans ce cas : sans garde, le .map casse.
+    const fetchImpl = fakeFetch({ '/repos/o/r/contents/artifacts/a.yaml': { name: 'a.yaml', type: 'file' } });
+    assert.deepEqual(await createForge(GITHUB, fetchImpl).listFiles('o/r', 'artifacts/a.yaml'), []);
+  });
+
   test('crée sans sha quand le fichier n\'existe pas encore', async () => {
     const fetchImpl = fakeFetch({ 'PUT /repos/o/r/contents/artifacts/x.yaml': { commit: { sha: 'new' } } });
     await createForge(GITHUB, fetchImpl).putFile('o/r', 'artifacts/x.yaml', { content: 'eQ==', message: 'm' });
 
     assert.ok(!('sha' in fetchImpl.calls.at(-1).body), 'un sha inventé ferait échouer la création');
+  });
+});
+
+describe('registre encore vide', () => {
+  test('un dossier absent renvoie [] plutôt qu\'une erreur, des deux côtés', async () => {
+    // Le cas du premier jour : personne n'a encore publié. Ce n'est pas une panne.
+    assert.deepEqual(await createForge(GITLAB, fakeFetch({})).listFiles('42', 'artifacts'), []);
+    assert.deepEqual(await createForge(GITHUB, fakeFetch({})).listFiles('o/r', 'artifacts'), []);
   });
 });
 

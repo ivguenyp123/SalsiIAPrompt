@@ -11,6 +11,7 @@
  * Interface :
  *   currentUser()                        → { username, name, avatar, id }
  *   listRepos({ search, perPage })       → [{ id, path, name }]
+ *   listFiles(repo, path, ref)           → [{ name, path, type }]  ([] si le dossier n'existe pas)
  *   getFile(repo, path, ref)             → { content, sha } | null
  *   putFile(repo, path, { content, message, branch })  → crée ou met à jour
  */
@@ -121,6 +122,17 @@ function gitlab(session, fetchImpl) {
       return list.map((p) => ({ id: String(p.id), path: p.path_with_namespace, name: p.name }));
     },
 
+    listFiles: async (repo, path, ref = 'main') => {
+      try {
+        const list = await call(`/projects/${encodeURIComponent(repo)}/repository/tree`,
+          { params: { path, ref, per_page: 100 } });
+        return list.map((e) => ({ name: e.name, path: e.path, type: e.type === 'tree' ? 'dir' : 'file' }));
+      } catch (error) {
+        if (error.status === 404) return [];   // dossier absent = registre encore vide
+        throw error;
+      }
+    },
+
     putFile: async (repo, path, { content, message, branch = 'main' }) => {
       // GitLab distingue création et mise à jour par le verbe HTTP : il faut donc
       // savoir si le fichier existe avant d'écrire.
@@ -155,6 +167,18 @@ function github(session, fetchImpl) {
       return list
         .map((r) => ({ id: r.full_name, path: r.full_name, name: r.name }))
         .filter((r) => !search || r.path.toLowerCase().includes(search.toLowerCase()));
+    },
+
+    listFiles: async (repo, path, ref = 'main') => {
+      try {
+        const list = await call(`/repos/${repo}/contents/${path}`, { params: { ref } });
+        // Sur un fichier, GitHub renvoie un objet et non un tableau.
+        if (!Array.isArray(list)) return [];
+        return list.map((e) => ({ name: e.name, path: e.path, type: e.type === 'dir' ? 'dir' : 'file' }));
+      } catch (error) {
+        if (error.status === 404) return [];   // dossier absent = registre encore vide
+        throw error;
+      }
     },
 
     getFile: async (repo, path, ref = 'main') => {

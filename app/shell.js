@@ -6,7 +6,7 @@
  */
 
 const TABS = [
-  { id: 'catalogue', label: '🧰 Catalogue', href: null },
+  { id: 'catalogue', label: '🧰 Catalogue', href: 'catalogue' },
   { id: 'studio', label: '🛠️ Studio', href: 'studio' },
   { id: 'admin', label: '📊 Admin', href: null },
   { id: 'maquette', label: '✨ Maquette', href: 'maquette' }
@@ -18,7 +18,8 @@ const TABS = [
  *   base : préfixe vers la racine du dépôt ('' depuis /app, '../' depuis /studio)
  */
 export function mountShell({ active = '', session, base = '', onLogout }) {
-  const href = { studio: `${base}studio/index.html`, maquette: `${base}maquette.html` };
+  const href = { catalogue: `${base}catalogue/index.html`, studio: `${base}studio/index.html`,
+                 maquette: `${base}maquette.html` };
 
   const bar = document.createElement('div');
   bar.className = 'tabs';

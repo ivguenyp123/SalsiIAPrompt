@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Catalogue — SalsiIAPrompt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../app/app.css">
+<style>
+  main{max-width:1120px;margin:26px auto 60px;padding:0 20px}
+
+  .search{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .search input{flex:1;min-width:260px;font-size:15px;padding:12px 14px}
+  .filters{display:flex;gap:7px;flex-wrap:wrap;margin-top:14px}
+  .filters button{padding:6px 13px;font-size:12.5px;border-radius:999px}
+  .filters button.on{color:#fff;background:rgba(124,92,252,.28);border-color:rgba(167,139,250,.6)}
+
+  .meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:22px 0 12px;
+        font-size:12px;color:var(--tm)}
+  .meta .sp{flex:1}
+
+  .cards{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
+  .item{background:var(--bg-card);border:1px solid var(--line);border-radius:16px;padding:17px;
+        cursor:pointer;transition:.15s;text-align:left;width:100%;font:inherit;color:inherit;display:block}
+  .item:hover{background:var(--bg-card-h);border-color:rgba(167,139,250,.45);transform:translateY(-1px)}
+  .item h3{font-size:15px;margin:0 0 6px;display:flex;align-items:center;gap:8px}
+  .item p{margin:0 0 12px;color:var(--ts);font-size:12.5px;line-height:1.55}
+  .item .foot{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:11px;color:var(--tm)}
+
+  .pill{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;
+        border-radius:5px;padding:2px 6px;border:1px solid var(--line2);color:var(--tm)}
+  .pill.officiel{color:var(--ok);border-color:rgba(52,211,153,.45);background:rgba(52,211,153,.1)}
+  .pill.team{color:var(--info);border-color:rgba(96,165,250,.45);background:rgba(96,165,250,.1)}
+  .pill.ko{color:var(--err);border-color:rgba(248,113,113,.5);background:rgba(248,113,113,.12)}
+
+  .empty{padding:34px;text-align:center;color:var(--tm);border:1px dashed var(--line2);border-radius:16px}
+  .empty b{color:var(--tp);display:block;margin-bottom:6px;font-family:var(--fd);font-size:15px}
+
+  /* Fiche de détail */
+  .sheet{position:fixed;inset:0;background:rgba(8,5,18,.72);backdrop-filter:blur(4px);
+         display:none;z-index:40;padding:34px 20px;overflow:auto}
+  .sheet.on{display:block}
+  .sheet .inner{max-width:820px;margin:0 auto;background:#160f2b;border:1px solid var(--line2);
+                border-radius:18px;overflow:hidden}
+  .sheet header{display:flex;align-items:flex-start;gap:12px;padding:20px;border-bottom:1px solid var(--line)}
+  .sheet header h2{font-size:19px;flex:1}
+  .sheet .close{background:none;border:none;color:var(--tm);font-size:20px;cursor:pointer;padding:0}
+  .sheet .body{padding:20px;display:grid;gap:20px}
+  .sheet h4{margin:0 0 8px;font-size:10.5px;font-weight:800;text-transform:uppercase;
+            letter-spacing:.06em;color:var(--tm);font-family:var(--fb)}
+  .sheet pre{margin:0;padding:13px 15px;background:rgba(0,0,0,.32);border-radius:12px;
+             font-family:var(--fm);font-size:11.5px;line-height:1.6;overflow:auto;
+             white-space:pre-wrap;color:var(--ts)}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:12.5px}
+  .kv dt{color:var(--tm)} .kv dd{margin:0;color:var(--ts)}
+  ul.plain{margin:0;padding-left:17px;font-size:12.5px;line-height:1.7;color:var(--ts)}
+  ul.plain code{color:var(--tp)}
+</style>
+</head>
+<body>
+
+<main>
+  <h1>Catalogue</h1>
+  <p class="hint" style="margin:8px 0 22px;font-size:13.5px">Ce que le registre contient réellement —
+    lu dans le dépôt, pas une liste écrite à la main.</p>
+
+  <div class="card">
+    <div class="search">
+      <input id="q" type="text" placeholder="décris ton besoin en une phrase…" autocomplete="off">
+    </div>
+    <div class="filters" id="filters"></div>
+  </div>
+
+  <div class="meta">
+    <span id="count">Chargement…</span>
+    <span class="sp"></span>
+    <span id="source"></span>
+  </div>
+
+  <div class="cards" id="cards"></div>
+  <div class="empty" id="empty" style="display:none"></div>
+</main>
+
+<div class="sheet" id="sheet"><div class="inner" id="sheetInner"></div></div>
+
+<script type="module" src="./catalogue.js"></script>
+</body>
+</html>

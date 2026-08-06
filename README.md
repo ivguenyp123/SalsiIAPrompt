@@ -48,6 +48,17 @@ la session a sa propre clé de stockage (deux applications, deux cycles de vie),
 vit **dans l'onglet** par défaut plutôt que sur le navigateur, et une session Salsifi
 ouverte ne sert qu'à pré-remplir l'instance : le jeton est toujours ressaisi.
 
+## Le Catalogue — relire le registre
+
+Le Studio écrit, le Catalogue relit. La liste est **lue dans le dépôt**, jamais tenue à
+la main : chaque carte correspond à un `artifacts/*.yaml` réel. Recherche par intention,
+filtres par type, et une fiche par capacité — spécification, outils, contrat de runtime.
+
+Chaque artefact est **repassé au linter à la lecture**. Ce n'est pas redondant avec la
+porte : les règles évoluent, et un artefact publié hier peut ne plus être conforme
+aujourd'hui. Le filtre « non conformes » les isole, au lieu de les laisser pourrir en
+silence. C'est l'embryon du moment 8 — la surveillance continue — sans jobs planifiés.
+
 ## Publier
 
 Depuis le Studio, **Publier sur main** commite l'artefact en `artifacts/<id>.yaml` sur
