@@ -73,6 +73,25 @@ code,.mono{font-family:var(--fm);font-size:12px}
 .who{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ts);white-space:nowrap}
 .who img{width:24px;height:24px;border-radius:50%;border:1px solid var(--line2)}
 
+/*
+ * `hidden` doit vraiment masquer.
+ *
+ * Le navigateur applique `[hidden] { display: none }`, mais c'est une règle de sa feuille
+ * PAR DÉFAUT : toute règle d'auteur qui pose un `display` la bat, quelle que soit la
+ * spécificité — une feuille d'auteur passe avant celle du navigateur. Or on en pose
+ * partout : `button { display:inline-block }` juste en dessous, `main { display:grid }`
+ * au Studio. Résultat, `element.hidden = true` ne masquait rien sur ces éléments-là.
+ *
+ * Le symptôme était spectaculaire : au Studio, la liste ET le formulaire s'affichaient
+ * l'un sous l'autre, avec les six boutons de la barre en même temps. Et les tests ne le
+ * voyaient pas — ils lisaient la PROPRIÉTÉ `hidden`, qui valait bien `true`. Un test
+ * doit interroger ce qui est RENDU, pas ce qu'on a demandé.
+ *
+ * `!important` est ici à sa place : on veut précisément que cette règle gagne sur les
+ * autres.
+ */
+[hidden]{display:none !important}
+
 /* ── Boutons ──────────────────────────────────────────────────────────────── */
 button,.btn{
   font:inherit;font-weight:700;font-size:13px;color:var(--ts);
