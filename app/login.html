@@ -11,6 +11,8 @@
   .lead{color:var(--dim);font-size:13.5px;margin:0 0 26px;line-height:1.6}
   button.primary{width:100%;margin-top:20px;padding:10px}
   .foot{margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}
+  .quick{display:flex;align-items:center;gap:7px;margin-top:8px;flex-wrap:wrap}
+  .quick button{padding:3px 9px;font-size:12px}
   details summary{cursor:pointer;color:var(--dim);font-size:12.5px}
   details p{margin:9px 0 0}
   code{font-family:var(--mono);font-size:12px;background:var(--panel2);
@@ -25,8 +27,13 @@
 
   <div class="card">
     <form id="form" autocomplete="off">
-      <label for="gitlabUrl">Forge</label>
-      <input id="gitlabUrl" type="text" placeholder="https://gitlab.example.com — ou https://github.com" autocomplete="url">
+      <label for="gitlabUrl">Forge — l'adresse de GitLab ou GitHub, pas celle de cette page</label>
+      <input id="gitlabUrl" type="text" value="https://github.com" autocomplete="url">
+      <div class="quick">
+        <button type="button" data-url="https://github.com">github.com</button>
+        <button type="button" data-url="https://gitlab.com">gitlab.com</button>
+        <span class="hint">ou saisis ton instance GitLab interne</span>
+      </div>
 
       <label for="token">Jeton d'accès personnel</label>
       <input id="token" type="password" placeholder="glpat-…" autocomplete="current-password">
@@ -85,6 +92,22 @@ const refreshHint = () => {
 $('gitlabUrl').addEventListener('input', refreshHint);
 refreshHint();
 
+for (const b of document.querySelectorAll('.quick button')) {
+  b.onclick = () => { $('gitlabUrl').value = b.dataset.url; refreshHint(); hide(); };
+}
+
+/*
+ * L'erreur naturelle : recopier l'adresse de la page courante. Elle est d'autant plus
+ * probable que l'application est hébergée sur github.io, qui ressemble à s'y méprendre
+ * à la forge sans en être une. On la nomme au lieu de laisser un « 404 » incompréhensible.
+ */
+function ownOrigin(value) {
+  try {
+    const host = new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`).host;
+    return host === location.host;
+  } catch { return false; }
+}
+
 $('form').addEventListener('submit', async (event) => {
   event.preventDefault();
   hide();
@@ -94,6 +117,10 @@ $('form').addEventListener('submit', async (event) => {
   button.textContent = 'Vérification…';
 
   try {
+    if (ownOrigin($('gitlabUrl').value)) {
+      throw new Error('C\'est l\'adresse de cette application, pas celle de ta forge. '
+        + 'Mets https://github.com, ou l\'adresse de ton GitLab.');
+    }
     const gitlabUrl = normalizeGitlabUrl($('gitlabUrl').value);
     const token = checkToken($('token').value);
 
