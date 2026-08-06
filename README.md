@@ -156,15 +156,39 @@ Sans eux, ces tests se sautent et le reste tourne à l'identique.
 npm install && npm test       # conformité croisée comprise
 ```
 
-## Le Studio — lint en direct (moment 1)
+## Le Studio — l'établi et le lint en direct (moment 1)
 
 ```bash
 npm run studio                # puis http://localhost:8080
 ```
 
-Un formulaire d'écriture d'artefact où **les 21 règles s'exécutent à la frappe**. Deux
-boutons chargent un exemple conforme et un exemple fautif, pour voir la porte s'ouvrir
-et se fermer.
+Le Studio ouvre sur **l'établi** : ce qu'on a écrit, et où ça en est. Avant, il ouvrait
+sur un formulaire vide — on soumettait un artefact et on ne le revoyait plus jamais
+depuis le Studio, puisque le Catalogue ne montre que le validé. Une soumission en attente
+devenait introuvable dès l'onglet fermé : on écrivait dans le vide en espérant qu'un
+administrateur passe.
+
+Trois états, portés par le dossier faute d'état dérivé :
+
+| État | Où vit le fichier | Ce que ça veut dire |
+|---|---|---|
+| **en revue** | `artifacts/pending/<id>.yaml` | soumis, attend une décision humaine |
+| **correction en revue** | les **deux** dossiers | une correction attend ; la version publiée sert toujours |
+| **publié** | `artifacts/<id>.yaml` | visible au catalogue |
+
+Le troisième état n'est pas un détail. Corriger un artefact publié ne le modifie pas : ça
+dépose une soumission dans la file, et la version en ligne continue de servir jusqu'à la
+décision. Confondre les deux ferait partir l'auteur en pensant sa correction déployée. Le
+bandeau du formulaire dit lequel des deux cas s'applique.
+
+Un fichier au YAML cassé **reste dans la liste** — c'est celui qu'il faut retrouver pour
+le réparer — et son bouton est inerte : le rouvrir produirait un formulaire vide qu'on
+republierait par-dessus l'original. Il échappe aussi au filtre « seulement les miens »,
+puisqu'un fichier illisible n'a pas d'owner.
+
+Derrière l'établi, le formulaire d'écriture où **les 21 règles s'exécutent à la frappe**.
+Deux boutons chargent un exemple conforme et un exemple fautif, pour voir la porte
+s'ouvrir et se fermer.
 
 La page importe les **vrais** modules — `lint/index.js`, `lib/schema.js`, `lib/yaml.js` —
 et charge les registres réels. Aucune copie, aucun portage, aucun bundler : c'est

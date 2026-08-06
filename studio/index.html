@@ -18,6 +18,34 @@
   .toolbar .sp{flex:1}
   .toolbar button{padding:7px 12px}
 
+  /* ── Vue liste ── */
+  #listView{max-width:940px;margin:22px auto 60px;padding:0 20px}
+  .lmeta{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--tm);margin-bottom:14px}
+  .lmeta .sp{flex:1}
+  .lfilters{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+  .lfilters input#lq{flex:1;min-width:200px}
+  .seg{display:inline-flex;gap:6px}
+  .seg button{padding:7px 12px;font-size:12px}
+  .seg button.on{color:var(--tp);border-color:var(--accent);background:rgba(167,139,250,.14)}
+  label.mine{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--tm);cursor:pointer}
+  label.mine input{width:auto;margin:0}
+
+  .llist{display:grid;gap:10px}
+  .lrow{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;
+        background:var(--bg-card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+  .lrow h3{margin:0 0 4px;font-size:14.5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .lrow p{margin:0;font-size:12px;color:var(--ts);line-height:1.5}
+  .lrow .facts{margin-top:6px;font-size:11px;color:var(--tm);font-family:var(--fm)}
+  .lrow .acts{display:flex;gap:8px;align-items:center}
+  .st{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;
+      border-radius:5px;padding:2px 7px;border:1px solid var(--line2);color:var(--tm);white-space:nowrap}
+  .st.revue{color:var(--warn);border-color:rgba(251,191,36,.5);background:rgba(251,191,36,.1)}
+  .st.correction{color:var(--accent);border-color:rgba(167,139,250,.5);background:rgba(167,139,250,.12)}
+  .st.publie{color:var(--ok);border-color:rgba(52,211,153,.45);background:rgba(52,211,153,.1)}
+  .st.ko{color:var(--err);border-color:rgba(248,113,113,.5);background:rgba(248,113,113,.12)}
+  .empty{padding:34px;text-align:center;color:var(--tm);border:1px dashed var(--line2);border-radius:16px}
+  .empty b{color:var(--tp);display:block;margin-bottom:6px;font-family:var(--fd);font-size:15px}
+
   main{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);
        gap:18px;padding:18px;align-items:start}
   @media (max-width:1040px){ main{grid-template-columns:1fr} }
@@ -90,15 +118,35 @@
   <span class="title">Studio</span>
   <span class="sub">les 21 règles, à la frappe · aucun LLM</span>
   <span class="sp"></span>
-  <button id="load-example">Exemple conforme</button>
-  <button id="load-broken">Exemple fautif</button>
-  <button id="reset">Vider</button>
-  <span id="verdict" class="verdict ok">—</span>
-  <button id="publish" class="primary">Soumettre à validation</button>
+  <button id="back-list" hidden>← Mes artefacts</button>
+  <button id="load-example" hidden>Exemple conforme</button>
+  <button id="load-broken" hidden>Exemple fautif</button>
+  <button id="reset" hidden>Vider</button>
+  <span id="verdict" class="verdict ok" hidden>—</span>
+  <button id="new-artifact" class="primary" hidden>＋ Nouvel artefact</button>
+  <button id="publish" class="primary" hidden>Soumettre à validation</button>
 </div>
 <div id="pubMsg"></div>
 
-<main>
+<!-- Vue liste : l'établi. Le Studio ouvrait sur un formulaire vide, donc ce qu'on avait
+     soumis n'était plus joignable une fois l'onglet fermé — le Catalogue ne montre que
+     le validé. -->
+<section id="listView">
+  <div class="lmeta">
+    <span id="lcount">Chargement…</span>
+    <span class="sp"></span>
+    <span id="lsource"></span>
+  </div>
+  <div class="lfilters">
+    <input id="lq" placeholder="chercher dans mes artefacts…">
+    <span id="lstatus" class="seg"></span>
+    <label class="mine"><input type="checkbox" id="lmine" checked> seulement les miens</label>
+  </div>
+  <div id="llist" class="llist"></div>
+  <div class="empty" id="lempty" hidden></div>
+</section>
+
+<main id="editView" hidden>
   <section class="col left">
     <fieldset>
       <legend>Identité</legend>

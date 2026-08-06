@@ -20,6 +20,7 @@ import { makeValidator } from '../lib/schema.js';
 import yaml from '../lib/yaml.js';
 import { formToArtifact } from './form-to-artifact.js';
 import { artifactToForm, restoreCarried } from './artifact-to-form.js';
+import { inventaire, aCorriger, ETATS } from './inventory.js';
 import { toYaml } from './to-yaml.js';
 
 const session = requireSession('../app/login.html');
@@ -72,7 +73,8 @@ scopeSelect.value = devine;
  * Les cas d'or en sont sortis : ils ont maintenant leurs propres champs, donc ils se
  * modifient au lieu de traverser intacts.
  */
-const state = { variables: [], tools: [], criteria: [], goldenCases: [], carried: {}, editId: null };
+const state = { variables: [], tools: [], criteria: [], goldenCases: [], carried: {},
+                editId: null, editFrom: null };
 
 /*
  * Reprise d'un artefact existant. Le Catalogue et la file de validation déposent ici ce
@@ -402,17 +404,26 @@ function apply(form) {
   state.goldenCases = structuredClone(form.goldenCases ?? []);
   state.carried = structuredClone(form.carried ?? {});
   state.editId = form.id || null;
+  state.editFrom = form.editFrom ?? null;
 
   bandeauEdition();
   renderVariables(); renderTools(); renderCriteria(); renderGolden(); run();
 }
 
-/** Dit clairement qu'on corrige un artefact existant, et lequel. */
+/*
+ * Dit ce que republier fera VRAIMENT, et ça dépend d'où vient l'artefact.
+ *
+ * Corriger un artefact PUBLIÉ ne le modifie pas : ça dépose une soumission dans la file,
+ * et la version en ligne continue de servir jusqu'à la décision. Laisser croire le
+ * contraire ferait partir l'auteur en pensant sa correction déployée.
+ */
 function bandeauEdition() {
   const barre = document.querySelector('.toolbar .sub');
-  barre.textContent = state.editId
-    ? `reprise de « ${state.editId} » — republier remplacera ce fichier`
-    : 'les 21 règles, à la frappe · aucun LLM';
+  const texte = !state.editId ? 'les 21 règles, à la frappe · aucun LLM'
+    : state.editFrom === 'published'
+      ? `correction de « ${state.editId} » — la version publiée sert jusqu'à la validation`
+      : `reprise de « ${state.editId} » — republier remplacera la soumission en attente`;
+  barre.textContent = texte;
   barre.style.color = state.editId ? 'var(--accent)' : '';
 }
 
@@ -460,6 +471,10 @@ $('publish').onclick = async () => {
       branch: 'main'
     });
     sayPub(`✔ Soumis pour validation — ${path}. Il apparaîtra au catalogue une fois validé dans l'Admin.`, 'ok');
+    // Retour à l'établi : la soumission y apparaît « en revue ». Rester sur le formulaire
+    // laissait l'auteur sans preuve que quelque chose s'était produit.
+    montrer('liste');
+    await chargerInventaire();
   } catch (error) {
     sayPub(error.message, 'err');
   } finally {
@@ -472,5 +487,192 @@ $('load-example').onclick = () => apply(EXEMPLE_OK);
 $('load-broken').onclick = () => apply(EXEMPLE_KO);
 $('reset').onclick = () => apply({ variables: [], tools: [], criteria: [], goldenCases: [] });
 
+/*
+ * ── L'établi : la liste de ce qu'on a écrit ──────────────────────────────────
+ *
+ * Le Studio ouvrait sur un formulaire vide. On soumettait un artefact et on ne le
+ * revoyait plus JAMAIS depuis le Studio : le Catalogue ne montre que le validé, donc une
+ * soumission en attente devenait introuvable dès l'onglet fermé. On écrivait dans le
+ * vide en espérant qu'un administrateur passe.
+ *
+ * L'état vient du dossier — `artifacts/pending/` contre `artifacts/` — faute d'état
+ * dérivé. Un identifiant présent aux deux endroits est une correction en attente sur une
+ * capacité publiée, et c'est un état à part entière : la version publiée sert toujours.
+ */
+const forge = createForge(session);
+
+const vue = { entrees: [], statut: 'tout', query: '', mien: true, charge: false };
+
+const STATUTS = [['tout', 'Tout'], ['revue', 'En revue'], ['correction', 'Correction'], ['publie', 'Publiés']];
+
+/** Bascule liste / éditeur, et la barre d'outils avec — les deux modes n'ont rien en commun. */
+function montrer(mode) {
+  const liste = mode === 'liste';
+  $('listView').hidden = !liste;
+  $('editView').hidden = liste;
+  for (const [id, enListe] of [['new-artifact', true], ['back-list', false], ['load-example', false],
+                               ['load-broken', false], ['reset', false], ['verdict', false], ['publish', false]]) {
+    $(id).hidden = liste !== enListe;
+  }
+  if (liste) bandeauListe(); else bandeauEdition();
+  scrollTo(0, 0);
+}
+
+function bandeauListe() {
+  const barre = document.querySelector('.toolbar .sub');
+  barre.textContent = 'ce que tu as écrit, et où ça en est';
+  barre.style.color = '';
+}
+
+/** Ouvre un artefact existant dans l'éditeur, en retenant d'où il vient. */
+function ouvrir(entree) {
+  const source = aCorriger(entree);
+  if (!source?.artifact) {
+    sayPub(`« ${entree.id} » est illisible : il faut corriger ${source?.path} directement dans le dépôt.`, 'err');
+    return;
+  }
+  apply({ ...artifactToForm(source.artifact), editFrom: entree.pending ? 'pending' : 'published' });
+  montrer('editeur');
+}
+
+async function chargerInventaire() {
+  const repo = localStorage.getItem('salsi_ia_registry_repo');
+  if (!repo) {
+    $('lcount').textContent = '';
+    return vide('Aucun dépôt de registre choisi.', 'Retourne à l\'accueil pour en sélectionner un.');
+  }
+  $('lsource').textContent = `lu dans ${repo}`;
+
+  const lire = async (dossier) => {
+    const fichiers = (await forge.listFiles(repo, dossier))
+      .filter((f) => f.type === 'file' && /\.ya?ml$/.test(f.name));
+    // En parallèle, et chacun protégé : un YAML cassé doit apparaître comme une ligne
+    // illisible, pas rendre tout l'établi vide.
+    return Promise.all(fichiers.map(async (f) => {
+      try { return { path: f.path, artifact: yaml.parse((await forge.getFile(repo, f.path)).content) }; }
+      catch { return { path: f.path, artifact: null }; }
+    }));
+  };
+
+  try {
+    const [pending, published] = await Promise.all([lire('artifacts/pending'), lire('artifacts')]);
+    vue.entrees = inventaire({ pending, published, me: session.username });
+    vue.charge = true;
+  } catch (error) {
+    $('lcount').textContent = '';
+    return vide('Lecture impossible', error.message);
+  }
+  renderListe();
+}
+
+const plie = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+function vide(titre, detail) {
+  const box = $('lempty');
+  box.hidden = false;
+  box.textContent = '';
+  box.append(el('b', { textContent: titre }), detail);
+}
+
+function renderStatuts() {
+  const host = $('lstatus');
+  host.textContent = '';
+  for (const [id, label] of STATUTS) {
+    const b = el('button', { textContent: label, className: vue.statut === id ? 'on' : '' });
+    b.onclick = () => { vue.statut = id; renderStatuts(); renderListe(); };
+    host.append(b);
+  }
+}
+
+function renderListe() {
+  const q = plie(vue.query);
+  const montrees = vue.entrees.filter((e) =>
+    (vue.statut === 'tout' || e.etat === vue.statut) &&
+    // Un fichier illisible échappe au filtre : il n'appartient à personne, et c'est
+    // exactement celui qu'il faut retrouver pour le réparer.
+    (!vue.mien || e.mien || !e.lisible) &&
+    (!q || plie(`${e.titre} ${e.id} ${e.purpose} ${e.scope}`).includes(q)));
+
+  $('lcount').textContent = vue.entrees.length === 0 ? ''
+    : montrees.length === vue.entrees.length ? `${vue.entrees.length} artefact(s)`
+    : `${montrees.length} sur ${vue.entrees.length}`;
+
+  const host = $('llist');
+  host.textContent = '';
+  $('lempty').hidden = montrees.length > 0;
+
+  if (montrees.length === 0) {
+    return vue.entrees.length === 0
+      ? vide('Rien dans le registre.', 'Écris un premier artefact avec « ＋ Nouvel artefact ».')
+      : vide('Rien ne correspond.', vue.mien ? 'Décoche « seulement les miens » pour voir ceux des autres.'
+                                             : 'Essaie d\'autres mots, ou change de statut.');
+  }
+
+  for (const e of montrees) host.append(ligneListe(e));
+}
+
+const ICONE = { prompt: '📚', chain: '🔗' };
+
+function ligneListe(entree) {
+  const gauche = el('div', {});
+  const titre = el('h3', {}, entree.lisible ? `${ICONE[entree.kind] || '🤖'} ` : '⚠ ', entree.titre);
+  titre.append(el('span', { className: `st ${entree.etat}`, textContent: ETATS[entree.etat].label,
+                            title: ETATS[entree.etat].aide }));
+  if (!entree.lisible) titre.append(el('span', { className: 'st ko', textContent: 'illisible' }));
+  else if (!entree.mien) titre.append(el('span', { className: 'st', textContent: entree.auteur || 'sans owner' }));
+
+  gauche.append(titre);
+  gauche.append(el('p', { textContent: entree.lisible ? (entree.purpose || '—')
+    : 'Le YAML de ce fichier ne se relit pas. Le Studio ne peut pas l\'ouvrir sans risquer d\'en perdre le contenu.' }));
+  gauche.append(el('div', { className: 'facts',
+    textContent: `${entree.id} · ${entree.niveau}${entree.scope ? ` · ${entree.scope}` : ''}` }));
+
+  // La correction en attente est le seul état où deux fichiers coexistent. Le dire, sinon
+  // l'auteur croit voir la version en ligne alors qu'il édite sa soumission.
+  if (entree.etat === 'correction') {
+    gauche.append(el('div', { className: 'facts', style: 'color:var(--accent)',
+      textContent: 'une correction attend une décision ; la version publiée sert toujours' }));
+  }
+
+  const bouton = el('button', { className: 'primary',
+                                textContent: entree.etat === 'publie' ? 'Corriger' : 'Reprendre' });
+  // Rouvrir un fichier illisible produirait un formulaire vide qu'on republierait
+  // par-dessus l'original : la réparation détruirait ce qu'elle vient réparer.
+  bouton.disabled = !entree.lisible;
+  bouton.title = entree.lisible ? 'Rouvrir dans le formulaire'
+    : `À réparer directement dans le dépôt : ${aCorriger(entree)?.path}`;
+  bouton.onclick = () => ouvrir(entree);
+
+  return el('div', { className: 'lrow' }, gauche, el('div', { className: 'acts' }, bouton));
+}
+
+// ── Câblage de la liste ──────────────────────────────────────────────────────
+$('lq').oninput = () => { vue.query = $('lq').value; renderListe(); };
+$('lmine').onchange = () => { vue.mien = $('lmine').checked; renderListe(); };
+
+$('new-artifact').onclick = () => {
+  apply({ variables: [], tools: [], criteria: [], goldenCases: [] });
+  montrer('editeur');
+};
+
+$('back-list').onclick = async () => {
+  pubMsg.className = '';                  // le message de la soumission précédente a fait son office
+  montrer('liste');
+  await chargerInventaire();              // relu : une soumission vient peut-être d'y entrer
+};
+
+// ── Ouverture ────────────────────────────────────────────────────────────────
+renderStatuts();
+
 const repris = reprendre();
-apply(repris ? artifactToForm(repris.artifact) : EXEMPLE_OK);
+if (repris) {
+  // Arrivée depuis le Catalogue ou l'Admin : on va droit à ce qui vient d'être demandé.
+  apply({ ...artifactToForm(repris.artifact),
+          editFrom: repris.path?.includes('/pending/') ? 'pending' : 'published' });
+  montrer('editeur');
+  chargerInventaire();                    // en fond, prêt pour le retour à la liste
+} else {
+  apply(EXEMPLE_OK);                      // le formulaire est prêt derrière la liste
+  montrer('liste');
+  await chargerInventaire();
+}
