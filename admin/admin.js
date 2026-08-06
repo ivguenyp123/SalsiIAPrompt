@@ -180,11 +180,26 @@ function row(entry) {
     : el('p', { className: 'vide', textContent: 'Aucun — rien ne sera vérifié au post-vol.' })));
 
   // ── Cas d'or ──
+  // Le compte seul ne dit rien : cinq cas creux atteignent le seuil de L010 aussi bien
+  // que cinq vrais. Le relecteur doit voir CE QUE chaque cas assertit pour juger si le
+  // niveau visé est mérité, pas seulement combien il y en a.
   const gold = artifact.golden_cases || [];
   node.append(bloc(`Cas d'or (${gold.length})`, gold.length
-    ? chips(gold.map((g) => el('span', { className: 'chip' },
-        el('code', { textContent: g.id }),
-        ` ${g.pass_at_least ?? '?'}/${g.runs ?? 3}`)))
+    ? (() => { const ul = el('ul', { className: 'plain' });
+        for (const g of gold) {
+          const attentes = Object.entries(g.expect || {});
+          const entrees = Object.entries(g.context || {});
+          const li = el('li', {}, el('code', { textContent: g.id }),
+            ` — ${g.pass_at_least ?? '?'} succès sur ${g.runs ?? 3}`);
+          li.append(el('div', { style: 'color:var(--tm);font-size:11.5px;margin:2px 0 6px' },
+            entrees.length ? `entrées : ${entrees.map(([k, v]) => `${k}=${v}`).join(', ')}`
+                           : 'aucune entrée',
+            ' · ',
+            attentes.length ? `attend : ${attentes.map(([k, v]) => `${k} = ${v}`).join(', ')}`
+                            : '⚠ n\'assertit rien'));
+          ul.append(li);
+        }
+        return ul; })()
     : el('p', { className: 'vide', textContent: 'Aucun — suffisant pour « expérimental », bloquant au-delà.' })));
 
   // ── Le prompt, repliable : c'est le seul bloc vraiment long ──

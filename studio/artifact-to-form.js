@@ -15,8 +15,19 @@
  * lui qui garantit qu'éditer ne dégrade rien.
  */
 
-/** Ce que le formulaire ne sait pas afficher voyage ici, intact. */
-const CARRIED = ['tags', 'moment', 'model_tier', 'classification', 'golden_cases'];
+/*
+ * Ce que le formulaire ne sait pas afficher voyage ici, intact.
+ *
+ * `golden_cases` en est SORTI le jour où le Studio a su les saisir. Les transporter était
+ * une rustine honnête tant qu'aucun champ ne les montrait ; les y laisser une fois les
+ * champs écrits aurait figé les cas d'or d'un artefact repris — visibles, éditables en
+ * apparence, et remplacés par la version transportée à la republication.
+ */
+export const CARRIED = ['tags', 'moment', 'model_tier', 'classification'];
+
+/** Un dictionnaire redevient des lignes de saisie. L'ordre du fichier est conservé. */
+const toRows = (map, keyName) =>
+  Object.entries(map || {}).map(([k, v]) => ({ [keyName]: k, value: String(v) }));
 
 /**
  * @param {object} artifact  un artefact lu dans le dépôt
@@ -50,6 +61,16 @@ export function artifactToForm(artifact = {}) {
     // formToArtifact les retypera d'après le registre des cibles.
     criteria: (artifact.criteria || []).map((c) => ({
       target: c.target, op: c.op, value: String(c.value)
+    })),
+
+    // Cas d'or : les dictionnaires deviennent des lignes, les nombres des chaînes —
+    // c'est ce que contient un champ de saisie. formToArtifact les retypera.
+    goldenCases: (artifact.golden_cases || []).map((g) => ({
+      id: g.id,
+      context: toRows(g.context, 'key'),
+      expect: toRows(g.expect, 'target'),
+      runs: g.runs === undefined ? '' : String(g.runs),
+      passAtLeast: g.pass_at_least === undefined ? '' : String(g.pass_at_least)
     })),
 
     targetLevel: artifact.target_level || 'experimental',

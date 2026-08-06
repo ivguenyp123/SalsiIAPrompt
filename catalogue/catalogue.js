@@ -241,6 +241,19 @@ function openSheet(entry) {
     body.append(section('Contrat vérifié à chaque exécution', ul));
   }
 
+  // Ce qui a été testé au banc d'essai, et à quel seuil. C'est la seule chose qui
+  // distingue une capacité `officielle` d'une capacité simplement bien rédigée.
+  if (artifact.golden_cases?.length) {
+    const ul = el('ul', { className: 'plain' });
+    for (const g of artifact.golden_cases) {
+      const attend = Object.entries(g.expect || {}).map(([k, v]) => `${k} = ${v}`).join(', ');
+      ul.append(el('li', {}, el('code', { textContent: g.id }),
+        ` — ${g.pass_at_least ?? '?'}/${g.runs ?? 3}`,
+        attend ? ` · attend ${attend}` : ' · n\'assertit rien'));
+    }
+    body.append(section(`Cas d'or rejoués à chaque montée de modèle (${artifact.golden_cases.length})`, ul));
+  }
+
   if (report.findings.length) {
     const ul = el('ul', { className: 'plain' });
     for (const f of report.findings) {

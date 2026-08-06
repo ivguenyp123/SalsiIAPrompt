@@ -15,6 +15,7 @@ import { mountShell } from '../app/shell.js';
 import { createForge, toBase64 } from '../app/forge.js';
 import { knownScopes, guessScope } from '../app/scopes.js';
 import { lint, ERROR } from '../lint/index.js';
+import { GOLDEN_THRESHOLDS } from '../lint/rules/criteria.js';
 import { makeValidator } from '../lib/schema.js';
 import yaml from '../lib/yaml.js';
 import { formToArtifact } from './form-to-artifact.js';
@@ -64,11 +65,14 @@ scopeSelect.value = devine;
  * État du formulaire.
  *
  * `carried` transporte ce que le formulaire ne sait pas afficher — étiquettes, moment,
- * palier de modèle, classification, cas d'or. Sans lui, rouvrir un artefact `officiel`
- * pour corriger une virgule lui ferait perdre ses cinq cas d'or, et L010 le refuserait.
- * Ce qu'on ne montre pas, on ne le détruit pas.
+ * palier de modèle, classification. Sans lui, rouvrir un artefact pour corriger une
+ * virgule lui ferait perdre ces champs en silence : ce qu'on ne montre pas, on ne le
+ * détruit pas.
+ *
+ * Les cas d'or en sont sortis : ils ont maintenant leurs propres champs, donc ils se
+ * modifient au lieu de traverser intacts.
  */
-const state = { variables: [], tools: [], criteria: [], carried: {}, editId: null };
+const state = { variables: [], tools: [], criteria: [], goldenCases: [], carried: {}, editId: null };
 
 /*
  * Reprise d'un artefact existant. Le Catalogue et la file de validation déposent ici ce
@@ -160,6 +164,123 @@ function renderCriteria() {
   });
 }
 
+/*
+ * ── Cas d'or ─────────────────────────────────────────────────────────────────
+ *
+ * Ils étaient le trou du produit : sans champ pour les saisir, aucun artefact écrit ici
+ * ne pouvait franchir L010 — `équipe` en demande 3, `officiel` 5. L'échelle de maturité
+ * était donc inatteignable depuis l'interface, et tout ce qui sortait du Studio restait
+ * `expérimental` à vie.
+ *
+ * Un cas d'or n'est pas un critère. Le critère est un contrat de production, vérifié à
+ * chaque exécution ; le cas d'or est un test de développement, rejoué au banc d'essai
+ * quand le modèle bouge. C'est la seule chose qui rend la non-régression constatable
+ * ailleurs qu'en production.
+ */
+const casVide = () => ({
+  id: '',
+  // Le contexte est amorcé avec les variables DÉCLARÉES : c'est exactement ce que le cas
+  // doit fournir pour que le prompt s'interpole. L'auteur n'a plus qu'à donner les valeurs.
+  context: state.variables.filter((v) => v.name?.trim()).map((v) => ({ key: v.name.trim(), value: '' })),
+  expect: [{ target: '', value: '' }],
+  runs: '3',
+  passAtLeast: ''
+});
+
+/** Une ligne clé/valeur, quel que soit le nom du champ-clé. */
+function ligne(rows, i, champCle, controleCle, onDelete) {
+  const value = el('input', { value: rows[i].value ?? '', placeholder: 'valeur' });
+  value.oninput = () => { rows[i].value = value.value; run(); };
+
+  const del = el('button', { className: 'del', textContent: '✕', title: 'retirer' });
+  del.onclick = onDelete;
+
+  return el('div', { className: `row ${champCle === 'key' ? 'ctx' : 'exp'}` }, controleCle, value, del);
+}
+
+function renderGolden() {
+  const host = $('golden');
+  host.textContent = '';
+
+  state.goldenCases.forEach((g, gi) => {
+    const bloc = el('div', { className: 'gold' });
+
+    const id = el('input', { value: g.id ?? '', placeholder: 'gc-01-nominal' });
+    id.oninput = () => { g.id = id.value; run(); };
+
+    // k/n côte à côte : c'est un seul geste de pensée, « combien de succès sur combien
+    // d'essais ». Séparés, on saisit l'un et on oublie l'autre — et L017 avertit.
+    const pass = el('input', { value: g.passAtLeast ?? '', placeholder: 'k', inputMode: 'numeric' });
+    const runs = el('input', { value: g.runs ?? '', placeholder: 'n', inputMode: 'numeric' });
+    pass.oninput = () => { g.passAtLeast = pass.value; run(); };
+    runs.oninput = () => { g.runs = runs.value; run(); };
+
+    const delCas = el('button', { className: 'del', textContent: '✕', title: 'retirer ce cas d\'or' });
+    delCas.onclick = () => { state.goldenCases.splice(gi, 1); renderGolden(); run(); };
+
+    bloc.append(el('div', { className: 'head' }, id,
+      el('span', { className: 'kn' }, 'succès ', pass, ' sur ', runs, ' exécutions'), delCas));
+
+    // ── Contexte : ce que le cas fournit en entrée ──
+    bloc.append(el('h5', { textContent: 'Contexte fourni au cas' }));
+    g.context.forEach((row, i) => {
+      const cle = el('input', { value: row.key ?? '', placeholder: 'repo' });
+      // `list` n'a qu'un accesseur en lecture : il se pose en attribut, pas en propriété.
+      cle.setAttribute('list', 'declared-vars');
+      cle.oninput = () => { row.key = cle.value; run(); };
+      bloc.append(ligne(g.context, i, 'key', cle,
+        () => { g.context.splice(i, 1); renderGolden(); run(); }));
+    });
+    const addCtx = el('button', { className: 'mini sub', textContent: '＋ entrée' });
+    addCtx.onclick = () => { g.context.push({ key: '', value: '' }); renderGolden(); run(); };
+    bloc.append(addCtx);
+
+    // ── Attendu : ce que le cas assertit. Mêmes cibles que les critères, sans opérateur :
+    //    un cas d'or compare à une valeur, il ne pose pas de seuil.
+    bloc.append(el('h5', { textContent: 'Attendu — au moins une cible' }));
+    g.expect.forEach((row, i) => {
+      const pick = el('select');
+      pick.append(el('option', { value: '', textContent: '— choisir une cible —' }));
+      for (const cls of ['state', 'form']) {
+        const group = el('optgroup', { label: cls === 'state' ? 'état du monde' : 'forme de la sortie' });
+        for (const t of targets.filter((t) => t.class === cls)) {
+          group.append(el('option', { value: t.target, textContent: t.target, selected: row.target === t.target }));
+        }
+        pick.append(group);
+      }
+      // Une attente peut porter sur une cible hors registre : on ne l'efface pas.
+      if (row.target && !targets.some((t) => t.target === row.target)) {
+        pick.append(el('option', { value: row.target, textContent: `${row.target} (hors registre)`, selected: true }));
+      }
+      pick.onchange = () => { row.target = pick.value; run(); };
+      bloc.append(ligne(g.expect, i, 'target', pick,
+        () => { g.expect.splice(i, 1); renderGolden(); run(); }));
+    });
+    const addExp = el('button', { className: 'mini sub', textContent: '＋ attente' });
+    addExp.onclick = () => { g.expect.push({ target: '', value: '' }); renderGolden(); run(); };
+    bloc.append(addExp);
+
+    host.append(bloc);
+  });
+
+  // La liste des variables déclarées alimente l'autocomplétion des clés de contexte.
+  const list = el('datalist', { id: 'declared-vars' });
+  for (const v of state.variables) if (v.name?.trim()) list.append(el('option', { value: v.name.trim() }));
+  host.append(list);
+
+  compteurCasDor();
+}
+
+/** Dit combien il en faut pour le niveau visé, avant que L010 ne le reproche. */
+function compteurCasDor() {
+  const level = $('targetLevel').value || 'experimental';
+  const need = GOLDEN_THRESHOLDS[level] ?? 0;
+  const have = state.goldenCases.filter((g) => g.id?.trim()).length;
+  $('goldHint').textContent = need === 0
+    ? `Niveau « expérimental » : aucun cas d'or exigé. Il en faut ${GOLDEN_THRESHOLDS.team} pour « équipe », ${GOLDEN_THRESHOLDS.officiel} pour « officiel ».`
+    : `Niveau visé « ${level} » : ${need} cas d'or requis, ${have} saisi(s).`;
+}
+
 // ── Lecture du formulaire, lint, rendu ───────────────────────────────────────
 function readForm() {
   return {
@@ -174,6 +295,7 @@ function readForm() {
     variables: state.variables,
     tools: state.tools,
     criteria: state.criteria,
+    goldenCases: state.goldenCases,
     id: state.editId || undefined      // à l'édition, l'identifiant existant fait foi
   };
 }
@@ -185,6 +307,9 @@ function artefactCourant() {
 
 function run() {
   const artifact = artefactCourant();
+  // Le compteur suit la frappe : nommer un cas d'or le fait compter, l'effacer le retire.
+  // Rafraîchi au seul re-rendu, il annonçait un total périmé pendant qu'on saisissait.
+  compteurCasDor();
   const report = lint(artifact, ctx);
 
   // Verdict
@@ -235,7 +360,20 @@ const EXEMPLE_OK = {
   variables: [{ name: 'repo', source: 'repo' }, { name: 'stack', source: 'repo' }],
   tools: [{ id: 'read_repo_metadata' }],
   criteria: [{ target: 'output.length', op: 'lte', value: '2000' },
-             { target: 'output.contains_secret', op: 'eq', value: 'false' }]
+             { target: 'output.contains_secret', op: 'eq', value: 'false' }],
+  // Deux cas d'or : de quoi montrer la forme sans prétendre atteindre un seuil. Le
+  // niveau visé reste `expérimental`, qui n'en exige aucun — l'exemple enseigne, il ne
+  // fabrique pas une maturité qu'il n'a pas.
+  goldenCases: [
+    { id: 'gc-01-rupture-detectee',
+      context: [{ key: 'repo', value: 'demo-spring' }, { key: 'stack', value: 'java' }],
+      expect: [{ target: 'output.contains_secret', value: 'false' }],
+      runs: '5', passAtLeast: '4' },
+    { id: 'gc-02-aucune-migration',
+      context: [{ key: 'repo', value: 'demo-front' }, { key: 'stack', value: 'node' }],
+      expect: [{ target: 'output.length', value: '800' }],
+      runs: '3', passAtLeast: '3' }
+  ]
 };
 
 // Chaque défaut vise une règle : L002, L009, L011, L018, L019 et L013.
@@ -261,11 +399,12 @@ function apply(form) {
   state.variables = structuredClone(form.variables ?? []);
   state.tools = structuredClone(form.tools ?? []);
   state.criteria = structuredClone(form.criteria ?? []);
+  state.goldenCases = structuredClone(form.goldenCases ?? []);
   state.carried = structuredClone(form.carried ?? {});
   state.editId = form.id || null;
 
   bandeauEdition();
-  renderVariables(); renderTools(); renderCriteria(); run();
+  renderVariables(); renderTools(); renderCriteria(); renderGolden(); run();
 }
 
 /** Dit clairement qu'on corrige un artefact existant, et lequel. */
@@ -284,6 +423,7 @@ for (const id of ['kind', 'targetLevel', 'ownerScope']) $(id).onchange = run;
 $('add-var').onclick = () => { state.variables.push({ name: '', source: 'repo' }); renderVariables(); run(); };
 $('add-tool').onclick = () => { state.tools.push({ id: '' }); renderTools(); run(); };
 $('add-crit').onclick = () => { state.criteria.push({ target: '', op: 'eq', value: '' }); renderCriteria(); run(); };
+$('add-gold').onclick = () => { state.goldenCases.push(casVide()); renderGolden(); run(); };
 
 /*
  * Soumission — l'artefact part dans la FILE DE VALIDATION, pas au catalogue.
@@ -330,7 +470,7 @@ $('publish').onclick = async () => {
 
 $('load-example').onclick = () => apply(EXEMPLE_OK);
 $('load-broken').onclick = () => apply(EXEMPLE_KO);
-$('reset').onclick = () => apply({ variables: [], tools: [], criteria: [] });
+$('reset').onclick = () => apply({ variables: [], tools: [], criteria: [], goldenCases: [] });
 
 const repris = reprendre();
 apply(repris ? artifactToForm(repris.artifact) : EXEMPLE_OK);

@@ -66,10 +66,14 @@ de validation, **Modifier** rouvre l'artefact dans le Studio. La correction repa
 file comme toute soumission : corriger n'est pas contourner.
 
 Le formulaire ne montre pas tous les champs — ni les étiquettes, ni le moment, ni le
-palier de modèle, ni la classification, ni les cas d'or. Ils sont **transportés** tels
-quels et remis en place à la republication. Sans ça, rouvrir un artefact `officiel` pour
-corriger une virgule lui ferait perdre ses cinq cas d'or, et `L010` le refuserait — une
-dégradation silencieuse causée par l'outil censé le protéger.
+palier de modèle, ni la classification. Ils sont **transportés** tels quels et remis en
+place à la republication. Sans ça, rouvrir un artefact pour corriger une virgule lui
+ferait perdre ces champs en silence — une dégradation causée par l'outil censé le
+protéger.
+
+Les cas d'or étaient transportés eux aussi, tant qu'aucun champ ne savait les montrer.
+Ils ont maintenant les leurs, donc ils se **modifient** : les laisser dans le transport
+aurait produit le pire des deux mondes, éditables à l'écran et remplacés à l'écriture.
 
 La garantie tenue par les tests n'est pas l'identité mais l'**idempotence** : la reprise
 normalise les blancs de bord venus du repli YAML, donc la première republication produit
@@ -183,6 +187,31 @@ Trois principes portés par le formulaire lui-même :
 - **les cibles et opérateurs proposés viennent du registre** — un critère non assertable
   devient difficile à écrire plutôt que refusé après coup.
 
+### Les cas d'or, et pourquoi l'échelle de maturité tenait à eux
+
+Le formulaire n'avait pas de champ pour les cas d'or. Conséquence, invisible et totale :
+`L010` en exige 3 pour `équipe` et 5 pour `officiel`, donc **aucun artefact écrit dans
+l'interface ne pouvait dépasser `expérimental`**. Le niveau `officiel` n'existait que
+dans les fichiers écrits à la main.
+
+Un cas d'or n'est pas un critère, et la confusion est facile :
+
+| | vérifié quand | par qui | à quoi ça sert |
+|---|---|---|---|
+| **critère** | à chaque exécution, en production | la plateforme, au post-vol | le contrat tenu |
+| **cas d'or** | au banc d'essai, à chaque montée de modèle | la CI | la non-régression |
+
+Sans cas d'or, un changement de version de modèle se constate en production.
+
+La saisie suit la même règle que le reste : le **contexte** d'un nouveau cas est amorcé
+avec les variables déclarées — c'est exactement ce qu'il doit fournir pour que le prompt
+s'interpole — et les **attentes** se choisissent dans le registre des cibles, qui donne
+leur type. Une chaîne `"true"` comparée à un booléen `true` échouerait au banc d'essai
+sans qu'on comprenne pourquoi.
+
+Un compteur annonce le manque avant que `L010` ne le reproche. Et `L017` refuse les cas
+creux : sans elle, atteindre `officiel` ne demanderait que cinq cases vides.
+
 L'aperçu montre l'**artefact YAML** qui partira en merge request : c'est lui qui sera relu
 et audité, pas le formulaire. Un test d'aller-retour garantit que le YAML affiché est
 exactement l'artefact évalué.
@@ -242,10 +271,15 @@ la menace est déjà neutralisée par conception — la porte n'emploie aucun ju
 injecter le spec n'ouvre rien. L'injection qui compte arrive à l'exécution, dans le
 contexte récupéré (code, journaux), et se traite aux moments 4 et 5.
 
-**4 · Nouvelle règle L017 — cohérence statistique des cas d'or.** Un LLM n'est pas
-reproductible. Un cas d'or joué une fois est un tirage, pas une porte : sans `runs` et
-`pass_at_least`, le banc d'essai rendrait un verdict différent à chaque passage —
-exactement le défaut reproché au juge LLM, déplacé d'un cran.
+**4 · Nouvelle règle L017 — consistance des cas d'or.** Un LLM n'est pas reproductible.
+Un cas d'or joué une fois est un tirage, pas une porte : sans `runs` et `pass_at_least`,
+le banc d'essai rendrait un verdict différent à chaque passage — exactement le défaut
+reproché au juge LLM, déplacé d'un cran.
+
+La règle refuse aussi le cas d'or **creux**. `L010` ne sait que compter : cinq cas sans
+attente décrochent le niveau `officiel` aussi bien que cinq vrais. C'est `L017` qui
+empêche `L010` d'être un simple compteur — sans elle, la maturité s'obtiendrait en
+remplissant, ce qui est exactement le contournement que le produit existe pour fermer.
 
 **5 · L'invariant est évalué sur le mode *effectif*.** Le registre des outils fait
 autorité sur `mode` et `executor` (L004). Sans cela, déclarer `mode: read` sur un outil
@@ -274,7 +308,7 @@ Le contournement est couvert par `fixtures/invalid/L004-contournement-invariant.
 | `L014` | Palier de modèle cohérent avec la taille de contexte | 🟡 |
 | `L015` | Similarité élevée avec un artefact existant | 🟡 |
 | `L016` | Certification présente et non périmée — *contextuelle, cf. écart 1* | 🔴 |
-| `L017` | Cohérence statistique des cas d'or (`pass_at_least` ≤ `runs`) | 🔴 |
+| `L017` | Consistance des cas d'or : au moins une attente, contexte fourni, `pass_at_least` ≤ `runs` | 🔴 |
 | `L018` | Aucun reste de rédaction dans le spec (`TODO`, `[à compléter]`…) | 🔴 |
 | `L019` | Pas de logique dans le spec — condition ou boucle | 🟡 |
 | `L020` | Taille du spec dans des bornes exploitables | 🔴 |

@@ -79,12 +79,18 @@ export function L009(artifact, ctx) {
 }
 
 /**
- * L017 — Cohérence statistique des cas d'or. 🔴 / 🟡
+ * L017 — Consistance des cas d'or. 🔴 / 🟡
  *
  * Ajout au jeu de règles d'origine. Un LLM n'est pas reproductible : un cas d'or joué
  * une seule fois est un tirage, pas une porte. Sans définition k/n explicite, le banc
  * d'essai rend un verdict différent à chaque passage — exactement le défaut reproché
  * au juge LLM, déplacé d'un cran.
+ *
+ * La règle couvre aussi le cas d'or CREUX. Depuis que le Studio sait les saisir, un
+ * auteur peut en ajouter cinq vides pour atteindre le seuil de L010 : le niveau
+ * `officiel` serait alors une formalité de comptage. Compter des cas qui n'assertent
+ * rien reviendrait à certifier sur du vide, donc ils sont refusés ici — c'est L017 qui
+ * empêche L010 d'être un simple compteur.
  */
 export function L017(artifact) {
   const out = [];
@@ -92,6 +98,28 @@ export function L017(artifact) {
   (artifact?.golden_cases || []).forEach((g, i) => {
     const runs = g.runs ?? 3;
     const pass = g.pass_at_least;
+
+    // Une attente vide ne teste rien. Le schéma le refusait déjà, mais en disant
+    // « au moins 1 propriété·s » : exact, illisible, et sans la raison.
+    if (!g.expect || Object.keys(g.expect).length === 0) {
+      out.push(finding(
+        'L017', ERROR,
+        `Cas d'or \`${g.id}\` sans attente : il s'exécute et ne vérifie rien. ` +
+        'Un cas d\'or est un test — il doit assertir au moins une cible.',
+        `golden_cases[${i}].expect`
+      ));
+    }
+
+    // Un contexte vide n'est pas toujours une faute — un cas d'or peut n'avoir aucune
+    // entrée — mais dès qu'une variable est déclarée, il joue sur du vide.
+    if ((!g.context || Object.keys(g.context).length === 0) && (artifact?.variables || []).length > 0) {
+      out.push(finding(
+        'L017', WARN,
+        `Cas d'or \`${g.id}\` sans contexte alors que l'artefact déclare ` +
+        `${artifact.variables.length} variable(s) : le cas jouera sur des entrées vides.`,
+        `golden_cases[${i}].context`
+      ));
+    }
 
     if (pass === undefined) {
       out.push(finding(

@@ -1,0 +1,26 @@
+# Le cas d'or de remplissage : bien nommé, bien contextualisé, k/n renseigné — et il
+# n'assertit rien. C'est la manière la plus simple de faire mentir L010, qui ne sait que
+# compter : trois cas comme celui-ci décrochent le niveau « équipe » sans avoir jamais
+# rien vérifié. L017 les refuse, donc le compte de L010 porte sur des tests réels.
+id: l017-attente-vide
+kind: agent
+title: Artefact minimal
+owner: { person: m.dubois, scope: Plateforme }
+intent:
+  purpose: Faire une chose utile et suffisamment décrite pour le schéma.
+  not_for: Ne pas utiliser hors du périmètre décrit juste au-dessus.
+spec: |
+  Tu fais quelque chose d'utile à partir du dépôt {{repo}}.
+variables:
+  - { name: repo, source: repo }
+tools:
+  - { id: read_repo_metadata, mode: read, executor: llm }
+criteria:
+  - { target: output.length, op: lte, value: 500 }
+target_level: experimental
+golden_cases:
+  - id: gc-01-creux
+    context: { repo: demo }
+    expect: {}          # s'exécute, ne vérifie rien
+    runs: 3
+    pass_at_least: 3

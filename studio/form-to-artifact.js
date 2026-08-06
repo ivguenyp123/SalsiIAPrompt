@@ -35,18 +35,59 @@ function compact(obj) {
   return out;
 }
 
-/** Convertit la saisie d'un critère en valeur typée, d'après le registre des cibles. */
-function coerce(value, target, op, targets) {
-  if (op === 'exists') return value === true || value === 'true';
-  const ref = (targets || []).find((t) => t.target === target);
-  const type = op === 'matches' ? 'string' : ref?.type;
-
+/** Applique un type connu à une saisie. `undefined` = type inconnu, on rend la chaîne. */
+function asType(value, type) {
   if (type === 'boolean') return value === true || value === 'true';
   if (type === 'number') {
     const n = Number(value);
     return Number.isNaN(n) ? value : n;                // on laisse passer : L009 tranchera
   }
   return typeof value === 'string' ? value : String(value ?? '');
+}
+
+/** Convertit la saisie d'un critère en valeur typée, d'après le registre des cibles. */
+function coerce(value, target, op, targets) {
+  if (op === 'exists') return value === true || value === 'true';
+  const ref = (targets || []).find((t) => t.target === target);
+  return asType(value, op === 'matches' ? 'string' : ref?.type);
+}
+
+/**
+ * Type deviné, faute de registre. Réservé au CONTEXTE d'un cas d'or : ses clés sont les
+ * variables de l'artefact, qui n'ont pas de type déclaré — on ne peut donc pas faire
+ * mieux que lire ce qui est écrit. Un champ vaut `true`, `12` ou du texte.
+ */
+function devine(value) {
+  if (typeof value !== 'string') return value;
+  const s = value.trim();
+  if (s === 'true') return true;
+  if (s === 'false') return false;
+  if (/^-?\d+(\.\d+)?$/.test(s)) return Number(s);
+  return value;
+}
+
+/**
+ * Les lignes de saisie d'un cas d'or redeviennent un dictionnaire.
+ *
+ * Accepte aussi un objet déjà formé : les tests et le code appelant construisent parfois
+ * l'artefact directement, sans passer par les champs de l'interface.
+ */
+function toMap(rows, valueOf) {
+  if (rows && !Array.isArray(rows)) return rows;
+  const out = {};
+  for (const row of rows || []) {
+    const key = String(row?.key ?? row?.target ?? '').trim();
+    if (!key) continue;
+    out[key] = valueOf(key, row.value);
+  }
+  return out;
+}
+
+/** Un entier de saisie, ou `undefined` si le champ est laissé vide. */
+function entier(value) {
+  if (value === '' || value === undefined || value === null) return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : value;               // non entier : le schéma tranchera
 }
 
 /**
@@ -102,15 +143,26 @@ export function formToArtifact(form = {}, ctx = {}) {
         value: coerce(c.value, c.target.trim(), c.op || 'eq', ctx.targets)
       })),
 
+    /*
+     * Cas d'or. `context` et `expect` sont émis MÊME VIDES, contrairement au reste :
+     * `compact` les effacerait, et un cas d'or sans attente disparaîtrait au lieu d'être
+     * refusé. Or c'est exactement ce qu'il faut refuser — sinon cinq cas creux suffisent
+     * à décrocher le niveau `officiel`. L017 les voit parce qu'ils sont encore là.
+     */
     golden_cases: (form.goldenCases || [])
       .filter((g) => g?.id?.trim())
-      .map((g, i) => compact({
-        id: slugify(g.id) || `gc-${String(i + 1).padStart(2, '0')}`,
-        context: g.context && Object.keys(g.context).length ? g.context : { input: g.input ?? '' },
-        expect: g.expect && Object.keys(g.expect).length ? g.expect : undefined,
-        runs: g.runs ? Number(g.runs) : undefined,
-        pass_at_least: g.passAtLeast ? Number(g.passAtLeast) : undefined
-      })),
+      .map((g, i) => {
+        const noyau = {
+          id: slugify(g.id) || `gc-${String(i + 1).padStart(2, '0')}`,
+          context: toMap(g.context, (_k, v) => devine(v)),
+          // Les attentes portent sur des cibles du registre : leur type y est déclaré.
+          expect: toMap(g.expect, (k, v) => {
+            const ref = (ctx.targets || []).find((t) => t.target === k);
+            return ref ? asType(v, ref.type) : devine(v);
+          })
+        };
+        return { ...noyau, ...compact({ runs: entier(g.runs), pass_at_least: entier(g.passAtLeast) }) };
+      }),
 
     target_level: form.targetLevel || 'experimental',
     model_tier: form.modelTier || undefined,

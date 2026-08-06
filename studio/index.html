@@ -41,6 +41,18 @@
   .del{background:transparent;border:none;color:var(--tm);cursor:pointer;font-size:15px;padding:0}
   .del:hover{color:var(--err)}
 
+  /* Cas d'or : chaque cas est un bloc, parce qu'il contient lui-même des listes. */
+  .gold{border:1px solid var(--line2);border-radius:12px;padding:11px 12px;margin-bottom:10px;
+        background:rgba(0,0,0,.2)}
+  .gold .head{display:grid;grid-template-columns:1fr auto 34px;gap:8px;align-items:center}
+  .gold .kn{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--tm);white-space:nowrap}
+  .gold .kn input{width:46px;text-align:center;padding:7px 4px}
+  .gold h5{margin:11px 0 6px;font-size:10px;font-weight:800;text-transform:uppercase;
+           letter-spacing:.06em;color:var(--tm);font-family:var(--fb)}
+  .row.ctx{grid-template-columns:150px 1fr 34px}
+  .row.exp{grid-template-columns:1fr 1fr 34px}
+  .mini.sub{font-size:11.5px;padding:5px}
+
   .badge{font-family:var(--fm);font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:6px;
          border:1px solid var(--line2);color:var(--tm);white-space:nowrap}
   .badge.write{color:var(--warn);border-color:rgba(251,191,36,.5);background:rgba(251,191,36,.1)}
@@ -150,6 +162,17 @@
       <button class="mini" id="add-crit">＋ ajouter un critère vérifiable</button>
       <p class="hint">Seules les cibles du registre sont proposées. Les cibles <code>form</code> portent sur la
         sortie elle-même : c'est ce qui rend la porte franchissable pour un agent de lecture.</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Cas d'or — tests joués au banc d'essai</legend>
+      <div id="golden"></div>
+      <button class="mini" id="add-gold">＋ ajouter un cas d'or</button>
+      <p class="hint" id="goldHint"></p>
+      <p class="hint">À ne pas confondre avec les critères. Un <strong>critère</strong> est vérifié à chaque
+        exécution en production ; un <strong>cas d'or</strong> est un test de développement, rejoué à chaque
+        montée de modèle. C'est lui qui rend la non-régression possible — sans cas d'or, un changement de
+        version se constate en production.</p>
     </fieldset>
   </section>
 

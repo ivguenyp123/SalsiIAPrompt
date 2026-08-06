@@ -113,8 +113,8 @@
         "required": ["id", "context", "expect"],
         "properties": {
           "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
-          "context": { "type": "object" },
-          "expect": { "type": "object", "minProperties": 1 },
+          "context": { "type": "object", "description": "Ce que le cas fournit en entrée. Vide, il ne joue sur rien — L017 le signale." },
+          "expect": { "type": "object", "description": "Ce que le cas assertit. Le « au moins une attente » est laissé à L017 : le schéma ne sait dire que « au moins 1 propriété·s », L017 dit pourquoi." },
           "runs": {
             "type": "integer", "minimum": 1, "maximum": 20, "default": 3,
             "description": "Un LLM n'est pas reproductible : un cas d'or se joue n fois."
