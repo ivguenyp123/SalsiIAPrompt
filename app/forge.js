@@ -48,7 +48,7 @@ export function fromBase64(b64) {
 /** Traduit un code HTTP en phrase actionnable. Un « 403 » n'aide personne. */
 function explain(status, { host, scopeHint }) {
   if (status === 401) return 'Jeton refusé : invalide, révoqué ou expiré.';
-  if (status === 403) return `Jeton valide mais accès refusé : il manque la portée ${scopeHint}.`;
+  if (status === 403) return `Jeton valide mais accès refusé : il manque le droit ${scopeHint}.`;
   if (status === 404) return `Ressource introuvable sur ${host} — dépôt inexistant, ou jeton sans visibilité dessus.`;
   if (status === 409) return 'Conflit : le fichier a changé entre la lecture et l\'écriture. Recharge et réessaie.';
   if (status >= 500) return 'La forge répond une erreur serveur. Réessaie dans un instant.';
@@ -66,6 +66,9 @@ function makeCaller({ base, headers, host, scopeHint }, fetchImpl) {
     try {
       response = await fetchImpl(url.toString(), {
         method,
+        // Sans ceci, le navigateur peut resservir une liste d'artefacts mise en cache :
+        // on publie, et le catalogue continue d'afficher l'état d'avant.
+        cache: 'no-store',
         headers: { ...headers, ...(body ? { 'Content-Type': 'application/json' } : {}) },
         ...(body ? { body: JSON.stringify(body) } : {})
       });
@@ -89,7 +92,7 @@ function gitlab(session, fetchImpl) {
   const call = makeCaller({
     base: `${session.gitlabUrl}/api/v4`,
     headers: { 'PRIVATE-TOKEN': session.token },
-    host, scopeHint: '`api` (ou `read_api` pour consulter)'
+    host, scopeHint: 'de portée `api` (ou `read_api` pour la seule consultation)'
   }, fetchImpl);
 
   const filePath = (repo, path) => `/projects/${encodeURIComponent(repo)}/repository/files/${encodeURIComponent(path)}`;
@@ -151,7 +154,11 @@ function github(session, fetchImpl) {
   const call = makeCaller({
     base: 'https://api.github.com',
     headers: { Authorization: `Bearer ${session.token}`, Accept: 'application/vnd.github+json' },
-    host: 'github.com', scopeHint: '`repo` (dépôts privés) ou `public_repo`'
+    host: 'github.com',
+    // GitHub a deux formats de jeton et deux vocabulaires. Nommer les deux évite de
+    // chercher une « portée repo » qui n'existe pas sur un jeton fine-grained.
+    scopeHint: 'd\'écriture — jeton fine-grained : Repository permissions → Contents → '
+             + 'Read and write ; jeton classique : portée `repo`'
   }, fetchImpl);
 
   return {

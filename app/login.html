@@ -89,7 +89,7 @@ if (hint) {
 // La portée attendue dépend de la forge : on l'annonce plutôt que de la faire deviner.
 const SCOPES = {
   gitlab: 'Portée <code>api</code> pour publier, <code>read_api</code> pour consulter.',
-  github: 'Permission <code>Contents: Read and write</code> sur le dépôt du registre.'
+  github: 'Permissions du dépôt → <code>Contents</code> → <b>Read and write</b>. En lecture seule, tu pourras consulter mais pas publier.'
 };
 const refreshHint = () => {
   $('scopeHint').innerHTML = SCOPES[detectKind($('gitlabUrl').value || 'https://gitlab.x')] || SCOPES.gitlab;

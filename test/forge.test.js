@@ -158,7 +158,7 @@ describe('registre encore vide', () => {
 });
 
 describe('erreurs', () => {
-  const cas = [[401, /révoqué/], [403, /portée/], [404, /introuvable/], [409, /Conflit/], [500, /serveur/]];
+  const cas = [[401, /révoqué/], [403, /droit/], [404, /introuvable/], [409, /Conflit/], [500, /serveur/]];
 
   test('chaque code HTTP devient une phrase actionnable', async () => {
     for (const [status, motif] of cas) {
