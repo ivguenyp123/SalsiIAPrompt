@@ -20,6 +20,7 @@ import { mountShell } from '../app/shell.js';
 import { lint, ERROR } from '../lint/index.js';
 import { makeValidator } from '../lib/schema.js';
 import yaml from '../lib/yaml.js';
+import { depuisCommits, parJour, resume, horsParcours, ACTIONS } from './journal.js';
 
 const session = requireSession('../app/login.html');
 if (!session) await new Promise(() => {});
@@ -289,4 +290,161 @@ async function decider(entry, action) {
   await load();
 }
 
+/* ── Le journal des décisions ─────────────────────────────────────────────────
+ *
+ * Aucune base à tenir : l'Admin écrit un commit à chaque décision, donc l'historique du
+ * dépôt EST le journal. Il n'était simplement pas affiché — on avait la traçabilité sans
+ * l'auditabilité, ce qui revient à ne pas l'avoir.
+ *
+ * Le parsing vit dans `journal.js`, pur et testé. Cet écran ne fait que rendre.
+ */
+const JOURNAL_TAILLE = 100;
+
+const jvue = { evenements: [], filtre: 'tout', charge: false };
+const VUES = [['valider', '✅ À valider'], ['journal', '📜 Journal']];
+
+function montrerVue(id) {
+  $('vue-valider').hidden = id !== 'valider';
+  $('vue-journal').hidden = id !== 'journal';
+  for (const b of $('vues').children) b.className = b.dataset.vue === id ? 'on' : '';
+  if (id === 'journal' && !jvue.charge) chargerJournal();
+}
+
+for (const [id, label] of VUES) {
+  const b = el('button', { textContent: label });
+  b.dataset.vue = id;
+  b.onclick = () => montrerVue(id);
+  $('vues').append(b);
+}
+
+async function chargerJournal() {
+  if (!repo) {
+    $('jcount').textContent = '';
+    $('jempty').style.display = 'block';
+    $('jempty').textContent = 'Aucun dépôt de registre choisi.';
+    return;
+  }
+  $('jsource').textContent = `historique de ${repo} · artifacts/`;
+
+  let commits;
+  try {
+    commits = await forge.listCommits(repo, 'artifacts', { perPage: JOURNAL_TAILLE });
+  } catch (error) {
+    $('jcount').textContent = '';
+    $('jempty').style.display = 'block';
+    $('jempty').textContent = `Lecture de l'historique impossible : ${error.message}`;
+    return;
+  }
+
+  jvue.evenements = depuisCommits(commits);
+  jvue.charge = true;
+  renderJournal();
+}
+
+function renderJournal() {
+  const total = resume(jvue.evenements);
+
+  // Le résumé compte TOUT, pas ce que le filtre laisse voir : sinon filtrer changerait
+  // les chiffres, et un chiffre qui bouge selon la vue ne prouve rien.
+  const chiffres = $('chiffres');
+  chiffres.textContent = '';
+  for (const [cle, def] of Object.entries(ACTIONS)) {
+    chiffres.append(el('div', { className: 'chiffre' },
+      el('b', { textContent: String(total[cle] ?? 0) }),
+      el('span', { textContent: `${def.icone} ${def.label}` })));
+  }
+
+  // Ce qui a touché le registre sans passer par l'application : le constat qui compte
+  // pour un auditeur, puisqu'il contourne la porte du lint ET la file de validation.
+  const hors = horsParcours(jvue.evenements);
+  const alerte = $('alerte');
+  alerte.hidden = hors.length === 0;
+  if (hors.length) {
+    alerte.textContent = `${hors.length} modification(s) du registre n'ont pas transité par le produit : `
+      + 'écrites directement dans le dépôt, elles ont contourné la porte du lint et la file de '
+      + 'validation. Seules des branches protégées peuvent l\'empêcher — les signaler est tout '
+      + 'ce que le navigateur peut faire.';
+  }
+
+  renderFiltresJournal();
+
+  const montres = jvue.filtre === 'tout'
+    ? jvue.evenements
+    : jvue.evenements.filter((e) => e.action === jvue.filtre);
+
+  $('jcount').textContent = montres.length === jvue.evenements.length
+    ? `${jvue.evenements.length} décision(s) — les ${JOURNAL_TAILLE} derniers commits`
+    : `${montres.length} sur ${jvue.evenements.length}`;
+
+  const host = $('jours');
+  host.textContent = '';
+  $('jempty').style.display = montres.length ? 'none' : 'block';
+  if (!montres.length) {
+    $('jempty').textContent = '';
+    $('jempty').append(el('b', { textContent: 'Rien à cet endroit du journal.' }),
+                       'Change de filtre, ou attends la première décision.');
+    return;
+  }
+
+  for (const { jour, evenements } of parJour(montres)) {
+    const bloc = el('div', { className: 'jour' }, el('h4', { textContent: dateLisible(jour) }));
+    for (const e of evenements) bloc.append(ligneEvenement(e));
+    host.append(bloc);
+  }
+}
+
+function renderFiltresJournal() {
+  const host = $('jfiltres');
+  host.textContent = '';
+  const choix = [['tout', 'Tout'], ...Object.entries(ACTIONS).map(([k, d]) => [k, `${d.icone} ${d.label}`])];
+  for (const [id, label] of choix) {
+    const b = el('button', { textContent: label, className: jvue.filtre === id ? 'on' : '' });
+    b.onclick = () => { jvue.filtre = id; renderJournal(); };
+    host.append(b);
+  }
+}
+
+function ligneEvenement(e) {
+  const def = ACTIONS[e.action] || ACTIONS.autre;
+  const node = el('div', { className: `ev ${e.action}` });
+
+  node.append(el('span', { textContent: def.icone }));
+
+  const texte = el('div', {},
+    el('b', { textContent: e.acteur || 'auteur inconnu' }), ` ${def.verbe} `,
+    el('span', { className: 'quoi', textContent: e.cible || '—' }));
+
+  const notes = [];
+  if (e.artefactId) notes.push(e.artefactId);
+  // Distinguer les deux noms n'est utile que quand ils diffèrent — ce qui arrivera le
+  // jour où un back écrira avec un compte de service à la place de la personne.
+  if (e.acteurDeclare && e.auteurCommit && e.auteurCommit !== e.acteur) {
+    notes.push(`commit poussé par ${e.auteurCommit}`);
+  }
+  if (!e.acteurDeclare) notes.push('écrit hors de l\'application');
+  if (e.ref) notes.push(e.ref.slice(0, 7));
+  if (notes.length) texte.append(el('span', { className: 'note', textContent: notes.join(' · ') }));
+
+  node.append(texte);
+  node.append(el('span', { className: 'quand', textContent: heureLisible(e.date) }));
+  return node;
+}
+
+const JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+              'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+
+function dateLisible(jour) {
+  const d = new Date(`${jour}T12:00:00Z`);
+  if (Number.isNaN(d.getTime())) return jour;
+  return `${JOURS[d.getUTCDay()]} ${d.getUTCDate()} ${MOIS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
+function heureLisible(iso) {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '—'
+    : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+montrerVue('valider');
 await load();

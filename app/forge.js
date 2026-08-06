@@ -16,6 +16,7 @@
  *   putFile(repo, path, { content, message, branch })  → crée ou met à jour
  *   deleteFile(repo, path, { message, branch })        → supprime
  *   moveFile(repo, from, to, { message, branch })      → déplace (copie puis supprime)
+ *   listCommits(repo, path, { perPage, ref })          → [{ sha, message, author, date }]
  */
 
 export class ForgeError extends Error {
@@ -149,7 +150,24 @@ function gitlab(session, fetchImpl) {
     },
 
     deleteFile: (repo, path, { message, branch = 'main' }) =>
-      call(filePath(repo, path), { method: 'DELETE', body: { branch, commit_message: message } })
+      call(filePath(repo, path), { method: 'DELETE', body: { branch, commit_message: message } }),
+
+    listCommits: async (repo, path, { perPage = 50, ref = 'main' } = {}) => {
+      try {
+        const list = await call(`/projects/${encodeURIComponent(repo)}/repository/commits`,
+          { params: { path, ref_name: ref, per_page: perPage } });
+        return list.map((c) => ({
+          sha: c.id,
+          // GitLab sépare titre et corps ; on les recolle pour n'avoir qu'une forme.
+          message: c.message || [c.title, c.description].filter(Boolean).join('\n\n'),
+          author: c.author_name || c.author_email || '',
+          date: c.committed_date || c.created_at
+        }));
+      } catch (error) {
+        if (error.status === 404) return [];
+        throw error;
+      }
+    }
   };
 }
 
@@ -225,6 +243,23 @@ function github(session, fetchImpl) {
       return call(`/repos/${repo}/contents/${path}`, {
         method: 'DELETE', body: { message, sha: f.sha, branch }
       });
+    },
+
+    listCommits: async (repo, path, { perPage = 50, ref = 'main' } = {}) => {
+      try {
+        const list = await call(`/repos/${repo}/commits`, { params: { path, sha: ref, per_page: perPage } });
+        return list.map((c) => ({
+          sha: c.sha,
+          message: c.commit?.message || '',
+          // `author` peut être nul (auteur sans compte GitHub) : on retombe sur le nom
+          // du commit, qui est toujours là.
+          author: c.author?.login || c.commit?.author?.name || '',
+          date: c.commit?.author?.date || c.commit?.committer?.date
+        }));
+      } catch (error) {
+        if (error.status === 404) return [];
+        throw error;
+      }
     }
   };
 }

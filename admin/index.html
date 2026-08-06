@@ -59,6 +59,35 @@
                    white-space:pre-wrap;color:var(--ts);max-height:34vh}
   ul.findings{margin:0 0 14px;padding-left:17px;font-size:12px;line-height:1.7;color:var(--ts)}
 
+  /* ── Bascule de vue ── */
+  .vues{display:flex;gap:8px;margin:0 0 6px}
+  .vues button{padding:8px 14px;font-size:12.5px}
+  .vues button.on{color:var(--tp);border-color:var(--accent);background:rgba(167,139,250,.14)}
+
+  /* ── Journal ── */
+  .chiffres{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+  @media (max-width:640px){ .chiffres{grid-template-columns:repeat(2,1fr)} }
+  .chiffre{background:var(--bg-card);border:1px solid var(--line);border-radius:14px;padding:13px 15px}
+  .chiffre b{display:block;font-family:var(--fd);font-size:23px;color:var(--tp);line-height:1.1}
+  .chiffre span{font-size:11px;color:var(--tm);text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+  .seg{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+  .seg button{padding:6px 11px;font-size:12px}
+  .seg button.on{color:var(--tp);border-color:var(--accent);background:rgba(167,139,250,.14)}
+
+  .jour{margin-bottom:20px}
+  .jour > h4{margin:0 0 9px;font-size:10.5px;font-weight:800;text-transform:uppercase;
+             letter-spacing:.06em;color:var(--tm);font-family:var(--fb)}
+  .ev{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:baseline;
+      padding:11px 14px;background:var(--bg-card);border:1px solid var(--line);
+      border-radius:12px;margin-bottom:7px;font-size:13px;color:var(--ts)}
+  .ev.autre{border-color:rgba(251,191,36,.35);background:rgba(251,191,36,.05)}
+  .ev b{color:var(--tp)}
+  .ev .quoi{color:var(--tp);font-weight:700}
+  .ev .quand{font-family:var(--fm);font-size:11px;color:var(--tm);white-space:nowrap}
+  .ev .note{display:block;margin-top:3px;font-size:11.5px;color:var(--tm)}
+  .alerte{padding:12px 15px;border-radius:12px;margin-bottom:16px;font-size:12.5px;line-height:1.6;
+          color:#fcd34d;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.35)}
+
   .empty{padding:34px;text-align:center;color:var(--tm);border:1px dashed var(--line2);border-radius:16px}
   .empty b{color:var(--tp);display:block;margin-bottom:6px;font-family:var(--fd);font-size:15px}
   #flash{display:none;margin:0 0 16px;padding:11px 14px;border-radius:10px;font-size:13px;font-weight:700}
@@ -70,20 +99,44 @@
 <body>
 
 <main>
-  <h1>À valider</h1>
-  <p class="hint" style="margin:8px 0 20px;font-size:13.5px">Ce qui a franchi la porte automatique
-    et attend une décision humaine. Rien n'apparaît au catalogue avant d'être validé ici.</p>
+  <div class="vues" id="vues"></div>
 
   <div id="flash"></div>
 
-  <div class="meta">
-    <span id="count">Chargement…</span>
-    <span class="sp"></span>
-    <span id="source"></span>
-  </div>
+  <!-- Vue 1 : la file de validation -->
+  <section id="vue-valider">
+    <h1>À valider</h1>
+    <p class="hint" style="margin:8px 0 20px;font-size:13.5px">Ce qui a franchi la porte automatique
+      et attend une décision humaine. Rien n'apparaît au catalogue avant d'être validé ici.</p>
 
-  <div class="queue" id="queue"></div>
-  <div class="empty" id="empty" style="display:none"></div>
+    <div class="meta">
+      <span id="count">Chargement…</span>
+      <span class="sp"></span>
+      <span id="source"></span>
+    </div>
+
+    <div class="queue" id="queue"></div>
+    <div class="empty" id="empty" style="display:none"></div>
+  </section>
+
+  <!-- Vue 2 : le journal des décisions -->
+  <section id="vue-journal" hidden>
+    <h1>Journal des décisions</h1>
+    <p class="hint" style="margin:8px 0 20px;font-size:13.5px">Qui a soumis, qui a validé, qui a
+      refusé, et quand. Rien n'est tenu à la main : chaque décision est un commit, donc l'historique
+      du dépôt <strong>est</strong> le journal.</p>
+
+    <div class="chiffres" id="chiffres"></div>
+    <div class="meta">
+      <span id="jcount">Chargement…</span>
+      <span class="sp"></span>
+      <span id="jsource"></span>
+    </div>
+    <div id="jfiltres" class="seg"></div>
+    <div id="alerte" class="alerte" hidden></div>
+    <div id="jours"></div>
+    <div class="empty" id="jempty" style="display:none"></div>
+  </section>
 </main>
 
 <script type="module" src="./admin.js"></script>

@@ -101,6 +101,46 @@ des rôles ne peut pas vivre dans le navigateur — qui détient le jeton a tous
 Elle viendra des branches protégées et des `CODEOWNERS` du dépôt, côté forge, où elle ne
 se contourne pas en ouvrant la console.
 
+## Le journal des décisions
+
+L'Admin a deux vues : la file, et le **journal**. Qui a soumis, qui a validé, qui a
+refusé, et quand. Rien n'est tenu à la main — chaque décision de l'Admin est un commit,
+donc l'historique du dépôt **est** le journal. Il n'était simplement pas affiché : on
+avait la traçabilité sans l'auditabilité, ce qui revient à ne pas l'avoir.
+
+Deux constats que le journal rend visibles et qu'aucune autre vue ne porte :
+
+- **Ce qui n'est pas passé par le produit.** Un commit sur `artifacts/` dont le message ne
+  suit pas le vocabulaire de l'application (`registre : soumettre|valider|refuser …`) a été
+  écrit directement dans le dépôt : il a contourné la porte du lint **et** la file de
+  validation. Le journal le marque « hors parcours » et l'annonce en tête. Le signaler est
+  tout ce qu'un navigateur peut faire — seules des branches protégées l'empêchent.
+- **L'acteur déclaré n'est pas l'auteur du commit.** L'auteur est celui dont le jeton a
+  écrit ; l'acteur est celui que l'application a inscrit dans le corps du message. Ils
+  coïncident aujourd'hui, parce que chacun agit avec son propre jeton. Le jour où un back
+  écrira avec un compte de service, les confondre effacerait la responsabilité — le journal
+  affiche alors les deux.
+
+### La couture vers la base
+
+`admin/journal.js` **ne connaît pas git**. Il transforme des commits en *événements*, et
+c'est l'événement qui est le contrat :
+
+```js
+{ date, action, artefactId, cible, acteur, acteurDeclare, auteurCommit, source, ref }
+```
+
+Le jour où le journal viendra d'une base — avec les exécutions, les coûts, les
+certifications, tout ce que git ne peut pas porter — il suffira d'une fonction
+`depuisBase(lignes)` qui rende la même forme. Le rendu, les filtres et les tests ne bougent
+pas. Le champ `source` distingue déjà les deux origines pour qu'elles **coexistent** pendant
+la bascule au lieu que l'une remplace l'autre d'un coup.
+
+Un test verrouille la liste des champs de l'événement : c'est le contrat que `depuisBase()`
+devra honorer. Et les messages de commit sont recopiés à la virgule près dans les tests
+depuis `studio/studio.js` et `admin/admin.js` — reformuler un message d'un côté fait tomber
+un test de l'autre.
+
 ## Publier
 
 Depuis le Studio, **Publier sur main** commite l'artefact en `artifacts/<id>.yaml` sur
