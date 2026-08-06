@@ -4,30 +4,35 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SalsiIAPrompt — connexion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./app.css">
 <style>
-  main{max-width:460px;margin:7vh auto;padding:0 20px}
-  h1{font-size:20px;margin:0 0 4px}
-  .lead{color:var(--dim);font-size:13.5px;margin:0 0 26px;line-height:1.6}
-  button.primary{width:100%;margin-top:20px;padding:10px}
+  main{max-width:470px;margin:9vh auto 60px;padding:0 20px}
+  .logo{font-family:var(--fd);font-weight:800;font-size:27px;color:var(--tp);letter-spacing:-.02em;margin:0}
+  .logo em{font-style:normal;background:linear-gradient(135deg,#a78bfa,#2dd4bf);
+           -webkit-background-clip:text;background-clip:text;color:transparent}
+  .lead{color:var(--ts);font-size:13.5px;margin:10px 0 26px;line-height:1.65}
+  .lead b{color:var(--tp)}
+  button.primary{width:100%;margin-top:20px;padding:11px}
   .foot{margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}
-  .quick{display:flex;align-items:center;gap:7px;margin-top:8px;flex-wrap:wrap}
-  .quick button{padding:3px 9px;font-size:12px}
-  details summary{cursor:pointer;color:var(--dim);font-size:12.5px}
-  details p{margin:9px 0 0}
-  code{font-family:var(--mono);font-size:12px;background:var(--panel2);
-       padding:1px 5px;border-radius:4px}
+  .quick{display:flex;align-items:center;gap:7px;margin-top:9px;flex-wrap:wrap}
+  .quick button{padding:4px 10px;font-size:12px;border-radius:8px}
+  details summary{cursor:pointer;color:var(--tm);font-size:12.5px;font-weight:700}
+  details p{margin:10px 0 0}
+  code{background:rgba(0,0,0,.3);padding:1px 6px;border-radius:5px;color:var(--ts)}
 </style>
 </head>
 <body>
 <main>
-  <h1>SalsiIAPrompt</h1>
+  <p class="logo">🧂 Salsi<em>IAPrompt</em></p>
   <p class="lead">Registre de capacités IA certifiées.<br>
-    Connecte-toi à ta forge : ton identité devient celle qui signe les artefacts que tu écris.</p>
+    Connecte-toi à ta forge : ton identité devient celle qui <b>signe</b> les artefacts que tu écris.</p>
 
   <div class="card">
     <form id="form" autocomplete="off">
-      <label for="gitlabUrl">Forge — l'adresse de GitLab ou GitHub, pas celle de cette page</label>
+      <label for="gitlabUrl">Forge — pas l'adresse de cette page</label>
       <input id="gitlabUrl" type="text" value="https://github.com" autocomplete="url">
       <div class="quick">
         <button type="button" data-url="https://github.com">github.com</button>
@@ -36,7 +41,7 @@
       </div>
 
       <label for="token">Jeton d'accès personnel</label>
-      <input id="token" type="password" placeholder="glpat-…" autocomplete="current-password">
+      <input id="token" type="password" placeholder="github_pat_… ou glpat-…" autocomplete="current-password">
       <p class="hint" id="scopeHint" style="margin-top:7px"></p>
 
       <div class="check">
@@ -84,7 +89,7 @@ if (hint) {
 // La portée attendue dépend de la forge : on l'annonce plutôt que de la faire deviner.
 const SCOPES = {
   gitlab: 'Portée <code>api</code> pour publier, <code>read_api</code> pour consulter.',
-  github: 'Portée <code>repo</code> pour publier (<code>public_repo</code> si le dépôt est public).'
+  github: 'Permission <code>Contents: Read and write</code> sur le dépôt du registre.'
 };
 const refreshHint = () => {
   $('scopeHint').innerHTML = SCOPES[detectKind($('gitlabUrl').value || 'https://gitlab.x')] || SCOPES.gitlab;

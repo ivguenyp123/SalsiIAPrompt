@@ -10,7 +10,8 @@
  * implémentation, donc rien ne peut diverger entre ce que l'auteur voit ici et ce que
  * la porte décidera là-bas.
  */
-import { requireSession } from '../app/session.js';
+import { requireSession, clear } from '../app/session.js';
+import { mountShell } from '../app/shell.js';
 import { createForge, toBase64 } from '../app/forge.js';
 import { knownScopes, guessScope } from '../app/scopes.js';
 import { lint, ERROR } from '../lint/index.js';
@@ -44,8 +45,9 @@ const ctx = { tools, targets, validateArtifact: makeValidator(schema) };
 // ── Identité : l'owner vient de la connexion, il ne se saisit pas ────────────
 // Un artefact est SIGNÉ. Laisser l'auteur taper le nom de quelqu'un d'autre — ou un
 // tiret — vide la propriété de son sens, et L013 ne rattrape que le tiret.
-$('who').innerHTML = session.avatar ? `<img alt="" src="${session.avatar}">` : '';
-$('who').append(session.username);
+mountShell({ active: 'studio', session, base: '../',
+             onLogout: () => { clear(); location.replace('../app/login.html'); } });
+
 $('ownerPerson').value = session.username;
 
 // Les périmètres sont DÉRIVÉS du registre des outils : la liste n'est pas une saisie.

@@ -3,105 +3,82 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Studio — lint en direct</title>
+<title>Studio — SalsiIAPrompt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../app/app.css">
 <style>
-  :root{
-    --bg:#0f1216; --panel:#161b22; --panel2:#1c232c; --line:#2a333f;
-    --txt:#e6edf3; --dim:#8b949e; --accent:#4c8dff;
-    --err:#f85149; --warn:#e3b341; --ok:#3fb950;
-    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
-  }
-  @media (prefers-color-scheme:light){
-    :root{ --bg:#f6f8fa; --panel:#fff; --panel2:#f0f3f6; --line:#d8dee4;
-           --txt:#1f2328; --dim:#636c76; --err:#cf222e; --warn:#9a6700; --ok:#1a7f37; }
-  }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--txt);
-       font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
-
-  header{padding:14px 20px;border-bottom:1px solid var(--line);display:flex;
-         align-items:center;gap:14px;flex-wrap:wrap;background:var(--panel)}
-  header h1{font-size:15px;margin:0;font-weight:600}
-  header .sub{color:var(--dim);font-size:12.5px}
-  header .spacer{flex:1}
-  button{background:var(--panel2);color:var(--txt);border:1px solid var(--line);
-         border-radius:6px;padding:6px 11px;font-size:13px;cursor:pointer}
-  button:hover{border-color:var(--accent)}
-  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-
-  .verdict{font-weight:600;padding:5px 12px;border-radius:999px;font-size:12.5px;white-space:nowrap}
-  .verdict.ok{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
-  .verdict.ko{background:color-mix(in srgb,var(--err) 18%,transparent);color:var(--err)}
+  /* Barre d'actions du Studio, sous la barre d'onglets de la coque. */
+  .toolbar{position:sticky;top:50px;z-index:9;display:flex;align-items:center;gap:9px;
+           flex-wrap:wrap;padding:11px 16px;background:rgba(22,15,43,.92);
+           backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .toolbar .title{font-family:var(--fd);font-weight:800;font-size:15px;color:var(--tp)}
+  .toolbar .sub{color:var(--tm);font-size:12px}
+  .toolbar .sp{flex:1}
+  .toolbar button{padding:7px 12px}
 
   main{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);
-       gap:1px;background:var(--line);min-height:calc(100vh - 55px)}
-  @media (max-width:1000px){ main{grid-template-columns:1fr} }
-  .col{background:var(--bg);padding:18px 20px;overflow:auto}
-  .col.right{display:flex;flex-direction:column;gap:16px}
+       gap:18px;padding:18px;align-items:start}
+  @media (max-width:1040px){ main{grid-template-columns:1fr} }
+  .col{display:flex;flex-direction:column;gap:14px;min-width:0}
+  .col.right{position:sticky;top:112px}
 
-  fieldset{border:1px solid var(--line);border-radius:8px;padding:14px;margin:0 0 14px;background:var(--panel)}
-  legend{padding:0 7px;color:var(--dim);font-size:11.5px;text-transform:uppercase;letter-spacing:.7px}
-  label{display:block;margin:9px 0 4px;font-size:12.5px;color:var(--dim)}
-  input,textarea,select{width:100%;background:var(--bg);color:var(--txt);
-        border:1px solid var(--line);border-radius:6px;padding:7px 9px;font-size:13.5px;font-family:inherit}
-  textarea{font-family:var(--mono);font-size:13px;line-height:1.6;resize:vertical}
-  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
-  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .row{display:grid;gap:8px;align-items:center;margin-bottom:7px}
-  .row.var{grid-template-columns:1fr 130px 32px}
-  .row.crit{grid-template-columns:1fr 110px 1fr 32px}
-  .row.tool{grid-template-columns:1fr auto 32px}
-  .mini{background:transparent;border:1px dashed var(--line);color:var(--dim);
-        width:100%;padding:5px;font-size:12.5px}
-  .del{background:transparent;border:none;color:var(--dim);cursor:pointer;font-size:15px;padding:0}
+  fieldset{border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin:0;
+           background:var(--bg-card)}
+  legend{padding:0 8px;color:var(--tm);font-size:10.5px;font-weight:800;
+         text-transform:uppercase;letter-spacing:.06em}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:640px){ .grid2{grid-template-columns:1fr} }
+
+  .row{display:grid;gap:8px;align-items:center;margin-bottom:8px}
+  .row.var{grid-template-columns:1fr 150px 34px}
+  .row.crit{grid-template-columns:1fr 118px 1fr 34px}
+  .row.tool{grid-template-columns:1fr auto 34px}
+  .mini{width:100%;padding:7px;font-size:12.5px;font-weight:700;color:var(--tm);
+        background:transparent;border:1px dashed var(--line2);border-radius:10px}
+  .mini:hover{color:var(--accent);border-color:var(--accent)}
+  .del{background:transparent;border:none;color:var(--tm);cursor:pointer;font-size:15px;padding:0}
   .del:hover{color:var(--err)}
 
-  .badge{font-family:var(--mono);font-size:11px;padding:2px 7px;border-radius:4px;
-         border:1px solid var(--line);color:var(--dim);white-space:nowrap}
-  .badge.write{color:var(--warn);border-color:var(--warn)}
-  .badge.read{color:var(--ok);border-color:var(--ok)}
+  .badge{font-family:var(--fm);font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:6px;
+         border:1px solid var(--line2);color:var(--tm);white-space:nowrap}
+  .badge.write{color:var(--warn);border-color:rgba(251,191,36,.5);background:rgba(251,191,36,.1)}
+  .badge.read{color:var(--ok);border-color:rgba(52,211,153,.45);background:rgba(52,211,153,.1)}
 
-  .panel{border:1px solid var(--line);border-radius:8px;background:var(--panel);overflow:hidden}
-  .panel > h2{margin:0;padding:10px 14px;font-size:12px;text-transform:uppercase;
-              letter-spacing:.7px;color:var(--dim);border-bottom:1px solid var(--line);
-              display:flex;align-items:center;gap:8px}
-  .panel .body{padding:12px 14px}
+  .panel{border:1px solid var(--line);border-radius:16px;background:var(--bg-card);overflow:hidden}
+  .panel > h2{margin:0;padding:12px 16px;font-size:10.5px;font-weight:800;text-transform:uppercase;
+              letter-spacing:.06em;color:var(--tm);border-bottom:1px solid var(--line);
+              display:flex;align-items:center;gap:8px;font-family:var(--fb)}
+  .panel .body{padding:6px 16px 12px}
+  .count{margin-left:auto;font-family:var(--fm);font-size:11px;color:var(--tm)}
 
-  .finding{display:grid;grid-template-columns:auto auto 1fr;gap:9px;padding:9px 0;
-           border-bottom:1px solid var(--line);align-items:start;font-size:13px}
+  .finding{display:grid;grid-template-columns:auto auto 1fr;gap:10px;padding:11px 0;
+           border-bottom:1px solid var(--line);align-items:start;font-size:12.5px;color:var(--ts)}
   .finding:last-child{border-bottom:none}
-  .finding code.code{font-family:var(--mono);font-size:11.5px;color:var(--dim)}
-  .finding .path{display:block;margin-top:3px;font-family:var(--mono);font-size:11.5px;color:var(--dim)}
-  .clean{color:var(--ok);padding:6px 0}
+  .finding code.code{font-family:var(--fm);font-size:11px;color:var(--tm);font-weight:700}
+  .finding .path{display:block;margin-top:4px;font-family:var(--fm);font-size:11px;color:var(--tm)}
+  .clean{color:var(--ok);padding:10px 0;font-weight:700}
 
-  pre{margin:0;padding:12px 14px;font-family:var(--mono);font-size:12.5px;
-      line-height:1.55;overflow:auto;max-height:46vh;white-space:pre;color:var(--txt)}
-  .hint{color:var(--dim);font-size:12px;margin-top:8px;line-height:1.5}
-  .who{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--dim)}
-  .who img{width:22px;height:22px;border-radius:50%;border:1px solid var(--line)}
-  input[readonly]{opacity:.75;cursor:not-allowed}
-  button.pub{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:500}
-  button.pub:disabled{background:var(--panel2);border-color:var(--line);color:var(--dim)}
-  #pubMsg{padding:10px 14px;border-top:1px solid var(--line);font-size:13px;line-height:1.5;display:none}
+  pre{margin:0;padding:14px 16px;font-family:var(--fm);font-size:11.5px;line-height:1.6;
+      overflow:auto;max-height:44vh;white-space:pre;color:var(--ts)}
+  #pubMsg{padding:11px 16px;border-top:1px solid var(--line);font-size:12.5px;line-height:1.5;display:none}
   #pubMsg.show{display:block}
-  #pubMsg.err{color:var(--err)} #pubMsg.ok{color:var(--ok)}
-  .count{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--dim)}
+  #pubMsg.err{color:#fca5a5} #pubMsg.ok{color:#6ee7b7}
 </style>
 </head>
 <body>
 
-<header>
-  <a href="../app/index.html" style="color:var(--dim);text-decoration:none">←</a>
-  <h1>Studio</h1>
-  <span class="sub">les mêmes règles qu'en CI, à la frappe · aucun LLM</span>
-  <span class="spacer"></span>
-  <span class="who" id="who"></span>
-  <button id="load-example">Charger un exemple conforme</button>
-  <button id="load-broken">Charger un exemple fautif</button>
+<div class="toolbar">
+  <span class="title">Studio</span>
+  <span class="sub">les 21 règles, à la frappe · aucun LLM</span>
+  <span class="sp"></span>
+  <button id="load-example">Exemple conforme</button>
+  <button id="load-broken">Exemple fautif</button>
   <button id="reset">Vider</button>
   <span id="verdict" class="verdict ok">—</span>
-  <button id="publish" class="pub">Publier sur main</button>
-</header>
+  <button id="publish" class="primary">Publier sur main</button>
+</div>
 
 <main>
   <section class="col left">
