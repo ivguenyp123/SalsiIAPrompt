@@ -59,6 +59,24 @@ porte : les règles évoluent, et un artefact publié hier peut ne plus être co
 aujourd'hui. Le filtre « non conformes » les isole, au lieu de les laisser pourrir en
 silence. C'est l'embryon du moment 8 — la surveillance continue — sans jobs planifiés.
 
+## La file de validation — le moment 3
+
+Publier depuis le Studio ne met rien au catalogue : l'artefact part dans
+`artifacts/pending/` et attend une **décision humaine** dans l'Admin. Valider le déplace
+vers `artifacts/`, où le Catalogue le lit. Refuser le supprime.
+
+**Le dossier porte l'état**, faute d'état dérivé. Et comme valider et refuser sont des
+commits, l'historique du dépôt *est* le journal des décisions : qui a tranché quoi, quand,
+et sur quel contenu exactement. Aucune base à tenir.
+
+Ce que la porte automatique a refusé ne peut pas être validé à la main — le bouton reste
+inerte. Sinon la règle ne sert plus à rien et un « oui » humain devient un contournement.
+
+**Limite assumée** : rien n'empêche l'auteur de valider son propre artefact. La séparation
+des rôles ne peut pas vivre dans le navigateur — qui détient le jeton a tous les droits.
+Elle viendra des branches protégées et des `CODEOWNERS` du dépôt, côté forge, où elle ne
+se contourne pas en ouvrant la console.
+
 ## Publier
 
 Depuis le Studio, **Publier sur main** commite l'artefact en `artifacts/<id>.yaml` sur

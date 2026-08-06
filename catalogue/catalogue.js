@@ -56,14 +56,16 @@ async function load() {
 
   let files;
   try {
+    // `type === 'file'` écarte de lui-même le sous-dossier `pending/` : ce qui attend une
+    // validation n'a rien à faire au catalogue.
     files = (await forge.listFiles(repo, 'artifacts')).filter((f) => f.type === 'file' && /\.ya?ml$/.test(f.name));
   } catch (error) {
     return fail('Lecture impossible', error.message);
   }
 
   if (files.length === 0) {
-    return fail('Le registre est vide.',
-                'Personne n\'a encore publié. Ouvre le Studio, écris un agent, et il apparaîtra ici.');
+    return fail('Aucune capacité validée.',
+                'Rien n\'a encore été validé. Écris un agent au Studio, soumets-le, puis valide-le dans l\'Admin.');
   }
 
   // Chargement en parallèle : un fichier illisible ne doit pas emporter les autres.

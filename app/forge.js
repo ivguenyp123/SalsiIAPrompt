@@ -14,6 +14,8 @@
  *   listFiles(repo, path, ref)           → [{ name, path, type }]  ([] si le dossier n'existe pas)
  *   getFile(repo, path, ref)             → { content, sha } | null
  *   putFile(repo, path, { content, message, branch })  → crée ou met à jour
+ *   deleteFile(repo, path, { message, branch })        → supprime
+ *   moveFile(repo, from, to, { message, branch })      → déplace (copie puis supprime)
  */
 
 export class ForgeError extends Error {
@@ -144,7 +146,10 @@ function gitlab(session, fetchImpl) {
         method: existing ? 'PUT' : 'POST',
         body: { branch, content, commit_message: message }
       });
-    }
+    },
+
+    deleteFile: (repo, path, { message, branch = 'main' }) =>
+      call(filePath(repo, path), { method: 'DELETE', body: { branch, commit_message: message } })
   };
 }
 
@@ -212,6 +217,14 @@ function github(session, fetchImpl) {
         method: 'PUT',
         body: { message, content, branch, ...(sha ? { sha } : {}) }
       });
+    },
+
+    deleteFile: async (repo, path, { message, branch = 'main' }) => {
+      // Comme pour l'écriture, GitHub exige le sha : on ne supprime pas à l'aveugle.
+      const f = await call(`/repos/${repo}/contents/${path}`, { params: { ref: branch } });
+      return call(`/repos/${repo}/contents/${path}`, {
+        method: 'DELETE', body: { message, sha: f.sha, branch }
+      });
     }
   };
 }
@@ -223,7 +236,22 @@ function github(session, fetchImpl) {
 export function createForge(session, fetchImpl = globalThis.fetch) {
   if (!session?.gitlabUrl || !session?.token) throw new Error('createForge exige une URL et un jeton.');
   const kind = session.kind || detectKind(session.gitlabUrl);
-  return kind === 'github' ? github(session, fetchImpl) : gitlab(session, fetchImpl);
+  const forge = kind === 'github' ? github(session, fetchImpl) : gitlab(session, fetchImpl);
+
+  /*
+   * Déplacer un artefact, c'est ce que « valider » veut dire ici : le dossier porte
+   * l'état. Aucune des deux forges n'a d'opération de déplacement — on copie puis on
+   * supprime, dans cet ordre. Si la suppression échoue, le fichier existe en double,
+   * ce qui est visible et réparable ; l'inverse le ferait disparaître.
+   */
+  forge.moveFile = async (repo, from, to, { message, branch = 'main' }) => {
+    const found = await forge.getFile(repo, from, branch);
+    if (!found) throw new ForgeError(`Introuvable : ${from}`, 404);
+    await forge.putFile(repo, to, { content: toBase64(found.content), message, branch });
+    await forge.deleteFile(repo, from, { message: `${message} (retrait de la file)`, branch });
+  };
+
+  return forge;
 }
 
 export default { createForge, detectKind, toBase64, fromBase64, ForgeError };

@@ -8,7 +8,7 @@
 const TABS = [
   { id: 'catalogue', label: '🧰 Catalogue', href: 'catalogue' },
   { id: 'studio', label: '🛠️ Studio', href: 'studio' },
-  { id: 'admin', label: '📊 Admin', href: null },
+  { id: 'admin', label: '📊 Admin', href: 'admin' },
   { id: 'maquette', label: '✨ Maquette', href: 'maquette' }
 ];
 
@@ -19,7 +19,7 @@ const TABS = [
  */
 export function mountShell({ active = '', session, base = '', onLogout }) {
   const href = { catalogue: `${base}catalogue/index.html`, studio: `${base}studio/index.html`,
-                 maquette: `${base}maquette.html` };
+                 admin: `${base}admin/index.html`, maquette: `${base}maquette.html` };
 
   const bar = document.createElement('div');
   bar.className = 'tabs';

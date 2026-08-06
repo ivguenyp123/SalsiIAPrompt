@@ -193,8 +193,8 @@ function run() {
   const publish = $('publish');
   publish.disabled = report.blocked || !artifact.id;
   publish.title = report.blocked
-    ? `Corrige les ${report.errors} erreur(s) avant de publier.`
-    : `Commite artifacts/${artifact.id}.yaml sur main`;
+    ? `Corrige les ${report.errors} erreur(s) avant de soumettre.`
+    : `Dépose artifacts/pending/${artifact.id}.yaml dans la file de validation`;
 }
 
 // ── Exemples ─────────────────────────────────────────────────────────────────
@@ -243,14 +243,15 @@ $('add-tool').onclick = () => { state.tools.push({ id: '' }); renderTools(); run
 $('add-crit').onclick = () => { state.criteria.push({ target: '', op: 'eq', value: '' }); renderCriteria(); run(); };
 
 /*
- * Publication — commit direct sur `main` du dépôt du registre.
+ * Soumission — l'artefact part dans la FILE DE VALIDATION, pas au catalogue.
  *
- * Pas de merge request à ce stade : on veut voir le flux tourner de bout en bout. La
- * revue humaine (moment 3) et la double validation reviendront par les branches
- * protégées et les règles d'approbation du dépôt, qui sont leur place naturelle.
+ * Le dossier porte l'état, faute d'état dérivé : `artifacts/pending/` est ce qui attend
+ * une décision humaine, `artifacts/` ce qui a été validé. Le catalogue ne lit que le
+ * second, donc rien n'est visible avant d'avoir été relu. C'est le moment 3.
  *
- * Le lint reste la porte : le bouton est inerte tant qu'une erreur subsiste, et la CI
- * du dépôt rejoue les mêmes règles côté serveur — donc rien ne dépend de cette page.
+ * Le lint reste la porte d'avant : le bouton est inerte tant qu'une erreur subsiste. La
+ * porte filtre ce qui est vérifiable, l'humain tranche le reste — il n'a pas à relire ce
+ * qu'une règle sait décider.
  */
 const pubMsg = $('pubMsg');
 const sayPub = (text, kind) => { pubMsg.textContent = text; pubMsg.className = `show ${kind}`; };
@@ -268,14 +269,14 @@ $('publish').onclick = async () => {
   const label = button.textContent;
   button.textContent = 'Publication…';
 
-  const path = `artifacts/${artifact.id}.yaml`;
+  const path = `artifacts/pending/${artifact.id}.yaml`;
   try {
     await createForge(session).putFile(repo, path, {
       content: toBase64(toYaml(artifact)),
-      message: `registre : ${artifact.title}\n\nArtefact ${artifact.id} publié depuis le Studio par ${session.username}.\nLint : ${report.errors} erreur(s), ${report.warnings} avertissement(s).`,
+      message: `registre : soumettre ${artifact.title}\n\nArtefact ${artifact.id} soumis depuis le Studio par ${session.username}.\nLint : ${report.errors} erreur(s), ${report.warnings} avertissement(s).\nEn attente de validation humaine.`,
       branch: 'main'
     });
-    sayPub(`✔ ${path} commité sur main de ${repo}.`, 'ok');
+    sayPub(`✔ Soumis pour validation — ${path}. Il apparaîtra au catalogue une fois validé dans l'Admin.`, 'ok');
   } catch (error) {
     sayPub(error.message, 'err');
   } finally {

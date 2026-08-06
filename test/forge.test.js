@@ -149,6 +149,40 @@ describe('GitHub', () => {
   });
 });
 
+describe('valider = déplacer', () => {
+  const CONTENU = 'id: x\n';
+
+  test('GitHub : copie puis supprime, avec le sha exigé', async () => {
+    const fetchImpl = fakeFetch({
+      '/repos/o/r/contents/artifacts/pending/x.yaml': { sha: 'aaa', content: toBase64(CONTENU) },
+      'PUT /repos/o/r/contents/artifacts/x.yaml': { commit: { sha: 'n' } },
+      'DELETE /repos/o/r/contents/artifacts/pending/x.yaml': { commit: { sha: 'd' } }
+    });
+    await createForge(GITHUB, fetchImpl).moveFile('o/r', 'artifacts/pending/x.yaml', 'artifacts/x.yaml', { message: 'validé' });
+
+    const verbes = fetchImpl.calls.map((c) => c.method);
+    assert.ok(verbes.indexOf('PUT') < verbes.lastIndexOf('DELETE'),
+              'on copie AVANT de supprimer : l\'inverse ferait disparaître l\'artefact si ça casse au milieu');
+    assert.equal(fetchImpl.calls.at(-1).body.sha, 'aaa');
+  });
+
+  test('GitLab : même séquence', async () => {
+    const fetchImpl = fakeFetch({
+      '/api/v4/projects/42/repository/files/artifacts%2Fpending%2Fx.yaml': { content: toBase64(CONTENU), last_commit_id: 'c' },
+      'POST /api/v4/projects/42/repository/files/artifacts%2Fx.yaml': { file_path: 'artifacts/x.yaml' },
+      'DELETE /api/v4/projects/42/repository/files/artifacts%2Fpending%2Fx.yaml': {}
+    });
+    await createForge(GITLAB, fetchImpl).moveFile('42', 'artifacts/pending/x.yaml', 'artifacts/x.yaml', { message: 'validé' });
+    assert.equal(fetchImpl.calls.at(-1).method, 'DELETE');
+  });
+
+  test('refuse de déplacer ce qui n\'existe pas, plutôt que de créer un vide', async () => {
+    await assert.rejects(
+      () => createForge(GITHUB, fakeFetch({})).moveFile('o/r', 'absent.yaml', 'x.yaml', { message: 'm' }),
+      (e) => e.status === 404);
+  });
+});
+
 describe('registre encore vide', () => {
   test('un dossier absent renvoie [] plutôt qu\'une erreur, des deux côtés', async () => {
     // Le cas du premier jour : personne n'a encore publié. Ce n'est pas une panne.
