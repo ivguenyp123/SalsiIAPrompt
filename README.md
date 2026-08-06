@@ -510,6 +510,69 @@ branché. En production ils viendraient du référentiel des dépôts : c'est ce
 le contrôle **opposable** au lieu de déclaratif. L'écran l'écrit noir sur blanc, pour que
 personne ne prenne la maquette pour le contrôle.
 
+## ▶ Lancer — l'exécution (moment 5)
+
+Depuis la fiche d'une capacité, **▶ Lancer** exécute pour de vrai : bump de `IMAGE_TAG`,
+synchronisation des overlays Kustomize, commit atomique, merge request.
+
+Le bouton n'apparaît **que sur ce qui sait faire quelque chose**. Le registre déclare des
+outils dont l'implémentation reste à écrire (`run_tests`, `scan_vulnerabilities`) ; les
+présenter comme disponibles ferait apparaître un bouton qui échouerait à l'usage.
+
+### Deux temps, et la séparation est la garantie
+
+| | ce qui se passe | état du dépôt |
+|---|---|---|
+| **Préparer** | lit la CI, découvre les overlays, calcule le plan | **intact** |
+| **Confirmer et livrer** | commit atomique + merge request | modifié |
+
+Le second bouton **n'existe qu'une fois le plan affiché**. On ne peut donc pas livrer sans
+avoir lu ce qu'on livre : ce n'est pas une politesse d'interface, c'est la confirmation
+qu'exige `P007`, rendue impossible à sauter.
+
+### Ce que la reprise du hub a changé
+
+La logique vient du module `livraison` du hub DevOps — même règle de bump, même motif
+`IMAGE_TAG`, même réécriture d'overlays. Une différence compte : ici elle est **pure**.
+`runtime/livraison.js` calcule un plan et n'écrit rien ; `runtime/executer.js` orchestre.
+L'original mélange calcul et appels réseau, et n'est donc testable qu'à la main sur un
+vrai dépôt. Ici, 33 tests couvrent chaque règle hors navigateur.
+
+Un garde de l'original n'a pas été repris. Le « rien à modifier » y est utile parce que la
+version courante vient d'un état d'écran qui peut avoir vieilli ; ici elle est lue dans le
+contenu qu'on réécrit, à l'instant, donc la cible diffère toujours de la courante. Un
+garde inatteignable fait croire à une protection.
+
+### Trois décisions qui portent le risque
+
+**Le commit est atomique.** GitLab prend un tableau d'actions et fait un seul commit.
+Bumper la CI sans les overlays laisserait le dépôt incohérent, et il n'y aurait rien à
+annuler d'un bloc.
+
+**Les overlays sont découverts, jamais supposés.** Une liste en dur vieillirait au premier
+overlay ajouté par une équipe, et l'agent en laisserait un derrière — incohérence qui ne
+se voit qu'au déploiement.
+
+**Une merge request refusée ne fait pas passer le commit pour un échec.** Le cas fréquent
+est qu'une MR existe déjà pour ce couple de branches : le travail utile a eu lieu, et le
+cacher enverrait l'auteur relancer une livraison déjà faite.
+
+### `executor: module` désigne enfin du code
+
+L'artefact déclare depuis le premier jour `bump_image_tag / write / module`. Il ne manquait
+pas une décision d'architecture, il manquait le module derrière l'identifiant. L'invariant
+`L005` cesse d'être une promesse : l'écriture est faite par ce code, pas par un modèle. La
+description de la merge request le dit au relecteur, parce que ça change la nature de sa
+revue — il relit un calcul, pas une proposition.
+
+### GitLab est la cible, GitHub le dit
+
+`commitFiles` et `createMergeRequest` sont implémentés sur GitLab. Sur GitHub, ils lèvent
+une erreur 501 explicite : un commit multi-fichiers y demande de reconstruire un arbre git
+à la main, du code non trivial pour une opération que personne n'exécutera sur cette
+forge. Mieux vaut une erreur qui dit la vérité qu'une implémentation à moitié. La
+**préparation**, elle, fonctionne partout — on peut voir le plan sans pouvoir l'écrire.
+
 ## Ce que ce socle ne fait pas encore
 
 Le lint est la **couche 1** du moment 2. Restent à construire, dans l'ordre du document :

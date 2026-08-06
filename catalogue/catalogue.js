@@ -14,6 +14,8 @@ import { createForge } from '../app/forge.js';
 import { mountShell } from '../app/shell.js';
 import { lint, ERROR } from '../lint/index.js';
 import { prevol, SENSIBILITES } from '../preflight/index.js';
+import { BUMPS } from '../runtime/livraison.js';
+import { preparer as preparerLivraison, executer as executerLivraison } from '../runtime/executer.js';
 import { knownScopes, guessScope } from '../app/scopes.js';
 import { makeValidator } from '../lib/schema.js';
 import yaml from '../lib/yaml.js';
@@ -210,9 +212,19 @@ function openSheet(entry) {
   const prevolBtn = el('button', { textContent: '🛫 Pré-vol', title: 'Vérifier si cette capacité peut tourner sur un dépôt donné' });
   prevolBtn.onclick = () => ouvrirPrevol(entry);
 
-  inner.append(el('header', {},
-    el('h2', {}, ICONS[artifact.kind] || '📄', ' ', artifact.title || artifact.id),
-    prevolBtn, modifier, close));
+  const entete = el('header', {},
+    el('h2', {}, ICONS[artifact.kind] || '📄', ' ', artifact.title || artifact.id));
+
+  // ▶ Lancer n'apparaît que sur ce qui sait faire quelque chose. Un artefact dont aucun
+  // outil n'a de module derrière n'a rien à lancer — proposer le bouton mentirait.
+  if (MODULES_DISPONIBLES.some((id) => (artifact.tools || []).some((t) => t.id === id))) {
+    const lancer = el('button', { className: 'primary', textContent: '▶ Lancer' });
+    lancer.onclick = () => ouvrirLancement(entry);
+    entete.append(lancer);
+  }
+
+  entete.append(prevolBtn, modifier, close);
+  inner.append(entete);
 
   const body = el('div', { className: 'body' });
 
@@ -400,6 +412,190 @@ function ouvrirPrevol(entry) {
   body.append(form);
   inner.append(body);
   run();
+}
+
+/*
+ * Les outils qui ont VRAIMENT un module derrière eux.
+ *
+ * Le registre en déclare d'autres — `check_branch`, `run_tests`, `scan_vulnerabilities` —
+ * dont l'implémentation reste à écrire. Les lister ici comme disponibles ferait apparaître
+ * un bouton qui échouerait à l'usage : mieux vaut que le produit dise ce qu'il sait faire.
+ */
+const MODULES_DISPONIBLES = ['bump_image_tag'];
+
+
+/* ── Lancer (moment 5) ────────────────────────────────────────────────────────
+ *
+ * Deux temps, et la séparation est tout l'intérêt :
+ *
+ *   Préparer  → lit le dépôt, affiche le plan. RIEN n'a bougé.
+ *   Livrer    → écrit, sur la foi d'un plan que l'humain vient de lire.
+ *
+ * Le premier bouton est toujours disponible ; le second n'apparaît qu'une fois le plan
+ * calculé. On ne peut donc pas livrer sans avoir vu ce qu'on livre — ce n'est pas une
+ * politesse d'interface, c'est la confirmation qu'exige `P007`, rendue impossible à
+ * sauter.
+ */
+function ouvrirLancement(entry) {
+  const { artifact } = entry;
+  const inner = $('sheetInner');
+  inner.textContent = '';
+
+  const retour = el('button', { textContent: '← Fiche' });
+  retour.onclick = () => openSheet(entry);
+  const close = el('button', { className: 'close', textContent: '✕', title: 'fermer' });
+  close.onclick = () => $('sheet').classList.remove('on');
+
+  inner.append(el('header', {},
+    el('h2', {}, '▶ Lancer — ', artifact.title || artifact.id), retour, close));
+
+  const body = el('div', { className: 'body' });
+  const form = el('div', { className: 'pv' });
+
+  const depot = el('input', { value: localStorage.getItem('salsi_ia_project_path') || '',
+                              placeholder: 'groupe/projet' });
+  const branche = el('select');
+  branche.append(el('option', { value: '', textContent: '— charger les branches —' }));
+
+  const bump = el('span', { className: 'seg' });
+  let bumpChoisi = 'patch';
+  for (const t of BUMPS) {
+    const b = el('button', { textContent: t, className: t === bumpChoisi ? 'on' : '' });
+    b.onclick = () => { bumpChoisi = t; for (const x of bump.children) x.className = x.textContent === t ? 'on' : ''; oublierPlan(); };
+    bump.append(b);
+  }
+
+  const champ = (libelle, controle) => el('div', {}, el('label', { textContent: libelle }), controle);
+  form.append(el('div', { className: 'champs' }, champ('Dépôt cible', depot), champ('Branche à livrer', branche)));
+  form.append(champ('Incrément de version', bump));
+
+  const charger = el('button', { textContent: 'Charger les branches' });
+  const preparer_ = el('button', { className: 'primary', textContent: 'Préparer la livraison' });
+  const livrer = el('button', { className: 'primary', textContent: '✋ Confirmer et livrer', hidden: true });
+  form.append(el('div', { className: 'acts' }, charger, preparer_, livrer));
+
+  const etat = el('div', { className: 'verdict ok', hidden: true });
+  const plan = el('div', { className: 'planbox', hidden: true });
+  form.append(etat, plan);
+
+  let planCourant = null;
+  let brancheCible = '';
+
+  const dire = (texte, ko = false) => {
+    etat.hidden = false;
+    etat.className = `verdict ${ko ? 'ko' : 'ok'}`;
+    etat.textContent = '';
+    etat.append(el('span', { textContent: texte }));
+  };
+  // Deux gestes distincts, et les confondre coûtait le lien vers la MR.
+  //   oublier   : le contexte a changé, le plan affiché ne vaut plus rien → on l'efface
+  //   consommer : la livraison a eu lieu → on empêche de relivrer, mais on GARDE l'écran,
+  //               qui porte maintenant la référence du commit et le lien vers la MR
+  const oublierPlan = () => { planCourant = null; livrer.hidden = true; plan.hidden = true; };
+  const consommerPlan = () => { planCourant = null; livrer.hidden = true; };
+
+  branche.onchange = oublierPlan;
+  depot.oninput = () => { oublierPlan(); branche.textContent = ''; branche.append(el('option', { value: '', textContent: '— charger les branches —' })); };
+
+  charger.onclick = async () => {
+    const repoCible = depot.value.trim();
+    if (!repoCible) return dire('Indique le dépôt à livrer.', true);
+    charger.disabled = true;
+    try {
+      const [info, branches] = await Promise.all([forge.projectInfo(repoCible), forge.listBranches(repoCible)]);
+      brancheCible = info.defaultBranch;
+      branche.textContent = '';
+      branche.append(el('option', { value: '', textContent: '— choisir une branche —' }));
+      // La branche par défaut est la CIBLE de la merge request : la proposer comme source
+      // n'aurait pas de sens, le plan la refuserait.
+      for (const b of branches.filter((b) => b.name !== brancheCible)) {
+        branche.append(el('option', { value: b.name, textContent: b.name + (b.protectee ? ' (protégée)' : '') }));
+      }
+      dire(`${branches.length} branche(s) · cible de la MR : ${brancheCible}`);
+    } catch (error) {
+      dire(error.message, true);
+    } finally { charger.disabled = false; }
+  };
+
+  preparer_.onclick = async () => {
+    const repoCible = depot.value.trim();
+    if (!repoCible || !branche.value) return dire('Choisis un dépôt et une branche.', true);
+    preparer_.disabled = true;
+    dire('Lecture du dépôt…');
+    try {
+      const r = await preparerLivraison(forge, repoCible, { branche: branche.value, bump: bumpChoisi });
+      brancheCible = r.brancheCible;
+      planCourant = r.plan;
+
+      plan.hidden = false;
+      plan.textContent = '';
+      if (!r.plan.ok) {
+        livrer.hidden = true;
+        dire(r.plan.raison, true);
+        plan.hidden = true;
+        return;
+      }
+
+      plan.append(el('h4', { textContent: 'Ce qui sera écrit — rien n\'a encore bougé' }));
+      const dl = el('dl', { className: 'kv' });
+      for (const [k, v] of [
+        ['Version', `${r.plan.courante} → ${r.plan.cible}`],
+        ['Branche', `${branche.value} → ${r.brancheCible}`],
+        ['Commit', r.plan.message],
+        ['Merge request', r.plan.titreMR],
+        ['Overlays lus', `${r.overlaysLus} · ${r.plan.overlaysTouches} modifié(s)`]
+      ]) dl.append(el('dt', { textContent: k }), el('dd', { textContent: v }));
+      plan.append(dl);
+
+      const ul = el('ul', { className: 'constats' });
+      for (const f of r.plan.fichiers) {
+        ul.append(el('li', {}, el('code', { textContent: f.path }), ` — ${f.quoi}`));
+      }
+      plan.append(el('h4', { textContent: `Fichiers modifiés (${r.plan.fichiers.length})` }), ul);
+
+      livrer.hidden = false;
+      dire(`✔ Plan prêt — ${r.resume}`);
+    } catch (error) {
+      oublierPlan();
+      dire(error.message, true);
+    } finally { preparer_.disabled = false; }
+  };
+
+  livrer.onclick = async () => {
+    if (!planCourant?.ok) return;
+    if (!confirm(`Livrer ${planCourant.cible} ?\n\n${planCourant.fichiers.length} fichier(s) commités sur ${branche.value},`
+               + `\npuis une merge request vers ${brancheCible}.\n\nLe merge déclenchera la livraison.`)) return;
+
+    livrer.disabled = true;
+    dire('Écriture…');
+    try {
+      const r = await executerLivraison(forge, depot.value.trim(), planCourant,
+        { branche: branche.value, brancheCible, auteur: session.username });
+
+      const lignes = [`✔ Commit ${r.commit.sha?.slice(0, 8)} sur ${branche.value}`];
+      if (r.mr) lignes.push(`merge request !${r.mr.number} ouverte vers ${brancheCible}`);
+      dire(lignes.join(' · '));
+
+      if (r.avertissement) plan.append(el('p', { className: 'note', textContent: '⚠ ' + r.avertissement }));
+      if (r.mr?.url) {
+        plan.append(el('p', {}, el('a', { href: r.mr.url, target: '_blank', rel: 'noopener',
+                                          textContent: `Ouvrir la merge request !${r.mr.number} →` })));
+      }
+      // Le plan est consommé : le rejouer referait un bump par-dessus le précédent.
+      // Mais l'écran reste — il porte la référence du commit et le lien vers la MR.
+      consommerPlan();
+    } catch (error) {
+      dire(error.message, true);
+    } finally { livrer.disabled = false; }
+  };
+
+  form.append(el('p', { className: 'note', textContent:
+    'Aucun modèle n\'intervient : la version cible est calculée, les overlays sont découverts '
+    + 'dans l\'arbre du dépôt, l\'écriture est faite par un module. C\'est ce que déclare '
+    + 'l\'artefact — `executor: module` sur les outils d\'écriture.' }));
+
+  body.append(form);
+  inner.append(body);
 }
 
 const section = (title, content) => el('section', {}, el('h4', { textContent: title }), content);
