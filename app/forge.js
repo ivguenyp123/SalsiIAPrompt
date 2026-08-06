@@ -17,6 +17,14 @@
  *   deleteFile(repo, path, { message, branch })        → supprime
  *   moveFile(repo, from, to, { message, branch })      → déplace (copie puis supprime)
  *   listCommits(repo, path, { perPage, ref })          → [{ sha, message, author, date }]
+ *
+ * Livraison (moment 5) — implémentée sur GitLab, la cible. Sur GitHub, `commitFiles` et
+ * `createMergeRequest` lèvent une erreur explicite plutôt que d'exister à moitié :
+ *   projectInfo(repo)                                  → { defaultBranch, path, visibility }
+ *   listBranches(repo)                                 → [{ name, protectee, default }]
+ *   listTree(repo, ref)                                → [chemins]
+ *   commitFiles(repo, { branch, message, files })      → { sha, url }   commit ATOMIQUE
+ *   createMergeRequest(repo, { source, target, title })→ { number, url }
  */
 
 export class ForgeError extends Error {
@@ -152,6 +160,53 @@ function gitlab(session, fetchImpl) {
     deleteFile: (repo, path, { message, branch = 'main' }) =>
       call(filePath(repo, path), { method: 'DELETE', body: { branch, commit_message: message } }),
 
+    /* ── Ce qu'exige la livraison (moment 5) ─────────────────────────────── */
+
+    projectInfo: async (repo) => {
+      const p = await call(`/projects/${encodeURIComponent(repo)}`);
+      return { defaultBranch: p.default_branch, path: p.path_with_namespace, visibility: p.visibility };
+    },
+
+    listBranches: async (repo) => {
+      const list = await call(`/projects/${encodeURIComponent(repo)}/repository/branches`, { params: { per_page: 100 } });
+      return list.map((b) => ({ name: b.name, protectee: Boolean(b.protected), default: Boolean(b.default) }));
+    },
+
+    /** Arbre récursif d'une réf — sert à découvrir les overlays sans les deviner. */
+    listTree: async (repo, ref) => {
+      try {
+        const list = await call(`/projects/${encodeURIComponent(repo)}/repository/tree`,
+          { params: { recursive: true, ref, per_page: 100 } });
+        return list.filter((e) => e.type === 'blob').map((e) => e.path);
+      } catch (error) {
+        if (error.status === 404) return [];
+        throw error;
+      }
+    },
+
+    /*
+     * Commit ATOMIQUE de plusieurs fichiers.
+     *
+     * GitLab prend un tableau d'actions et fait un seul commit : c'est exactement la
+     * sémantique qu'il faut ici. Une livraison qui bumperait la CI sans les overlays
+     * laisserait le dépôt dans un état incohérent, et il n'y aurait rien à annuler d'un
+     * bloc. L'atomicité n'est pas un confort, c'est ce qui rend l'opération réversible.
+     */
+    commitFiles: async (repo, { branch, message, files }) => {
+      const actions = files.map((f) => ({ action: 'update', file_path: f.path, content: f.content }));
+      const c = await call(`/projects/${encodeURIComponent(repo)}/repository/commits`, {
+        method: 'POST', body: { branch, commit_message: message, actions }
+      });
+      return { sha: c.id, url: c.web_url };
+    },
+
+    createMergeRequest: async (repo, { source, target, title, description = '' }) => {
+      const mr = await call(`/projects/${encodeURIComponent(repo)}/merge_requests`, {
+        method: 'POST', body: { source_branch: source, target_branch: target, title, description }
+      });
+      return { number: mr.iid, url: mr.web_url, title: mr.title };
+    },
+
     listCommits: async (repo, path, { perPage = 50, ref = 'main' } = {}) => {
       try {
         const list = await call(`/projects/${encodeURIComponent(repo)}/repository/commits`,
@@ -243,6 +298,46 @@ function github(session, fetchImpl) {
       return call(`/repos/${repo}/contents/${path}`, {
         method: 'DELETE', body: { message, sha: f.sha, branch }
       });
+    },
+
+    /*
+     * La livraison n'est PAS implémentée ici, et c'est un choix.
+     *
+     * GitHub héberge le prototype ; la cible est GitLab. Un commit multi-fichiers y
+     * demande une danse d'arbres et de blobs — du code non trivial, pour une opération
+     * que personne n'exécutera jamais sur cette forge. Le construire « au cas où » serait
+     * du poids mort à maintenir. Mieux vaut une erreur qui dit la vérité.
+     */
+    projectInfo: async (repo) => {
+      const r = await call(`/repos/${repo}`);
+      return { defaultBranch: r.default_branch, path: r.full_name,
+               visibility: r.private ? 'private' : 'public' };
+    },
+
+    listBranches: async (repo) => {
+      const list = await call(`/repos/${repo}/branches`, { params: { per_page: 100 } });
+      return list.map((b) => ({ name: b.name, protectee: Boolean(b.protected), default: false }));
+    },
+
+    listTree: async (repo, ref) => {
+      try {
+        const t = await call(`/repos/${repo}/git/trees/${encodeURIComponent(ref)}`, { params: { recursive: 1 } });
+        return (t.tree || []).filter((e) => e.type === 'blob').map((e) => e.path);
+      } catch (error) {
+        if (error.status === 404) return [];
+        throw error;
+      }
+    },
+
+    commitFiles: async () => {
+      throw new ForgeError(
+        'La livraison vise GitLab. Sur GitHub, un commit atomique de plusieurs fichiers '
+        + 'demande de reconstruire un arbre git à la main — non implémenté ici, faute '
+        + 'd\'usage réel. Connecte-toi au GitLab cible pour exécuter.', 501);
+    },
+
+    createMergeRequest: async () => {
+      throw new ForgeError('La livraison vise GitLab : la création de merge request n\'est pas implémentée sur GitHub.', 501);
     },
 
     listCommits: async (repo, path, { perPage = 50, ref = 'main' } = {}) => {

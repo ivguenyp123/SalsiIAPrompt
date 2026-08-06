@@ -34,18 +34,6 @@ export const KUSTOMIZATION_RX = /(^|\/)kustomization\.ya?ml$/i;
 /** Les fichiers de CI où chercher `IMAGE_TAG`, dans l'ordre de préférence. */
 export const FICHIERS_CI = ['.gitlab-ci.yml', '.gitlab-ci.yaml', '.github/workflows/deploy.yml'];
 
-/**
- * Les chemins à sonder pour trouver la CI, sous une racine donnée.
- *
- * `racine` existe pour une raison précise et temporaire : le dépôt de démonstration vit
- * dans un sous-dossier du dépôt produit, faute de pouvoir en créer un dédié. Sur une
- * vraie cible elle vaut '' et la CI est à la racine, comme l'exige GitLab.
- */
-export const cheminsCI = (racine = '') => {
-  const base = racine ? racine.replace(/\/+$/, '') + '/' : '';
-  return FICHIERS_CI.map((f) => base + f);
-};
-
 export const BUMPS = ['major', 'minor', 'patch'];
 
 /**
