@@ -50,7 +50,7 @@ describe('normalizeGitlabUrl', () => {
   });
 
   test('refuse le vide et l\'illisible, avec un message utile', () => {
-    assert.throws(() => normalizeGitlabUrl(''), /URL de ton instance/);
+    assert.throws(() => normalizeGitlabUrl(''), /adresse de ta forge/);
     assert.throws(() => normalizeGitlabUrl('ftp://x.example.com'), /http/);
   });
 });

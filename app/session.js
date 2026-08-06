@@ -1,8 +1,8 @@
 /*
- * Session — identité GitLab de l'utilisateur courant.
+ * Session — identité de l'utilisateur courant sur sa forge.
  *
- * Reprise du principe de `login.html` de Salsifi : l'utilisateur fournit une URL GitLab
- * et un jeton personnel, on le valide contre /api/v4/user, on retient l'identité.
+ * Reprise du principe de `login.html` de Salsifi : l'utilisateur fournit l'adresse de sa
+ * forge et un jeton personnel, on le valide auprès d'elle, on retient l'identité.
  *
  * Trois écarts assumés par rapport au hub :
  *
@@ -16,7 +16,7 @@
  *    dans l'onglet et disparaît avec lui. « Rester connecté » bascule sur localStorage,
  *    en connaissance de cause.
  *
- * 3. AUCUN JETON N'ENTRE DANS UN ARTEFACT. Le jeton sert à parler à GitLab, point.
+ * 3. AUCUN JETON N'ENTRE DANS UN ARTEFACT. Le jeton sert à parler à la forge, point.
  *    L007 refuse déjà tout secret dans un artefact ; encore faut-il ne pas l'y mettre.
  *
  * Cela reste un jeton dans le navigateur. C'est acceptable pour une application interne
@@ -28,10 +28,10 @@ import { detectKind } from './forge.js';
 const KEY = 'salsi_ia_session';
 const HUB_KEY = 'devops_hub_workspaces';   // lecture seule, pour le pré-remplissage
 
-/** Normalise une URL d'instance GitLab. Lève un message lisible si elle est inutilisable. */
+/** Normalise l'URL d'une forge. Lève un message lisible si elle est inutilisable. */
 export function normalizeGitlabUrl(raw) {
   const value = String(raw || '').trim().replace(/\/+$/, '');
-  if (!value) throw new Error('Indique l\'URL de ton instance GitLab.');
+  if (!value) throw new Error('Indique l\'adresse de ta forge — https://github.com, ou ton GitLab.');
 
   // Un schéma explicite autre que http(s) doit être REFUSÉ, pas préfixé : sans ce test,
   // « ftp://x » devient « https://ftp://x », une URL valide pointant n'importe où.
@@ -54,8 +54,8 @@ export function normalizeGitlabUrl(raw) {
 /** Le jeton a-t-il une forme plausible ? Évite un aller-retour réseau pour rien. */
 export function checkToken(raw) {
   const token = String(raw || '').trim();
-  if (!token) throw new Error('Indique ton jeton d\'accès personnel GitLab.');
-  if (token.length < 20) throw new Error('Ce jeton semble trop court pour un jeton GitLab.');
+  if (!token) throw new Error('Indique ton jeton d\'accès personnel.');
+  if (token.length < 20) throw new Error('Ce jeton semble trop court.');
   if (/\s/.test(token)) throw new Error('Le jeton ne doit contenir aucun espace.');
   return token;
 }
