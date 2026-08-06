@@ -141,6 +141,23 @@ devra honorer. Et les messages de commit sont recopiés à la virgule près dans
 depuis `studio/studio.js` et `admin/admin.js` — reformuler un message d'un côté fait tomber
 un test de l'autre.
 
+## Héberger : un mot sur GitHub Pages
+
+Le site est du **statique pur** — aucune construction n'est nécessaire. Le fichier
+`.nojekyll` à la racine le dit explicitement : Pages copie les fichiers au lieu de les
+passer à Jekyll. Un moteur de gabarit sur des fichiers qui contiennent `{{repo}}` et
+`{{stack}}` est un risque gratuit, et l'étape en moins est une cause de panne en moins.
+
+Deux sources possibles dans `Settings` → `Pages` :
+
+- **GitHub Actions** — passe par la file de déploiement du dépôt. Quand cette file se
+  bloque, l'étape *Deploy to GitHub Pages* attend puis rend `Timeout reached, aborting!`
+  au bout de dix minutes. La construction, elle, réussit en quelques secondes : lire le
+  journal du bon job évite de chercher un défaut dans le code qui n'y est pas.
+- **Deploy from a branch** (`main` / `/ (root)`) — ne passe pas par cette file. C'est le
+  repli quand la première se bloque, et il convient parfaitement ici puisqu'il n'y a rien
+  à construire.
+
 ## Publier
 
 Depuis le Studio, **Publier sur main** commite l'artefact en `artifacts/<id>.yaml` sur
