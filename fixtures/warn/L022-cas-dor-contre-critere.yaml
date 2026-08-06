@@ -1,0 +1,30 @@
+# Le contrat plafonne à 20 fichiers touchés ; le cas d'or en attend 47.
+#
+# Ni faute évidente ni intention claire : le cas décrit peut-être un test du chemin
+# d'échec — l'agent touche trop de fichiers, le critère doit le rattraper — ou bien
+# quelqu'un a écrit un seuil d'un côté et une valeur de l'autre sans les confronter.
+#
+# C'est pourquoi L022 AVERTIT au lieu de refuser : elle ne tranche pas à la place de
+# l'auteur, elle l'oblige à déclarer son intention avec `expects_violation: true`.
+id: l022-contradiction
+kind: agent
+title: Artefact minimal
+owner: { person: m.dubois, scope: Plateforme }
+intent:
+  purpose: Faire une chose utile et suffisamment décrite pour le schéma.
+  not_for: Ne pas utiliser hors du périmètre décrit juste au-dessus.
+spec: |
+  Tu fais quelque chose d'utile à partir du dépôt {{repo}}.
+variables:
+  - { name: repo, source: repo }
+tools:
+  - { id: read_repo_metadata, mode: read, executor: llm }
+criteria:
+  - { target: output.files_touched, op: lte, value: 20 }
+target_level: experimental
+golden_cases:
+  - id: gc-01-trop-de-fichiers
+    context: { repo: demo }
+    expect: { output.files_touched: 47 }   # que le critère ci-dessus refuserait
+    runs: 3
+    pass_at_least: 3

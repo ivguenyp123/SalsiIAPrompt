@@ -9,7 +9,7 @@ kind: agent
 title: Préparer la livraison en préproduction
 
 owner:
-  person: m.dubois
+  person: ivguenyp123
   scope: Plateforme
 
 tags: [livraison, kubernetes]
@@ -81,6 +81,13 @@ criteria:
 
 # Tests de développement, joués au banc d'essai. `runs`/`pass_at_least` parce qu'un
 # LLM n'est pas reproductible : un cas joué une fois est un tirage, pas une porte.
+#
+# Quatre de ces cinq cas décrivent DÉLIBÉRÉMENT une exécution que les critères ci-dessus
+# refusent : branche non mergeable, vulnérabilité critique, pipeline en échec, volume
+# excessif. C'est ce qu'on attend d'une bonne suite — elle teste ce qui doit échouer
+# autant que ce qui doit passer. `expects_violation` le dit, sans quoi L022 signalerait
+# quatre contradictions et elle aurait raison : rien ne distinguait l'intention de
+# l'étourderie.
 golden_cases:
   - id: gc-01-nominal
     context: { repo: demo-spring, branch: feat/refunds }
@@ -93,24 +100,32 @@ golden_cases:
     expect: { branch.mergeable: false }
     runs: 5
     pass_at_least: 5
+    expects_violation: true
 
   - id: gc-03-vuln
     context: { repo: demo-vuln, branch: main }
     expect: { vulnerabilities.critical: 1 }
     runs: 5
     pass_at_least: 4
+    expects_violation: true
 
   - id: gc-04-sans-overlays
     context: { repo: demo-no-kustomize, branch: main }
     expect: { pipeline.status: failed }
     runs: 3
     pass_at_least: 3
+    expects_violation: true
 
+  # Chemin d'échec, et il est DÉCLARÉ : sur un gros refactoring l'agent touche 47
+  # fichiers, ce que le critère `output.files_touched lte 20` refuse. C'est le but du
+  # cas — vérifier que le contrat rattrape bien le débordement. Sans `expects_violation`,
+  # L022 signalerait la contradiction, et elle aurait raison de le faire.
   - id: gc-05-volume
     context: { repo: demo-spring, branch: feat/large-refactor }
     expect: { output.files_touched: 47 }
     runs: 3
     pass_at_least: 2
+    expects_violation: true
 
 target_level: officiel
 model_tier: mid

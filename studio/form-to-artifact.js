@@ -161,7 +161,13 @@ export function formToArtifact(form = {}, ctx = {}) {
             return ref ? asType(v, ref.type) : devine(v);
           })
         };
-        return { ...noyau, ...compact({ runs: entier(g.runs), pass_at_least: entier(g.passAtLeast) }) };
+        return {
+          ...noyau,
+          ...compact({ runs: entier(g.runs), pass_at_least: entier(g.passAtLeast) }),
+          // Émis seulement s'il vaut `true` : un `false` explicite polluerait tous les
+          // fichiers pour dire ce que le défaut dit déjà.
+          ...(g.expectsViolation ? { expects_violation: true } : {})
+        };
       }),
 
     target_level: form.targetLevel || 'experimental',

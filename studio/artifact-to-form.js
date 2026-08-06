@@ -70,7 +70,8 @@ export function artifactToForm(artifact = {}) {
       context: toRows(g.context, 'key'),
       expect: toRows(g.expect, 'target'),
       runs: g.runs === undefined ? '' : String(g.runs),
-      passAtLeast: g.pass_at_least === undefined ? '' : String(g.pass_at_least)
+      passAtLeast: g.pass_at_least === undefined ? '' : String(g.pass_at_least),
+      expectsViolation: Boolean(g.expects_violation)
     })),
 
     targetLevel: artifact.target_level || 'experimental',

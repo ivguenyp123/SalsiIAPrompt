@@ -186,7 +186,8 @@ const casVide = () => ({
   context: state.variables.filter((v) => v.name?.trim()).map((v) => ({ key: v.name.trim(), value: '' })),
   expect: [{ target: '', value: '' }],
   runs: '3',
-  passAtLeast: ''
+  passAtLeast: '',
+  expectsViolation: false
 });
 
 /** Une ligne clé/valeur, quel que soit le nom du champ-clé. */
@@ -222,6 +223,15 @@ function renderGolden() {
 
     bloc.append(el('div', { className: 'head' }, id,
       el('span', { className: 'kn' }, 'succès ', pass, ' sur ', runs, ' exécutions'), delCas));
+
+    // Déclarer l'intention plutôt que la laisser deviner : un cas d'or peut légitimement
+    // décrire une exécution que les critères refusent — c'est le test du chemin d'échec.
+    // Ce qui ne va pas, c'est qu'on ne sache pas si c'était voulu (L022).
+    const viol = el('input', { type: 'checkbox', checked: Boolean(g.expectsViolation) });
+    viol.onchange = () => { g.expectsViolation = viol.checked; run(); };
+    const lbl = el('label', { className: 'viol' }, viol,
+      ' teste volontairement un chemin que les critères refusent');
+    bloc.append(lbl);
 
     // ── Contexte : ce que le cas fournit en entrée ──
     bloc.append(el('h5', { textContent: 'Contexte fourni au cas' }));
@@ -419,7 +429,7 @@ function apply(form) {
  */
 function bandeauEdition() {
   const barre = document.querySelector('.toolbar .sub');
-  const texte = !state.editId ? 'les 21 règles, à la frappe · aucun LLM'
+  const texte = !state.editId ? 'les 22 règles, à la frappe · aucun LLM'
     : state.editFrom === 'published'
       ? `correction de « ${state.editId} » — la version publiée sert jusqu'à la validation`
       : `reprise de « ${state.editId} » — republier remplacera la soumission en attente`;

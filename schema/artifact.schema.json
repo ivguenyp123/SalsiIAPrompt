@@ -122,6 +122,10 @@
           "pass_at_least": {
             "type": "integer", "minimum": 1,
             "description": "Nombre de succès requis sur `runs`. Sans k/n, le banc d'essai est une météo, pas une porte (L017)."
+          },
+          "expects_violation": {
+            "type": "boolean", "default": false,
+            "description": "Ce cas d'or décrit DÉLIBÉRÉMENT une exécution que les `criteria` refuseraient — un test du chemin d'échec. Sans ce drapeau, L022 signale la contradiction : la règle ne tranche pas à la place de l'auteur, elle l'oblige à déclarer son intention."
           }
         }
       }

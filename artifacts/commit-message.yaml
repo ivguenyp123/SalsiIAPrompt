@@ -14,7 +14,7 @@ kind: prompt
 title: Rédiger un message de commit
 
 owner:
-  person: a.leroy
+  person: ivguenyp123
   scope: Plateforme
 
 tags: [git, conventions]

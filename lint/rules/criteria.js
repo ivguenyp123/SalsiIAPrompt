@@ -143,3 +143,70 @@ export function L017(artifact) {
 
   return out;
 }
+
+/*
+ * L022 — Un cas d'or dont l'attente viole un critère de l'artefact. 🟡
+ *
+ * Règle née de l'écran, pas de la spécification. Le jour où la fiche du Catalogue a
+ * montré les critères et les cas d'or l'un sous l'autre, la contradiction a sauté aux
+ * yeux sur l'artefact de référence :
+ *
+ *   contrat :  output.files_touched  lte 20
+ *   gc-05   :  attend output.files_touched = 47
+ *
+ * Le cas d'or décrit une exécution que le contrat de l'artefact refuserait. Les deux
+ * blocs vivaient dans des écrans séparés, et personne ne les avait confrontés.
+ *
+ * AVERTISSEMENT, jamais refus : tester le chemin d'échec est légitime et même
+ * souhaitable. Ce qui ne l'est pas, c'est qu'on ne sache pas si c'était voulu. La règle
+ * ne tranche donc pas à la place de l'auteur — elle l'oblige à déclarer son intention
+ * avec `expects_violation`, et se tait dès qu'il l'a fait.
+ */
+
+/** Un opérateur de critère, évalué sur une valeur. `null` = opérateur non décidable ici. */
+function satisfait(valeur, op, attendu) {
+  switch (op) {
+    case 'eq': return valeur === attendu;
+    case 'neq': return valeur !== attendu;
+    case 'lt': return Number(valeur) < Number(attendu);
+    case 'lte': return Number(valeur) <= Number(attendu);
+    case 'gt': return Number(valeur) > Number(attendu);
+    case 'gte': return Number(valeur) >= Number(attendu);
+    case 'contains': return String(valeur).includes(String(attendu));
+    case 'matches':
+      try { return new RegExp(attendu).test(String(valeur)); }
+      catch { return null; }                  // motif invalide : L009 s'en occupe, pas nous
+    // `exists` porte sur la présence de la cible, pas sur sa valeur : le cas d'or qui
+    // fournit une valeur satisfait toujours `exists: true`.
+    case 'exists': return attendu === true || attendu === 'true';
+    default: return null;
+  }
+}
+
+export function L022(artifact) {
+  const criteres = artifact?.criteria || [];
+  if (criteres.length === 0) return [];
+
+  const out = [];
+
+  (artifact?.golden_cases || []).forEach((g, i) => {
+    if (g.expects_violation) return;          // intention déclarée : la règle se tait
+
+    for (const [cible, valeur] of Object.entries(g.expect || {})) {
+      for (const c of criteres.filter((c) => c.target === cible)) {
+        if (satisfait(valeur, c.op, c.value) !== false) continue;
+
+        out.push(finding(
+          'L022', WARN,
+          `Cas d'or \`${g.id}\` : il attend \`${cible}\` = ${JSON.stringify(valeur)}, ` +
+          `que le critère \`${cible} ${c.op} ${JSON.stringify(c.value)}\` refuserait. ` +
+          'Si c\'est un test du chemin d\'échec, déclare-le avec `expects_violation: true` ; ' +
+          'sinon l\'un des deux chiffres est faux.',
+          `golden_cases[${i}].expect.${cible}`
+        ));
+      }
+    }
+  });
+
+  return out;
+}

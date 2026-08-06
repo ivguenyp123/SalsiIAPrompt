@@ -193,7 +193,8 @@ describe('les cas d\'or se modifient au lieu d\'être transportés', () => {
       context: [{ key: 'repo', value: 'demo-spring' }, { key: 'branch', value: 'feat/refunds' }],
       expect: [{ target: 'branch.mergeable', value: 'true' },
                { target: 'pipeline.status', value: 'success' }],
-      runs: '5', passAtLeast: '5'
+      runs: '5', passAtLeast: '5',
+      expectsViolation: false
     });
   });
 
@@ -205,5 +206,88 @@ describe('les cas d\'or se modifient au lieu d\'être transportés', () => {
     assert.equal(ampute.golden_cases.length, 4);
     assert.ok(codes(ampute, ERROR).includes('L010'),
       'le Studio ne peut plus dégrader un artefact officiel sans que la porte le dise');
+  });
+});
+
+/* ── L022 : le cas d'or confronté aux critères ────────────────────────────── */
+
+describe('L022 — un cas d\'or qui contredit les critères de l\'artefact', () => {
+  /** Un artefact minimal, contrat et cas d'or maîtrisés. */
+  const avec = (critere, attente, extra = {}) => formToArtifact({
+    title: 'Test', spec: 'Analyse les migrations du dépôt {{repo}} et rends un résumé.',
+    ownerPerson: 'm.dubois', ownerScope: 'Plateforme',
+    purpose: 'Faire une chose utile et suffisamment décrite pour le schéma.',
+    notFor: 'Ne pas utiliser hors du périmètre décrit ci-dessus.',
+    variables: [{ name: 'repo', source: 'repo' }],
+    tools: [{ id: 'read_repo_metadata' }],
+    criteria: [critere],
+    goldenCases: [{ id: 'gc-01', context: [{ key: 'repo', value: 'demo' }],
+                    expect: [attente], runs: '3', passAtLeast: '3', ...extra }]
+  }, ctx);
+
+  test('la contradiction est signalée', () => {
+    // C'est le cas trouvé à l'écran : le contrat plafonne à 20, le cas en attend 47.
+    const a = avec({ target: 'output.files_touched', op: 'lte', value: '20' },
+                   { target: 'output.files_touched', value: '47' });
+    assert.ok(codes(a, WARN).includes('L022'));
+  });
+
+  test('mais jamais en refus — tester le chemin d\'échec est légitime', () => {
+    const a = avec({ target: 'output.files_touched', op: 'lte', value: '20' },
+                   { target: 'output.files_touched', value: '47' });
+    assert.ok(!codes(a, ERROR).includes('L022'));
+    assert.equal(lint(a, ctx).blocked, false);
+  });
+
+  test('une attente cohérente ne dit rien', () => {
+    const a = avec({ target: 'output.files_touched', op: 'lte', value: '20' },
+                   { target: 'output.files_touched', value: '12' });
+    assert.ok(!codes(a, WARN).includes('L022'));
+  });
+
+  test('une cible sans critère correspondant ne dit rien', () => {
+    // On ne compare que ce qui est comparable : un cas d'or peut assertir sur une cible
+    // que le contrat de runtime ne surveille pas.
+    const a = avec({ target: 'output.length', op: 'lte', value: '500' },
+                   { target: 'output.files_touched', value: '47' });
+    assert.ok(!codes(a, WARN).includes('L022'));
+  });
+
+  test('`expects_violation` fait taire la règle — c\'est la déclaration qui compte', () => {
+    // La règle ne tranche pas à la place de l'auteur : elle l'oblige à dire s'il l'a
+    // fait exprès. Une fois dit, il n'y a plus rien à signaler.
+    const a = avec({ target: 'output.files_touched', op: 'lte', value: '20' },
+                   { target: 'output.files_touched', value: '47' },
+                   { expectsViolation: true });
+    assert.equal(a.golden_cases[0].expects_violation, true);
+    assert.ok(!codes(a, WARN).includes('L022'));
+  });
+
+  test('le drapeau survit à l\'aller-retour du formulaire', () => {
+    // Sans ça, rouvrir un artefact au Studio ferait réapparaître l'avertissement à
+    // chaque republication — et l'auteur redéclarerait indéfiniment la même intention.
+    const doc = loadYaml(join(ROOT, 'artifacts/prep-delivery.yaml'));
+    const form = artifactToForm(doc);
+    const gc05 = form.goldenCases.find((g) => g.id === 'gc-05-volume');
+    assert.equal(gc05.expectsViolation, true);
+
+    const apres = formToArtifact(form, ctx);
+    assert.equal(apres.golden_cases.find((g) => g.id === 'gc-05-volume').expects_violation, true);
+    assert.ok(!codes(apres, WARN).includes('L022'));
+  });
+
+  test('les opérateurs sont évalués, pas seulement l\'égalité', () => {
+    const cas = [
+      [{ target: 'vulnerabilities.critical', op: 'eq', value: '0' }, { target: 'vulnerabilities.critical', value: '3' }, true],
+      [{ target: 'branch.mergeable', op: 'eq', value: 'true' }, { target: 'branch.mergeable', value: 'false' }, true],
+      [{ target: 'pipeline.status', op: 'neq', value: 'failed' }, { target: 'pipeline.status', value: 'failed' }, true],
+      [{ target: 'output.length', op: 'gte', value: '100' }, { target: 'output.length', value: '50' }, true],
+      [{ target: 'output.length', op: 'gte', value: '100' }, { target: 'output.length', value: '150' }, false]
+    ];
+    for (const [critere, attente, attendu] of cas) {
+      const a = avec(critere, attente);
+      assert.equal(codes(a, WARN).includes('L022'), attendu,
+        `${critere.target} ${critere.op} ${critere.value} contre ${attente.value}`);
+    }
   });
 });

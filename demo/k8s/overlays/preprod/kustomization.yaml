@@ -1,0 +1,15 @@
+# Overlay de préproduction : c'est lui qui porte la version, à deux endroits.
+# L'agent synchronise les deux d'un coup — les désynchroniser est l'erreur classique.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: demo-preprod
+resources:
+  - ../../base
+images:
+  - name: demo-spring
+    newTag: "1.4.2"
+configMapGenerator:
+  - name: demo-config
+    literals:
+      - APP_VERSION=1.4.2
+      - ENV=preprod

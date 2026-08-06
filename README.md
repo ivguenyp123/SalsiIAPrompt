@@ -243,7 +243,7 @@ le réparer — et son bouton est inerte : le rouvrir produirait un formulaire v
 republierait par-dessus l'original. Il échappe aussi au filtre « seulement les miens »,
 puisqu'un fichier illisible n'a pas d'owner.
 
-Derrière l'établi, le formulaire d'écriture où **les 21 règles s'exécutent à la frappe**.
+Derrière l'établi, le formulaire d'écriture où **les 22 règles s'exécutent à la frappe**.
 Deux boutons chargent un exemple conforme et un exemple fautif, pour voir la porte
 s'ouvrir et se fermer.
 
@@ -311,7 +311,7 @@ divergerait au premier correctif — précisément ce qu'on évite.
 | `registries/tools.yaml` | les outils réels, avec `mode`, `executor` et périmètres |
 | `registries/targets.yaml` | les cibles qu'un critère a le droit de viser |
 | `lib/yaml.js` · `lib/schema.js` | lecteur YAML et évaluateur JSON Schema maison, sans dépendance |
-| `lint/` | les 21 règles |
+| `lint/` | les 22 règles |
 | `studio/` | le formulaire, le pont vers l'artefact, le serveur local |
 | `artifacts/` | les artefacts du registre (deux exemples canoniques) |
 | `fixtures/invalid/` · `fixtures/warn/` | une fixture par règle, adossée aux tests |
@@ -394,6 +394,30 @@ Le contournement est couvert par `fixtures/invalid/L004-contournement-invariant.
 | `L019` | Pas de logique dans le spec — condition ou boucle | 🟡 |
 | `L020` | Taille du spec dans des bornes exploitables | 🔴 |
 | `L021` | Le spec utilise au moins une des variables qu'il déclare | 🔴 |
+
+### `L022` — une règle née de l'écran
+
+Elle ne vient d'aucune spécification. Le jour où la fiche du Catalogue a affiché les
+critères et les cas d'or l'un sous l'autre, la contradiction a sauté aux yeux sur
+l'artefact de référence :
+
+```
+contrat :  output.files_touched  lte 20
+gc-05   :  attend output.files_touched = 47
+```
+
+Le cas d'or décrivait une exécution que le contrat de l'artefact refuserait. Les deux
+blocs vivaient dans des écrans séparés, et personne ne les avait confrontés.
+
+**Avertissement, jamais refus.** Tester le chemin d'échec est légitime et même
+souhaitable — une bonne suite vérifie ce qui doit échouer autant que ce qui doit passer.
+Ce qui ne l'est pas, c'est qu'on ne sache pas si c'était voulu. La règle ne tranche donc
+pas à la place de l'auteur : elle l'oblige à déclarer son intention avec
+`expects_violation: true`, et se tait dès qu'il l'a fait.
+
+Passée sur le registre, elle a trouvé **quatre** cas dans `prep-delivery` — branche non
+mergeable, vulnérabilité critique, pipeline en échec, volume excessif. Tous délibérés,
+aucun déclaré. Ils le sont désormais, et l'artefact dit ce qu'il teste.
 
 ## Tests
 

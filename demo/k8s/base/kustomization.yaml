@@ -1,0 +1,7 @@
+# Base : elle ne porte PAS la version. L'agent la lit et la laisse intacte — la commiter
+# sans modification salirait l'historique en laissant croire à un changement.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - deployment.yaml
+  - service.yaml

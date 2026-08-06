@@ -14,5 +14,5 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '22' }
       - run: npm install --no-audit --no-fund
-      - run: npm test         # 21 règles + fixtures + conformité croisée
+      - run: npm test         # 22 règles + fixtures + conformité croisée
       - run: npm run lint     # tous les artefacts

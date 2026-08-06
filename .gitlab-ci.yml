@@ -16,7 +16,7 @@ registry:lint:
     # devDependencies : elles activent test/conformance.test.js, qui compare le lecteur
     # YAML et l'évaluateur de schéma maison à js-yaml et ajv.
     - npm install --no-audit --no-fund
-    - npm test          # les 21 règles, leurs fixtures, et la conformité croisée
+    - npm test          # les 22 règles, leurs fixtures, et la conformité croisée
     - npm run lint      # tous les artefacts
   # Bloquant : c'est ce code de sortie qui fait de la porte une porte.
   allow_failure: false
