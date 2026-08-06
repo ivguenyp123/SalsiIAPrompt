@@ -102,6 +102,18 @@ async function load() {
 
 /* ── Une ligne de la file ─────────────────────────────────────────────────── */
 
+const SOURCES = { user: 'saisie utilisateur', signal: 'signal du poste', repo: 'métadonnée du dépôt' };
+
+/** Un bloc titré. Rien n'est masqué : le relecteur décide sur ce qu'il voit. */
+const bloc = (titre, contenu) => el('div', { className: 'bloc' },
+  el('h4', { textContent: titre }), contenu);
+
+const chips = (valeurs) => {
+  const box = el('div', { className: 'chips' });
+  for (const v of valeurs) box.append(v);
+  return box;
+};
+
 function row(entry) {
   const { artifact, report, file, error } = entry;
   const node = el('div', { className: 'row' });
@@ -123,16 +135,61 @@ function row(entry) {
 
   node.append(el('p', { className: 'purpose', textContent: artifact.intent?.purpose || '—' }));
 
-  const facts = el('div', { className: 'facts' });
-  facts.append(el('span', { className: 'pill', textContent: LEVELS[artifact.target_level] || 'expérimental' }));
-  facts.append(el('span', {}, `${artifact.owner?.person || '—'} · ${artifact.owner?.scope || '—'}`));
-  facts.append(el('span', {}, `${(artifact.criteria || []).length} critère(s)`));
-  facts.append(el('span', {}, `${(artifact.golden_cases || []).length} cas d'or`));
-  node.append(facts);
+  if (artifact.intent?.not_for) {
+    node.append(bloc('Quand NE PAS l\'utiliser',
+      el('p', { className: 'purpose', style: 'margin:0', textContent: artifact.intent.not_for })));
+  }
 
-  // Le relecteur doit voir ce qu'il valide, pas seulement son titre.
+  // ── Paramètres ──
+  const dl = el('dl', { className: 'kv' });
+  for (const [k, v] of [
+    ['Identifiant', artifact.id],
+    ['Type', artifact.kind || 'agent'],
+    ['Owner', `${artifact.owner?.person || '—'} · ${artifact.owner?.scope || '—'}`],
+    ['Niveau visé', LEVELS[artifact.target_level] || 'expérimental'],
+    ['Palier de modèle', artifact.model_tier || '— (non précisé)'],
+    ['Sensibilité maximale', artifact.classification?.max_repo_sensitivity || '— (non précisée)'],
+    ['Étiquettes', (artifact.tags || []).join(', ') || '—']
+  ]) { dl.append(el('dt', { textContent: k }), el('dd', { textContent: v })); }
+  node.append(bloc('Paramètres', dl));
+
+  // ── Variables ──
+  const vars = artifact.variables || [];
+  node.append(bloc(`Variables (${vars.length})`, vars.length
+    ? chips(vars.map((v) => el('span', { className: 'chip' },
+        el('code', { textContent: `{{${v.name}}}` }),
+        ` ${SOURCES[v.source] || v.source}${v.required === false ? ' · facultative' : ''}`)))
+    : el('p', { className: 'vide', textContent: 'Aucune — le prompt ne reçoit rien du contexte.' })));
+
+  // ── Outils : c'est là que se joue le risque, donc mode et exécutant en évidence ──
+  const tools = artifact.tools || [];
+  node.append(bloc(`Outils (${tools.length})`, tools.length
+    ? chips(tools.map((t) => el('span', { className: 'chip' },
+        el('code', { textContent: t.id }),
+        el('span', { className: `pill ${t.mode}`, textContent: t.mode }),
+        el('span', { className: 'pill', textContent: `exécuté par ${t.executor}` }))))
+    : el('p', { className: 'vide', textContent: 'Aucun — l\'artefact ne fait que produire du texte.' })));
+
+  // ── Critères : le contrat vérifié à chaque exécution ──
+  const crit = artifact.criteria || [];
+  node.append(bloc(`Critères vérifiés à chaque exécution (${crit.length})`, crit.length
+    ? (() => { const ul = el('ul', { className: 'plain' });
+        for (const c of crit) ul.append(el('li', {},
+          el('code', { textContent: c.target }), ` ${c.op} `, el('b', { textContent: String(c.value) })));
+        return ul; })()
+    : el('p', { className: 'vide', textContent: 'Aucun — rien ne sera vérifié au post-vol.' })));
+
+  // ── Cas d'or ──
+  const gold = artifact.golden_cases || [];
+  node.append(bloc(`Cas d'or (${gold.length})`, gold.length
+    ? chips(gold.map((g) => el('span', { className: 'chip' },
+        el('code', { textContent: g.id }),
+        ` ${g.pass_at_least ?? '?'}/${g.runs ?? 3}`)))
+    : el('p', { className: 'vide', textContent: 'Aucun — suffisant pour « expérimental », bloquant au-delà.' })));
+
+  // ── Le prompt, repliable : c'est le seul bloc vraiment long ──
   const spec = el('details', { className: 'spec' });
-  spec.append(el('summary', { textContent: 'Voir le prompt soumis' }),
+  spec.append(el('summary', { textContent: `Le prompt soumis (${(artifact.spec || '').length} caractères)` }),
               el('pre', { textContent: artifact.spec || '—' }));
   node.append(spec);
 
@@ -141,7 +198,7 @@ function row(entry) {
     for (const f of report.findings) {
       ul.append(el('li', {}, f.severity === ERROR ? '🔴 ' : '🟡 ', `${f.code} — ${f.message}`));
     }
-    node.append(ul);
+    node.append(bloc('Constats du linter', ul));
   }
 
   node.append(actions(entry, { lisible: true, ecrit }));
