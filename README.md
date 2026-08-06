@@ -423,12 +423,76 @@ C'est la répartition du §00 : la machine vérifie ce qui est vérifiable, l'IA
 qui ne l'est pas, l'humain tranche. Attendre du lint qu'il juge la pertinence, c'est lui
 demander le travail du banc d'essai.
 
+## Le pré-vol — moment 4
+
+Depuis la fiche du Catalogue, un bouton **🛫 Pré-vol** répond à la seule question qui
+intéresse vraiment celui qui trouve une capacité : *puis-je m'en servir **sur mon
+dépôt** ?*
+
+### Ce qui le distingue du lint
+
+Tout ce qui précède juge l'artefact **seul** : sa forme, ses outils, ses critères. Le
+pré-vol est le premier moment où le **déclaré rencontre le réel** — un dépôt précis, un
+utilisateur précis, des valeurs précises, à un instant précis.
+
+D'où la règle de partage, qui n'est pas une convention mais un test : **un contrôle
+appartient au pré-vol si et seulement s'il a besoin du contexte d'exécution**. Sinon il
+appartient au lint, où il coûte moins cher et prévient plus tôt. Un contrôle mal placé est
+soit impossible — le lint ne connaît pas le dépôt cible — soit tardif : le pré-vol arrive
+après que l'auteur a fini d'écrire.
+
+### Les sept contrôles
+
+| Code | Contrôle | |
+|---|---|---|
+| `P001` | L'artefact franchit **encore** la porte — les règles évoluent | 🔴 |
+| `P002` | Sensibilité du dépôt sous le plafond déclaré | 🔴 |
+| `P003` | Variables requises résolues | 🔴 |
+| `P004` | Outils autorisés pour le périmètre du **dépôt cible** | 🔴 |
+| `P005` | Certification présente et valide pour le modèle courant | 🔴 contextuel |
+| `P006` | Niveau suffisant pour la criticité | 🔴 |
+| `P007` | Écriture : confirmation humaine requise | 🟡 |
+
+Quatre décisions qui portent le sens de l'ensemble :
+
+**`P002` — le silence n'est pas une permission.** Faute de plafond déclaré, `interne` est
+retenu. Traiter l'absence comme un blanc-seing ferait de l'oubli le chemin le plus
+permissif : un auteur pressé accéderait au confidentiel en ne remplissant rien, et la
+déclaration deviendrait une formalité pour les consciencieux. Un dépôt **non classé** est
+refusé, pas toléré — c'est la classification qui manque, pas l'artefact.
+
+**`P004` — le droit suit la cible, pas le porteur.** `L006` vérifie le périmètre déclaré
+de l'*owner* ; `P004` vérifie celui du dépôt qu'on s'apprête à toucher. Un agent de
+Plateforme lancé sur un dépôt Data ne doit pas emporter ses outils Plateforme avec lui. Un
+test vérifie que le même artefact **franchit la porte du lint sans problème** — c'est la
+preuve que le contrôle est à sa place et nulle part ailleurs.
+
+**`P006` — une intention n'est pas un acquis.** Le niveau *atteint* est dérivé, il se
+mérite sur preuve de banc d'essai. Faute d'état dérivé joignable, le pré-vol retombe sur
+le niveau *visé* et **le dit** au lieu de faire passer l'un pour l'autre.
+
+**`P007` — la confirmation n'est pas un refus.** C'est une *condition de départ* :
+`confirmationRequise` est distinct de `bloque`. Les confondre ferait lire « il faut
+valider » comme « c'est interdit ». C'est « l'humain valide » transformé en contrainte du
+système plutôt qu'en discipline de l'appelant.
+
+Zéro IA, comme la porte : verdict déterministe, reproductible, explicable — et rendu
+**avant** le premier jeton dépensé.
+
+### La limite, dite dans l'écran
+
+La sensibilité et le périmètre se saisissent à la main parce qu'aucun référentiel n'est
+branché. En production ils viendraient du référentiel des dépôts : c'est ce qui rendrait
+le contrôle **opposable** au lieu de déclaratif. L'écran l'écrit noir sur blanc, pour que
+personne ne prenne la maquette pour le contrôle.
+
 ## Ce que ce socle ne fait pas encore
 
 Le lint est la **couche 1** du moment 2. Restent à construire, dans l'ordre du document :
 
 - le **banc d'essai** (couche 2) — c'est l'item le plus cher de la vague 2 : il lui faut
   des dépôts fixtures, une CI isolée et un reset entre exécutions
-- le **pré-vol** (moment 4) — meilleur rapport valeur/effort, zéro IA, et désormais
-  porteur de la sécurité depuis le passage en compte de service
+- le **moteur d'exécution** (moment 5) — le pré-vol rend le verdict, rien ne lance encore
+- la **capture d'outcome** (moment 7), qui rend toutes les métriques défendables
+- le **référentiel des dépôts**, sans lequel `P002` et `P004` restent déclaratifs
 - la **capture d'outcome** (moment 7), qui rend toutes les métriques défendables

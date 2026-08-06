@@ -13,6 +13,8 @@ import { requireSession, clear } from '../app/session.js';
 import { createForge } from '../app/forge.js';
 import { mountShell } from '../app/shell.js';
 import { lint, ERROR } from '../lint/index.js';
+import { prevol, SENSIBILITES } from '../preflight/index.js';
+import { knownScopes, guessScope } from '../app/scopes.js';
 import { makeValidator } from '../lib/schema.js';
 import yaml from '../lib/yaml.js';
 
@@ -37,6 +39,8 @@ const ICONS = { agent: '🤖', prompt: '📚', chain: '🔗' };
 
 let items = [];
 let filter = 'tout';
+let ctx = null;        // registres + validateur, partagés avec le pré-vol
+let scopes = [];       // périmètres connus, dérivés du registre des outils
 
 /* ── Chargement ───────────────────────────────────────────────────────────── */
 
@@ -52,7 +56,8 @@ async function load() {
     fetch('../registries/targets.yaml').then((r) => r.text()).then((t) => yaml.parse(t).targets),
     fetch('../schema/artifact.schema.json').then((r) => r.json())
   ]);
-  const ctx = { tools, targets, validateArtifact: makeValidator(schema) };
+  ctx = { tools, targets, validateArtifact: makeValidator(schema) };
+  scopes = knownScopes(tools);
 
   let files;
   try {
@@ -200,9 +205,14 @@ function openSheet(entry) {
     location.href = '../studio/index.html';
   };
 
+  // « Puis-je l'utiliser sur MON dépôt ? » est la vraie question d'un utilisateur de
+  // catalogue, et c'est exactement celle du moment 4.
+  const prevolBtn = el('button', { textContent: '🛫 Pré-vol', title: 'Vérifier si cette capacité peut tourner sur un dépôt donné' });
+  prevolBtn.onclick = () => ouvrirPrevol(entry);
+
   inner.append(el('header', {},
     el('h2', {}, ICONS[artifact.kind] || '📄', ' ', artifact.title || artifact.id),
-    modifier, close));
+    prevolBtn, modifier, close));
 
   const body = el('div', { className: 'body' });
 
@@ -264,6 +274,132 @@ function openSheet(entry) {
 
   inner.append(body);
   $('sheet').classList.add('on');
+}
+
+
+/* ── Pré-vol (moment 4) ───────────────────────────────────────────────────────
+ *
+ * La fiche décrit la capacité ; le pré-vol répond à la question suivante, la seule qui
+ * intéresse vraiment celui qui la trouve au catalogue : « puis-je m'en servir SUR MON
+ * DÉPÔT ? »
+ *
+ * Cet écran ne lance rien — il n'y a pas encore de moteur d'exécution. Il rend le verdict
+ * qui précéderait le lancement, et c'est déjà utile : il répond avant qu'on ait dépensé
+ * un jeton, et il dit POURQUOI.
+ */
+function ouvrirPrevol(entry) {
+  const { artifact } = entry;
+  const inner = $('sheetInner');
+  inner.textContent = '';
+
+  const retour = el('button', { textContent: '← Fiche' });
+  retour.onclick = () => openSheet(entry);
+  const close = el('button', { className: 'close', textContent: '✕', title: 'fermer' });
+  close.onclick = () => $('sheet').classList.remove('on');
+
+  inner.append(el('header', {},
+    el('h2', {}, '🛫 Pré-vol — ', artifact.title || artifact.id), retour, close));
+
+  const body = el('div', { className: 'body' });
+  const form = el('div', { className: 'pv' });
+
+  // Le dépôt de travail choisi à l'accueil sert de proposition : c'est celui sur lequel
+  // on veut lancer neuf fois sur dix.
+  const chemin = localStorage.getItem('salsi_ia_project_path') || '';
+
+  const depot = el('input', { value: chemin, placeholder: 'groupe/depot' });
+
+  const scope = el('select');
+  scope.append(el('option', { value: '', textContent: '— périmètre inconnu —' }));
+  for (const s of scopes) scope.append(el('option', { value: s, textContent: s }));
+  scope.value = guessScope(chemin, scopes) || '';
+
+  const sensibilite = el('select');
+  sensibilite.append(el('option', { value: '', textContent: '— non classé —' }));
+  for (const s of SENSIBILITES) sensibilite.append(el('option', { value: s, textContent: s, selected: s === 'interne' }));
+
+  const criticite = el('select');
+  for (const [v, lib] of [['test', 'test / bac à sable'], ['production', 'production']]) {
+    criticite.append(el('option', { value: v, textContent: lib }));
+  }
+
+  const champ = (libelle, controle) => el('div', {}, el('label', { textContent: libelle }), controle);
+
+  form.append(el('div', { className: 'champs' },
+    champ('Dépôt cible', depot),
+    champ('Périmètre du dépôt', scope),
+    champ('Sensibilité du dépôt', sensibilite),
+    champ('Criticité de l\'exécution', criticite)));
+
+  form.append(el('p', { className: 'note', textContent:
+    'La sensibilité et le périmètre se saisissent ici parce qu\'aucun référentiel n\'est '
+    + 'branché. En production ils viendraient du référentiel des dépôts, pas d\'une liste '
+    + 'déroulante — ce qui rend le contrôle opposable au lieu d\'être déclaratif.' }));
+
+  // Une saisie par variable déclarée : c'est ce que P003 va vérifier.
+  const valeurs = {};
+  const vars = artifact.variables || [];
+  if (vars.length) {
+    const grille = el('div', { className: 'champs' });
+    for (const v of vars) {
+      const input = el('input', { placeholder: v.source === 'repo' ? 'issu du dépôt' : 'saisie' });
+      // Le dépôt cible remplit de lui-même ce que la plateforme saurait remplir.
+      if (v.name === 'repo') input.value = chemin.split('/').pop() || '';
+      input.oninput = () => { valeurs[v.name] = input.value; run(); };
+      valeurs[v.name] = input.value;
+      grille.append(champ(`{{${v.name}}}${v.required === false ? ' · facultative' : ''}`, input));
+    }
+    form.append(el('h4', { textContent: `Valeurs des variables (${vars.length})` }), grille);
+  }
+
+  const verdict = el('div', { className: 'verdict ok' });
+  const conf = el('div', { className: 'conf' });
+  const liste = el('ul', { className: 'constats' });
+  form.append(verdict, conf, liste);
+
+  function run() {
+    const rapport = prevol(artifact, {
+      registres: { ...ctx, artifacts: [] },
+      depot: { path: depot.value.trim(), scope: scope.value || undefined,
+               sensibilite: sensibilite.value || undefined },
+      valeurs,
+      criticite: criticite.value
+    });
+
+    verdict.className = `verdict ${rapport.bloque ? 'ko' : 'ok'}`;
+    verdict.textContent = '';
+    verdict.append(
+      el('span', { textContent: rapport.bloque ? '✕ décollage refusé' : '✔ décollage autorisé' }),
+      el('span', { className: 'sp' }),
+      el('span', { style: 'font-weight:600;font-size:12px',
+                   textContent: `${rapport.erreurs} erreur(s) · ${rapport.avertissements} avertissement(s)` }));
+
+    // La confirmation n'est pas un refus : c'est une condition de départ. Les confondre
+    // ferait passer « il faut valider » pour « c'est interdit ».
+    conf.hidden = !rapport.confirmationRequise;
+    if (rapport.confirmationRequise) {
+      conf.textContent = '✋ Cette capacité écrit. Même autorisée, elle ne part pas seule : '
+        + 'aperçu puis confirmation humaine. C\'est le système qui l\'impose, pas la discipline de l\'appelant.';
+    }
+
+    liste.textContent = '';
+    for (const c of rapport.constats) {
+      liste.append(el('li', {}, c.severity === ERROR ? '🔴 ' : '🟡 ',
+        el('code', { textContent: c.code }), ` ${c.message}`));
+    }
+    if (!rapport.constats.length) {
+      liste.append(el('li', {}, 'Aucun constat : les sept contrôles passent.'));
+    }
+  }
+
+  for (const controle of [depot, scope, sensibilite, criticite]) {
+    controle.oninput = run;
+    controle.onchange = run;
+  }
+
+  body.append(form);
+  inner.append(body);
+  run();
 }
 
 const section = (title, content) => el('section', {}, el('h4', { textContent: title }), content);
