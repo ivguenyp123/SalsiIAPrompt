@@ -210,7 +210,17 @@ function actions(entry, { lisible, ecrit }) {
   const box = el('div', { className: 'acts' });
 
   const valider = el('button', { className: 'primary', textContent: 'Valider et publier' });
+  const corriger = el('button', { textContent: 'Corriger' });
   const refuser = el('button', { className: 'refuse', textContent: 'Refuser' });
+
+  // Le cas courant d'une file : ce n'est ni bon ni à jeter, il faut y retoucher. Sans ce
+  // bouton, refuser obligeait l'auteur à tout retaper — donc on validait par lassitude.
+  corriger.disabled = !lisible;
+  corriger.title = 'Rouvrir dans le Studio pour retoucher, puis resoumettre';
+  corriger.onclick = () => {
+    sessionStorage.setItem('salsi_ia_edit', JSON.stringify({ artifact, path: file.path }));
+    location.href = '../studio/index.html';
+  };
 
   // Ce que la porte a déjà refusé ne se valide pas à la main : sinon la règle ne sert
   // plus à rien, et un « oui » humain devient un contournement.
@@ -222,7 +232,7 @@ function actions(entry, { lisible, ecrit }) {
   valider.onclick = () => decider(entry, 'valider');
   refuser.onclick = () => decider(entry, 'refuser');
 
-  box.append(valider, refuser, el('span', { className: 'sp' }));
+  box.append(valider, corriger, refuser, el('span', { className: 'sp' }));
   if (ecrit) {
     box.append(el('span', { className: 'hint' },
       'Cet artefact écrit : la revue sécurité s\'impose avant validation.'));

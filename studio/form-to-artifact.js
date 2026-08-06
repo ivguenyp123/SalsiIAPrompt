@@ -76,7 +76,9 @@ export function formToArtifact(form = {}, ctx = {}) {
       .map((v) => compact({
         name: v.name.trim(),
         source: v.source || 'user',
-        required: v.required === false ? false : undefined,   // true est la valeur par défaut
+        // Un `required: true` explicite doit survivre : le supprimer parce que c'est
+        // la valeur par défaut faisait perdre le champ à chaque réédition.
+        required: typeof v.required === 'boolean' ? v.required : undefined,
         description: v.description?.trim()
       })),
 

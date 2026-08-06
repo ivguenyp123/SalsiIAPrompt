@@ -192,9 +192,17 @@ function openSheet(entry) {
   const close = el('button', { className: 'close', textContent: '✕', title: 'fermer' });
   close.onclick = () => $('sheet').classList.remove('on');
 
+  // Reprendre : le registre n'est plus en écriture unique. La correction repasse par la
+  // file de validation comme toute soumission — corriger n'est pas contourner.
+  const modifier = el('button', { textContent: 'Modifier', title: 'Rouvrir dans le Studio' });
+  modifier.onclick = () => {
+    sessionStorage.setItem('salsi_ia_edit', JSON.stringify({ artifact, path: file.path }));
+    location.href = '../studio/index.html';
+  };
+
   inner.append(el('header', {},
     el('h2', {}, ICONS[artifact.kind] || '📄', ' ', artifact.title || artifact.id),
-    close));
+    modifier, close));
 
   const body = el('div', { className: 'body' });
 

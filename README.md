@@ -59,6 +59,26 @@ porte : les règles évoluent, et un artefact publié hier peut ne plus être co
 aujourd'hui. Le filtre « non conformes » les isole, au lieu de les laisser pourrir en
 silence. C'est l'embryon du moment 8 — la surveillance continue — sans jobs planifiés.
 
+## Reprendre un artefact
+
+Le registre n'est plus en écriture unique. Depuis la fiche du Catalogue ou depuis la file
+de validation, **Modifier** rouvre l'artefact dans le Studio. La correction repasse par la
+file comme toute soumission : corriger n'est pas contourner.
+
+Le formulaire ne montre pas tous les champs — ni les étiquettes, ni le moment, ni le
+palier de modèle, ni la classification, ni les cas d'or. Ils sont **transportés** tels
+quels et remis en place à la republication. Sans ça, rouvrir un artefact `officiel` pour
+corriger une virgule lui ferait perdre ses cinq cas d'or, et `L010` le refuserait — une
+dégradation silencieuse causée par l'outil censé le protéger.
+
+La garantie tenue par les tests n'est pas l'identité mais l'**idempotence** : la reprise
+normalise les blancs de bord venus du repli YAML, donc la première republication produit
+un petit diff — et plus jamais ensuite. Sans cette propriété, chaque ouverture du Studio
+salirait le dépôt d'un diff gratuit.
+
+L'identifiant est préservé : renommer le titre d'un artefact repris ne crée pas un second
+fichier en laissant l'ancien orphelin.
+
 ## La file de validation — le moment 3
 
 Publier depuis le Studio ne met rien au catalogue : l'artefact part dans

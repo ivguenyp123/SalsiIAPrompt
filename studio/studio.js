@@ -18,6 +18,7 @@ import { lint, ERROR } from '../lint/index.js';
 import { makeValidator } from '../lib/schema.js';
 import yaml from '../lib/yaml.js';
 import { formToArtifact } from './form-to-artifact.js';
+import { artifactToForm, restoreCarried } from './artifact-to-form.js';
 import { toYaml } from './to-yaml.js';
 
 const session = requireSession('../app/login.html');
@@ -59,8 +60,27 @@ scopeSelect.append(new Option('— choisir un périmètre —', ''));
 for (const s of scopes) scopeSelect.append(new Option(s, s, false, s === devine));
 scopeSelect.value = devine;
 
-// ── État du formulaire ───────────────────────────────────────────────────────
-const state = { variables: [], tools: [], criteria: [] };
+/*
+ * État du formulaire.
+ *
+ * `carried` transporte ce que le formulaire ne sait pas afficher — étiquettes, moment,
+ * palier de modèle, classification, cas d'or. Sans lui, rouvrir un artefact `officiel`
+ * pour corriger une virgule lui ferait perdre ses cinq cas d'or, et L010 le refuserait.
+ * Ce qu'on ne montre pas, on ne le détruit pas.
+ */
+const state = { variables: [], tools: [], criteria: [], carried: {}, editId: null };
+
+/*
+ * Reprise d'un artefact existant. Le Catalogue et la file de validation déposent ici ce
+ * qu'ils veulent faire corriger, puis renvoient sur le Studio.
+ */
+const EDIT_KEY = 'salsi_ia_edit';
+function reprendre() {
+  const brut = sessionStorage.getItem(EDIT_KEY);
+  if (!brut) return null;
+  sessionStorage.removeItem(EDIT_KEY);        // une reprise, pas un mode collant
+  try { return JSON.parse(brut); } catch { return null; }
+}
 
 const SOURCES = [['user', 'saisie utilisateur'], ['signal', 'signal du poste'], ['repo', 'métadonnée du dépôt']];
 
@@ -153,12 +173,18 @@ function readForm() {
     spec: $('spec').value,
     variables: state.variables,
     tools: state.tools,
-    criteria: state.criteria
+    criteria: state.criteria,
+    id: state.editId || undefined      // à l'édition, l'identifiant existant fait foi
   };
 }
 
+/** L'artefact tel qu'il sera écrit : formulaire + ce qui est transporté. */
+function artefactCourant() {
+  return restoreCarried(formToArtifact(readForm(), ctx), state.carried);
+}
+
 function run() {
-  const artifact = formToArtifact(readForm(), ctx);
+  const artifact = artefactCourant();
   const report = lint(artifact, ctx);
 
   // Verdict
@@ -228,10 +254,27 @@ const EXEMPLE_KO = {
 function apply(form) {
   // L'owner n'est pas rechargeable : il vient de la session et du périmètre choisi.
   for (const k of ['title', 'purpose', 'notFor', 'spec']) $(k).value = form[k] ?? '';
+  if (form.kind) $('kind').value = form.kind;
+  if (form.targetLevel) $('targetLevel').value = form.targetLevel;
+  if (form.ownerScope) scopeSelect.value = form.ownerScope;
+
   state.variables = structuredClone(form.variables ?? []);
   state.tools = structuredClone(form.tools ?? []);
   state.criteria = structuredClone(form.criteria ?? []);
+  state.carried = structuredClone(form.carried ?? {});
+  state.editId = form.id || null;
+
+  bandeauEdition();
   renderVariables(); renderTools(); renderCriteria(); run();
+}
+
+/** Dit clairement qu'on corrige un artefact existant, et lequel. */
+function bandeauEdition() {
+  const barre = document.querySelector('.toolbar .sub');
+  barre.textContent = state.editId
+    ? `reprise de « ${state.editId} » — republier remplacera ce fichier`
+    : 'les 21 règles, à la frappe · aucun LLM';
+  barre.style.color = state.editId ? 'var(--accent)' : '';
 }
 
 // ── Câblage ──────────────────────────────────────────────────────────────────
@@ -257,7 +300,7 @@ const pubMsg = $('pubMsg');
 const sayPub = (text, kind) => { pubMsg.textContent = text; pubMsg.className = `show ${kind}`; };
 
 $('publish').onclick = async () => {
-  const artifact = formToArtifact(readForm(), ctx);
+  const artifact = artefactCourant();
   const report = lint(artifact, ctx);
   if (report.blocked) { sayPub('La porte est fermée : corrige les erreurs listées.', 'err'); return; }
 
@@ -289,4 +332,5 @@ $('load-example').onclick = () => apply(EXEMPLE_OK);
 $('load-broken').onclick = () => apply(EXEMPLE_KO);
 $('reset').onclick = () => apply({ variables: [], tools: [], criteria: [] });
 
-apply(EXEMPLE_OK);
+const repris = reprendre();
+apply(repris ? artifactToForm(repris.artifact) : EXEMPLE_OK);
