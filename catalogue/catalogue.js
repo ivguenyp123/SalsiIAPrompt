@@ -21,6 +21,21 @@ import { knownScopes, guessScope } from '../app/scopes.js';
 import { makeValidator } from '../lib/schema.js';
 import yaml from '../lib/yaml.js';
 
+/*
+ * `cache: 'no-cache'` sur les référentiels — pas une coquetterie.
+ *
+ * Le linter tranche à partir de CES fichiers. Un navigateur qui sert une version
+ * périmée du manifeste des entrées fait refuser des artefacts parfaitement valides :
+ * cinq erreurs `L023` sur « Explique-moi ce code » parce que la banque en cache ne
+ * connaissait pas encore la nature `code`. L'auteur voit un artefact cassé, il ne l'est
+ * pas, et rien à l'écran ne peut le lui dire.
+ *
+ * `no-cache` ne saute pas le cache : il le REVALIDE. Sur des fichiers inchangés, la
+ * réponse est un 304 vide. Le coût est nul, le verdict cesse de dépendre de l'âge d'un
+ * onglet.
+*/
+const FRAIS = { cache: 'no-cache' };
+
 const session = requireSession('../app/login.html');
 if (!session) await new Promise(() => {});   // redirection en cours, on suspend
 
@@ -52,21 +67,7 @@ async function load() {
                 'Retourne à l\'accueil pour en sélectionner un — c\'est là que vivent les artefacts.');
   }
   $('source').textContent = `lu dans ${repo} · artifacts/`;
-  /*
-   * `cache: 'no-cache'` sur les référentiels — pas une coquetterie.
-   *
-   * Le linter tranche à partir de CES fichiers. Un navigateur qui sert une version
-   * périmée du manifeste des entrées fait refuser des artefacts parfaitement valides :
-   * cinq erreurs `L023` sur « Explique-moi ce code » parce que la banque en cache ne
-   * connaissait pas encore la nature `code`. L'auteur voit un artefact cassé, il ne l'est
-   * pas, et rien à l'écran ne peut le lui dire.
-   *
-   * `no-cache` ne saute pas le cache : il le REVALIDE. Sur des fichiers inchangés, la
-   * réponse est un 304 vide. Le coût est nul, le verdict cesse de dépendre de l'âge d'un
-   * onglet.
-   */
-  const FRAIS = { cache: 'no-cache' };
-
+  
 
   const [tools, targets, entrees, schema] = await Promise.all([
     fetch('../registries/tools.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t).tools),
@@ -242,13 +243,29 @@ function openSheet(entry) {
   const entete = el('header', {},
     el('h2', {}, ICONS[artifact.kind] || '📄', ' ', artifact.title || artifact.id));
 
-  // ▶ Lancer n'apparaît que sur ce qui sait faire quelque chose. Un artefact dont aucun
-  // outil n'a de module derrière n'a rien à lancer — proposer le bouton mentirait.
+  /*
+   * Deux façons de lancer, et elles ne font pas la même chose.
+   *
+   * 🚚 Livrer   un module DÉTERMINISTE agit sur le dépôt — bump du tag, overlays, MR.
+   *             Aucun modèle n'intervient. Réservé à ce qui a un module derrière.
+   * ▶ Exécuter  le SPEC part au modèle, et le contrat est évalué sur ce qui revient.
+   *             Disponible sur tout : c'est ce que fait `runtime/cli.js`, à l'écran.
+   *
+   * Le second n'existait pas, et son absence donnait à croire qu'il manquait « le lien
+   * IA ». Il ne manquait pas le modèle : il manquait par où passer, la clé Vertex ne
+   * pouvant pas vivre dans l'onglet.
+   */
   if (MODULES_DISPONIBLES.some((id) => (artifact.tools || []).some((t) => t.id === id))) {
-    const lancer = el('button', { className: 'primary', textContent: '▶ Lancer' });
-    lancer.onclick = () => ouvrirLancement(entry);
-    entete.append(lancer);
+    const livrer = el('button', { textContent: '🚚 Livrer',
+      title: 'Exécuter le module déterministe : prépare la livraison, sans modèle' });
+    livrer.onclick = () => ouvrirLancement(entry);
+    entete.append(livrer);
   }
+
+  const executerBtn = el('button', { className: 'primary', textContent: '▶ Exécuter',
+    title: 'Envoyer le spec au modèle et évaluer le contrat sur sa réponse' });
+  executerBtn.onclick = () => ouvrirExecution(entry);
+  entete.append(executerBtn);
 
   entete.append(prevolBtn, modifier, close);
   inner.append(entete);
@@ -565,6 +582,251 @@ function selecteurDepot(surChoix) {
  */
 const MODULES_DISPONIBLES = ['bump_image_tag'];
 
+
+/* ── Exécuter un artefact — le modèle répond, le contrat tranche ──────────────
+ *
+ * Ce que le catalogue savait faire jusqu'ici : montrer une capacité, et la lancer
+ * uniquement si un module déterministe existait derrière un de ses outils — un seul,
+ * `bump_image_tag`. Les quatorze autres n'avaient aucun bouton, ce qui donnait à croire
+ * qu'il manquait « le lien IA ». Il ne manquait pas le modèle : il manquait par où
+ * passer.
+ *
+ * La clé de compte de service ne peut pas vivre dans l'onglet — elle ouvre le projet GCP
+ * entier. L'écran appelle donc `POST /api/lancer`, qui tourne côté serveur, et ne reçoit
+ * en retour qu'une sortie et un verdict. Le prompt, lui, ne revient jamais : il contient
+ * le spec que le catalogue masque volontairement, et la matière injectée peut venir d'un
+ * dépôt confidentiel.
+ *
+ * Le bouton apparaît maintenant sur TOUT, y compris quand le moteur n'est pas joignable.
+ * C'est un changement de règle assumé : ne rien afficher laissait l'utilisateur chercher
+ * une explication que l'écran seul pouvait lui donner.
+ */
+const MOTEUR = { pret: false, raison: 'Moteur d\'exécution non interrogé.', charge: false };
+
+async function etatMoteur() {
+  if (MOTEUR.charge) return MOTEUR;
+  MOTEUR.charge = true;
+  try {
+    const r = await fetch('../api/etat', FRAIS);
+    if (!r.ok) throw new Error(`réponse ${r.status}`);
+    Object.assign(MOTEUR, await r.json());
+  } catch (error) {
+    // Servi depuis Pages ou raw.githack : il n'y a pas de serveur derrière, et c'est
+    // normal. Le dire vaut mieux que de faire échouer un bouton au clic — et dire ce
+    // qui a échoué exactement évite de chercher une clé quand c'est l'URL qui est fausse.
+    MOTEUR.pret = false;
+    MOTEUR.raison = 'Aucun moteur d\'exécution derrière cette page : elle est servie en '
+      + 'fichiers statiques. L\'exécution demande un serveur, parce que la clé Vertex ne '
+      + `peut pas vivre dans le navigateur. (${error.message})`;
+  }
+  return MOTEUR;
+}
+
+function ouvrirExecution(entry) {
+  const { artifact } = entry;
+  const inner = $('sheetInner');
+  inner.textContent = '';
+
+  const retour = el('button', { textContent: '← Fiche' });
+  retour.onclick = () => openSheet(entry);
+  const close = el('button', { className: 'close', textContent: '✕', title: 'fermer' });
+  close.onclick = () => $('sheet').classList.remove('on');
+
+  inner.append(el('header', {}, el('h2', {}, '▶ Exécuter — ', artifact.title || artifact.id),
+                  retour, close));
+
+  const body = el('div', { className: 'body' });
+  const form = el('div', { className: 'pv' });
+  body.append(form);
+  inner.append(body);
+
+  const moteurBloc = el('div', { className: 'conf', hidden: true });
+  form.append(moteurBloc);
+
+  /*
+   * Deux façons de fournir la matière, et la première est la bonne dans 9 cas sur 10 :
+   * rejouer un cas d'or joue sur une entrée RÉELLE de la banque, déjà choisie, déjà
+   * relue. Taper des valeurs à la main sert à essayer sur son propre cas.
+   */
+  const cas = artifact.golden_cases || [];
+  const choixCas = el('select');
+  choixCas.append(el('option', { value: '', textContent: '— valeurs libres —' }));
+  for (const g of cas) choixCas.append(el('option', { value: g.id, textContent: `rejouer ${g.id}` }));
+
+  const champ = (libelle, controle) => el('div', {}, el('label', { textContent: libelle }), controle);
+
+  const criticite = el('select');
+  for (const [v, lib] of [['test', 'test / bac à sable'], ['production', 'production']]) {
+    criticite.append(el('option', { value: v, textContent: lib }));
+  }
+
+  /*
+   * La sensibilité se saisit ici pour la même raison qu'au pré-vol : aucun référentiel
+   * des dépôts n'est branché. Sans elle, P002 dirait « je ne sais pas » à CHAQUE
+   * exécution et réclamerait une confirmation à chaque fois — une case qu'on finit par
+   * cocher sans lire, ce qui vide le mécanisme de son sens.
+   */
+  const sensibilite = el('select');
+  for (const sv of SENSIBILITES) {
+    sensibilite.append(el('option', { value: sv, textContent: sv, selected: sv === 'interne' }));
+  }
+
+  form.append(el('div', { className: 'champs' },
+    champ('Entrée', choixCas), champ('Sensibilité du dépôt', sensibilite), champ('Criticité', criticite)));
+
+  // Une saisie par variable déclarée. Elle se grise quand un cas d'or les fournit.
+  const saisies = {};
+  const grille = el('div', { className: 'champs' });
+  for (const v of artifact.variables || []) {
+    const input = el('input', { placeholder: v.source === 'repo' ? 'issu du dépôt' : 'saisie' });
+    saisies[v.name] = input;
+    grille.append(champ(`{{${v.name}}}${v.required === false ? ' · facultative' : ''}`, input));
+  }
+  if (artifact.variables?.length) {
+    form.append(el('h4', { textContent: `Valeurs (${artifact.variables.length})` }), grille);
+  }
+
+  choixCas.onchange = () => {
+    const rejoue = Boolean(choixCas.value);
+    for (const input of Object.values(saisies)) {
+      input.disabled = rejoue;
+      input.placeholder = rejoue ? 'fourni par le cas d\'or' : 'saisie';
+    }
+  };
+
+  /*
+   * La confirmation. On ne l'affiche pas d'emblée : on ne sait pas encore ce que le
+   * pré-vol dira, et cocher une case avant de savoir ce qu'on assume ne veut rien dire.
+   * Elle apparaît quand le serveur a répondu 409 en nommant les points.
+   */
+  const conf = el('div', { className: 'conf', hidden: true });
+  const assume = el('input', { type: 'checkbox' });
+  form.append(conf);
+
+  const actions = el('div', { className: 'acts' });
+  const partir = el('button', { className: 'primary', textContent: '▶ Exécuter' });
+  actions.append(partir);
+  form.append(actions);
+
+  const zone = el('div');
+  form.append(zone);
+
+  etatMoteur().then((m) => {
+    moteurBloc.hidden = m.pret;
+    partir.disabled = !m.pret;
+    if (m.pret) {
+      actions.append(el('span', { className: 'note',
+        textContent: `${m.projet} · ${m.region} · palier ${artifact.model_tier || 'mid'}` }));
+      return;
+    }
+    moteurBloc.textContent = '';
+    moteurBloc.append(el('b', { textContent: '⚙ Exécution indisponible' }),
+      el('small', { textContent: m.raison }),
+      el('small', { textContent: 'Depuis un poste : pose VERTEX_PROJECT et '
+        + 'GOOGLE_SERVICE_ACCOUNT_JSON dans le shell, puis relance `node serve.js`. '
+        + 'Sans serveur du tout, `node runtime/cli.js ' + artifact.id + '` fait la même chose.' }));
+  });
+
+  async function executer(avecAssume) {
+    partir.disabled = true;
+    partir.textContent = '… le modèle répond';
+    zone.textContent = '';
+
+    const valeurs = {};
+    if (!choixCas.value) {
+      for (const [nom, input] of Object.entries(saisies)) valeurs[nom] = input.value;
+    }
+
+    let r; let corps;
+    try {
+      r = await fetch('../api/lancer', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: artifact.id, cas: choixCas.value || undefined, valeurs,
+                               sensibilite: sensibilite.value, criticite: criticite.value,
+                               assume: avecAssume === true })
+      });
+      corps = await r.json();
+    } catch (error) {
+      zone.append(el('div', { className: 'verdict ko', textContent: `✕ ${error.message}` }));
+      partir.disabled = false; partir.textContent = '▶ Exécuter';
+      return;
+    }
+
+    partir.textContent = '▶ Exécuter';
+    partir.disabled = false;
+    rendreResultat(corps, r.status);
+  }
+
+  function rendreResultat(corps, status) {
+    conf.hidden = true;
+    zone.textContent = '';
+
+    if (corps.erreur) {
+      zone.append(el('div', { className: 'verdict ko', textContent: `✕ ${corps.erreur}` }));
+      return;
+    }
+
+    if (corps.refuse) {
+      zone.append(el('div', { className: 'verdict ko', textContent: `✕ ${corps.raison}` }));
+      const liste = el('ul', { className: 'constats' });
+      for (const c of corps.constats || []) {
+        liste.append(el('li', {}, c.severity === ERROR ? '🔴 ' : '🟡 ',
+          el('code', { textContent: c.code }), ` ${c.message}`));
+      }
+      zone.append(liste);
+
+      // Refusé pour absence de confirmation : on montre ce qu'il y a à assumer, et on
+      // laisse repartir. Refusé pour une erreur : il n'y a rien à cocher, ça se corrige.
+      if (corps.confirmationRequise && (corps.raisons || []).length) {
+        conf.hidden = false;
+        conf.textContent = '';
+        conf.append(el('b', { textContent:
+          `✋ ${corps.raisons.length} point(s) que la plateforme ne peut pas trancher seule` }));
+        const ul = el('ul');
+        for (const c of corps.raisons) ul.append(el('li', {}, el('b', { textContent: c.code }), ` ${c.message}`));
+        conf.append(ul);
+        assume.checked = false;
+        const relancer = el('button', { className: 'primary', textContent: 'Assumer et exécuter', disabled: true });
+        assume.onchange = () => { relancer.disabled = !assume.checked; };
+        relancer.onclick = () => executer(true);
+        conf.append(el('label', {}, assume,
+          el('span', { textContent: `Je l'assume, en tant que ${session.username}.` })), relancer);
+      }
+      return;
+    }
+
+    zone.append(el('h4', { textContent: `Sortie — ${corps.modele}${corps.cas ? ` · ${corps.cas}` : ''}` }));
+    zone.append(el('pre', { textContent: corps.sortie }));
+
+    /*
+     * Le post-vol. C'est LA nouveauté visible : `criteria` était déclaré depuis le début
+     * et jamais évalué. Chaque ligne ici est un verdict calculé par du code sur la sortie
+     * réelle — pas un juge LLM, pas une impression.
+     */
+    const dit = corps.postvol.conforme
+      ? '✔ contrat satisfait'
+      : `✕ ${corps.postvol.violes.length} critère(s) violé(s)`;
+    zone.append(el('div', { className: `verdict ${corps.postvol.conforme ? 'ok' : 'ko'}` },
+      el('span', { textContent: dit }), el('span', { className: 'sp' }),
+      el('span', { style: 'font-weight:600;font-size:12px', textContent:
+        `${corps.jetons.entree} + ${corps.jetons.sortie} jetons`
+        + (corps.cout === null ? '' : ` · ${(corps.cout * 100).toFixed(3)} centime(s)`) })));
+
+    const liste = el('ul', { className: 'constats' });
+    for (const c of corps.postvol.constats) {
+      const icone = c.verdict === 'satisfait' ? '✔ ' : c.verdict === 'violé' ? '✕ ' : '· ';
+      const vue = Array.isArray(c.valeur) ? `[${c.valeur.length}]` : JSON.stringify(c.valeur);
+      liste.append(el('li', {}, icone, el('code', { textContent: c.cible }),
+        ` ${c.op} ${JSON.stringify(c.attendu)} → ${vue}`,
+        c.pourquoi ? el('small', { style: 'display:block;color:var(--tm)', textContent: c.pourquoi }) : ''));
+    }
+    zone.append(liste);
+    zone.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  partir.onclick = () => executer(false);
+  choixCas.onchange();
+}
 
 /* ── Lancer (moment 5) ────────────────────────────────────────────────────────
  *

@@ -89,6 +89,33 @@ sur l'état du monde après exécution et demandent le banc d'essai. Les confond
 un succès ferait passer un agent dont on n'a vérifié que la longueur pour un agent
 conforme.
 
+### Depuis le Catalogue
+
+`serve.js` expose deux routes, et c'est le **seul serveur du produit** :
+
+| | |
+|---|---|
+| `GET /api/etat` | la plateforme est-elle configurée — pour ne pas proposer un bouton qui échouera |
+| `POST /api/lancer` | exécute un artefact et rend la sortie + le verdict |
+
+Chaque fiche a maintenant **▶ Exécuter**. On y choisit une entrée — *rejouer un cas
+d'or*, qui lit la banque, ou des valeurs libres — et l'écran affiche la sortie du
+modèle, le contrat évalué ligne par ligne avec ses **valeurs réelles**, et le coût.
+
+Un artefact qui écrit garde en plus **🚚 Livrer** : le module déterministe, sans
+modèle. Les deux ne font pas la même chose et ne doivent pas se confondre.
+
+La confirmation ne se contourne pas en passant par l'API : `assume` doit valoir
+exactement `true`, et le serveur refuse en 409 en nommant chaque point. Un point
+d'entrée qui relâcherait les contrôles « parce qu'il est côté serveur » rendrait tout
+le moment 4 décoratif — il suffirait d'appeler l'API au lieu de cliquer.
+
+Le **prompt ne repart jamais** vers la page : il contient le spec que le catalogue
+masque volontairement, et la matière injectée peut venir d'un dépôt confidentiel.
+
+Servi en fichiers statiques — Pages, raw.githack — il n'y a pas de serveur derrière :
+le bouton le dit au lieu d'échouer au clic.
+
 ### Le palier, pas le modèle
 
 Un artefact déclare `model_tier: nano`, jamais `gemini-2.5-flash-lite`. La

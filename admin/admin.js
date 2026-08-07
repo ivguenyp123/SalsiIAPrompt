@@ -38,6 +38,21 @@ import { depuisCommits, parJour, resume, horsParcours, ACTIONS } from './journal
 import { STATUTS, DOSSIERS, inventaireParc, compter, filtrer } from './parc.js';
 import { niveau } from '../lib/niveau.js';
 
+/*
+ * `cache: 'no-cache'` sur les référentiels — pas une coquetterie.
+ *
+ * Le linter tranche à partir de CES fichiers. Un navigateur qui sert une version
+ * périmée du manifeste des entrées fait refuser des artefacts parfaitement valides :
+ * cinq erreurs `L023` sur « Explique-moi ce code » parce que la banque en cache ne
+ * connaissait pas encore la nature `code`. L'auteur voit un artefact cassé, il ne l'est
+ * pas, et rien à l'écran ne peut le lui dire.
+ *
+ * `no-cache` ne saute pas le cache : il le REVALIDE. Sur des fichiers inchangés, la
+ * réponse est un 304 vide. Le coût est nul, le verdict cesse de dépendre de l'âge d'un
+ * onglet.
+*/
+const FRAIS = { cache: 'no-cache' };
+
 const session = requireSession('../app/login.html');
 if (!session) await new Promise(() => {});
 
@@ -80,21 +95,7 @@ async function load() {
   }
   $('source').textContent = `${repo} · ${PENDING}/`;
 
-    /*
-     * `cache: 'no-cache'` sur les référentiels — pas une coquetterie.
-     *
-     * Le linter tranche à partir de CES fichiers. Un navigateur qui sert une version
-     * périmée du manifeste des entrées fait refuser des artefacts parfaitement valides :
-     * cinq erreurs `L023` sur « Explique-moi ce code » parce que la banque en cache ne
-     * connaissait pas encore la nature `code`. L'auteur voit un artefact cassé, il ne l'est
-     * pas, et rien à l'écran ne peut le lui dire.
-     *
-     * `no-cache` ne saute pas le cache : il le REVALIDE. Sur des fichiers inchangés, la
-     * réponse est un 304 vide. Le coût est nul, le verdict cesse de dépendre de l'âge d'un
-     * onglet.
-     */
-    const FRAIS = { cache: 'no-cache' };
-
+    
   if (!ctx) {
     const [tools, targets, entrees, schema] = await Promise.all([
       fetch('../registries/tools.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t).tools),
