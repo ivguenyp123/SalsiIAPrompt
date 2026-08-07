@@ -90,6 +90,26 @@ describe('aucun identifiant ne peut entrer au dépôt', { skip: fichiers ? false
       'ces noms doivent être ignorés : c\'est là qu\'une clé atterrit en pratique');
   });
 
+  test('le modèle .env.exemple reste suivi, et reste vide', () => {
+    // Piège vécu : `.env.*` avale `.env.exemple`, et plus personne ne sait quoi remplir.
+    // L'exception est fragile — un test la tient.
+    assert.ok(fichiers.includes('.env.exemple'),
+      '.env.exemple doit rester suivi : sans lui, personne ne sait quelles variables poser');
+    const contenu = readFileSync(join(ROOT, '.env.exemple'), 'utf8');
+    for (const { re, quoi } of INTERDITS) assert.ok(!re.test(contenu), `le modèle contient ${quoi}`);
+    // Aucune valeur : que des noms. `NOM=` seul, ou commenté.
+    for (const ligne of contenu.split('\n')) {
+      if (!ligne.trim() || ligne.trim().startsWith('#')) continue;
+      assert.match(ligne, /^[A-Z_]+=$/, `« ${ligne} » porte une valeur : le modèle n'en contient aucune`);
+    }
+  });
+
+  test('un vrai .env, lui, ne peut pas être suivi', () => {
+    const sortie = execFileSync('git', ['check-ignore', '--no-index', '.env', '.env.local'],
+                                { cwd: ROOT, encoding: 'utf8' }).split('\n').filter(Boolean);
+    assert.deepEqual(sortie.sort(), ['.env', '.env.local']);
+  });
+
   test('les faux secrets du registre restent, eux, parfaitement légitimes', () => {
     // La banque contient un diff avec un jeton, et les fixtures du linter en contiennent
     // d'autres. Un test qui crierait sur eux serait désactivé dans la semaine — et le

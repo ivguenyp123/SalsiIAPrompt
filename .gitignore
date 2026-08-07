@@ -21,3 +21,6 @@ gcp*.json
 vertex*.json
 .env
 .env.*
+# …sauf le modèle, qui ne contient que des noms de variables. Sans cette exception,
+# `.env.*` l'avale et personne ne sait plus quoi remplir.
+!.env.exemple
