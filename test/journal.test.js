@@ -109,8 +109,25 @@ describe('mise en forme', () => {
   });
 
   test('le résumé compte chaque action, y compris à zéro', () => {
-    assert.deepEqual(resume(tous), { soumettre: 1, valider: 1, refuser: 1, autre: 1 });
-    assert.deepEqual(resume([]), { soumettre: 0, valider: 0, refuser: 0, autre: 0 });
+    // Le total est DÉRIVÉ de la table des actions, pas d'une liste écrite ici : ajouter
+    // un verbe au vocabulaire ne doit pas demander de venir corriger un test.
+    const aZero = Object.fromEntries(Object.keys(ACTIONS).map((k) => [k, 0]));
+    assert.deepEqual(resume([]), aZero);
+    assert.deepEqual(resume(tous), { ...aZero, soumettre: 1, valider: 1, refuser: 1, autre: 1 });
+  });
+
+  test('retirer, réactiver et supprimer ne tombent pas en « hors parcours »', () => {
+    // Sinon une décision légitime du parc se rangerait au même endroit que ce qui
+    // contourne le produit, et l'alerte de contournement ne voudrait plus rien dire.
+    const evs = depuisCommits([
+      { sha: '1', message: 'registre : retirer Expliquer un pipeline\n\nRetiré par ivguenyp123.', author: 'x', date: '2026-08-07T10:00:00Z' },
+      { sha: '2', message: 'registre : reactiver Expliquer un pipeline\n\nRéactivé par ivguenyp123.', author: 'x', date: '2026-08-07T11:00:00Z' },
+      { sha: '3', message: 'registre : supprimer test\n\nSupprimé par ivguenyp123.', author: 'x', date: '2026-08-07T12:00:00Z' }
+    ]);
+    assert.deepEqual(evs.map((e) => e.action), ['retirer', 'reactiver', 'supprimer']);
+    assert.ok(evs.every((e) => e.acteurDeclare && e.acteur === 'ivguenyp123'),
+      'l\'acteur déclaré se lit sur ces verbes comme sur les autres');
+    assert.deepEqual(horsParcours(evs), []);
   });
 
   test('chaque action a un libellé, un verbe et une icône', () => {

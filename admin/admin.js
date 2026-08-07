@@ -4,10 +4,22 @@
  * Le dossier porte l'état, faute d'état dérivé :
  *   artifacts/pending/  ce qui attend une décision humaine
  *   artifacts/          ce qui a été validé, et que le catalogue montre
+ *   artifacts/retires/  ce qui a servi et ne sert plus — invisible au catalogue
  *
- * Valider = déplacer. Refuser = supprimer. Les deux sont des commits, donc l'historique
- * du dépôt EST le journal des décisions : qui a validé quoi, quand, et sur quel contenu
- * exactement. Aucune base à tenir.
+ * Valider = déplacer. Refuser = supprimer. Retirer = déplacer, réactiver = déplacer en
+ * sens inverse. Tout est un commit, donc l'historique du dépôt EST le journal des
+ * décisions : qui a validé quoi, quand, et sur quel contenu exactement. Aucune base à
+ * tenir.
+ *
+ * ── POURQUOI RETIRER PLUTÔT QUE SUPPRIMER ────────────────────────────────────
+ *
+ * Un parc ne grandit pas seulement : il se nettoie. Sans moyen de sortir un agent du
+ * catalogue, la seule issue est la suppression — donc on ne le fait pas, et le catalogue
+ * se remplit de choses que plus personne n'utilise mais que personne n'ose enlever. Un
+ * catalogue qu'on ne croit plus ne se consulte plus.
+ *
+ * Retirer est réversible et se lit dans l'historique comme un renommage. C'est ce qui
+ * rend le geste facile à faire — et un geste facile à faire est un geste qu'on fait.
  *
  * LIMITE ASSUMÉE, et elle est importante : rien n'empêche l'auteur de valider son propre
  * artefact. La séparation des rôles ne peut pas vivre dans le navigateur — celui qui a le
@@ -38,6 +50,8 @@ mountShell({ active: 'admin', session, base: '../',
 const forge = createForge(session);
 const repo = localStorage.getItem('salsi_ia_registry_repo');
 const PENDING = 'artifacts/pending';
+const PUBLIE = 'artifacts';
+const RETIRES = 'artifacts/retires';
 
 const LEVELS = { experimental: 'expérimental', team: 'équipe', officiel: 'officiel' };
 const ICONS = { agent: '🤖', prompt: '📚', chain: '🔗' };
@@ -291,6 +305,200 @@ async function decider(entry, action) {
   await load();
 }
 
+/* ── Le parc — ce qui est publié, et ce qui ne l'est plus ─────────────────────
+ *
+ * L'écran qui manquait. On savait faire ENTRER un artefact au registre et pas l'en faire
+ * sortir : la seule porte de sortie était la file de validation, donc avant publication.
+ * Après, plus rien — un catalogue qui ne peut que grossir finit par contenir surtout des
+ * choses que plus personne n'utilise, et un catalogue qu'on ne croit plus ne se consulte
+ * plus.
+ *
+ * Deux gestes, et la différence entre les deux est tout le sujet :
+ *
+ *   RETIRER    déplace vers artifacts/retires/. Le catalogue ne le montre plus, il n'est
+ *              plus lançable, mais le fichier existe toujours et le geste se défait d'un
+ *              clic. C'est ce qu'on veut neuf fois sur dix.
+ *   SUPPRIMER  efface le fichier. L'historique du dépôt le garde — rien ne disparaît
+ *              vraiment d'un dépôt git — mais plus aucun écran ne le retrouvera.
+ *
+ * Retirer est réversible et se lit dans l'historique comme un renommage. C'est ce qui
+ * rend le geste facile à faire, et un geste facile à faire est un geste qu'on fait.
+ */
+const pvue = { entrees: [], filtre: 'actifs', charge: false };
+const PARC_FILTRES = [['actifs', '✅ Actifs'], ['retires', '📦 Retirés'], ['tout', 'Tout']];
+
+async function chargerParc() {
+  if (!repo) {
+    $('pcount').textContent = '';
+    $('pempty').style.display = 'block';
+    $('pempty').textContent = 'Aucun dépôt de registre choisi.';
+    return;
+  }
+  $('psource').textContent = `${repo} · ${PUBLIE}/ et ${RETIRES}/`;
+
+  // `type === 'file'` écarte de lui-même les sous-dossiers pending/ et retires/ : c'est
+  // la même lecture que celle du catalogue, donc ce qu'on voit ici est ce qu'il voit.
+  const lire = async (dossier, actif) => {
+    const fichiers = (await forge.listFiles(repo, dossier))
+      .filter((f) => f.type === 'file' && /\.ya?ml$/.test(f.name));
+    return Promise.all(fichiers.map(async (file) => {
+      try {
+        const found = await forge.getFile(repo, file.path);
+        const artifact = yaml.parse(found.content);
+        return { file, artifact, actif, report: lint(artifact, { ...ctx, artifacts: [] }) };
+      } catch (error) {
+        // Un fichier illisible est justement celui qu'on veut pouvoir retirer : on ne
+        // le cache pas derrière son erreur de lecture.
+        return { file, artifact: null, actif, error: error.message };
+      }
+    }));
+  };
+
+  try {
+    const [actifs, retires] = await Promise.all([lire(PUBLIE, true), lire(RETIRES, false)]);
+    pvue.entrees = [...actifs, ...retires];
+    pvue.charge = true;
+  } catch (error) {
+    $('pcount').textContent = '';
+    $('pempty').style.display = 'block';
+    $('pempty').textContent = `Lecture impossible : ${error.message}`;
+    return;
+  }
+  renderParc();
+}
+
+function renderParc() {
+  const host = $('parc');
+  host.textContent = '';
+
+  const filtres = $('pfiltres');
+  filtres.textContent = '';
+  for (const [id, label] of PARC_FILTRES) {
+    const n = pvue.entrees.filter((e) => id === 'tout' || (id === 'actifs') === e.actif).length;
+    const b = el('button', { textContent: `${label} (${n})`, className: pvue.filtre === id ? 'on' : '' });
+    b.onclick = () => { pvue.filtre = id; renderParc(); };
+    filtres.append(b);
+  }
+
+  const montres = pvue.entrees.filter((e) =>
+    pvue.filtre === 'tout' || (pvue.filtre === 'actifs') === e.actif);
+
+  $('pcount').textContent = montres.length === pvue.entrees.length
+    ? `${pvue.entrees.length} artefact(s) au parc`
+    : `${montres.length} sur ${pvue.entrees.length}`;
+
+  $('pempty').style.display = montres.length ? 'none' : 'block';
+  if (!montres.length) {
+    $('pempty').textContent = '';
+    $('pempty').append(
+      el('b', { textContent: pvue.entrees.length ? 'Rien à cet endroit du parc.' : 'Le parc est vide.' }),
+      pvue.entrees.length ? 'Change de filtre.' : 'Rien n\'a encore été publié depuis la file.');
+    return;
+  }
+
+  for (const entree of montres) host.append(ligneParc(entree));
+}
+
+function ligneParc(entree) {
+  const { artifact, file, actif, report, error } = entree;
+  const nom = artifact?.title || file.name;
+  const box = el('div', { className: 'row' });
+
+  const titre = el('h3', {}, `${ICONS[artifact?.kind] || '⚠'} ${nom}`);
+
+  // L'état se lit AVANT tout le reste : c'est la question qu'on se pose en arrivant.
+  titre.append(el('span', { className: `pill ${actif ? 'ok' : 'write'}`,
+                            textContent: actif ? 'actif · au catalogue' : 'retiré · invisible' }));
+  if (artifact) {
+    titre.append(el('span', { className: 'pill', textContent: LEVELS[artifact.target_level] || 'expérimental' }));
+    // Un artefact publié peut avoir cessé d'être conforme : les règles bougent. C'est
+    // exactement ce qu'on veut voir en décidant de le garder ou non.
+    if (report?.blocked) {
+      titre.append(el('span', { className: 'pill ko',
+                                textContent: `ne franchit plus la porte — ${report.errors} erreur(s)` }));
+    }
+  } else {
+    titre.append(el('span', { className: 'pill ko', textContent: 'illisible' }));
+  }
+  box.append(titre);
+
+  const meta = [artifact?.id, artifact?.owner?.person, artifact?.owner?.scope].filter(Boolean).join(' · ');
+  box.append(el('p', { className: 'purpose', textContent: meta || error || '—' }));
+
+  const acts = el('div', { className: 'acts' });
+
+  if (actif) {
+    const retirer = el('button', { textContent: '📦 Retirer du catalogue' });
+    retirer.onclick = () => agirParc(entree, 'retirer');
+    acts.append(retirer);
+  } else {
+    const remettre = el('button', { className: 'primary', textContent: '♻️ Remettre au catalogue' });
+    remettre.onclick = () => agirParc(entree, 'reactiver');
+    acts.append(remettre);
+  }
+
+  const supprimer = el('button', { className: 'refuse', textContent: '🗑️ Supprimer' });
+  supprimer.onclick = () => agirParc(entree, 'supprimer');
+  acts.append(supprimer, el('span', { className: 'sp' }),
+              el('code', { className: 'mono', style: 'color:var(--tm)', textContent: file.path }));
+  box.append(acts);
+  return box;
+}
+
+/*
+ * La confirmation dit ce qu'on PERD, pas « êtes-vous sûr ».
+ *
+ * « Êtes-vous sûr » se clique sans lire. Nommer la conséquence — et surtout dire que
+ * retirer se défait alors que supprimer non — est ce qui permet de choisir entre les deux
+ * au lieu de prendre le bouton le plus proche.
+ */
+const QUESTIONS = {
+  retirer: (nom) => `Retirer « ${nom} » du catalogue ?\n\n`
+    + 'Il n\'y sera plus visible et ne pourra plus être lancé. Le fichier reste dans le '
+    + 'dépôt : ce geste se défait d\'un clic.',
+  reactiver: (nom) => `Remettre « ${nom} » au catalogue ?\n\n`
+    + 'Il redevient visible et lançable. La porte s\'applique à nouveau : s\'il n\'est '
+    + 'plus conforme, le pré-vol le refusera.',
+  supprimer: (nom) => `Supprimer « ${nom} » ?\n\n`
+    + 'Le fichier est effacé du registre. L\'historique du dépôt le garde — rien ne '
+    + 'disparaît vraiment d\'un dépôt git — mais plus aucun écran ne le retrouvera.\n\n'
+    + 'Pour le sortir du catalogue sans l\'effacer, utilise « Retirer ».'
+};
+
+async function agirParc(entree, action) {
+  const { artifact, file } = entree;
+  const nom = artifact?.title || file.name;
+  if (!confirm(QUESTIONS[action](nom))) return;
+
+  for (const b of document.querySelectorAll('#vue-parc .acts button')) b.disabled = true;
+
+  const signe = (verbe) => `Artefact ${artifact?.id || file.name}. ${verbe} par ${session.username}.`;
+
+  try {
+    if (action === 'supprimer') {
+      await forge.deleteFile(repo, file.path, {
+        message: `registre : supprimer ${nom}\n\n${signe('Supprimé')} Effacé du registre.`
+      });
+      flash(`« ${nom} » supprimé. L'historique du dépôt en garde la trace.`, 'ok');
+    } else {
+      const cible = action === 'retirer' ? `${RETIRES}/${file.name}` : `${PUBLIE}/${file.name}`;
+      await forge.moveFile(repo, file.path, cible, {
+        message: `registre : ${action} ${nom}\n\n`
+          + `${signe(action === 'retirer' ? 'Retiré' : 'Réactivé')} Déplacé en ${cible}.`
+      });
+      flash(action === 'retirer'
+        ? `« ${nom} » retiré du catalogue. Réversible d'un clic.`
+        : `« ${nom} » est de nouveau au catalogue.`, 'ok');
+    }
+  } catch (error) {
+    flash(error.message, 'err');
+  }
+
+  pvue.charge = false;
+  await chargerParc();
+  jvue.charge = false;          // le journal a une décision de plus à montrer
+}
+
 /* ── Le journal des décisions ─────────────────────────────────────────────────
  *
  * Aucune base à tenir : l'Admin écrit un commit à chaque décision, donc l'historique du
@@ -302,13 +510,13 @@ async function decider(entry, action) {
 const JOURNAL_TAILLE = 100;
 
 const jvue = { evenements: [], filtre: 'tout', charge: false };
-const VUES = [['valider', '✅ À valider'], ['journal', '📜 Journal']];
+const VUES = [['valider', '✅ À valider'], ['parc', '📦 Le parc'], ['journal', '📜 Journal']];
 
 function montrerVue(id) {
-  $('vue-valider').hidden = id !== 'valider';
-  $('vue-journal').hidden = id !== 'journal';
+  for (const [v] of VUES) $(`vue-${v}`).hidden = v !== id;
   for (const b of $('vues').children) b.className = b.dataset.vue === id ? 'on' : '';
   if (id === 'journal' && !jvue.charge) chargerJournal();
+  if (id === 'parc' && !pvue.charge) chargerParc();
 }
 
 for (const [id, label] of VUES) {

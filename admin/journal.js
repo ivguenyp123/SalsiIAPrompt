@@ -22,17 +22,28 @@
  * Module PUR : ni forge, ni DOM, ni horloge. Testable en Node.
  */
 
-/** Le vocabulaire des messages de commit écrits par l'application. */
+/*
+ * Le vocabulaire des messages de commit écrits par l'application.
+ *
+ * Il ne couvre plus seulement l'entrée au registre. Un parc vit aussi par ce qu'on en
+ * retire : un agent qu'on désactive parce qu'il ne sert plus, qu'on réactive, ou qu'on
+ * supprime. Sans ces verbes ici, ces décisions-là tomberaient en « hors parcours » —
+ * c'est-à-dire au même endroit que ce qui contourne le produit, ce qui est faux et
+ * rendrait l'alerte de contournement inexploitable.
+ */
 export const ACTIONS = {
   soumettre: { label: 'soumis', verbe: 'a soumis', icone: '📤', ordre: 0 },
   valider: { label: 'validé', verbe: 'a validé', icone: '✅', ordre: 1 },
   refuser: { label: 'refusé', verbe: 'a refusé', icone: '🚫', ordre: 2 },
-  autre: { label: 'hors parcours', verbe: 'a modifié', icone: '✏️', ordre: 3 }
+  retirer: { label: 'retiré', verbe: 'a retiré du catalogue', icone: '📦', ordre: 3 },
+  reactiver: { label: 'réactivé', verbe: 'a remis au catalogue', icone: '♻️', ordre: 4 },
+  supprimer: { label: 'supprimé', verbe: 'a supprimé', icone: '🗑️', ordre: 5 },
+  autre: { label: 'hors parcours', verbe: 'a modifié', icone: '✏️', ordre: 6 }
 };
 
 // « registre : valider Préparer la livraison » — le préfixe est écrit par l'application,
 // jamais saisi. Ce qui ne le porte pas n'est pas passé par le produit.
-const SUJET = /^registre\s*:\s*(soumettre|valider|refuser)\s+(.*)$/i;
+const SUJET = /^registre\s*:\s*(soumettre|valider|refuser|retirer|reactiver|supprimer)\s+(.*)$/i;
 
 /*
  * L'acteur DÉCLARÉ dans le corps du commit. Il n'est pas redondant avec l'auteur du
@@ -44,7 +55,7 @@ const SUJET = /^registre\s*:\s*(soumettre|valider|refuser)\s+(.*)$/i;
 // Le point final de la phrase se retire APRÈS coup : un identifiant en contient
 // lui-même (`m.dubois`), donc l'exclure de la capture tronquerait le nom à sa première
 // initiale.
-const ACTEUR = /(?:soumis depuis le Studio par|Validé par|Refusé par)\s+([^\s,\n]+)/i;
+const ACTEUR = /(?:soumis depuis le Studio par|Validé par|Refusé par|Retiré par|Réactivé par|Supprimé par)\s+([^\s,\n]+)/i;
 const sansPointFinal = (nom) => nom.replace(/\.+$/, '');
 const ARTEFACT = /Artefact\s+([a-z0-9][a-z0-9-]*)\s+soumis/i;
 

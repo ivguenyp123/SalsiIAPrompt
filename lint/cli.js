@@ -21,10 +21,21 @@ const ROOT = resolve(HERE, '..');
 const loadYaml = (p) => yaml.load(readFileSync(p, 'utf8'));
 const loadJson = (p) => JSON.parse(readFileSync(p, 'utf8'));
 
-/** Tous les .yaml/.yml sous un chemin, fichier ou dossier, récursivement. */
+/*
+ * Tous les .yaml/.yml sous un chemin, fichier ou dossier, récursivement.
+ *
+ * `artifacts/retires/` est écarté. Un artefact retiré n'est plus une promesse : il n'est
+ * ni visible au catalogue ni lançable, c'est une archive. Or on retire souvent PARCE QUE
+ * quelque chose ne va plus — le linter en refuserait alors la moitié et casserait la CI
+ * pour du code que plus personne n'exécute. Le contrôle revient dès qu'on le réactive,
+ * et l'écran du parc affiche son verdict entre-temps : il n'est jamais perdu de vue.
+ */
+const ARCHIVE = /(^|\/)retires$/;
+
 function collect(target) {
   const st = statSync(target);
   if (st.isFile()) return /\.ya?ml$/.test(target) ? [target] : [];
+  if (ARCHIVE.test(target)) return [];
   return readdirSync(target).flatMap((name) => collect(join(target, name)));
 }
 
