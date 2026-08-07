@@ -6,6 +6,8 @@
  *   artifacts/          ce qui a été validé, et que le catalogue montre
  *   artifacts/retires/  ce qui a servi et ne sert plus — invisible au catalogue
  *
+ * La liste des trois vit dans `parc.js` : l'ecran et le module ne peuvent pas diverger.
+ *
  * Valider = déplacer. Refuser = supprimer. Retirer = déplacer, réactiver = déplacer en
  * sens inverse. Tout est un commit, donc l'historique du dépôt EST le journal des
  * décisions : qui a validé quoi, quand, et sur quel contenu exactement. Aucune base à
@@ -33,6 +35,7 @@ import { lint, ERROR } from '../lint/index.js';
 import { makeValidator } from '../lib/schema.js';
 import yaml from '../lib/yaml.js';
 import { depuisCommits, parJour, resume, horsParcours, ACTIONS } from './journal.js';
+import { STATUTS, DOSSIERS, inventaireParc, compter, filtrer } from './parc.js';
 
 const session = requireSession('../app/login.html');
 if (!session) await new Promise(() => {});
@@ -50,8 +53,6 @@ mountShell({ active: 'admin', session, base: '../',
 const forge = createForge(session);
 const repo = localStorage.getItem('salsi_ia_registry_repo');
 const PENDING = 'artifacts/pending';
-const PUBLIE = 'artifacts';
-const RETIRES = 'artifacts/retires';
 
 const LEVELS = { experimental: 'expérimental', team: 'équipe', officiel: 'officiel' };
 const ICONS = { agent: '🤖', prompt: '📚', chain: '🔗' };
@@ -305,27 +306,34 @@ async function decider(entry, action) {
   await load();
 }
 
-/* ── Le parc — ce qui est publié, et ce qui ne l'est plus ─────────────────────
+/* ── Le parc — ce qui est publié, ce qui attend, ce qui ne sert plus ──────────
  *
  * L'écran qui manquait. On savait faire ENTRER un artefact au registre et pas l'en faire
- * sortir : la seule porte de sortie était la file de validation, donc avant publication.
+ * sortir : la seule porte de sortie était la file de validation, donc AVANT publication.
  * Après, plus rien — un catalogue qui ne peut que grossir finit par contenir surtout des
  * choses que plus personne n'utilise, et un catalogue qu'on ne croit plus ne se consulte
  * plus.
  *
+ * L'état vient du dossier, comme partout ici :
+ *   artifacts/          actif    · visible au catalogue, lançable
+ *   artifacts/pending/  en revue · attend une décision
+ *   artifacts/retires/  retiré   · a servi, ne sert plus
+ *
+ * Les trois dans UNE liste : devant un parc, la question n'est jamais « montre-moi le
+ * dossier pending », c'est « où en est cet agent-là ».
+ *
  * Deux gestes, et la différence entre les deux est tout le sujet :
  *
- *   RETIRER    déplace vers artifacts/retires/. Le catalogue ne le montre plus, il n'est
- *              plus lançable, mais le fichier existe toujours et le geste se défait d'un
- *              clic. C'est ce qu'on veut neuf fois sur dix.
- *   SUPPRIMER  efface le fichier. L'historique du dépôt le garde — rien ne disparaît
- *              vraiment d'un dépôt git — mais plus aucun écran ne le retrouvera.
+ *   RETIRER    déplace. Le catalogue ne le montre plus, il n'est plus lançable, mais le
+ *              fichier existe toujours et le geste se défait d'un clic. Neuf fois sur dix
+ *              c'est ce qu'on veut — et c'est pour ça qu'il doit être facile.
+ *   SUPPRIMER  efface. L'historique du dépôt le garde — rien ne disparaît vraiment d'un
+ *              dépôt git — mais plus aucun écran ne le retrouvera.
  *
- * Retirer est réversible et se lit dans l'historique comme un renommage. C'est ce qui
- * rend le geste facile à faire, et un geste facile à faire est un geste qu'on fait.
+ * La colonne « Usages » reste vide, et c'est délibéré : voir parc.js.
  */
-const pvue = { entrees: [], filtre: 'actifs', charge: false };
-const PARC_FILTRES = [['actifs', '✅ Actifs'], ['retires', '📦 Retirés'], ['tout', 'Tout']];
+const pvue = { entrees: [], q: '', kind: '', statut: '', charge: false };
+const KINDS = [['', 'Tout'], ['agent', '🤖 Agents'], ['prompt', '📚 Prompts']];
 
 async function chargerParc() {
   if (!repo) {
@@ -334,29 +342,29 @@ async function chargerParc() {
     $('pempty').textContent = 'Aucun dépôt de registre choisi.';
     return;
   }
-  $('psource').textContent = `${repo} · ${PUBLIE}/ et ${RETIRES}/`;
+  $('psource').textContent = `${repo} · ${DOSSIERS.map(([, d]) => `${d}/`).join(' · ')}`;
 
-  // `type === 'file'` écarte de lui-même les sous-dossiers pending/ et retires/ : c'est
-  // la même lecture que celle du catalogue, donc ce qu'on voit ici est ce qu'il voit.
-  const lire = async (dossier, actif) => {
+  // `type === 'file'` écarte de lui-même les sous-dossiers : chaque dossier ne rend que
+  // ce qui lui appartient, et un artefact ne peut donc pas être compté deux fois.
+  const lire = async (dossier) => {
     const fichiers = (await forge.listFiles(repo, dossier))
       .filter((f) => f.type === 'file' && /\.ya?ml$/.test(f.name));
     return Promise.all(fichiers.map(async (file) => {
       try {
         const found = await forge.getFile(repo, file.path);
         const artifact = yaml.parse(found.content);
-        return { file, artifact, actif, report: lint(artifact, { ...ctx, artifacts: [] }) };
+        return { path: file.path, artifact, report: lint(artifact, { ...ctx, artifacts: [] }) };
       } catch (error) {
-        // Un fichier illisible est justement celui qu'on veut pouvoir retirer : on ne
-        // le cache pas derrière son erreur de lecture.
-        return { file, artifact: null, actif, error: error.message };
+        // Un fichier illisible est justement celui qu'on veut pouvoir retirer : on ne le
+        // cache pas derrière son erreur de lecture.
+        return { path: file.path, artifact: null, error: error.message };
       }
     }));
   };
 
   try {
-    const [actifs, retires] = await Promise.all([lire(PUBLIE, true), lire(RETIRES, false)]);
-    pvue.entrees = [...actifs, ...retires];
+    const lots = await Promise.all(DOSSIERS.map(([, d]) => lire(d)));
+    pvue.entrees = inventaireParc(Object.fromEntries(DOSSIERS.map(([s], i) => [s, lots[i]])));
     pvue.charge = true;
   } catch (error) {
     $('pcount').textContent = '';
@@ -367,82 +375,141 @@ async function chargerParc() {
   renderParc();
 }
 
-function renderParc() {
-  const host = $('parc');
-  host.textContent = '';
-
-  const filtres = $('pfiltres');
-  filtres.textContent = '';
-  for (const [id, label] of PARC_FILTRES) {
-    const n = pvue.entrees.filter((e) => id === 'tout' || (id === 'actifs') === e.actif).length;
-    const b = el('button', { textContent: `${label} (${n})`, className: pvue.filtre === id ? 'on' : '' });
-    b.onclick = () => { pvue.filtre = id; renderParc(); };
-    filtres.append(b);
+function renderBarreParc() {
+  // Le résumé compte TOUT, pas ce que le filtre laisse voir : un chiffre qui bouge selon
+  // la vue ne prouve rien.
+  const total = compter(pvue.entrees);
+  const som = $('psummary');
+  som.textContent = '';
+  for (const [cle, def] of Object.entries(STATUTS)) {
+    const carte = el('div', { className: 'sm' },
+      el('span', { className: `d d-${cle}`, title: def.aide }),
+      el('b', { textContent: String(total[cle]) }), ` ${def.label}`);
+    // Cliquer un compteur filtre dessus : le chiffre EST le filtre, sinon on lit un
+    // nombre puis on va chercher la liste déroulante pour voir de quoi il parle.
+    carte.style.cursor = 'pointer';
+    carte.title = def.aide;
+    carte.onclick = () => { pvue.statut = pvue.statut === cle ? '' : cle; $('pstatut').value = pvue.statut; renderParc(); };
+    som.append(carte);
   }
+  som.append(el('div', { className: 'sm', style: 'margin-left:auto' },
+    el('b', { textContent: String(pvue.entrees.length) }), ' au total'));
 
-  const montres = pvue.entrees.filter((e) =>
-    pvue.filtre === 'tout' || (pvue.filtre === 'actifs') === e.actif);
+  const seg = $('pkind');
+  if (!seg.children.length) {
+    for (const [id, label] of KINDS) {
+      const b = el('button', { textContent: label });
+      b.dataset.k = id;
+      b.onclick = () => { pvue.kind = id; renderParc(); };
+      seg.append(b);
+    }
+    const sel = $('pstatut');
+    sel.append(el('option', { value: '', textContent: 'Tous les statuts' }));
+    for (const [cle, def] of Object.entries(STATUTS)) {
+      sel.append(el('option', { value: cle, textContent: def.label }));
+    }
+    sel.onchange = () => { pvue.statut = sel.value; renderParc(); };
+    $('psearch').oninput = () => { pvue.q = $('psearch').value; renderParc(); };
+  }
+  for (const b of seg.children) b.className = b.dataset.k === pvue.kind ? 'on' : '';
+}
 
+function renderParc() {
+  renderBarreParc();
+
+  const montres = filtrer(pvue.entrees, pvue);
   $('pcount').textContent = montres.length === pvue.entrees.length
     ? `${pvue.entrees.length} artefact(s) au parc`
     : `${montres.length} sur ${pvue.entrees.length}`;
 
-  $('pempty').style.display = montres.length ? 'none' : 'block';
+  const host = $('parc');
+  host.textContent = '';
+  $('pempty').style.display = 'none';
+
   if (!montres.length) {
-    $('pempty').textContent = '';
-    $('pempty').append(
-      el('b', { textContent: pvue.entrees.length ? 'Rien à cet endroit du parc.' : 'Le parc est vide.' }),
-      pvue.entrees.length ? 'Change de filtre.' : 'Rien n\'a encore été publié depuis la file.');
+    host.append(el('div', { className: 'tempty', textContent: pvue.entrees.length
+      ? 'Aucun résultat pour ces filtres.'
+      : 'Le parc est vide — rien n\'a encore été soumis.' }));
     return;
   }
-
-  for (const entree of montres) host.append(ligneParc(entree));
+  for (const e of montres) host.append(ligneParc(e));
 }
 
-function ligneParc(entree) {
-  const { artifact, file, actif, report, error } = entree;
-  const nom = artifact?.title || file.name;
-  const box = el('div', { className: 'row' });
+/** La colonne « La porte » : la seule chose qu'on SACHE de la santé d'un artefact. */
+function celluleParc(e) {
+  if (!e.lisible) return el('span', { className: 'porte' }, el('b', { style: 'color:var(--err)', textContent: 'illisible' }));
+  if (!e.porte) return el('span', { className: 'jamais', textContent: '—' });
+  if (e.porte === 'conforme') return el('span', { className: 'porte' }, el('b', { style: 'color:var(--ok)', textContent: '✔ conforme' }));
+  return el('span', { className: 'porte' },
+    el('b', { style: 'color:var(--err)', textContent: `✕ ${e.erreurs} erreur(s)` }),
+    el('span', { className: 'flag', textContent: 'ne franchit plus' }));
+}
 
-  const titre = el('h3', {}, `${ICONS[artifact?.kind] || '⚠'} ${nom}`);
+function ligneParc(e) {
+  const row = el('div', { className: `trow${e.statut === 'retire' ? ' off' : ''}` });
 
-  // L'état se lit AVANT tout le reste : c'est la question qu'on se pose en arrivant.
-  titre.append(el('span', { className: `pill ${actif ? 'ok' : 'write'}`,
-                            textContent: actif ? 'actif · au catalogue' : 'retiré · invisible' }));
-  if (artifact) {
-    titre.append(el('span', { className: 'pill', textContent: LEVELS[artifact.target_level] || 'expérimental' }));
-    // Un artefact publié peut avoir cessé d'être conforme : les règles bougent. C'est
-    // exactement ce qu'on veut voir en décidant de le garder ou non.
-    if (report?.blocked) {
-      titre.append(el('span', { className: 'pill ko',
-                                textContent: `ne franchit plus la porte — ${report.errors} erreur(s)` }));
-    }
+  row.append(el('div', { className: 'nm' },
+    el('span', { className: 'ic', textContent: e.lisible ? (ICONS[e.kind] || '📄') : '⚠' }),
+    el('div', { style: 'min-width:0' },
+      el('div', { className: 't', textContent: e.titre, title: e.titre }),
+      el('div', { className: 'o', title: e.path,
+                  textContent: [e.owner, e.scope, LEVELS[e.niveau]].filter(Boolean).join(' · ') || e.path }))));
+
+  row.append(el('span', {}, e.kind
+    ? el('span', { className: `kb ${e.kind}`, textContent: e.kind === 'agent' ? '🤖 Agent' : '📚 Prompt' })
+    : el('span', { className: 'jamais', textContent: '—' })));
+
+  const def = STATUTS[e.statut];
+  row.append(el('span', {}, el('span', { className: `st ${e.statut}`, title: def.aide },
+    el('span', { className: `d d-${e.statut}` }), def.label)));
+
+  row.append(el('span', { className: 'c4' }, celluleParc(e)));
+
+  /*
+   * La colonne que la maquette remplit de chiffres, et qu'on laisse vide.
+   *
+   * Le nombre d'usages est un état DÉRIVÉ, et rien ne le mesure encore. Écrire « 480 »
+   * serait exactement ce que ce produit reproche aux autres — et le pire mensonge
+   * possible ici, puisque toute sa thèse tient à la séparation entre le déclaré et le
+   * mesuré. Une colonne vide qui s'explique vaut mieux qu'une colonne pleine qui ment.
+   */
+  row.append(el('span', { className: 'c5 jamais', textContent: 'jamais mesuré',
+    title: 'Aucune capture d\'exécution n\'est branchée : ce chiffre serait inventé.' }));
+
+  row.append(el('span', { className: 'c6 pacts' }, ...actionsParc(e)));
+  return row;
+}
+
+function actionsParc(e) {
+  const out = [];
+
+  if (e.statut === 'revue') {
+    const versFile = el('button', { className: 'btn pub', textContent: 'À valider →' });
+    versFile.onclick = () => montrerVue('valider');
+    out.push(versFile);
+  } else if (e.statut === 'actif') {
+    const retirer = el('button', { className: 'btn off', textContent: '⏸ Retirer' });
+    retirer.onclick = () => agirParc(e, 'retirer');
+    out.push(retirer);
   } else {
-    titre.append(el('span', { className: 'pill ko', textContent: 'illisible' }));
-  }
-  box.append(titre);
-
-  const meta = [artifact?.id, artifact?.owner?.person, artifact?.owner?.scope].filter(Boolean).join(' · ');
-  box.append(el('p', { className: 'purpose', textContent: meta || error || '—' }));
-
-  const acts = el('div', { className: 'acts' });
-
-  if (actif) {
-    const retirer = el('button', { textContent: '📦 Retirer du catalogue' });
-    retirer.onclick = () => agirParc(entree, 'retirer');
-    acts.append(retirer);
-  } else {
-    const remettre = el('button', { className: 'primary', textContent: '♻️ Remettre au catalogue' });
-    remettre.onclick = () => agirParc(entree, 'reactiver');
-    acts.append(remettre);
+    const remettre = el('button', { className: 'btn on', textContent: '▶ Remettre' });
+    remettre.onclick = () => agirParc(e, 'reactiver');
+    out.push(remettre);
   }
 
-  const supprimer = el('button', { className: 'refuse', textContent: '🗑️ Supprimer' });
-  supprimer.onclick = () => agirParc(entree, 'supprimer');
-  acts.append(supprimer, el('span', { className: 'sp' }),
-              el('code', { className: 'mono', style: 'color:var(--tm)', textContent: file.path }));
-  box.append(acts);
-  return box;
+  // Éditer rouvre au Studio et repasse par la file de validation : corriger n'est pas
+  // contourner. Un fichier illisible n'a rien à y ouvrir.
+  const editer = el('button', { className: 'btn ghost', textContent: 'Éditer', disabled: !e.lisible });
+  editer.onclick = () => {
+    sessionStorage.setItem('salsi_ia_edit', JSON.stringify({ artifact: e.artifact, path: e.path }));
+    location.href = '../studio/index.html';
+  };
+  out.push(editer);
+
+  const supprimer = el('button', { className: 'btn danger', textContent: '🗑' , title: 'Supprimer du registre' });
+  supprimer.onclick = () => agirParc(e, 'supprimer');
+  out.push(supprimer);
+  return out;
 }
 
 /*
@@ -465,24 +532,26 @@ const QUESTIONS = {
     + 'Pour le sortir du catalogue sans l\'effacer, utilise « Retirer ».'
 };
 
-async function agirParc(entree, action) {
-  const { artifact, file } = entree;
-  const nom = artifact?.title || file.name;
+const CIBLE = { retirer: 'artifacts/retires', reactiver: 'artifacts' };
+
+async function agirParc(e, action) {
+  const nom = e.titre;
   if (!confirm(QUESTIONS[action](nom))) return;
 
-  for (const b of document.querySelectorAll('#vue-parc .acts button')) b.disabled = true;
+  for (const b of document.querySelectorAll('#vue-parc .btn')) b.disabled = true;
 
-  const signe = (verbe) => `Artefact ${artifact?.id || file.name}. ${verbe} par ${session.username}.`;
+  const fichier = e.path.split('/').pop();
+  const signe = (verbe) => `Artefact ${e.id}. ${verbe} par ${session.username}.`;
 
   try {
     if (action === 'supprimer') {
-      await forge.deleteFile(repo, file.path, {
+      await forge.deleteFile(repo, e.path, {
         message: `registre : supprimer ${nom}\n\n${signe('Supprimé')} Effacé du registre.`
       });
       flash(`« ${nom} » supprimé. L'historique du dépôt en garde la trace.`, 'ok');
     } else {
-      const cible = action === 'retirer' ? `${RETIRES}/${file.name}` : `${PUBLIE}/${file.name}`;
-      await forge.moveFile(repo, file.path, cible, {
+      const cible = `${CIBLE[action]}/${fichier}`;
+      await forge.moveFile(repo, e.path, cible, {
         message: `registre : ${action} ${nom}\n\n`
           + `${signe(action === 'retirer' ? 'Retiré' : 'Réactivé')} Déplacé en ${cible}.`
       });

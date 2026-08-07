@@ -32,9 +32,68 @@
   button.refuse{color:#fca5a5;border-color:rgba(248,113,113,.4)}
   button.refuse:hover{border-color:var(--err)}
 
-  /* Le parc : l'état passe avant le nom du fichier, c'est la question qu'on se pose. */
-  #vue-parc .row .purpose{font-family:var(--fm);font-size:11.5px;color:var(--tm)}
-  #vue-parc code.mono{font-family:var(--fm);font-size:11px}
+  /* ── Le parc : le tableau de la maquette ──────────────────────────────────
+     Une liste à plat plutôt que des cartes empilées. Devant un parc, la question
+     n'est jamais « montre-moi le dossier pending » mais « où en est cet agent-là » :
+     une ligne par artefact, une colonne Statut, une recherche. */
+  .summary{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 4px}
+  .sm{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:12px;
+      background:var(--bg-card);padding:9px 14px;font-size:13px;color:var(--ts)}
+  .sm b{font-family:var(--fd);font-size:17px;color:var(--tp)}
+  .sm .d{width:9px;height:9px;border-radius:50%}
+  .d-actif{background:var(--ok)} .d-retire{background:var(--tm)} .d-revue{background:var(--warn)}
+
+  .toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:16px 0 12px}
+  .search{flex:1 1 200px;min-width:180px;font-family:var(--fb);font-size:13.5px;color:var(--tp);
+          background:rgba(10,7,22,.6);border:1px solid var(--line2);border-radius:11px;
+          padding:11px 14px;outline:none}
+  .search:focus{border-color:var(--accent)}
+  /* `width:auto` : app.css met tous les `select` à 100 %, ce qui renvoie celui-ci
+     à la ligne et lui fait occuper toute la barre. */
+  .stsel{width:auto;font-family:var(--fb);font-size:12.5px;font-weight:700;color:var(--tp);
+         background:rgba(10,7,22,.6);border:1px solid var(--line2);border-radius:11px;
+         padding:9px 12px;outline:none;cursor:pointer}
+
+  .tbl{border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .thead,.trow{display:grid;grid-template-columns:minmax(0,3fr) 92px 118px 132px 104px 226px;
+               gap:10px;align-items:center;padding:12px 15px}
+  .thead{background:rgba(255,255,255,.03);color:var(--tm);font-weight:700;font-size:10.5px;
+         text-transform:uppercase;letter-spacing:.03em}
+  .trow{border-top:1px solid var(--line);font-size:13px}
+  .trow:hover{background:rgba(255,255,255,.02)}
+  .trow.off{opacity:.62}
+  .nm{display:flex;align-items:center;gap:10px;min-width:0}
+  .nm .ic{font-size:19px}
+  .nm .t{font-weight:700;color:var(--tp);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .nm .o{font-size:11px;color:var(--tm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .kb{font-size:10px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;
+      padding:3px 8px;border-radius:6px;white-space:nowrap;display:inline-block}
+  .kb.agent{color:var(--deliver);background:rgba(45,212,191,.12);border:1px solid rgba(45,212,191,.3)}
+  .kb.prompt{color:var(--accent);background:rgba(124,92,252,.12);border:1px solid rgba(124,92,252,.3)}
+  .st{font-size:10.5px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;
+      padding:3px 9px;border-radius:20px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+  .st .d{width:7px;height:7px;border-radius:50%}
+  .st.actif{color:var(--ok);background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.32)}
+  .st.retire{color:var(--tm);background:rgba(255,255,255,.04);border:1px solid var(--line2)}
+  .st.revue{color:var(--warn);background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.32)}
+  .porte b{font-weight:800;font-size:12px}
+  .porte .flag{font-size:10px;color:var(--err);display:block;margin-top:1px}
+  /* La colonne que la maquette remplit de chiffres et qu'on laisse vide, exprès. */
+  .jamais{color:var(--tm);font-size:11.5px;font-style:italic}
+  .pacts{display:flex;gap:7px;justify-content:flex-end;flex-wrap:wrap}
+  .btn{font-family:var(--fb);font-weight:800;font-size:11.5px;border-radius:8px;
+       padding:7px 11px;cursor:pointer;border:none;white-space:nowrap}
+  .btn.off{color:var(--warn);background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.32)}
+  .btn.on{color:#0f0a1f;background:linear-gradient(135deg,var(--accent),var(--deliver))}
+  .btn.pub{color:#0f0a1f;background:linear-gradient(135deg,#2dd4bf,#34d399)}
+  .btn.ghost{color:var(--ts);background:rgba(255,255,255,.05);border:1px solid var(--line2)}
+  .btn.danger{color:#fca5a5;background:rgba(248,113,113,.09);border:1px solid rgba(248,113,113,.35)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .tempty{color:var(--tm);font-size:13px;text-align:center;padding:26px}
+  @media(max-width:900px){
+    .thead,.trow{grid-template-columns:2fr 96px 118px}
+    .thead .h4,.thead .h5,.thead .h6,.trow .c4,.trow .c5,.trow .c6{display:none}
+  }
 
   .bloc{margin:0 0 15px}
   .bloc h4{margin:0 0 7px;font-size:10.5px;font-weight:800;text-transform:uppercase;
@@ -137,8 +196,21 @@
       <span id="psource"></span>
     </div>
 
-    <div id="pfiltres" class="seg"></div>
-    <div class="queue" id="parc"></div>
+    <div class="summary" id="psummary"></div>
+
+    <div class="toolbar">
+      <input class="search" id="psearch" placeholder="rechercher un agent ou un prompt…" autocomplete="off">
+      <div class="seg" id="pkind"></div>
+      <select class="stsel" id="pstatut"></select>
+    </div>
+
+    <div class="tbl">
+      <div class="thead">
+        <span>Nom</span><span>Type</span><span>Statut</span>
+        <span class="h4">La porte</span><span class="h5">Usages</span><span class="h6"></span>
+      </div>
+      <div id="parc"></div>
+    </div>
     <div class="empty" id="pempty" style="display:none"></div>
   </section>
 
