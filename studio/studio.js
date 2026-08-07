@@ -565,6 +565,17 @@ $('add-crit').onclick = () => { state.criteria.push({ target: '', op: 'eq', valu
 $('add-gold').onclick = () => { state.goldenCases.push(casVide()); renderGolden(); run(); };
 
 $('salsi-open').onclick = ouvrirSalsi;
+
+/*
+ * Le même appel depuis l'établi. C'est là que la question « par où je commence ? » se
+ * pose vraiment : dans le formulaire, on a déjà commencé. Proposer l'aide uniquement une
+ * fois entré, c'est la proposer une étape trop tard.
+ */
+$('salsi-start').onclick = () => {
+  apply({ variables: [], tools: [], criteria: [], goldenCases: [] });
+  montrer('editeur');
+  ouvrirSalsi();
+};
 $('salsi-close').onclick = () => $('salsi').classList.remove('on');
 $('salsi').onclick = (e) => { if (e.target === $('salsi')) $('salsi').classList.remove('on'); };
 
@@ -642,7 +653,7 @@ function montrer(mode) {
   const liste = mode === 'liste';
   $('listView').hidden = !liste;
   $('editView').hidden = liste;
-  for (const [id, enListe] of [['new-artifact', true], ['back-list', false], ['load-example', false],
+  for (const [id, enListe] of [['new-artifact', true], ['salsi-start', true], ['back-list', false], ['load-example', false],
                                ['load-broken', false], ['reset', false], ['verdict', false], ['publish', false]]) {
     $(id).hidden = liste !== enListe;
   }
