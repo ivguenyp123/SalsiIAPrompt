@@ -48,11 +48,16 @@ la session a sa propre clé de stockage (deux applications, deux cycles de vie),
 vit **dans l'onglet** par défaut plutôt que sur le navigateur, et une session Salsifi
 ouverte ne sert qu'à pré-remplir l'instance : le jeton est toujours ressaisi.
 
-## Lancer un agent pour de vrai — Vertex AI
+## Lancer un agent pour de vrai
 
-Jusqu'ici le registre décrivait des capacités. Il en **exécute** maintenant.
+Jusqu'ici le registre décrivait des capacités. Il en **exécute** maintenant, chez l'un
+ou l'autre de deux fournisseurs.
 
 ```bash
+# DeepSeek — une clé, rien d'autre. Le plus court chemin pour essayer.
+export DEEPSEEK_API_KEY=sk-…
+
+# ou Vertex AI
 export VERTEX_PROJECT=lcl-ia-preprod
 export VERTEX_LOCATION=europe-west9          # Paris. Défaut : europe-west1
 export GOOGLE_SERVICE_ACCOUNT_JSON="$(cat cle.json)"
@@ -61,6 +66,15 @@ export GOOGLE_SERVICE_ACCOUNT_JSON="$(cat cle.json)"
 node runtime/cli.js expliquer-un-code --cas=gc-01-module-court
 node runtime/cli.js optimiser-une-requete-sql --repo=demo-data --requete="SELECT ..."
 ```
+
+Le fournisseur se déduit de la clé présente, ou se force avec `SALSI_FOURNISSEUR`.
+Il **s'affiche toujours** — dans un registre gouverné, « quel modèle a répondu » est la
+moitié de ce qu'un auditeur demandera.
+
+Brancher le second n'a demandé **aucune modification** à une règle, un contrôle, un
+critère ou un artefact : c'est ce que le registre des paliers existe pour permettre.
+Un registre de capacités IA qui ne saurait parler qu'à un fournisseur serait périmé au
+premier appel d'offres.
 
 `--cas` rejoue un cas d'or : le contexte du cas fournit les valeurs, et les entrées
 `*_fixture` sont **lues dans la banque**. C'est la première fois que ces fichiers
@@ -127,7 +141,13 @@ la troisième est la vraie :
 - **surtout** : le jour où le modèle change sous le prompt, il faut pouvoir dire quels
   artefacts sont concernés et rejouer *leurs* cas d'or. C'est ce fichier qui le dit.
 
-`VERTEX_MODEL_MID=gemini-3-pro` force un modèle sur un palier — c'est ce qui permettra
+Le tarif vit **sous le fournisseur**, pas sous le palier. Un tarif au niveau du palier
+facturerait un appel DeepSeek au prix de Gemini : un coût faux, affiché avec l'aplomb
+d'un coût mesuré. Les tarifs DeepSeek sont donc **absents** — je ne les ai pas vérifiés,
+et l'écran affiche « tarif inconnu », ce qui est exact. Deux nombres pris dans la
+console suffisent à le remplir.
+
+`SALSI_MODELE_MID=gemini-3-pro` force un modèle sur un palier — c'est ce qui permettra
 de rejouer les cas d'or sur un modèle candidat sans toucher au catalogue.
 
 ### Les identifiants ne sont jamais dans le dépôt

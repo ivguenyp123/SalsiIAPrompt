@@ -37,7 +37,7 @@ const models = lire('registries/models.yaml').models;
 /** Un Vertex simulé qui note ce qu'il a reçu. */
 const fauxVertex = (texte = '## À quoi ça sert\nÀ tester.') => {
   const vu = {};
-  return { vu, project: 'p', region: 'r', modele: () => 'gemini-test',
+  return { vu, fournisseur: 'vertex', ou: 'projet · region', modele: () => 'gemini-test',
            generer: async ({ prompt, tier }) => { vu.prompt = prompt; vu.tier = tier;
              return { texte, modele: 'gemini-test', tier,
                       jetons: { entree: 900, sortie: 40 }, motifArret: 'STOP' }; } };
@@ -207,11 +207,23 @@ describe('les erreurs se distinguent les unes des autres', () => {
 });
 
 describe('l\'état, pour que l\'écran ne propose pas un bouton qui échouera', () => {
-  test('configuré : il annonce le projet et les paliers', () => {
+  test('configuré : il annonce QUI répond, où, et avec quel modèle par palier', () => {
+    // Le fournisseur n'est pas décoratif : dans un registre gouverné, « quel modèle a
+    // répondu » est la moitié de ce qu'un auditeur demandera.
     const e = etat({ creerVertex: () => fauxVertex(), models });
     assert.equal(e.pret, true);
-    assert.equal(e.projet, 'p');
+    assert.equal(e.fournisseur, 'vertex');
+    assert.equal(e.ou, 'projet · region');
     assert.equal(e.paliers.length, models.length);
+    assert.ok(e.paliers.every((p) => p.modele && p.modele !== '—'));
+  });
+
+  test('les paliers annoncés sont ceux DU fournisseur en vigueur', () => {
+    const e = etat({ creerVertex: () => ({ ...fauxVertex(), fournisseur: 'deepseek', ou: 'api.deepseek.com' }),
+                     models });
+    assert.equal(e.fournisseur, 'deepseek');
+    assert.ok(e.paliers.some((p) => p.modele.startsWith('deepseek-')));
+    assert.ok(!e.paliers.some((p) => p.modele.startsWith('gemini')));
   });
 
   test('non configuré : il dit quoi poser', () => {

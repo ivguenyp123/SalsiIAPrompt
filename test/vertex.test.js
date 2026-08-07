@@ -138,11 +138,23 @@ describe('le palier déclaré, et le modèle réel derrière', () => {
   test('une variable d\'environnement force un modèle, pour une montée de version', () => {
     // C'est ce qui permet de rejouer les cas d'or sur un modèle candidat sans toucher
     // aux 200 artefacts.
-    assert.equal(modelePour('mid', models, { VERTEX_MODEL_MID: 'gemini-3-pro' }), 'gemini-3-pro');
+    assert.equal(modelePour('mid', models, { SALSI_MODELE_MID: 'gemini-3-pro' }), 'gemini-3-pro');
   });
 
   test('sans registre du tout, on refuse plutôt que de deviner un nom de modèle', () => {
     assert.throws(() => modelePour('mid', [], {}), VertexError);
+  });
+
+  test('le même palier rend un autre modèle chez un autre fournisseur', () => {
+    // C'est ce qui permet à un artefact de ne nommer NI un modèle NI un fournisseur.
+    assert.equal(modelePour('large', models, {}, 'vertex'), 'gemini-2.5-pro');
+    assert.equal(modelePour('large', models, {}, 'deepseek'), 'deepseek-reasoner');
+  });
+
+  test('un fournisseur sans modèle déclaré refuse au lieu d\'en choisir un autre', () => {
+    // Retomber sur le modèle d'un autre fournisseur ferait partir le prompt ailleurs
+    // que là où l'écran l'annonce.
+    assert.throws(() => modelePour('mid', models, {}, 'mistral'), /mistral/);
   });
 });
 
@@ -227,14 +239,30 @@ describe('un appel complet', () => {
 
 describe('ce que l\'appel a coûté', () => {
   test('se calcule depuis le registre, pas depuis une constante cachée', () => {
-    const c = cout({ tier: 'large', jetons: { entree: 1_000_000, sortie: 100_000 } }, models);
+    const c = cout({ tier: 'large', jetons: { entree: 1_000_000, sortie: 100_000 },
+                     fournisseur: 'vertex' }, models);
     assert.equal(c, 1.25 + 1.0);
+  });
+
+  test('un appel chez un fournisseur sans tarif ne prend PAS celui du voisin', () => {
+    // Un tarif au niveau du palier facturerait un appel DeepSeek au prix de Vertex : un
+    // coût faux, affiché avec l'aplomb d'un coût mesuré.
+    const c = cout({ tier: 'large', jetons: { entree: 1_000_000, sortie: 100_000 },
+                     fournisseur: 'deepseek' }, models);
+    assert.equal(c, null, 'aucun tarif DeepSeek n\'est déclaré : on ne devine pas');
   });
 
   test('un palier sans tarif rend `null`, pas zéro', () => {
     // Zéro serait une mesure : « cet appel n'a rien coûté ». `null` dit qu'on ne sait pas.
     assert.equal(cout({ tier: 'inconnu', jetons: { entree: 10, sortie: 10 } }, models), null);
     assert.equal(cout({ tier: 'mid' }, models), null);
+  });
+
+  test('chaque palier déclare un modèle chez CHAQUE fournisseur connu', () => {
+    // Un trou ici ne se verrait qu'à l'exécution, sur le palier le moins utilisé.
+    for (const m of models) {
+      for (const f of ['vertex', 'deepseek']) assert.ok(m[f], `${m.tier} n'a pas de modèle ${f}`);
+    }
   });
 
   test('le registre des modèles couvre tous les paliers que les artefacts déclarent', () => {

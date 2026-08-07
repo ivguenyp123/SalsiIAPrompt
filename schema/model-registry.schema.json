@@ -40,15 +40,56 @@
             "minLength": 20,
             "description": "À quoi ce palier sert. Sans quoi le choix se fait au hasard, donc toujours vers le plus gros."
           },
-          "cout_mtok_entree": {
-            "type": "number",
-            "minimum": 0
+          "deepseek": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Identifiant du modèle chez DeepSeek pour ce palier. Absent = ce palier n'est pas servi par ce fournisseur, et le moteur le dit au lieu d'en choisir un autre."
           },
-          "cout_mtok_sortie": {
-            "type": "number",
-            "minimum": 0
+          "tarifs": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Le prix au million de jetons, PAR FOURNISSEUR. Un fournisseur absent d'ici n'a pas de tarif vérifié : le coût rendu est `null`, et l'écran affiche « tarif inconnu ». Un tarif au niveau du palier serait appliqué à n'importe qui, et facturerait un appel au prix d'un autre.",
+            "properties": {
+              "vertex": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "entree_mtok",
+                  "sortie_mtok"
+                ],
+                "properties": {
+                  "entree_mtok": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "sortie_mtok": {
+                    "type": "number",
+                    "minimum": 0
+                  }
+                }
+              },
+              "deepseek": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "entree_mtok",
+                  "sortie_mtok"
+                ],
+                "properties": {
+                  "entree_mtok": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "sortie_mtok": {
+                    "type": "number",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
           }
-        }
+        },
+        "description": "Un palier, et le modèle réel derrière chez chaque fournisseur. Les colonnes de coût ne sont renseignées que là où le tarif a été vérifié : un coût inventé s'afficherait avec l'aplomb d'un coût mesuré."
       }
     }
   }

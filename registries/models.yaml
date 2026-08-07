@@ -8,34 +8,48 @@
 #   · surtout : le jour où le modèle change SOUS le prompt, il faut pouvoir dire quels
 #     artefacts sont concernés et rejouer LEURS cas d'or. C'est ce fichier qui le dit.
 #
-# `expires_certification_on` : la date à laquelle une certification obtenue sur ce
-# palier cesse de valoir. Elle n'est pas décorative — L016 et P005 la lisent.
+# UNE COLONNE PAR FOURNISSEUR
+# Le fournisseur se décide bien au-dessus de l'équipe qui écrit les agents, et il
+# changera. Un artefact ne doit donc pas non plus nommer le fournisseur : il déclare un
+# palier, et c'est ici qu'on dit qui répond pour ce palier chez chacun.
+#
+# LES TARIFS SONT SOUS LE FOURNISSEUR, ET SEULEMENT LÀ OÙ ILS SONT VÉRIFIÉS
+# Un tarif au niveau du palier serait applique a n'importe qui : un appel DeepSeek
+# facture au tarif Vertex afficherait un coût faux avec l'aplomb d'un coût mesuré.
+#
+# `tarifs.deepseek` est donc ABSENT, volontairement : je n'ai pas vérifié ces prix.
+# Tant qu'il manque, l'écran affiche « tarif inconnu » — ce qui est exact. Deux nombres
+# pris dans la console DeepSeek suffisent à le remplir, et le coût apparaîtra seul.
 
 models:
   - tier: nano
     vertex: gemini-2.5-flash-lite
+    deepseek: deepseek-chat
     description: Classer, extraire, reformater. Aucun raisonnement attendu.
-    cout_mtok_entree: 0.10
-    cout_mtok_sortie: 0.40
+    tarifs:
+      vertex: { entree_mtok: 0.10, sortie_mtok: 0.40 }
 
   - tier: small
     vertex: gemini-2.5-flash
+    deepseek: deepseek-chat
     description: Rédiger court, résumer, expliquer un morceau de code isolé.
-    cout_mtok_entree: 0.30
-    cout_mtok_sortie: 2.50
+    tarifs:
+      vertex: { entree_mtok: 0.30, sortie_mtok: 2.50 }
 
   - tier: mid
     vertex: gemini-2.5-flash
+    deepseek: deepseek-chat
     description: >
       Analyser un diff, une requête, un journal. Le palier par défaut : c'est là que
       se joue la majorité du catalogue.
-    cout_mtok_entree: 0.30
-    cout_mtok_sortie: 2.50
+    tarifs:
+      vertex: { entree_mtok: 0.30, sortie_mtok: 2.50 }
 
   - tier: large
     vertex: gemini-2.5-pro
+    deepseek: deepseek-reasoner
     description: >
       Raisonner sur un dépôt entier, planifier une migration, arbitrer un risque.
       Coûte dix fois le palier mid : à réserver à ce qui l'exige vraiment.
-    cout_mtok_entree: 1.25
-    cout_mtok_sortie: 10.00
+    tarifs:
+      vertex: { entree_mtok: 1.25, sortie_mtok: 10.00 }

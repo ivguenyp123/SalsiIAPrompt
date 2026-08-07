@@ -24,7 +24,7 @@
  *   VERTEX_LOCATION                   région, ex. europe-west9 (Paris). Défaut : europe-west1
  *   GOOGLE_SERVICE_ACCOUNT_JSON       la clé, en JSON, dans la variable
  *   GOOGLE_APPLICATION_CREDENTIALS    ou le chemin d'un fichier de clé
- *   VERTEX_MODEL_<PALIER>             pour forcer un modèle sur un palier (rare)
+ *   SALSI_MODELE_<PALIER>             pour forcer un modèle sur un palier (rare)
  *
  * Rien de tout ça n'est écrit, journalisé, ni renvoyé par une fonction de ce fichier :
  * la clé privée ne sort pas de `signer()`.
@@ -97,14 +97,19 @@ export function signer({ email, cle }, now = Date.now()) {
   return `${entete}.${corps}.${b64url(signature)}`;
 }
 
-/** Le modèle réel derrière un palier déclaré. */
-export function modelePour(tier, models = [], env = process.env) {
+/** Le modèle réel derrière un palier déclaré, chez ce fournisseur. */
+export function modelePour(tier, models = [], env = process.env, fournisseur = 'vertex') {
   const palier = tier || 'mid';
-  const force = env[`VERTEX_MODEL_${palier.toUpperCase()}`];
+  // `SALSI_MODELE_<PALIER>` force un modèle sans toucher aux artefacts : c'est ce qui
+  // permettra de rejouer les cas d'or sur un modèle candidat avant de basculer.
+  const force = env[`SALSI_MODELE_${palier.toUpperCase()}`];
   if (force) return force;
   const ref = models.find((m) => m.tier === palier) || models.find((m) => m.tier === 'mid');
-  if (!ref) throw new VertexError(`Palier de modèle inconnu : \`${palier}\`, et aucun défaut au registre.`, 0);
-  return ref.vertex;
+  if (!ref?.[fournisseur]) {
+    throw new VertexError(
+      `Aucun modèle ${fournisseur} déclaré pour le palier \`${palier}\` dans registries/models.yaml.`, 0);
+  }
+  return ref[fournisseur];
 }
 
 /**
@@ -152,14 +157,14 @@ export function createVertex({ env = process.env, models = [], fetchImpl = globa
     region: ids.region,
 
     /** Le modèle qui répondra pour ce palier — utile pour l'écrire au journal. */
-    modele: (tier) => modelePour(tier, models, env),
+    modele: (tier) => modelePour(tier, models, env, 'vertex'),
 
     /**
      * Un appel. Rend le TEXTE et ce qu'il a coûté — les deux, toujours : une sortie
      * sans son coût rend le FinOps impossible à reconstituer après coup.
      */
     async generer({ prompt, tier = 'mid', temperature = 0.2, maxTokens = 4096 }) {
-      const modele = modelePour(tier, models, env);
+      const modele = modelePour(tier, models, env, 'vertex');
       const url = `https://${ids.region}-aiplatform.googleapis.com/v1/projects/${ids.project}`
                 + `/locations/${ids.region}/publishers/google/models/${modele}:generateContent`;
 
@@ -175,7 +180,12 @@ export function createVertex({ env = process.env, models = [], fetchImpl = globa
       const corps = await reponse.json().catch(() => ({}));
       if (!reponse.ok) {
         throw new VertexError(
-          `Vertex a refusé l'appel (${reponse.status}) : ${corps.error?.message || 'sans détail'}.`,
+          `Vertex a refusé l'appel (${reponse.status}) : ${corps.error?.message || 'sans détail'}.`
+          + (reponse.status === 404 ? ` Le modèle \`${modele}\` n'est peut-être pas servi en `
+             + `\`${ids.region}\` : essaie une autre région, ou force le modèle avec `
+             + `SALSI_MODELE_${(tier || 'mid').toUpperCase()}.` : '')
+          + (reponse.status === 403 ? ' Un 403 sans message vient plus souvent d\'un proxy '
+             + 'sortant que de Google : vérifie que l\'hôte est autorisé au réseau.' : ''),
           reponse.status, JSON.stringify(corps));
       }
 
@@ -200,6 +210,7 @@ export function createVertex({ env = process.env, models = [], fetchImpl = globa
         texte,
         modele,
         tier,
+        fournisseur: 'vertex',
         jetons: { entree: u.promptTokenCount || 0, sortie: u.candidatesTokenCount || 0 },
         motifArret: candidat?.finishReason || ''
       };
@@ -207,12 +218,19 @@ export function createVertex({ env = process.env, models = [], fetchImpl = globa
   };
 }
 
-/** Ce que coûte un appel, d'après le registre des modèles. En euros. */
-export function cout({ tier, jetons }, models = []) {
-  const ref = models.find((m) => m.tier === tier);
-  if (!ref || !jetons) return null;              // pas de tarif connu : on ne devine pas
-  return (jetons.entree / 1e6) * (ref.cout_mtok_entree || 0)
-       + (jetons.sortie / 1e6) * (ref.cout_mtok_sortie || 0);
+/**
+ * Ce que coûte un appel, d'après le registre des modèles. En euros.
+ *
+ * Le tarif se lit SOUS LE FOURNISSEUR qui a répondu. Un tarif au niveau du palier
+ * facturerait un appel DeepSeek au prix de Vertex — un coût faux, affiché avec l'aplomb
+ * d'un coût mesuré. `null` quand le tarif n'est pas déclaré : l'écran dit alors « tarif
+ * inconnu », ce qui est exact, plutôt que zéro, qui serait une mesure.
+ */
+export function cout({ tier, jetons, fournisseur = 'vertex' }, models = []) {
+  const tarif = models.find((m) => m.tier === tier)?.tarifs?.[fournisseur];
+  if (!tarif || !jetons) return null;
+  return (jetons.entree / 1e6) * (tarif.entree_mtok || 0)
+       + (jetons.sortie / 1e6) * (tarif.sortie_mtok || 0);
 }
 
 export default { createVertex, identifiants, signer, modelePour, cout, VertexError };

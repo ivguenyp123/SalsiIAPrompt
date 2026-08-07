@@ -33,7 +33,7 @@ import { fileURLToPath } from 'node:url';
 
 import yaml from './lib/yaml.js';
 import { makeValidator } from './lib/schema.js';
-import { createVertex } from './runtime/vertex.js';
+import { createMoteur } from './runtime/moteur.js';
 import { executer, etat, DOSSIERS } from './runtime/api.js';
 import { chemin } from './lib/entrees.js';
 
@@ -66,7 +66,7 @@ function dependances() {
       return rel ? lire(rel) : null;
     },
     lireEntree: (e) => readFileSync(join(ROOT, chemin(e)), 'utf8'),
-    creerVertex: () => createVertex({ models })
+    creerVertex: () => createMoteur({ models })
   };
 }
 

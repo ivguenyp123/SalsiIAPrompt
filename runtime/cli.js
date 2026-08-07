@@ -2,7 +2,7 @@
 /*
  * Lancer un artefact du registre contre Vertex — pour de vrai.
  *
- *   node runtime/cli.js <id> [--var=valeur ...] [--cas=<id de cas d'or>]
+ *   node runtime/cli.js <id> [--var=valeur ...] [--cas=<id>] [--sensibilite=…] [--assume]
  *
  *   node runtime/cli.js expliquer-un-code --cas=gc-01-module-court
  *   node runtime/cli.js optimiser-une-requete-sql --repo=demo-data --requete="SELECT ..."
@@ -14,7 +14,9 @@
  * Sortie 0 si le contrat est satisfait, 1 sinon. Un code de sortie, pas une impression :
  * c'est ce qui permettra de brancher ça dans un pipeline.
  *
- * Identifiants : voir runtime/vertex.js. Rien n'est lu depuis le dépôt.
+ * Le fournisseur vient de l'environnement — Vertex ou DeepSeek — et s'affiche : dans un
+ * registre gouverné, savoir QUI a répondu n'est pas un détail. Identifiants : voir
+ * runtime/vertex.js et runtime/deepseek.js. Rien n'est lu depuis le dépôt.
  */
 import { readFileSync, existsSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
@@ -22,7 +24,8 @@ import { fileURLToPath } from 'node:url';
 
 import yaml from '../lib/yaml.js';
 import { makeValidator } from '../lib/schema.js';
-import { createVertex, cout, VertexError } from './vertex.js';
+import { cout, VertexError } from './vertex.js';
+import { createMoteur } from './moteur.js';
 import { lancer, valeursDepuisContexte } from './lancer.js';
 import { chemin } from '../lib/entrees.js';
 import { ERROR } from '../lint/index.js';
@@ -76,15 +79,23 @@ if (options.cas) {
 }
 
 for (const [cle, valeur] of Object.entries(options)) {
-  if (cle === 'cas' || cle === 'depot' || cle === 'criticite' || cle === 'assume') continue;
+  if (['cas', 'depot', 'criticite', 'assume', 'sensibilite'].includes(cle)) continue;
   valeurs[cle] = valeur;
 }
 
 /* ── Le contexte d'exécution ───────────────────────────────────────────────── */
 
+/*
+ * `--sensibilite` par défaut à `interne`, comme l'écran d'exécution.
+ *
+ * Sans elle, P002 dirait « je ne sais pas » à CHAQUE lancement et réclamerait `--assume`
+ * à chaque fois — une option qu'on finit par taper sans lire, ce qui vide le mécanisme
+ * de son sens. Le jour où le référentiel des dépôts existe, elle viendra de lui.
+ */
 const contexte = {
   registres,
-  depot: { path: options.depot || 'local/banc', scope: artifact.owner?.scope },
+  depot: { path: options.depot || 'local/banc', scope: artifact.owner?.scope,
+           sensibilite: options.sensibilite || 'interne' },
   criticite: options.criticite || 'test'
 };
 
@@ -93,20 +104,20 @@ const contexte = {
 const cadre = (t) => `\n  ${t}\n  ${'─'.repeat(64)}`;
 console.log(cadre(`${artifact.title || id} — ${etiquette}`));
 
-let vertex;
+let moteur;
 try {
-  vertex = createVertex({ models });
+  moteur = createMoteur({ models });
 } catch (error) {
   console.error(`\n  ✕ ${error.message}\n`);
   process.exit(1);
 }
 
-console.log(`  modèle    ${vertex.modele(artifact.model_tier)}  ·  palier ${artifact.model_tier || 'mid'}`);
-console.log(`  projet    ${vertex.project} · ${vertex.region}`);
+console.log(`  modèle    ${moteur.modele(artifact.model_tier)}  ·  palier ${artifact.model_tier || 'mid'}`);
+console.log(`  via       ${moteur.fournisseur} · ${moteur.ou}`);
 
 let r;
 try {
-  r = await lancer(artifact, { vertex, valeurs, contexte, models,
+  r = await lancer(artifact, { vertex: moteur, valeurs, contexte, models,
                                assume: options.assume === true || options.assume === 'oui' });
 } catch (error) {
   const detail = error instanceof VertexError && error.status ? ` (HTTP ${error.status})` : '';

@@ -44,8 +44,10 @@ export const ID_VALIDE = /^[a-z][a-z0-9-]{0,63}$/;
 export function etat({ creerVertex, models = [] } = {}) {
   try {
     const v = creerVertex();
-    return { pret: true, projet: v.project, region: v.region,
-             paliers: models.map((m) => ({ tier: m.tier, modele: m.vertex })) };
+    // `fournisseur` et `ou` plutôt que projet/région : l'écran doit pouvoir l'afficher
+    // sans savoir à qui il parle, et il DOIT l'afficher.
+    return { pret: true, fournisseur: v.fournisseur, ou: v.ou,
+             paliers: models.map((m) => ({ tier: m.tier, modele: m[v.fournisseur] || '—' })) };
   } catch (error) {
     // Le message dit quoi poser comme variable : c'est la seule chose utile ici.
     return { pret: false, raison: error.message };

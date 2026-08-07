@@ -716,7 +716,7 @@ function ouvrirExecution(entry) {
     partir.disabled = !m.pret;
     if (m.pret) {
       actions.append(el('span', { className: 'note',
-        textContent: `${m.projet} · ${m.region} · palier ${artifact.model_tier || 'mid'}` }));
+        textContent: `${m.fournisseur} · ${m.ou} · palier ${artifact.model_tier || 'mid'}` }));
       return;
     }
     moteurBloc.textContent = '';
