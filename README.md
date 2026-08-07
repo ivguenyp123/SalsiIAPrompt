@@ -54,17 +54,20 @@ Jusqu'ici le registre décrivait des capacités. Il en **exécute** maintenant, 
 ou l'autre de deux fournisseurs.
 
 ```bash
-# DeepSeek — une clé, rien d'autre. Le plus court chemin pour essayer.
-export DEEPSEEK_API_KEY=sk-…
+cp .env.exemple .env      # puis remplis la clé dedans
+npm start                 # l'écran, sur http://localhost:8080
+npm run agent -- expliquer-un-code --cas=gc-01-module-court
+```
 
-# ou Vertex AI
-export VERTEX_PROJECT=lcl-ia-preprod
-export VERTEX_LOCATION=europe-west9          # Paris. Défaut : europe-west1
-export GOOGLE_SERVICE_ACCOUNT_JSON="$(cat cle.json)"
-#   ou : export GOOGLE_APPLICATION_CREDENTIALS=/chemin/vers/cle.json
+`.env` est ignoré par git **et** refusé par `test/secrets.test.js` s'il y entrait quand
+même. Node le lit lui-même — `--env-file-if-exists` — donc aucune dépendance de plus, et
+la clé ne traîne pas dans l'historique du shell comme le ferait un `export`.
 
-node runtime/cli.js expliquer-un-code --cas=gc-01-module-court
-node runtime/cli.js optimiser-une-requete-sql --repo=demo-data --requete="SELECT ..."
+Pour un essai jetable, une seule commande fait aussi l'affaire — la variable meurt avec
+le processus, et l'espace initial la garde hors de l'historique sur la plupart des shells :
+
+```bash
+ DEEPSEEK_API_KEY=sk-… npm run agent -- expliquer-un-code --cas=gc-01-module-court
 ```
 
 Le fournisseur se déduit de la clé présente, ou se force avec `SALSI_FOURNISSEUR`.

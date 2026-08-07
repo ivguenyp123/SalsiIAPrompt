@@ -8,9 +8,10 @@
     "node": ">=18"
   },
   "scripts": {
-    "start": "node serve.js",
+    "start": "node --env-file-if-exists=.env serve.js",
     "lint": "node lint/cli.js artifacts",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "agent": "node --env-file-if-exists=.env runtime/cli.js"
   },
   "devDependencies": {
     "ajv": "^8.17.1",
