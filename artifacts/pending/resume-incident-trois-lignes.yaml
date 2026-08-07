@@ -1,0 +1,74 @@
+# salsi-provenance: demande
+# besoin: un agent qui résume un incident en trois lignes pour la revue du lundi
+# demande-par: ivguenyp123
+# le: 2026-08-07
+# tours-de-correction: 2
+# modele: deepseek-chat via deepseek
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+
+id: resume-incident-trois-lignes
+kind: agent
+title: Résumé d'incident pour la revue du lundi
+owner:
+  person: ivguenyp123
+  scope: Data
+intent:
+  purpose: Produire un résumé d'incident en trois lignes pour la revue hebdomadaire du lundi.
+  not_for: Ne pas utiliser pour analyser en profondeur les causes racines ou rédiger des post-mortems détaillés.
+spec: |-
+    À partir du journal de pipeline fourni ({{journal_pipeline}}), rédige un résumé de l'incident en trois lignes maximum.
+    La première ligne doit identifier le service ou l'étape du pipeline en échec.
+    La deuxième ligne doit décrire la cause apparente de l'échec, en t'inspirant des messages d'erreur.
+    La troisième ligne doit indiquer l'impact estimé sur la livraison, par exemple un retard ou un blocage.
+    Utilise un ton factuel et direct, sans jargon technique superflu.
+    Ne mentionne pas les noms de personnes.
+    Termine le résumé par le tag `[REVUE-LUNDI]`.
+variables:
+  - name: journal_pipeline
+    source: signal
+    required: true
+    description: Le journal brut du pipeline en échec, utilisé pour identifier la cause et l'impact.
+tools:
+  - id: read_pipeline_status
+    mode: read
+    executor: llm
+criteria:
+  - target: output.sections
+    op: contains
+    value:
+      - REVUE-LUNDI
+  - target: output.length
+    op: lte
+    value: 3
+golden_cases:
+  - id: gc-01-echec-infra
+    context:
+      journal_pipeline: echec-infra
+    expect:
+      output.sections:
+        - REVUE-LUNDI
+      output.length: 3
+    runs: 5
+    pass_at_least: 4
+  - id: gc-02-echec-noye
+    context:
+      journal_pipeline: echec-noye-dans-le-bruit
+    expect:
+      output.sections:
+        - REVUE-LUNDI
+      output.length: 3
+    runs: 5
+    pass_at_least: 4
+  - id: gc-03-succes
+    context:
+      journal_pipeline: succes
+    expect:
+      output.sections:
+        - REVUE-LUNDI
+      output.length: 3
+    runs: 5
+    pass_at_least: 4
+target_level: team
+model_tier: small
