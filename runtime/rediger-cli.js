@@ -8,8 +8,13 @@
  * Une phrase entre, un artefact linté sort. Entre les deux, une boucle : le modèle écrit,
  * les 23 règles jugent, et ce qu'elles refusent repart au modèle comme travail à faire.
  * C'est la phrase du dépôt appliquée au dépôt — « l'IA traduit l'intention, le noyau
- * gouverne, l'humain valide » — et le troisième terme est ici : `--ecrire` est un geste
- * explicite, jamais le défaut.
+ * gouverne, l'humain valide ».
+ *
+ * `--ecrire` dépose dans `artifacts/pending/`, la file de validation. Il reste explicite
+ * ici pour une raison de commande, pas de gouvernance : cette commande écrit dans TON
+ * arbre de travail, et une commande qui crée un fichier sans qu'on l'ait demandé est une
+ * mauvaise commande. Au Studio, où le dépôt passe par la forge, l'envoi est direct — le
+ * relecteur de l'Admin est mieux placé que l'auteur pour trancher, c'est son rôle.
  *
  * Trois appels au maximum, c'est-à-dire le prix d'un cas d'or joué trois fois. Le
  * rédacteur est la partie la moins chère du produit ; c'est le banc d'essai qui coûte.

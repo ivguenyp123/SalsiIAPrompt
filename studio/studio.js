@@ -782,11 +782,52 @@ function ouvrirDictee() {
         ? 'Le brouillon est quand même là : une charpente à finir vaut mieux qu\'un '
           + 'formulaire vide. Applique-le, corrige ce qui reste, le verdict suit la frappe.'
         : 'Aucun cas d\'or n\'a été joué : la forme est vérifiée, pas le résultat. '
-          + 'Relis le prompt — c\'est ton métier, pas celui du modèle — puis soumets.' })));
+          + 'Envoie-le à la validation — le relecteur verra la phrase d\'origine et le '
+          + 'nombre de tours — ou ouvre-le au formulaire si tu veux le retoucher d\'abord.' })));
 
-    const appliquer = el('button', { className: 'primary', textContent: 'Appliquer au formulaire' });
+    const envoyer = el('button', { className: 'primary', textContent: '📮 Envoyer à la validation' });
+    const appliquer = el('button', { textContent: 'Ouvrir dans le formulaire' });
     const refaire = el('button', { textContent: 'Reformuler' });
     const fermer = el('button', { textContent: 'Annuler' });
+
+    /*
+     * Le dépôt direct dans la file, sans passer par le formulaire.
+     *
+     * On a d'abord obligé à relire au Studio avant de soumettre. C'était une précaution
+     * de trop : `artifacts/pending/` EST la validation humaine. Rien de ce qui s'y trouve
+     * n'est exécutable, ni visible au Catalogue, et l'écran d'Admin refuse ou accepte
+     * pièce par pièce. Le relecteur voit le même formulaire, avec le verdict du lint et
+     * le fichier entier — il est mieux placé que l'auteur pour trancher, c'est son rôle.
+     *
+     * Ce qui reste non négociable : le lint bloquant avant l'envoi — `deposer()` s'en
+     * charge, et c'est le même code que le bouton « Soumettre » — et la PROVENANCE. Un
+     * artefact rédigé par un modèle ne se présente pas comme un artefact écrit à la main :
+     * l'en-tête du fichier porte la phrase d'origine et le nombre de tours, et le message
+     * de commit aussi. Le relecteur relit autrement ce qu'une machine a écrit.
+     */
+    envoyer.onclick = async () => {
+      envoyer.disabled = true;
+      const avant = envoyer.textContent;
+      envoyer.textContent = 'Envoi…';
+
+      const entete =
+        `# Rédigé par la dictée, à partir d'une phrase, et déposé sans passer par le formulaire.\n`
+        + `# Besoin d'origine : « ${phrase.replace(/\n/g, ' ')} »\n`
+        + `# ${corps.tours.length} tour(s) de correction par le linter · ${corps.modele} via ${corps.fournisseur}\n`
+        + `# Le linter le laisse passer. Aucun cas d'or n'a été joué : ce qu'il FAIT reste à mesurer.\n\n`;
+
+      try {
+        const ok = await deposer(a, { entete, motif:
+          `Rédigé par la dictée à partir de : « ${phrase.replace(/\n/g, ' ')} ».\n`
+          + `${corps.tours.length} tour(s) de correction par le linter, modèle ${corps.modele}.` });
+        if (ok) dlg.classList.remove('on');
+      } catch (error) {
+        dire(`✕ ${error.message}`);
+      } finally {
+        envoyer.disabled = false;
+        envoyer.textContent = avant;
+      }
+    };
 
     appliquer.onclick = () => {
       /*
@@ -806,7 +847,13 @@ function ouvrirDictee() {
     refaire.onclick = () => ouvrirDictee();
     fermer.onclick = () => dlg.classList.remove('on');
 
-    reco.append(el('div', { className: 'reco-foot' }, appliquer, refaire, fermer));
+    /*
+     * Un brouillon refusé n'a PAS de bouton d'envoi. Ce n'est pas une politesse : le
+     * dépôt est refusé de toute façon par `deposer()`, et un bouton qui échoue toujours
+     * finit par se cliquer par habitude jusqu'à ce qu'on cherche à le contourner.
+     */
+    reco.append(el('div', { className: 'reco-foot' },
+      corps.abandon ? null : envoyer, appliquer, refaire, fermer));
     fil.append(reco);
 
     const euros = corps.cout === null || corps.cout === undefined
@@ -980,37 +1027,60 @@ $('salsi').onclick = (e) => { if (e.target === $('salsi')) $('salsi').classList.
 const pubMsg = $('pubMsg');
 const sayPub = (text, kind) => { pubMsg.textContent = text; pubMsg.className = `show ${kind}`; };
 
-$('publish').onclick = async () => {
-  const artifact = artefactCourant();
+/**
+ * Dépose un artefact dans la file de validation.
+ *
+ * Extrait du bouton « Soumettre » pour que la dictée emprunte EXACTEMENT le même chemin :
+ * même dossier, même branche, même lint bloquant avant l'envoi. Deux chemins de dépôt
+ * auraient divergé au premier correctif, et l'un des deux aurait fini plus permissif que
+ * l'autre — probablement celui qu'une machine emprunte.
+ *
+ * @param {object} artifact
+ * @param {object} [provenance]  { entete, motif } — ce que le relecteur doit savoir de
+ *                               l'origine du fichier. Un artefact rédigé par un modèle
+ *                               ne se présente pas comme un artefact écrit à la main.
+ * @returns {boolean} déposé ou non
+ */
+async function deposer(artifact, { entete = '', motif = '' } = {}) {
   const report = lint(artifact, ctx);
-  if (report.blocked) { sayPub('La porte est fermée : corrige les erreurs listées.', 'err'); return; }
+  if (report.blocked) {
+    sayPub('La porte est fermée : corrige les erreurs listées.', 'err');
+    return false;
+  }
 
   const repo = localStorage.getItem('salsi_ia_registry_repo');
-  if (!repo) { sayPub('Aucun dépôt de registre choisi — reviens à l\'accueil pour le sélectionner.', 'err'); return; }
+  if (!repo) {
+    sayPub('Aucun dépôt de registre choisi — reviens à l\'accueil pour le sélectionner.', 'err');
+    return false;
+  }
 
+  const path = `artifacts/pending/${artifact.id}.yaml`;
+  await createForge(session).putFile(repo, path, {
+    content: toBase64(entete + toYaml(artifact)),
+    message: `registre : soumettre ${artifact.title}\n\n`
+           + `Artefact ${artifact.id} soumis depuis le Studio par ${session.username}.\n`
+           + `${motif ? `${motif}\n` : ''}`
+           + `Lint : ${report.errors} erreur(s), ${report.warnings} avertissement(s).\n`
+           + 'En attente de validation humaine.',
+    branch: 'main'
+  });
+
+  sayPub(`✔ Soumis pour validation — ${path}. Il apparaîtra au catalogue une fois validé dans l'Admin.`, 'ok');
+  // Retour à l'établi : la soumission y apparaît « en revue ». Rester sur le formulaire
+  // laissait l'auteur sans preuve que quelque chose s'était produit.
+  montrer('liste');
+  await chargerInventaire();
+  return true;
+}
+
+$('publish').onclick = async () => {
   const button = $('publish');
   button.disabled = true;
   const label = button.textContent;
   button.textContent = 'Publication…';
-
-  const path = `artifacts/pending/${artifact.id}.yaml`;
-  try {
-    await createForge(session).putFile(repo, path, {
-      content: toBase64(toYaml(artifact)),
-      message: `registre : soumettre ${artifact.title}\n\nArtefact ${artifact.id} soumis depuis le Studio par ${session.username}.\nLint : ${report.errors} erreur(s), ${report.warnings} avertissement(s).\nEn attente de validation humaine.`,
-      branch: 'main'
-    });
-    sayPub(`✔ Soumis pour validation — ${path}. Il apparaîtra au catalogue une fois validé dans l'Admin.`, 'ok');
-    // Retour à l'établi : la soumission y apparaît « en revue ». Rester sur le formulaire
-    // laissait l'auteur sans preuve que quelque chose s'était produit.
-    montrer('liste');
-    await chargerInventaire();
-  } catch (error) {
-    sayPub(error.message, 'err');
-  } finally {
-    button.textContent = label;
-    run();
-  }
+  try { await deposer(artefactCourant()); }
+  catch (error) { sayPub(error.message, 'err'); }
+  finally { button.textContent = label; run(); }
 };
 
 $('load-example').onclick = () => apply(EXEMPLE_OK);

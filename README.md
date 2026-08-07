@@ -826,11 +826,32 @@ gouverné — et le journal des tours est **montré à l'écran**, pas caché. U
 ne montrerait que son résultat final demanderait qu'on lui fasse confiance ; c'est
 exactement ce que ce produit refuse.
 
-**L'humain valide.** Le brouillon atterrit dans le **formulaire du Studio**, pas dans la
-file. C'est l'auteur qui relit, corrige, et clique sur « Soumettre à validation » — le
-même bouton, le même commit, le même passage par `artifacts/pending/` qu'un artefact tapé
-à la main. `POST /api/rediger` n'écrit rien : un rédacteur qui pousserait directement
-dans la file de validation en ferait une formalité pour machines.
+**L'humain valide.** Le brouillon part dans `artifacts/pending/` — **la file de
+validation** — sur un clic, et c'est tout. Rien de ce qui s'y trouve n'est exécutable ni
+visible au Catalogue ; l'écran d'Admin refuse ou accepte pièce par pièce, avec le fichier
+entier et le verdict du lint sous les yeux. Le relecteur est mieux placé que l'auteur pour
+trancher : c'est son rôle, et c'était déjà le seul point de passage obligé du moment 3.
+
+Le dépôt emprunte **exactement le chemin du bouton « Soumettre »** — même fonction, même
+dossier, même branche, même lint bloquant avant l'envoi. Deux chemins auraient divergé au
+premier correctif, et l'un des deux aurait fini plus permissif que l'autre — probablement
+celui qu'une machine emprunte.
+
+Ce qui n'est pas négociable, c'est la **provenance**. Un artefact rédigé par un modèle ne
+se présente pas comme un artefact écrit à la main : l'en-tête du fichier porte la phrase
+d'origine, le nombre de tours de correction et le modèle qui a répondu, et le message de
+commit aussi. On relit autrement ce qu'une machine a écrit.
+
+```yaml
+# Rédigé par la dictée, à partir d'une phrase, et déposé sans passer par le formulaire.
+# Besoin d'origine : « un agent qui relit une requête SQL lente et propose un index »
+# 2 tour(s) de correction par le linter · deepseek-chat via deepseek
+# Le linter le laisse passer. Aucun cas d'or n'a été joué : ce qu'il FAIT reste à mesurer.
+```
+
+« Ouvrir dans le formulaire » reste là pour qui veut retoucher avant d'envoyer. Et un
+brouillon que la porte refuse n'a **pas** de bouton d'envoi : un bouton qui échoue
+toujours finit par se cliquer par habitude jusqu'à ce qu'on cherche à le contourner.
 
 ### Ce que le modèle n'a pas le droit de décider
 
