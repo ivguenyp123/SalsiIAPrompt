@@ -34,7 +34,8 @@ import { fileURLToPath } from 'node:url';
 import yaml from './lib/yaml.js';
 import { makeValidator } from './lib/schema.js';
 import { createMoteur } from './runtime/moteur.js';
-import { executer, etat, DOSSIERS } from './runtime/api.js';
+import { executer, etat, rediger, DOSSIERS } from './runtime/api.js';
+import { lint } from './lint/index.js';
 import { chemin } from './lib/entrees.js';
 import { CHEMIN, carte } from './runtime/etat-derive.js';
 
@@ -67,6 +68,11 @@ function dependances() {
       return rel ? lire(rel) : null;
     },
     lireEntree: (e) => readFileSync(join(ROOT, chemin(e)), 'utf8'),
+    // Le linter et le lecteur YAML, injectés : c'est par eux que la dictée fait juger
+    // son brouillon. LE MÊME linter que la CI et que le Studio — un rédacteur qui
+    // s'auto-évaluerait avec une copie assouplie ne prouverait rien.
+    lint,
+    parse: (texte) => yaml.parse(texte),
     // Ce que le banc d'essai a mesuré, s'il a tourné. Relu à chaque requête, comme les
     // registres : un passage qui vient de se terminer doit compter pour l'exécution
     // suivante, pas au prochain redémarrage.
@@ -121,6 +127,16 @@ createServer(async (req, res) => {
     if (url.pathname === '/api/etat') {
       const d = dependances();
       json(res, 200, etat({ creerVertex: d.creerVertex, models: d.models }));
+      return;
+    }
+
+    if (url.pathname === '/api/rediger') {
+      if (req.method !== 'POST') { json(res, 405, { erreur: 'POST attendu.' }); return; }
+      let requete;
+      try { requete = await corps(req); }
+      catch (error) { json(res, 400, { erreur: error.message }); return; }
+      const { status, corps: sortie } = await rediger(requete, dependances());
+      json(res, status, sortie);
       return;
     }
 

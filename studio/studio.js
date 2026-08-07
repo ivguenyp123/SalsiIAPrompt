@@ -475,7 +475,7 @@ function apply(form) {
  */
 function bandeauEdition() {
   const barre = document.querySelector('.toolbar .sub');
-  const texte = !state.editId ? 'les 22 règles, à la frappe · aucun LLM'
+  const texte = !state.editId ? 'les 23 règles, à la frappe · le lint n\'appelle aucun LLM'
     : state.editFrom === 'published'
       ? `correction de « ${state.editId} » — la version publiée sert jusqu'à la validation`
       : `reprise de « ${state.editId} » — republier remplacera la soumission en attente`;
@@ -598,6 +598,224 @@ function ouvrirSalsi() {
   dire('Je te pose quatre questions sur ce que tu veux OBTENIR, et je compose le reste. '
      + 'Je n\'invente rien : mes outils et mes critères viennent du registre, donc ce qui sort franchit la porte.');
   poser();
+}
+
+
+/* ── La dictée — une phrase, un artefact ──────────────────────────────────────
+ *
+ * « L'IA traduit l'intention, le noyau gouverne, l'humain valide. » La phrase est en tête
+ * du dépôt depuis le premier jour ; cet écran est l'endroit où elle devient un geste.
+ *
+ * L'IA TRADUIT   une phrase en français devient un artefact YAML complet
+ * LE NOYAU GOUVERNE  le brouillon passe au linter, et ce qu'il refuse repart au modèle
+ *                    comme travail à faire. La porte ne s'assouplit jamais.
+ * L'HUMAIN VALIDE    le résultat atterrit dans le FORMULAIRE, pas dans la file. Rien
+ *                    n'est soumis sans relecture et sans clic.
+ *
+ * Ce qui la distingue de Salsi, et ça mérite d'être dit à l'écran : Salsi compose sans
+ * LLM et ne peut donc pas se tromper de registre, mais il ne sait pas écrire ton métier.
+ * La dictée écrit le spec — et n'a aucune garantie a priori. D'où la boucle.
+ */
+
+/** Le moteur, ou la raison de son absence. Interrogé au clic : la page n'a pas de serveur. */
+async function moteurDispo() {
+  try {
+    const r = await fetch('../api/etat', { cache: 'no-cache' });
+    if (!r.ok) return { pret: false, raison: `Le serveur a répondu ${r.status}.` };
+    return await r.json();
+  } catch (error) {
+    return { pret: false, raison:
+      'Aucun moteur derrière cette page — la dictée a besoin de `npm start`, pas d\'un simple '
+      + `fichier ouvert dans le navigateur. (${error.message})` };
+  }
+}
+
+const EXEMPLES = [
+  'un agent qui relit une requête SQL lente et propose un index, sans jamais la modifier',
+  'un prompt qui résume un incident en trois lignes pour la revue du lundi',
+  'un agent qui repère les dépendances non utilisées dans un dépôt Java'
+];
+
+function ouvrirDictee() {
+  const dlg = $('salsi');
+  const fil = $('salsiFil');
+  fil.textContent = '';
+  $('salsiIcone').textContent = '✨';
+  $('salsiTitre').textContent = 'Dictée — décris ton besoin, le registre fait le reste';
+  dlg.classList.add('on');
+
+  const bulle = (classe, ...contenu) => {
+    const n = el('div', { className: `bul ${classe}` }, ...contenu);
+    fil.append(n);
+    fil.scrollTop = fil.scrollHeight;
+    return n;
+  };
+  const dire = (texte) => bulle('bot', el('div', { textContent: texte }));
+  const bas = () => { fil.scrollTop = fil.scrollHeight; };
+
+  dire('Écris ce que tu veux obtenir, en une phrase. Pas un cahier des charges — '
+     + 'une phrase, comme tu le dirais à un collègue.');
+  dire('Un modèle la traduit en artefact. Ensuite le linter le juge, et tout ce qu\'il '
+     + 'refuse repart au modèle comme correction. La porte ne bouge pas : c\'est le '
+     + 'brouillon qui s\'y plie.');
+
+  const champ = el('textarea', { placeholder: EXEMPLES[0], rows: 3 });
+  const traduire = el('button', { className: 'primary', textContent: '✨ Traduire' });
+  const annuler = el('button', { textContent: 'Annuler' });
+
+  const exemples = el('div', { className: 'dic-ex' },
+    el('span', { style: 'font-size:11px;color:var(--tm);align-self:center', textContent: 'exemples :' }));
+  for (const ex of EXEMPLES) {
+    const b = el('button', { type: 'button', textContent: ex.slice(0, 38) + '…', title: ex });
+    b.onclick = () => { champ.value = ex; champ.focus(); };
+    exemples.append(b);
+  }
+
+  const zone = el('div', { className: 'dic-zone' }, champ, exemples,
+    el('div', { className: 'reco-foot' }, traduire, annuler));
+  fil.append(zone);
+  champ.focus();
+
+  annuler.onclick = () => dlg.classList.remove('on');
+
+  traduire.onclick = async () => {
+    const phrase = champ.value.trim();
+    if (phrase.length < 10) { champ.focus(); return; }
+
+    zone.remove();
+    bulle('moi', el('div', { textContent: phrase }));
+
+    const etat = await moteurDispo();
+    if (!etat.pret) {
+      dire(`Je ne peux pas traduire : ${etat.raison}`);
+      bulle('aide', el('div', { textContent:
+        'Salsi, lui, n\'a besoin d\'aucun moteur : il compose à partir du registre. '
+        + 'C\'est le bouton « 🌱 Salsi m\'aide ».' }));
+      return;
+    }
+
+    const attente = dire(`Traduction en cours via ${etat.fournisseur}… au plus trois tours.`);
+
+    let corps;
+    try {
+      const r = await fetch('../api/rediger', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phrase, auteur: session.username,
+                               scope: readForm().ownerScope || undefined })
+      });
+      corps = await r.json();
+      if (!r.ok) throw new Error(corps.erreur || `Le serveur a répondu ${r.status}.`);
+    } catch (error) {
+      attente.remove();
+      dire(`✕ ${error.message}`);
+      return;
+    }
+    attente.remove();
+
+    /*
+     * Le journal des tours est montré, pas caché. C'est ce qui rend la boucle honnête :
+     * on voit ce que le linter a refusé, donc ce que la machine n'avait pas su faire du
+     * premier coup. Un rédacteur qui ne montrerait que son résultat final demanderait
+     * qu'on lui fasse confiance — c'est exactement ce que ce produit refuse.
+     */
+    for (const t of corps.tours) {
+      if (t.illisible) {
+        fil.append(el('div', { className: 'tour' },
+          el('span', { className: 'tic', textContent: '⚠' }),
+          el('span', {}, el('b', { textContent: `tour ${t.tour} — réponse illisible` }),
+                          el('small', { textContent: t.illisible }))));
+        continue;
+      }
+      const ok = t.erreurs === 0;
+      const detail = t.constats.filter((c) => c.severity === ERROR)
+        .map((c) => `${c.code} · ${c.message}`).join('\n');
+      fil.append(el('div', { className: 'tour' },
+        el('span', { className: 'tic', textContent: ok ? '✔' : '✕' }),
+        el('span', {}, el('b', { textContent: ok
+            ? `tour ${t.tour} — la porte est franchie`
+            : `tour ${t.tour} — ${t.erreurs} refus, renvoyés au modèle` }),
+          detail ? el('small', { textContent: detail }) : null)));
+    }
+    bas();
+
+    if (!corps.artefact) { dire('Rien de lisible n\'est sorti. Réessaie en reformulant.'); return; }
+
+    conclure(corps, phrase);
+  };
+
+  function conclure(corps, phrase) {
+    const a = corps.artefact;
+    const reco = el('div', { className: 'reco' });
+    reco.append(el('div', { className: 'reco-h', textContent: 'Le brouillon' }));
+
+    const chiffre = (n, un, pl) => `${n} ${n > 1 ? (pl || `${un}s`) : un}`;
+    const lignes = [
+      ['🏷️', a.title || '(sans titre)', a.intent?.purpose || ''],
+      ['🧩', `${chiffre((a.variables || []).length, 'variable')} · `
+           + `${chiffre((a.tools || []).length, 'outil')} · `
+           + `${chiffre((a.criteria || []).length, 'critère')} · `
+           + `${chiffre((a.golden_cases || []).length, 'cas d\'or', 'cas d\'or')}`,
+        'Les outils viennent du registre, les critères des cibles assertables : '
+        + 'le modèle n\'a pas pu en inventer, L004 et L009 les auraient refusés.'],
+      ['📐', `Niveau visé : ${a.target_level || 'experimental'}`,
+        'Plafonné à « équipe » : un niveau est un engagement, et « officiel » se '
+        + 'dérive du banc d\'essai, il ne se déclare pas.']
+    ];
+    for (const [icone, titre, sous] of lignes) {
+      reco.append(el('div', { className: 'sig' },
+        el('span', { className: 'sg-ic', textContent: icone }),
+        el('span', {}, el('b', { textContent: titre }),
+                       sous ? el('small', { textContent: sous }) : null)));
+    }
+
+    /*
+     * Ce que le linter dit, et ce qu'il ne dit PAS. Sans cette phrase, « conforme » se lit
+     * « ça marche » — alors qu'aucun cas d'or n'a été joué. C'est la même faute que la
+     * pastille « officiel » affichée comme un fait, et elle reviendrait ici par la porte
+     * de derrière.
+     */
+    reco.append(el('div', { className: 'reste' },
+      el('b', { textContent: corps.abandon
+        ? `Refusé par la porte — ${corps.report?.errors || 0} erreur(s) restantes`
+        : 'Le linter le laisse passer. Ce qu\'il FAIT reste à mesurer.' }),
+      el('small', { textContent: corps.abandon
+        ? 'Le brouillon est quand même là : une charpente à finir vaut mieux qu\'un '
+          + 'formulaire vide. Applique-le, corrige ce qui reste, le verdict suit la frappe.'
+        : 'Aucun cas d\'or n\'a été joué : la forme est vérifiée, pas le résultat. '
+          + 'Relis le prompt — c\'est ton métier, pas celui du modèle — puis soumets.' })));
+
+    const appliquer = el('button', { className: 'primary', textContent: 'Appliquer au formulaire' });
+    const refaire = el('button', { textContent: 'Reformuler' });
+    const fermer = el('button', { textContent: 'Annuler' });
+
+    appliquer.onclick = () => {
+      /*
+       * `artifactToForm` et pas une recopie champ par champ : c'est la MÊME traduction que
+       * pour reprendre un artefact publié, donc les cas d'or, le palier et les étiquettes
+       * arrivent par le même chemin déjà testé en aller-retour.
+       *
+       * `id: null` : le brouillon est un artefact NEUF, pas une reprise. Le laisser
+       * prendre l'identifiant proposé ferait croire au Studio qu'on édite un existant, et
+       * le bandeau annoncerait une correction qui n'en est pas une.
+       */
+      apply({ ...artifactToForm(a), id: null, editFrom: null,
+              ownerScope: a.owner?.scope || readForm().ownerScope });
+      dlg.classList.remove('on');
+      $('title').focus();
+    };
+    refaire.onclick = () => ouvrirDictee();
+    fermer.onclick = () => dlg.classList.remove('on');
+
+    reco.append(el('div', { className: 'reco-foot' }, appliquer, refaire, fermer));
+    fil.append(reco);
+
+    const euros = corps.cout === null || corps.cout === undefined
+      ? 'tarif inconnu' : `${(corps.cout * 100).toFixed(3)} centime(s)`;
+    bulle('aide', el('div', { textContent:
+      `${corps.tours.length} appel(s) · ${corps.modele} via ${corps.fournisseur} · `
+      + `${corps.jetons.entree} + ${corps.jetons.sortie} jetons → ${euros}` }));
+    bas();
+  }
 }
 
 
@@ -728,6 +946,7 @@ $('add-gold').onclick = () => { state.goldenCases.push(casVide()); renderGolden(
 
 $('salsi-open').onclick = ouvrirSalsi;
 $('salsi-cas').onclick = ouvrirSalsiCas;
+$('dictee-open').onclick = ouvrirDictee;
 
 /*
  * Le même appel depuis l'établi. C'est là que la question « par où je commence ? » se
@@ -738,6 +957,11 @@ $('salsi-start').onclick = () => {
   apply({ variables: [], tools: [], criteria: [], goldenCases: [] });
   montrer('editeur');
   ouvrirSalsi();
+};
+$('dictee-start').onclick = () => {
+  apply({ variables: [], tools: [], criteria: [], goldenCases: [] });
+  montrer('editeur');
+  ouvrirDictee();
 };
 $('salsi-close').onclick = () => $('salsi').classList.remove('on');
 $('salsi').onclick = (e) => { if (e.target === $('salsi')) $('salsi').classList.remove('on'); };
@@ -816,7 +1040,8 @@ function montrer(mode) {
   const liste = mode === 'liste';
   $('listView').hidden = !liste;
   $('editView').hidden = liste;
-  for (const [id, enListe] of [['new-artifact', true], ['salsi-start', true], ['back-list', false], ['load-example', false],
+  for (const [id, enListe] of [['new-artifact', true], ['salsi-start', true], ['dictee-start', true],
+                               ['back-list', false], ['load-example', false],
                                ['load-broken', false], ['reset', false], ['verdict', false], ['publish', false]]) {
     $(id).hidden = liste !== enListe;
   }

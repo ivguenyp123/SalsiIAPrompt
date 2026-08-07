@@ -95,6 +95,27 @@
              background:rgba(167,139,250,.16);font-weight:800}
   .salsi-btn:hover{background:rgba(167,139,250,.28)}
 
+  /* ── La dictée : une phrase, un artefact ──
+     Un bouton distinct de Salsi, et pas la même promesse : Salsi compose sans LLM et ne
+     peut pas se tromper de registre ; la dictée fait écrire un modèle et fait juger le
+     linter. La couleur les sépare pour qu'on ne croie pas à deux portes du même couloir. */
+  .dictee-btn{white-space:nowrap;color:#fbbf24;border-color:rgba(251,191,36,.55);
+              background:rgba(251,191,36,.14);font-weight:800}
+  .dictee-btn:hover{background:rgba(251,191,36,.26)}
+
+  .dic-zone{display:grid;gap:9px}
+  .dic-zone textarea{width:100%;min-height:76px;resize:vertical;font-size:13.5px;line-height:1.6}
+  .dic-ex{display:flex;flex-wrap:wrap;gap:6px}
+  .dic-ex button{font-size:11.5px;padding:5px 9px;color:var(--tm);font-weight:600}
+  .dic-ex button:hover{color:var(--tp)}
+
+  .tour{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;color:var(--ts);
+        padding:7px 11px;border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.22)}
+  .tour .tic{font-size:14px;line-height:1.35}
+  .tour b{color:var(--tp);display:block;font-size:12.5px}
+  .tour small{display:block;color:var(--tm);font-size:11.5px;line-height:1.55;margin-top:3px;
+              font-family:var(--fm)}
+
   #salsi{position:fixed;inset:0;background:rgba(8,5,18,.74);backdrop-filter:blur(4px);
          display:none;z-index:50;padding:30px 20px;overflow:auto}
   #salsi.on{display:block}
@@ -172,13 +193,14 @@
 
 <div class="toolbar">
   <span class="title">Studio</span>
-  <span class="sub">les 22 règles, à la frappe · aucun LLM</span>
+  <span class="sub">les 23 règles, à la frappe · le lint n'appelle aucun LLM</span>
   <span class="sp"></span>
   <button id="back-list" hidden>← Mes artefacts</button>
   <button id="load-example" hidden>Exemple conforme</button>
   <button id="load-broken" hidden>Exemple fautif</button>
   <button id="reset" hidden>Vider</button>
   <span id="verdict" class="verdict ok" hidden>—</span>
+  <button id="dictee-start" class="dictee-btn" hidden>✨ Décris-le en une phrase</button>
   <button id="salsi-start" class="salsi-btn" hidden>🌱 Salsi m'aide</button>
   <button id="new-artifact" class="primary" hidden>＋ Nouvel artefact</button>
   <button id="publish" class="primary" hidden>Soumettre à validation</button>
@@ -210,6 +232,7 @@
       <div class="aide-ligne">
         <p class="hint" style="margin:0">Tu ne sais pas par où commencer ? C'est normal —
           ce formulaire demande le résultat de la réflexion, pas son point de départ.</p>
+        <button id="dictee-open" type="button" class="dictee-btn">✨ Décris-le en une phrase</button>
         <button id="salsi-open" type="button" class="salsi-btn">🌱 Salsi m'aide</button>
       </div>
       <label for="title">Titre</label>
@@ -308,8 +331,8 @@
 <div id="salsi">
   <div class="boite">
     <header>
-      <span style="font-size:20px">🌱</span>
-      <h3>Salsi — aide à l'écriture</h3>
+      <span id="salsiIcone" style="font-size:20px">🌱</span>
+      <h3 id="salsiTitre">Salsi — aide à l'écriture</h3>
       <button id="salsi-close" type="button">Fermer</button>
     </header>
     <div id="salsiFil"></div>

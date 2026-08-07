@@ -373,7 +373,7 @@ le réparer — et son bouton est inerte : le rouvrir produirait un formulaire v
 republierait par-dessus l'original. Il échappe aussi au filtre « seulement les miens »,
 puisqu'un fichier illisible n'a pas d'owner.
 
-Derrière l'établi, le formulaire d'écriture où **les 22 règles s'exécutent à la frappe**.
+Derrière l'établi, le formulaire d'écriture où **les 23 règles s'exécutent à la frappe**.
 Deux boutons chargent un exemple conforme et un exemple fautif, pour voir la porte
 s'ouvrir et se fermer.
 
@@ -402,7 +402,7 @@ Trois principes portés par le formulaire lui-même :
 
 Un bouton à droite de la section **Identité**. Le formulaire réclame le *résultat* de la
 réflexion — titre, intention, variables, outils, critères — pas son point de départ.
-Devant une page vide, on ne sait pas par où commencer, et les 22 règles n'aident pas :
+Devant une page vide, on ne sait pas par où commencer, et les 23 règles n'aident pas :
 elles jugent ce qui est écrit, elles n'aident pas à l'écrire.
 
 Salsi renverse l'ordre : **quatre questions sur ce qu'on veut obtenir**, et l'artefact se
@@ -522,6 +522,7 @@ divergerait au premier correctif — précisément ce qu'on évite.
 | `entrees/` | la banque d'entrées — de la matière réelle, rangée par nature de signal |
 | `runtime/vertex.js` · `runtime/deepseek.js` · `runtime/moteur.js` | les fournisseurs, et le seul endroit qui choisit |
 | `runtime/resolveurs.js` | ce qui rend `criteria` exécutable, sans juge LLM |
+| `runtime/redacteur.js` · `runtime/rediger-cli.js` | la dictée : une phrase → un artefact, corrigé par le linter |
 | `runtime/banc.js` · `runtime/banc-cli.js` | le banc d'essai : joue les cas d'or, dérive le niveau |
 | `runtime/etat-derive.js` · `derive/etat.json` | la mémoire de la plateforme — mesurée, jamais écrite à la main |
 | `studio/` | le formulaire, le pont vers l'artefact, le serveur local |
@@ -784,6 +785,90 @@ une erreur 501 explicite : un commit multi-fichiers y demande de reconstruire un
 à la main, du code non trivial pour une opération que personne n'exécutera sur cette
 forge. Mieux vaut une erreur qui dit la vérité qu'une implémentation à moitié. La
 **préparation**, elle, fonctionne partout — on peut voir le plan sans pouvoir l'écrire.
+
+## ✨ La dictée — une phrase, un artefact
+
+C'est la phrase du dépôt, appliquée au dépôt :
+
+> « L'IA traduit l'intention, le noyau gouverne, l'humain valide. »
+
+```
+npm run rediger -- "un agent qui relit une requête SQL lente et propose un index"
+npm run rediger -- "…" --scope=Data --auteur=ivguenyp123 --ecrire
+```
+
+…ou, au Studio, le bouton **« ✨ Décris-le en une phrase »**.
+
+### Les trois termes, un par un
+
+**L'IA traduit.** Une phrase en français devient un artefact YAML complet — titre,
+intention, spec, variables, outils, critères, cas d'or. La consigne envoyée au modèle est
+**assemblée à partir du référentiel** : les outils disponibles sortent de
+`registries/tools.yaml`, les cibles de `targets.yaml`, les entrées de `entrees/index.yaml`.
+Rien n'est écrit en dur dans le rédacteur — le jour où un outil est ajouté au registre,
+il le connaît, et il ne peut pas proposer un outil retiré.
+
+**Le noyau gouverne.** Le brouillon passe au linter. S'il est bloqué, **les constats
+repartent au modèle comme travail à faire** — avec leurs codes, leurs chemins et son
+propre YAML, pour qu'il corrige au lieu de recommencer :
+
+```
+✕ tour 1  3 refus, renvoyés au modèle
+      🔴 L001  Schéma : propriété obligatoire manquante (`criteria`)
+      🔴 L004  Outil inconnu : `read_the_whole_internet` n'existe pas au registre
+      🔴 L008  Aucun critère : l'artefact n'est pas vérifiable au post-vol
+✔ tour 2  conforme
+```
+
+Trois tours au maximum. La porte ne s'assouplit jamais : c'est le brouillon qui s'y plie.
+C'est la seule raison pour laquelle on peut laisser un LLM écrire dans un registre
+gouverné — et le journal des tours est **montré à l'écran**, pas caché. Un rédacteur qui
+ne montrerait que son résultat final demanderait qu'on lui fasse confiance ; c'est
+exactement ce que ce produit refuse.
+
+**L'humain valide.** Le brouillon atterrit dans le **formulaire du Studio**, pas dans la
+file. C'est l'auteur qui relit, corrige, et clique sur « Soumettre à validation » — le
+même bouton, le même commit, le même passage par `artifacts/pending/` qu'un artefact tapé
+à la main. `POST /api/rediger` n'écrit rien : un rédacteur qui pousserait directement
+dans la file de validation en ferait une formalité pour machines.
+
+### Ce que le modèle n'a pas le droit de décider
+
+| | pourquoi |
+|---|---|
+| `owner.person` | c'est la personne connectée. Un artefact **engage** quelqu'un ; une machine ne désigne pas un responsable |
+| `target_level` | plafonné à `équipe`. Un niveau est un engagement, et `officiel` se **dérive** du banc d'essai |
+| `derived` | jamais écrit. `L015` le refuserait — mieux vaut ne pas produire ce qu'on devrait effacer |
+| `id` | réparé s'il n'est pas conforme au schéma : c'est une clé de fichier et d'URL, la seule valeur qu'on ne peut pas corriger après coup |
+
+Et le fichier déposé est **re-sérialisé depuis l'artefact normalisé**, jamais recopié du
+texte du modèle. Piège vécu en écrivant le module : la normalisation agit sur l'objet, si
+bien qu'écrire le YAML brut aurait déposé un fichier dont l'auteur n'est pas celui qu'on a
+linté. Un test d'aller-retour tient les deux ensemble.
+
+### Ce que ça ne dit pas
+
+« Conforme » veut dire *la forme est vérifiée* — et rien d'autre. **Aucun cas d'or n'a été
+joué** : ce que l'agent fait vraiment reste une hypothèse jusqu'au banc d'essai. L'écran le
+dit en toutes lettres, pour la même raison que la pastille « officiel — visé » existe :
+présenter une intention comme un acquis est la seule faute que ce produit ne peut pas se
+permettre.
+
+### Dictée ou Salsi ?
+
+Les deux boutons sont côte à côte, et ils ne promettent pas la même chose.
+
+| | 🌱 Salsi | ✨ La dictée |
+|---|---|---|
+| comment | quatre questions, composition depuis le registre | une phrase, un modèle |
+| LLM | aucun | oui, jusqu'à 3 appels |
+| garantie | **tout chemin produit un artefact conforme** (vérifié exhaustivement) | aucune *a priori* — d'où la boucle |
+| le spec | une charpente ; le métier reste à écrire | écrit, à relire |
+| hors ligne | oui | non : il faut `npm start` |
+
+Salsi ne peut pas se tromper de registre mais ne sait pas écrire ton métier. La dictée
+écrit le métier et peut se tromper — alors on la fait juger. Aucune des deux ne remplace
+l'autre.
 
 ## Le banc d'essai — où un niveau se mérite
 

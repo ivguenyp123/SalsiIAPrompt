@@ -28,6 +28,10 @@
  */
 import { lancer, valeursDepuisContexte } from './lancer.js';
 import { chemin } from '../lib/entrees.js';
+import { cout } from './vertex.js';
+import { rediger as redigerArtefact } from './redacteur.js';
+import { knownScopes } from '../app/scopes.js';
+import { toYaml } from '../studio/to-yaml.js';
 
 /** Les dossiers où un artefact peut vivre. Aucun chemin ne vient de la requête. */
 export const DOSSIERS = ['artifacts', 'artifacts/pending', 'artifacts/retires'];
@@ -155,4 +159,87 @@ export async function executer(requete = {}, deps = {}) {
   } };
 }
 
-export default { executer, etat, DOSSIERS, ID_VALIDE };
+/* ── La dictée ────────────────────────────────────────────────────────────── */
+
+/** Une phrase plus longue que ça n'est plus un besoin, c'est un cahier des charges. */
+export const PHRASE_MAX = 2000;
+
+/**
+ * Une phrase → un brouillon d'artefact linté.
+ *
+ * Ce que ce point d'entrée NE fait pas, et c'est le plus important : il n'écrit rien au
+ * dépôt. Il rend un brouillon, son verdict de lint et le journal des tours. C'est le
+ * Studio qui le pose dans le formulaire, et c'est un humain qui le soumet — le même
+ * bouton, le même commit, le même passage par la file de validation qu'un artefact tapé
+ * à la main. Un rédacteur qui pousserait directement dans `artifacts/pending/` ferait de
+ * la file de validation une formalité pour machines.
+ *
+ * @param {object} requete  { phrase, scope, auteur }
+ * @param {object} deps     { registres, models, creerVertex, lint, parse, tours }
+ */
+export async function rediger(requete = {}, deps = {}) {
+  const { registres = {}, models = [], creerVertex, lint, parse, tours } = deps;
+  const phrase = String(requete.phrase || '').trim();
+
+  if (phrase.length < 10) {
+    return { status: 400, corps: { erreur:
+      'Décris le besoin en une phrase — au moins quelques mots. « un agent » ne dit pas '
+      + 'ce qu\'il doit faire, et le brouillon serait générique.' } };
+  }
+  if (phrase.length > PHRASE_MAX) {
+    return { status: 400, corps: { erreur:
+      `Phrase de ${phrase.length} caractères (maximum ${PHRASE_MAX}). Au-delà, ce n'est `
+      + 'plus une intention à traduire : écris-le au formulaire.' } };
+  }
+
+  /*
+   * L'auteur vient de la REQUÊTE parce que la session vit dans l'onglet — ce serveur ne
+   * l'a pas. C'est une limite assumée et elle est dite dans le README : tant que
+   * l'identité n'est pas vérifiée côté serveur, `owner.person` est déclaratif, exactement
+   * comme quand on le tape au formulaire. Le rédacteur n'y ajoute aucune faiblesse.
+   */
+  const auteur = String(requete.auteur || '').slice(0, 64);
+  const scopes = knownScopes(registres.tools);
+  const scope = scopes.includes(requete.scope) ? requete.scope : '';
+
+  let moteur;
+  try { moteur = creerVertex(); }
+  catch (error) { return { status: 503, corps: { erreur: error.message } }; }
+
+  let r;
+  try {
+    r = await redigerArtefact({ phrase, auteur, scope },
+                              { moteur, registres, lint, parse, scopes, tours,
+                                cout, models, serialiser: toYaml });
+  } catch (error) {
+    return { status: error.status && error.status >= 400 ? error.status : 502,
+             corps: { erreur: error.message } };
+  }
+
+  return { status: 200, corps: {
+    artefact: r.artefact,
+    // Le YAML re-sérialisé depuis l'artefact NORMALISÉ, pas le texte du modèle : ce que
+    // l'écran montre doit être ce que le linter a jugé, à la ligne près.
+    yaml: r.rendu,
+    // Le rapport en entier : l'écran doit pouvoir montrer ce qui reste, pas seulement
+    // un feu vert. Un brouillon avec deux avertissements est un brouillon à finir.
+    report: r.report,
+    abandon: r.abandon,
+    // Le journal des tours est ce qui rend la boucle honnête : on voit ce que le linter
+    // a refusé, et donc ce que la machine n'avait pas su faire du premier coup.
+    tours: r.tours.map((t) => ({
+      tour: t.tour,
+      illisible: t.illisible,
+      erreurs: t.report ? t.report.errors : null,
+      avertissements: t.report ? t.report.warnings : null,
+      constats: t.report ? t.report.findings.map((f) => ({ code: f.code, severity: f.severity,
+                                                           message: f.message, path: f.path })) : []
+    })),
+    modele: moteur.modele('mid'),
+    fournisseur: moteur.fournisseur,
+    jetons: r.jetons,
+    cout: r.cout
+  } };
+}
+
+export default { executer, etat, rediger, DOSSIERS, ID_VALIDE, PHRASE_MAX };

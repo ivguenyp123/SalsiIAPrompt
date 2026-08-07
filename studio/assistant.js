@@ -6,7 +6,7 @@
  * La page d'identité demande de savoir déjà ce qu'on veut. Elle réclame un titre, une
  * intention, des variables, des outils, des critères — c'est-à-dire le résultat de la
  * réflexion, pas son point de départ. Devant un formulaire vide, on ne sait pas par où
- * commencer, et les 22 règles n'aident pas : elles jugent ce qui est écrit, elles
+ * commencer, et les 23 règles n'aident pas : elles jugent ce qui est écrit, elles
  * n'aident pas à l'écrire.
  *
  * Salsi renverse l'ordre : quatre questions sur ce qu'on veut OBTENIR, et l'artefact se
