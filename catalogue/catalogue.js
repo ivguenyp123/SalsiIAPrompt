@@ -319,12 +319,17 @@ function ouvrirPrevol(entry) {
   // on veut lancer neuf fois sur dix.
   const chemin = localStorage.getItem('salsi_ia_project_path') || '';
 
-  const depot = el('input', { value: chemin, placeholder: 'groupe/depot' });
-
   const scope = el('select');
   scope.append(el('option', { value: '', textContent: '— périmètre inconnu —' }));
   for (const s of scopes) scope.append(el('option', { value: s, textContent: s }));
   scope.value = guessScope(chemin, scopes) || '';
+
+  // Le dépôt vient du jeton. Et changer de dépôt redevine son périmètre : le laisser
+  // sur celui du précédent donnerait un verdict P004 calculé sur la mauvaise cible.
+  const depot = selecteurDepot((choisi) => {
+    scope.value = guessScope(choisi, scopes) || '';
+    run();
+  });
 
   const sensibilite = el('select');
   sensibilite.append(el('option', { value: '', textContent: '— non classé —' }));
@@ -338,7 +343,7 @@ function ouvrirPrevol(entry) {
   const champ = (libelle, controle) => el('div', {}, el('label', { textContent: libelle }), controle);
 
   form.append(el('div', { className: 'champs' },
-    champ('Dépôt cible', depot),
+    champ('Dépôt cible', depot.champ),
     champ('Périmètre du dépôt', scope),
     champ('Sensibilité du dépôt', sensibilite),
     champ('Criticité de l\'exécution', criticite)));
@@ -356,7 +361,7 @@ function ouvrirPrevol(entry) {
     for (const v of vars) {
       const input = el('input', { placeholder: v.source === 'repo' ? 'issu du dépôt' : 'saisie' });
       // Le dépôt cible remplit de lui-même ce que la plateforme saurait remplir.
-      if (v.name === 'repo') input.value = chemin.split('/').pop() || '';
+      if (v.name === 'repo') input.value = (depot.valeur() || chemin).split('/').pop() || '';
       input.oninput = () => { valeurs[v.name] = input.value; run(); };
       valeurs[v.name] = input.value;
       grille.append(champ(`{{${v.name}}}${v.required === false ? ' · facultative' : ''}`, input));
@@ -372,7 +377,7 @@ function ouvrirPrevol(entry) {
   function run() {
     const rapport = prevol(artifact, {
       registres: { ...ctx, artifacts: [] },
-      depot: { path: depot.value.trim(), scope: scope.value || undefined,
+      depot: { path: depot.valeur(), scope: scope.value || undefined,
                sensibilite: sensibilite.value || undefined },
       valeurs,
       criticite: criticite.value
@@ -404,7 +409,7 @@ function ouvrirPrevol(entry) {
     }
   }
 
-  for (const controle of [depot, scope, sensibilite, criticite]) {
+  for (const controle of [scope, sensibilite, criticite]) {
     controle.oninput = run;
     controle.onchange = run;
   }
@@ -412,6 +417,88 @@ function ouvrirPrevol(entry) {
   body.append(form);
   inner.append(body);
   run();
+  depot.remplir();
+}
+
+/*
+ * Les dépôts viennent du JETON, pas de la mémoire de l'utilisateur.
+ *
+ * Taper `groupe/sous-groupe/projet` à la main, c'est demander de connaître par cœur une
+ * chaîne qu'on ne voit jamais écrite, et se tromper d'une lettre pour un « dépôt
+ * introuvable » qu'on croira être un problème de droits. La forge sait déjà répondre :
+ * `listRepos()` rend exactement ce que le jeton peut atteindre.
+ *
+ * Le résultat est mis en cache pour la session : la liste ne bouge pas entre deux
+ * ouvertures d'un écran, et la recharger à chaque fois ferait payer une latence pour
+ * rien.
+ */
+let depotsConnus = null;
+
+async function listerDepots() {
+  if (depotsConnus) return depotsConnus;
+  depotsConnus = await forge.listRepos({ perPage: 100 });
+  return depotsConnus;
+}
+
+/**
+ * Un sélecteur de dépôt alimenté par le jeton.
+ *
+ * @param {Function} surChoix  appelée avec le chemin choisi, ou '' si rien
+ * @returns {{champ, valeur, remplir}}
+ */
+function selecteurDepot(surChoix) {
+  const select = el('select');
+  const libre = el('input', { placeholder: 'groupe/projet', hidden: true });
+  const note = el('div', { className: 'note', style: 'margin-top:5px' });
+
+  const AUTRE = '__autre__';
+  const courant = localStorage.getItem('salsi_ia_project_path') || '';
+
+  const valeur = () => (select.value === AUTRE ? libre.value.trim() : select.value);
+  const prevenir = () => surChoix(valeur());
+
+  select.onchange = () => {
+    // « Autre » n'est pas un aveu d'échec de la liste : un jeton peut atteindre un dépôt
+    // que la première centaine ne contient pas.
+    libre.hidden = select.value !== AUTRE;
+    if (!libre.hidden) libre.focus();
+    prevenir();
+  };
+  libre.oninput = prevenir;
+
+  async function remplir() {
+    select.textContent = '';
+    select.append(el('option', { value: '', textContent: '— chargement… —' }));
+    select.disabled = true;
+    try {
+      const depots = await listerDepots();
+      select.textContent = '';
+      select.append(el('option', { value: '', textContent: `— choisir parmi ${depots.length} dépôt(s) —` }));
+      for (const d of depots) {
+        select.append(el('option', { value: d.path, textContent: d.path, selected: d.path === courant }));
+      }
+      select.append(el('option', { value: AUTRE, textContent: '— autre dépôt (saisir) —' }));
+      note.textContent = `${depots.length} dépôt(s) atteignables avec ton jeton.`;
+      if (courant && !depots.some((d) => d.path === courant)) {
+        // Le dépôt de travail choisi à l'accueil n'est pas dans la liste : on ne le perd
+        // pas en silence, on le propose quand même.
+        select.append(el('option', { value: courant, textContent: `${courant} (dépôt de travail)`, selected: true }));
+      }
+    } catch (error) {
+      // Un jeton restreint à un seul dépôt ne peut pas lister les autres. Ce n'est pas
+      // une panne : c'est le jeton qui fait son travail. On bascule en saisie.
+      select.textContent = '';
+      select.append(el('option', { value: AUTRE, textContent: '— saisir le dépôt —', selected: true }));
+      libre.hidden = false;
+      libre.value = courant;
+      note.textContent = `Liste indisponible (${error.message}) — saisis le chemin à la main.`;
+    } finally {
+      select.disabled = false;
+      prevenir();
+    }
+  }
+
+  return { champ: el('div', {}, select, libre, note), valeur, remplir };
 }
 
 /*
@@ -452,10 +539,12 @@ function ouvrirLancement(entry) {
   const body = el('div', { className: 'body' });
   const form = el('div', { className: 'pv' });
 
-  const depot = el('input', { value: localStorage.getItem('salsi_ia_project_path') || '',
-                              placeholder: 'groupe/projet' });
   const branche = el('select');
-  branche.append(el('option', { value: '', textContent: '— charger les branches —' }));
+  branche.append(el('option', { value: '', textContent: '— choisis un dépôt —' }));
+
+  // Choisir un dépôt charge ses branches : un bouton « charger » de plus serait une
+  // étape que l'utilisateur n'a aucune raison de vouloir décider lui-même.
+  const depot = selecteurDepot(() => { oublierPlan(); chargerBranches(); });
 
   const bump = el('span', { className: 'seg' });
   let bumpChoisi = 'patch';
@@ -466,13 +555,13 @@ function ouvrirLancement(entry) {
   }
 
   const champ = (libelle, controle) => el('div', {}, el('label', { textContent: libelle }), controle);
-  form.append(el('div', { className: 'champs' }, champ('Dépôt cible', depot), champ('Branche à livrer', branche)));
+  form.append(el('div', { className: 'champs' },
+    champ('Dépôt cible', depot.champ), champ('Branche à livrer', branche)));
   form.append(champ('Incrément de version', bump));
 
-  const charger = el('button', { textContent: 'Charger les branches' });
   const preparer_ = el('button', { className: 'primary', textContent: 'Préparer la livraison' });
   const livrer = el('button', { className: 'primary', textContent: '✋ Confirmer et livrer', hidden: true });
-  form.append(el('div', { className: 'acts' }, charger, preparer_, livrer));
+  form.append(el('div', { className: 'acts' }, preparer_, livrer));
 
   const etat = el('div', { className: 'verdict ok', hidden: true });
   const plan = el('div', { className: 'planbox', hidden: true });
@@ -495,12 +584,16 @@ function ouvrirLancement(entry) {
   const consommerPlan = () => { planCourant = null; livrer.hidden = true; };
 
   branche.onchange = oublierPlan;
-  depot.oninput = () => { oublierPlan(); branche.textContent = ''; branche.append(el('option', { value: '', textContent: '— charger les branches —' })); };
 
-  charger.onclick = async () => {
-    const repoCible = depot.value.trim();
-    if (!repoCible) return dire('Indique le dépôt à livrer.', true);
-    charger.disabled = true;
+  async function chargerBranches() {
+    const repoCible = depot.valeur();
+    branche.textContent = '';
+    if (!repoCible) {
+      branche.append(el('option', { value: '', textContent: '— choisis un dépôt —' }));
+      return;
+    }
+    branche.append(el('option', { value: '', textContent: '— chargement… —' }));
+    branche.disabled = true;
     try {
       const [info, branches] = await Promise.all([forge.projectInfo(repoCible), forge.listBranches(repoCible)]);
       brancheCible = info.defaultBranch;
@@ -513,12 +606,14 @@ function ouvrirLancement(entry) {
       }
       dire(`${branches.length} branche(s) · cible de la MR : ${brancheCible}`);
     } catch (error) {
+      branche.textContent = '';
+      branche.append(el('option', { value: '', textContent: '— illisible —' }));
       dire(error.message, true);
-    } finally { charger.disabled = false; }
-  };
+    } finally { branche.disabled = false; }
+  }
 
   preparer_.onclick = async () => {
-    const repoCible = depot.value.trim();
+    const repoCible = depot.valeur();
     if (!repoCible || !branche.value) return dire('Choisis un dépôt et une branche.', true);
     preparer_.disabled = true;
     dire('Lecture du dépôt…');
@@ -569,7 +664,7 @@ function ouvrirLancement(entry) {
     livrer.disabled = true;
     dire('Écriture…');
     try {
-      const r = await executerLivraison(forge, depot.value.trim(), planCourant,
+      const r = await executerLivraison(forge, depot.valeur(), planCourant,
         { branche: branche.value, brancheCible, auteur: session.username });
 
       const lignes = [`✔ Commit ${r.commit.sha?.slice(0, 8)} sur ${branche.value}`];
@@ -596,6 +691,7 @@ function ouvrirLancement(entry) {
 
   body.append(form);
   inner.append(body);
+  depot.remplir();
 }
 
 const section = (title, content) => el('section', {}, el('h4', { textContent: title }), content);
