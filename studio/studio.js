@@ -195,9 +195,11 @@ const casVide = () => ({
 });
 
 /** Une ligne clé/valeur, quel que soit le nom du champ-clé. */
-function ligne(rows, i, champCle, controleCle, onDelete) {
+function ligne(rows, i, champCle, controleCle, onDelete, onChange) {
   const value = el('input', { value: rows[i].value ?? '', placeholder: 'valeur' });
-  value.oninput = () => { rows[i].value = value.value; run(); };
+  // `onChange` sert à rafraîchir ce qui DÉPEND de la valeur sans reconstruire la liste :
+  // reconstruire ferait perdre le curseur à chaque frappe.
+  value.oninput = () => { rows[i].value = value.value; run(); onChange?.(); };
 
   const del = el('button', { className: 'del', textContent: '✕', title: 'retirer' });
   del.onclick = onDelete;
@@ -239,30 +241,39 @@ function renderGolden() {
 
     // ── Contexte : ce que le cas fournit en entrée ──
     bloc.append(el('h5', { textContent: 'Contexte fourni au cas' }));
-    g.context.forEach((row, i) => {
-      const cle = el('input', { value: row.key ?? '', placeholder: 'repo' });
-      // `list` n'a qu'un accesseur en lecture : il se pose en attribut, pas en propriété.
-      cle.setAttribute('list', 'declared-vars');
-      cle.oninput = () => { row.key = cle.value; run(); };
-      bloc.append(ligne(g.context, i, 'key', cle,
-        () => { g.context.splice(i, 1); renderGolden(); run(); }));
-    });
     /*
      * Ce sur quoi le cas se joue VRAIMENT.
      *
      * Une clé `*_fixture` ne désigne pas une chaîne, elle désigne un fichier de la
      * banque. Afficher `diff_fixture = petit-fix` et s'arrêter là obligerait l'auteur à
      * aller ouvrir le fichier pour savoir ce qu'il teste — donc à ne pas le faire.
+     *
+     * Le bloc se redessine à CHAQUE frappe : une ligne qui resterait à « ✔ petit fix »
+     * pendant qu'on tape autre chose serait pire que pas de ligne du tout.
      */
-    for (const row of g.context) {
-      const nom = natureDeCle(row.key);
-      if (!nom) continue;
-      const e = entreeDeLaBanque(entrees, nom, row.value);
-      bloc.append(el('div', { className: `src ${e ? 'ok' : 'ko'}`, textContent: e
-        ? `📄 ${e.titre} — ${e.lignes} ligne(s) · ${chemin(e)}`
-        : `⚠ aucune entrée « ${row.value} » de nature « ${nom} » à la banque (L023)` }));
-    }
+    const sources = el('div');
+    const majSources = () => {
+      sources.textContent = '';
+      for (const row of g.context) {
+        const nom = natureDeCle(row.key);
+        if (!nom) continue;
+        const e = entreeDeLaBanque(entrees, nom, row.value);
+        sources.append(el('div', { className: `src ${e ? 'ok' : 'ko'}`, textContent: e
+          ? `📄 ${e.titre} — ${e.lignes} ligne(s) · ${chemin(e)}`
+          : `⚠ aucune entrée « ${row.value} » de nature « ${nom} » à la banque (L023)` }));
+      }
+    };
 
+    g.context.forEach((row, i) => {
+      const cle = el('input', { value: row.key ?? '', placeholder: 'repo' });
+      // `list` n'a qu'un accesseur en lecture : il se pose en attribut, pas en propriété.
+      cle.setAttribute('list', 'declared-vars');
+      cle.oninput = () => { row.key = cle.value; run(); majSources(); };
+      bloc.append(ligne(g.context, i, 'key', cle,
+        () => { g.context.splice(i, 1); renderGolden(); run(); }, majSources));
+    });
+    bloc.append(sources);
+    majSources();
     const addCtx = el('button', { className: 'mini sub', textContent: '＋ entrée' });
     addCtx.onclick = () => { g.context.push({ key: '', value: '' }); renderGolden(); run(); };
     bloc.append(addCtx);
