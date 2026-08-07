@@ -241,3 +241,66 @@ describe('l\'état, pour que l\'écran ne propose pas un bouton qui échouera', 
     }
   });
 });
+
+/*
+ * ── L'AUTO-RESSERRAGE ────────────────────────────────────────────────────────
+ *
+ * Le desserrage du pré-vol (P005/P006 en confirmation plutôt qu'en refus) n'a été
+ * acceptable que sur une promesse : « le jour où le banc mesure un niveau, le refus
+ * revient tout seul, sans toucher au code ». Ces deux tests vérifient que la promesse
+ * est tenue — le MÊME artefact, la MÊME requête, et le verdict qui bascule parce qu'une
+ * mesure est arrivée.
+ */
+describe('le pré-vol se resserre quand le banc a mesuré', () => {
+  const enProduction = { ...REQUETE, criticite: 'production' };
+
+  test('sans mesure : confirmation humaine, l\'exécution reste possible', async () => {
+    const { status, corps } = await executer(enProduction, deps());
+    assert.equal(status, 409);
+    assert.equal(corps.confirmationRequise, true);
+    assert.ok(corps.raisons.some((r) => r.code === 'P006'));
+
+    const assume = await executer({ ...enProduction, assume: true }, deps());
+    assert.equal(assume.status, 200, 'un humain peut assumer un niveau non mesuré');
+  });
+
+  test('avec une mesure insuffisante : refus, et `assume` n\'y peut plus rien', async () => {
+    const derive = { 'expliquer-un-code': { level: 'experimental' } };
+    const { status, corps } = await executer({ ...enProduction, assume: true }, deps({ derive }));
+    assert.equal(status, 409);
+    assert.match(corps.raison, /P006/);
+    assert.ok(corps.constats.some((c) => c.code === 'P006' && /MESURÉ/.test(c.message)),
+              'le refus doit dire qu\'il porte sur un fait, pas sur une déclaration');
+  });
+
+  test('un niveau mesuré ne suffit pas : il faut aussi une certification', async () => {
+    // P006 est satisfait — le niveau est là, et il est mesuré. P005 ne l'est pas : les
+    // cas d'or n'ont jamais été JOUÉS sur ce modèle. Les deux contrôles ne disent pas la
+    // même chose, et c'est voulu : l'un porte sur le rang, l'autre sur la preuve.
+    const derive = { 'expliquer-un-code': { level: 'team' } };
+    const { status, corps } = await executer(enProduction, deps({ derive }));
+    assert.equal(status, 409);
+    assert.ok(corps.raisons.some((r) => r.code === 'P005'));
+    assert.ok(!corps.raisons.some((r) => r.code === 'P006'), 'P006, lui, est satisfait');
+  });
+
+  test('niveau mesuré ET certification valide : ça passe, sans rien assumer', async () => {
+    const dans30j = new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
+    const derive = { 'expliquer-un-code': {
+      level: 'team',
+      certification: { model_version: 'gemini-test', expires_on: dans30j }
+    } };
+    const { status } = await executer(enProduction, deps({ derive }));
+    assert.equal(status, 200);
+  });
+
+  test('une certification périmée refuse, quel que soit le niveau', async () => {
+    const derive = { 'expliquer-un-code': {
+      level: 'officiel',
+      certification: { model_version: 'gemini-test', expires_on: '2020-01-01' }
+    } };
+    const { status, corps } = await executer({ ...REQUETE, assume: true }, deps({ derive }));
+    assert.equal(status, 409);
+    assert.match(corps.raison, /P005/);
+  });
+});

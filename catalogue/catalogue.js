@@ -20,6 +20,7 @@ import { preparer as preparerLivraison, executer as executerLivraison } from '..
 import { knownScopes, guessScope } from '../app/scopes.js';
 import { makeValidator } from '../lib/schema.js';
 import yaml from '../lib/yaml.js';
+import { carte } from '../runtime/etat-derive.js';
 
 /*
  * `cache: 'no-cache'` sur les référentiels — pas une coquetterie.
@@ -61,6 +62,27 @@ let scopes = [];       // périmètres connus, dérivés du registre des outils
 
 /* ── Chargement ───────────────────────────────────────────────────────────── */
 
+/*
+ * L'état DÉRIVÉ, s'il existe.
+ *
+ * C'est ce fichier qui fait basculer la pastille de « officiel — visé », en pointillés,
+ * à « officiel » tout court. Il n'existe qu'après un passage au banc d'essai
+ * (`node runtime/banc-cli.js <id> --go`) — donc pas du tout, tant que personne n'a joué
+ * les cas d'or.
+ *
+ * Absent, il rend `null`, et c'est la bonne valeur : `null` fait taire L016, P005 et P006
+ * au lieu de leur faire dire « jamais certifié » sur tout le catalogue. Une plateforme
+ * sans mesure ne doit pas ressembler à une plateforme dont tout échoue.
+ */
+async function etatDerive() {
+  try {
+    const r = await fetch('../derive/etat.json', FRAIS);
+    return r.ok ? carte(await r.json()) : null;
+  } catch {
+    return null;                            // pas de banc, pas de mesure : on ne devine pas
+  }
+}
+
 async function load() {
   if (!repo) {
     return fail('Aucun dépôt de registre choisi.',
@@ -69,13 +91,14 @@ async function load() {
   $('source').textContent = `lu dans ${repo} · artifacts/`;
   
 
-  const [tools, targets, entrees, schema] = await Promise.all([
+  const [tools, targets, entrees, schema, derive] = await Promise.all([
     fetch('../registries/tools.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t).tools),
     fetch('../registries/targets.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t).targets),
     fetch('../entrees/index.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t)),
-    fetch('../schema/artifact.schema.json', FRAIS).then((r) => r.json())
+    fetch('../schema/artifact.schema.json', FRAIS).then((r) => r.json()),
+    etatDerive()
   ]);
-  ctx = { tools, targets, entrees, validateArtifact: makeValidator(schema) };
+  ctx = { tools, targets, entrees, derive, validateArtifact: makeValidator(schema) };
   scopes = knownScopes(tools);
 
   let files;

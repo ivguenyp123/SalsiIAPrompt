@@ -14,6 +14,7 @@ import yaml from '../lib/yaml.js';
 
 import { lint, ERROR, WARN } from '../lint/index.js';
 import { makeValidator } from '../lib/schema.js';
+import { prevol } from '../preflight/index.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const loadYaml = (p) => yaml.load(readFileSync(p, 'utf8'));
@@ -121,20 +122,41 @@ describe('L016 — certification', () => {
   });
 
   test('refuse une certification périmée', () => {
-    const derived = { 'prep-delivery': { certification: { model_version: 'gemini-2.5-pro-2026-04', expires_on: '2026-11-20' } } };
-    const report = lint(a, { ...ctx, derived, now: new Date('2027-01-15') });
+    const derive = { 'prep-delivery': { certification: { model_version: 'gemini-2.5-pro-2026-04', expires_on: '2026-11-20' } } };
+    const report = lint(a, { ...ctx, derive, now: new Date('2027-01-15') });
     assert.ok(codes(report, ERROR).includes('L016'));
   });
 
   test('accepte une certification en cours de validité', () => {
-    const derived = { 'prep-delivery': { certification: { model_version: 'gemini-2.5-pro-2026-04', expires_on: '2026-11-20' } } };
-    const report = lint(a, { ...ctx, derived, now: new Date('2026-08-05') });
+    const derive = { 'prep-delivery': { certification: { model_version: 'gemini-2.5-pro-2026-04', expires_on: '2026-11-20' } } };
+    const report = lint(a, { ...ctx, derive, now: new Date('2026-08-05') });
     assert.ok(!codes(report, ERROR).includes('L016'));
   });
 
-  test('refuse un artefact jamais certifié quand l\'état dérivé est joignable', () => {
-    const report = lint(a, { ...ctx, derived: {}, now: new Date('2026-08-05') });
-    assert.ok(codes(report, ERROR).includes('L016'));
+  test('avertit — sans refuser — sur un artefact jamais certifié', () => {
+    // Même raisonnement que P005 : « périmée » est un fait mesuré, « jamais certifié »
+    // est une absence de mesure. Refuser sur l'absence mettrait au rouge tout artefact
+    // qui n'est pas encore passé au banc — c'est-à-dire tous, le jour du premier passage.
+    const report = lint(a, { ...ctx, derive: {}, now: new Date('2026-08-05') });
+    assert.ok(!codes(report, ERROR).includes('L016'));
+    assert.ok(codes(report, WARN).includes('L016'));
+  });
+
+  /*
+   * La régression que ce test empêche a vraiment eu lieu : L016 lisait `ctx.derived` et
+   * le pré-vol `ctx.derive`. Les deux couches se croyaient branchées sur le même état et
+   * l'une des deux ne voyait jamais rien. Une seule clé, vérifiée par les deux.
+   */
+  test('le lint et le pré-vol lisent la MÊME clé d\'état dérivé', () => {
+    const derive = { 'prep-delivery': { certification: { model_version: 'x', expires_on: '2026-11-20' } } };
+    const vu = lint(a, { ...ctx, derive, now: new Date('2026-08-05') });
+    assert.ok(!codes(vu, WARN).includes('L016'), 'le lint doit voir la certification');
+
+    const av = prevol(a, { registres: { tools: ctx.tools, targets: ctx.targets },
+                           depot: { path: 'demo/x', scope: a.owner.scope, sensibilite: 'interne' },
+                           criticite: 'test', derive, now: new Date('2026-08-05') });
+    assert.ok(!av.constats.some((c) => c.code === 'P005' && /jamais passé/.test(c.message)),
+              'le pré-vol doit voir la même certification');
   });
 });
 

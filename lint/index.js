@@ -56,14 +56,14 @@ export const RULES = [
  *   @param {Array}  ctx.tools             registre des outils
  *   @param {Array}  ctx.targets           registre des cibles assertables
  *   @param {Array}  [ctx.artifacts]       les autres artefacts, pour L015
- *   @param {object} [ctx.derived]         état dérivé indexé par id, pour L016
+ *   @param {object} [ctx.derive]          état dérivé indexé par id, pour L016
  *   @param {Date}   [ctx.now]             injectée pour rendre L016 testable
  *   @param {object} [ctx.entrees]         manifeste de la banque d'entrées, pour L023
  *   @param {Function} [ctx.validateArtifact]  validateur de schéma, pour L001
  * @returns {{findings:Array, blocked:boolean, errors:number, warnings:number}}
  */
 export function lint(artifact, ctx = {}) {
-  const context = { tools: [], targets: [], artifacts: [], derived: null, entrees: null, ...ctx };
+  const context = { tools: [], targets: [], artifacts: [], derive: null, entrees: null, ...ctx };
   const findings = [];
 
   for (const rule of RULES) {

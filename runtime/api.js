@@ -58,11 +58,11 @@ export function etat({ creerVertex, models = [] } = {}) {
  * Exécute un artefact.
  *
  * @param {object} requete  { id, valeurs, cas, criticite, depot, assume }
- * @param {object} deps     { charger, banque, registres, models, creerVertex, lireEntree }
+ * @param {object} deps     { charger, banque, registres, models, creerVertex, lireEntree, derive }
  * @returns {{status, corps}}  status HTTP et corps JSON — le serveur ne décide rien
  */
 export async function executer(requete = {}, deps = {}) {
-  const { charger, banque, registres, models = [], creerVertex, lireEntree } = deps;
+  const { charger, banque, registres, models = [], creerVertex, lireEntree, derive = null } = deps;
   const id = String(requete.id || '');
 
   if (!ID_VALIDE.test(id)) {
@@ -99,8 +99,16 @@ export async function executer(requete = {}, deps = {}) {
   try { vertex = creerVertex(); }
   catch (error) { return { status: 503, corps: { erreur: error.message } }; }
 
+  /*
+   * `derive` est ce que le banc d'essai a MESURÉ. Le passer ici est ce qui resserre le
+   * pré-vol tout seul, sans toucher à P005 ni à P006 : tant qu'il vaut `null`, un niveau
+   * insuffisant se confirme d'une case cochée ; dès qu'un passage a eu lieu, le même
+   * constat devient un refus, parce qu'il porte alors sur un fait et non sur une
+   * déclaration. C'était la promesse écrite dans le pré-vol le jour du desserrage.
+   */
   const contexte = {
     registres,
+    derive,
     depot: { path: requete.depot || 'local/execution', scope: artifact.owner?.scope,
              sensibilite: requete.sensibilite || undefined },
     criticite: requete.criticite || 'test'

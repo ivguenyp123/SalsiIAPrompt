@@ -515,10 +515,17 @@ divergerait au premier correctif — précisément ce qu'on évite.
 | `schema/target-registry.schema.json` | forme du registre des cibles assertables |
 | `registries/tools.yaml` | les outils réels, avec `mode`, `executor` et périmètres |
 | `registries/targets.yaml` | les cibles qu'un critère a le droit de viser |
+| `registries/models.yaml` | les paliers, leur modèle réel chez chaque fournisseur, et les tarifs |
 | `lib/yaml.js` · `lib/schema.js` | lecteur YAML et évaluateur JSON Schema maison, sans dépendance |
-| `lint/` | les 22 règles |
+| `lint/` | les 23 règles |
+| `preflight/` | les sept contrôles du moment 4 |
+| `entrees/` | la banque d'entrées — de la matière réelle, rangée par nature de signal |
+| `runtime/vertex.js` · `runtime/deepseek.js` · `runtime/moteur.js` | les fournisseurs, et le seul endroit qui choisit |
+| `runtime/resolveurs.js` | ce qui rend `criteria` exécutable, sans juge LLM |
+| `runtime/banc.js` · `runtime/banc-cli.js` | le banc d'essai : joue les cas d'or, dérive le niveau |
+| `runtime/etat-derive.js` · `derive/etat.json` | la mémoire de la plateforme — mesurée, jamais écrite à la main |
 | `studio/` | le formulaire, le pont vers l'artefact, le serveur local |
-| `artifacts/` | les artefacts du registre (deux exemples canoniques) |
+| `artifacts/` | les artefacts du registre |
 | `fixtures/invalid/` · `fixtures/warn/` | une fixture par règle, adossée aux tests |
 
 Le linter tourne à l'identique **en CI et dans le navigateur** : rien n'a de dépendance,
@@ -778,13 +785,117 @@ une erreur 501 explicite : un commit multi-fichiers y demande de reconstruire un
 forge. Mieux vaut une erreur qui dit la vérité qu'une implémentation à moitié. La
 **préparation**, elle, fonctionne partout — on peut voir le plan sans pouvoir l'écrire.
 
+## Le banc d'essai — où un niveau se mérite
+
+`target_level: officiel` est une ligne que l'auteur écrit. Le Catalogue l'affichait
+« officiel — visé », en pointillés, parce que **rien ne l'avait mesuré**. Les cas d'or
+étaient dans le même état : `L010` les compte, `L017` vérifie qu'ils assertent quelque
+chose, `L023` qu'ils jouent sur une entrée qui existe — et personne ne les jouait jamais.
+Trois règles pour garder des tests que rien n'exécute : le défaut classique de la
+gouvernance de papier, reproduit à l'intérieur de l'outil censé la remplacer.
+
+Le banc les joue.
+
+```
+npm run banc -- expliquer-un-code                 # le PLAN, sans rien dépenser
+npm run banc -- expliquer-un-code --go            # le passage, et l'état dérivé
+npm run banc -- expliquer-un-code --runs=1 --go   # un tour par cas, pour voir
+npm run banc -- --tout                            # le plan du catalogue entier
+```
+
+**Sans `--go`, il n'appelle rien.** C'est la seule commande du dépôt qui dépense en
+boucle : cinq cas d'or à cinq exécutions font vingt-cinq appels pour un artefact, et le
+catalogue entier en demande 262. Le compte s'affiche avant, avec une estimation de coût
+annoncée comme grossière. Découvrir la facture après n'est pas une option dans un produit
+qui se vend sur le FinOps.
+
+### Ce qu'il produit, et rien d'autre
+
+| | d'où ça vient |
+|---|---|
+| `level` | le nombre de cas d'or qui **passent**, contre les seuils de `L010` |
+| `certification` | la preuve datée, attachée au **modèle** qui a répondu |
+
+Les deux atterrissent dans `derive/etat.json`, que le Catalogue, l'Admin et le pré-vol
+lisent. `L010` compte les cas **déclarés** pour autoriser une ambition ; le banc compte
+ceux qui **tiennent**. Même barème, appliqué à la preuve au lieu de l'intention.
+
+Deux garde-fous sur la dérivation :
+
+- le niveau **visé plafonne** le niveau atteint — un artefact qui vise `équipe` n'est pas
+  promu `officiel` dans le dos de son auteur ; le niveau l'engage
+- un seul cas en échec **interdit `officiel`** — c'est le niveau qui ouvre la production,
+  le décerner en sachant qu'un scénario déclaré casse serait exactement le mensonge que la
+  pastille « visé » avait été inventée pour éviter
+
+Et la certification n'est décernée qu'à un passage **complet et sans échec**. Un cas non
+concluant — attente non résolue, appel sans réponse — la refuse aussi : ce n'est pas un
+échec de l'agent, c'est un « on ne sait pas », donc pas une preuve.
+
+### `expect: { output.length: 900 }` — ce que « 900 » veut dire
+
+Une attente de cas d'or porte une valeur et pas d'opérateur. Il a fallu décider, et
+surtout ne pas l'inventer : **l'opérateur implicite est le premier que le registre des
+cibles déclare pour cette cible**. Sur `output.length`, `ops` commence par `lte` — « la
+sortie tient en 900 caractères », ce que voulaient dire tous les cas écrits jusqu'ici. Sur
+`output.contains_secret`, `ops: [eq]` — égalité stricte. Ce n'est donc pas une convention
+du banc, c'est une lecture du référentiel, et réordonner `ops` est une modification de
+contrat. Un auteur qui veut autre chose l'écrit : `output.length: { op: gte, value: 300 }`.
+
+### Un LLM n'est pas reproductible
+
+D'où `runs` / `pass_at_least`, imposés par `L017` : un cas joué une fois est un tirage,
+pas une porte. Le banc joue *k* fois et compare au seuil **déclaré par l'auteur** — il ne
+le choisit pas, il l'applique. Sans `pass_at_least`, le seuil implicite est *toutes* : le
+plus strict, parce que choisir le plus permissif transformerait l'oubli que `L017` signale
+en cadeau.
+
+Un appel qui n'aboutit pas n'est **pas** compté comme un échec de l'agent. Sinon un niveau
+chuterait sur une coupure réseau. C'est une mesure qui n'a pas eu lieu, et ça se dit
+autrement — la même distinction que « non résolu » au post-vol.
+
+### Le desserrage du pré-vol était une promesse. Elle est tenue.
+
+`P005` et `P006` ont été desserrés — confirmation humaine au lieu de refus — sur un
+argument : tant qu'aucun banc ne tourne, **aucun** artefact ne peut être certifié, et
+refuser là-dessus reviendrait à interdire la production à tout le catalogue au nom d'un
+outil qui n'existe pas. La contrepartie était écrite dans le code : *le jour où le banc
+mesure un niveau, le refus revient tout seul, sans toucher au code.*
+
+Il revient. `runtime/api.js` passe désormais `derive` au contexte du pré-vol, et le même
+constat bascule :
+
+| état | `P006` en production |
+|---|---|
+| aucune mesure | 🟡 confirmation — quelqu'un assume |
+| niveau mesuré insuffisant | 🔴 refus — « ce niveau a été MESURÉ » |
+| niveau mesuré suffisant | rien à dire |
+
+Aucune ligne de `preflight/index.js` n'a changé pour ça. Quatre tests dans
+`test/api.test.js` vérifient la bascule sur le **même** artefact et la **même** requête.
+
+### Ce qu'il ne fait pas
+
+Il ne résout pas les cibles de classe `state` — `pipeline.status`, `tests.passed`,
+`branch.mergeable`. Elles portent sur l'état du monde après exécution : il leur faut un
+dépôt jetable, une CI isolée, un reset entre deux passages. Le banc les compte **non
+résolues**, et un cas qui n'en asserte que de celles-là ne peut pas être certifié. Les
+compter comme satisfaites ferait certifier un agent sur des vérifications qui n'ont pas eu
+lieu — la faute exacte que ce dépôt existe pour empêcher.
+
+`derive/etat.json` ne conserve **ni sortie de modèle ni prompt rendu**. Une sortie peut
+contenir ce qu'on lui a donné à lire — un extrait de dépôt, un journal de pipeline. On
+garde le verdict, pas la matière.
+
 ## Ce que ce socle ne fait pas encore
 
 Le lint est la **couche 1** du moment 2. Restent à construire, dans l'ordre du document :
 
-- le **banc d'essai** (couche 2) — c'est l'item le plus cher de la vague 2 : il lui faut
-  des dépôts fixtures, une CI isolée et un reset entre exécutions
-- le **moteur d'exécution** (moment 5) — le pré-vol rend le verdict, rien ne lance encore
+- le **banc d'essai sur cibles `state`** — le banc joue les cas d'or et dérive le niveau,
+  mais seulement sur les cibles de classe `form`. `pipeline.status` et `tests.passed`
+  demandent des dépôts fixtures, une CI isolée et un reset entre exécutions : c'est ce qui
+  reste le plus cher de la vague 2
+- l'**écriture** (moment 5, second temps) — `lancer()` n'appelle aucun outil `mode: write` ;
+  un artefact qui déclare `bump_image_tag` voit sa sortie évaluée, rien n'est écrit
 - la **capture d'outcome** (moment 7), qui rend toutes les métriques défendables
 - le **référentiel des dépôts**, sans lequel `P002` et `P004` restent déclaratifs
-- la **capture d'outcome** (moment 7), qui rend toutes les métriques défendables

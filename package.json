@@ -11,7 +11,8 @@
     "start": "node --env-file-if-exists=.env serve.js",
     "lint": "node lint/cli.js artifacts",
     "test": "node --test test/*.test.js",
-    "agent": "node --env-file-if-exists=.env runtime/cli.js"
+    "agent": "node --env-file-if-exists=.env runtime/cli.js",
+    "banc": "node --env-file-if-exists=.env runtime/banc-cli.js"
   },
   "devDependencies": {
     "ajv": "^8.17.1",

@@ -72,7 +72,7 @@ export function L015(artifact, ctx) {
 }
 
 /**
- * L016 — Certification présente et non périmée. 🔴 (contextuelle)
+ * L016 — Certification présente et non périmée. 🔴 / 🟡 (contextuelle)
  *
  * La certification est DÉRIVÉE : elle est octroyée par la plateforme après passage du
  * banc d'essai, elle n'est pas écrite par l'auteur. Elle ne figure donc pas dans le
@@ -82,13 +82,28 @@ export function L015(artifact, ctx) {
  * surtout au pré-vol (moment 4), qui est son vrai point d'application : « agent périmé
  * ou non recertifié sur le modèle courant ». Sans état dérivé, la règle s'abstient
  * plutôt que de produire un faux verdict.
+ *
+ * DEUX SÉVÉRITÉS, pour la même raison que P005 :
+ *   PÉRIMÉE, c'est un fait mesuré — la certification a existé, elle a une fin, elle est
+ *   passée : 🔴.
+ *   JAMAIS CERTIFIÉ, c'est une absence de mesure. Depuis que le banc existe, un artefact
+ *   peut l'être ; il ne l'est pas encore le jour où on l'écrit, et refuser là-dessus
+ *   mettrait tout le catalogue au rouge à la seconde où le premier passage a lieu — un
+ *   fichier d'état dérivé qui n'accuse que les artefacts absents de lui-même. 🟡.
+ *
+ * `ctx.derive`, sans « d » final : la même clé que le pré-vol, `lib/niveau.js` et l'écran
+ * du parc. Elle a longtemps différé ici, et la règle ne voyait donc jamais l'état que le
+ * reste de la plateforme lisait.
  */
 export function L016(artifact, ctx) {
-  if (!ctx.derived) return [];
+  if (!ctx.derive) return [];
 
-  const cert = ctx.derived[artifact?.id]?.certification;
+  const cert = ctx.derive[artifact?.id]?.certification;
   if (!cert) {
-    return [finding('L016', ERROR, 'Aucune certification enregistrée : l\'artefact n\'a jamais passé le banc d\'essai.', 'id')];
+    return [finding('L016', WARN,
+      'Aucune certification enregistrée : l\'artefact n\'a jamais passé le banc d\'essai. ' +
+      'Ses cas d\'or n\'ont donc jamais été joués — ce qu\'il fait vraiment reste une hypothèse.',
+      'id')];
   }
 
   const now = ctx.now instanceof Date ? ctx.now : new Date();

@@ -36,6 +36,7 @@ import { makeValidator } from './lib/schema.js';
 import { createMoteur } from './runtime/moteur.js';
 import { executer, etat, DOSSIERS } from './runtime/api.js';
 import { chemin } from './lib/entrees.js';
+import { CHEMIN, carte } from './runtime/etat-derive.js';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 8080);
@@ -66,6 +67,11 @@ function dependances() {
       return rel ? lire(rel) : null;
     },
     lireEntree: (e) => readFileSync(join(ROOT, chemin(e)), 'utf8'),
+    // Ce que le banc d'essai a mesuré, s'il a tourné. Relu à chaque requête, comme les
+    // registres : un passage qui vient de se terminer doit compter pour l'exécution
+    // suivante, pas au prochain redémarrage.
+    derive: existsSync(join(ROOT, CHEMIN))
+      ? carte(JSON.parse(readFileSync(join(ROOT, CHEMIN), 'utf8'))) : null,
     creerVertex: () => createMoteur({ models })
   };
 }

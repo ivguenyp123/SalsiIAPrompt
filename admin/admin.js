@@ -37,6 +37,7 @@ import yaml from '../lib/yaml.js';
 import { depuisCommits, parJour, resume, horsParcours, ACTIONS } from './journal.js';
 import { STATUTS, DOSSIERS, inventaireParc, compter, filtrer } from './parc.js';
 import { niveau } from '../lib/niveau.js';
+import { carte } from '../runtime/etat-derive.js';
 
 /*
  * `cache: 'no-cache'` sur les référentiels — pas une coquetterie.
@@ -52,6 +53,27 @@ import { niveau } from '../lib/niveau.js';
  * onglet.
 */
 const FRAIS = { cache: 'no-cache' };
+
+/*
+ * L'état DÉRIVÉ, s'il existe.
+ *
+ * C'est ce fichier qui fait basculer la pastille de « officiel — visé », en pointillés,
+ * à « officiel » tout court. Il n'existe qu'après un passage au banc d'essai
+ * (`node runtime/banc-cli.js <id> --go`) — donc pas du tout, tant que personne n'a joué
+ * les cas d'or.
+ *
+ * Absent, il rend `null`, et c'est la bonne valeur : `null` fait taire L016, P005 et P006
+ * au lieu de leur faire dire « jamais certifié » sur tout le catalogue. Une plateforme
+ * sans mesure ne doit pas ressembler à une plateforme dont tout échoue.
+ */
+async function etatDerive() {
+  try {
+    const r = await fetch('../derive/etat.json', FRAIS);
+    return r.ok ? carte(await r.json()) : null;
+  } catch {
+    return null;                            // pas de banc, pas de mesure : on ne devine pas
+  }
+}
 
 const session = requireSession('../app/login.html');
 if (!session) await new Promise(() => {});
@@ -97,13 +119,14 @@ async function load() {
 
     
   if (!ctx) {
-    const [tools, targets, entrees, schema] = await Promise.all([
+    const [tools, targets, entrees, schema, derive] = await Promise.all([
       fetch('../registries/tools.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t).tools),
       fetch('../registries/targets.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t).targets),
       fetch('../entrees/index.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t)),
-      fetch('../schema/artifact.schema.json', FRAIS).then((r) => r.json())
+      fetch('../schema/artifact.schema.json', FRAIS).then((r) => r.json()),
+      etatDerive()
     ]);
-    ctx = { tools, targets, entrees, validateArtifact: makeValidator(schema) };
+    ctx = { tools, targets, entrees, derive, validateArtifact: makeValidator(schema) };
   }
 
   let files;
@@ -380,9 +403,10 @@ async function chargerParc() {
 
   try {
     const lots = await Promise.all(DOSSIERS.map(([, d]) => lire(d)));
-    // `ctx.derive` n'existe pas encore — aucun banc d'essai ne tourne. Le passer quand
-    // même est ce qui fera basculer les niveaux de « visé » à « atteint » le jour venu,
-    // sans revenir ici.
+    // `ctx.derive` vient de `derive/etat.json`, écrit par le banc d'essai. Il vaut `null`
+    // tant que personne n'a joué de cas d'or : les niveaux restent alors « visé ». Le
+    // basculement en « atteint » s'est fait sans revenir ici — c'était tout l'intérêt de
+    // le passer avant qu'il existe.
     pvue.entrees = inventaireParc(Object.fromEntries(DOSSIERS.map(([s], i) => [s, lots[i]])), ctx.derive);
     pvue.charge = true;
   } catch (error) {

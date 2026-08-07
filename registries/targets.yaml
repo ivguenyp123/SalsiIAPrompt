@@ -7,6 +7,16 @@
 # Les cibles `form` sont ce qui rend la porte franchissable pour les agents de LECTURE
 # (expliquer, commenter, générer un message de commit) : ils n'ont aucun état du monde à
 # assertir, mais leur sortie a une forme vérifiable.
+#
+# ── L'ORDRE DE `ops` COMPTE ──────────────────────────────────────────────────
+#
+# Le PREMIER opérateur de la liste est celui qu'un cas d'or applique quand il n'en écrit
+# aucun. `expect: { output.length: 900 }` ne porte pas d'opérateur ; le banc d'essai lit
+# celui-ci, et « 900 » veut donc dire « tient en 900 caractères » et non « fait exactement
+# 900 caractères » — ce qu'aucune sortie de LLM ne serait jamais. Réordonner `ops` change
+# le sens de tous les cas d'or qui visent la cible : c'est une modification de contrat,
+# pas de présentation. Un auteur qui veut autre chose l'écrit en toutes lettres :
+# `output.length: { op: gte, value: 300 }`.
 
 targets:
   # ── class: state ─────────────────────────────────────────────────────────
