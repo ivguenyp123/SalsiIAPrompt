@@ -1,0 +1,84 @@
+id: test
+kind: prompt
+title: test
+owner:
+  person: ivguenyp123
+  scope: Data
+intent:
+  purpose: ca sert a cela
+  not_for: "Ne pas utiliser pour décider d'une action : cet artefact explique, il ne tranche pas."
+spec: |-
+    Tu interviens sur le dépôt {{repo}}.
+
+    Le travail porte sur la branche {{branche}}.
+
+    Expliquer en respectant ces règles :
+    - va au fait : une personne pressée doit comprendre en dix secondes
+    - n'invente rien : si une information manque, dis qu'elle manque
+    - structure ta réponse en sections courtes et titrées
+
+    <!-- Précise ici ce qui est propre à ton métier : ce que Salsi ne peut pas deviner. -->
+variables:
+  - name: repo
+    source: repo
+  - name: branche
+    source: user
+tools:
+  - id: read_pipeline_status
+    mode: read
+    executor: llm
+criteria:
+  - target: output.sections
+    op: exists
+    value: true
+  - target: output.contains_secret
+    op: eq
+    value: false
+golden_cases:
+  - id: gc-01-nominal
+    context:
+      repo: repo-exemple
+      branche: branche-exemple
+    expect:
+      output.sections: "true"
+      output.contains_secret: false
+    runs: 5
+    pass_at_least: 5
+  - id: gc-02-limite
+    context:
+      repo: repo-exemple
+      branche: branche-exemple
+    expect:
+      output.sections: "true"
+      output.contains_secret: false
+    runs: 5
+    pass_at_least: 4
+    expects_violation: true
+  - id: gc-03-refuse
+    context:
+      repo: repo-refuse
+      branche: branche-refuse
+    expect:
+      output.contains_secret: true
+    runs: 3
+    pass_at_least: 3
+    expects_violation: true
+  - id: gc-04-sans-donnees
+    context:
+      repo: repo-sans-donnees
+      branche: branche-sans-donnees
+    expect:
+      output.contains_secret: true
+    runs: 3
+    pass_at_least: 3
+    expects_violation: true
+  - id: gc-05-refuse
+    context:
+      repo: repo-refuse
+      branche: branche-refuse
+    expect:
+      output.contains_secret: true
+    runs: 3
+    pass_at_least: 3
+    expects_violation: true
+target_level: team
