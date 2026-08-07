@@ -308,6 +308,41 @@ Et le raisonnement est **montré** : une ligne par question, qui nomme la décis
 conséquence et la règle concernée. Un choix qu'on ne comprend pas, on le subit — et on ne
 saura pas le corriger quand le contexte changera.
 
+### 🌱 Salsi les écrit — l'aide aux cas d'or
+
+Le bloc le plus obscur du formulaire : quatre concepts d'un coup — contexte, attente,
+`runs`, `pass_at_least` — dans un vocabulaire que personne n'a jamais vu. Et le mur n'est
+pas la difficulté d'un cas, c'est d'en écrire **cinq**.
+
+Salsi ne demande qu'une chose, en français : **quel genre de situation**.
+
+| Situation | k/n | pourquoi |
+|---|---|---|
+| ✅ Le cas courant | 5/5 | le cas courant ne se rate pas |
+| ⚖️ Un cas limite | 4/5 | un LLM n'est pas reproductible, un cas rare tolère un raté |
+| 🚫 Un cas qui doit être **refusé** | 3/3 | et le drapeau `expects_violation` est posé tout seul |
+| 🕳️ Une entrée vide | 3/3 | ne rien inventer est un comportement, pas une chance |
+
+**Tout le reste est déjà dans l'artefact**, il suffit de ne pas le redemander : le contexte
+vient des variables déclarées, l'attente des critères déclarés. Réutiliser les critères
+n'est pas une facilité — c'est ce qui rend le cas **cohérent par construction**, donc
+`L022` satisfaite sans y penser. Un générateur qui produirait cinq cas contredisant les
+critères ferait apparaître cinq avertissements, et l'auteur conclurait que l'aide est
+cassée.
+
+Le vocabulaire disparaît aussi : on ne demande pas `expects_violation`, on demande *« ce
+cas doit-il être refusé ? »*. La réponse pose le drapeau. Et pour un cas de refus, Salsi
+dérive une valeur qui **viole vraiment** le critère — le marquer sans que la contradiction
+soit réelle serait un mensonge, et la règle se tairait sans raison.
+
+Deux refus assumés :
+
+- **`matches` est écarté** de l'attente d'un cas qui doit passer. Produire une chaîne
+  satisfaisant une expression régulière quelconque ne se dérive pas ; proposer le motif
+  comme valeur serait faux — un motif ne se correspond pas à lui-même.
+- **Les cas sont AJOUTÉS**, jamais substitués. Écraser ce qu'on avait commencé seul
+  punirait celui qui a essayé avant de demander de l'aide.
+
 ### Les cas d'or, et pourquoi l'échelle de maturité tenait à eux
 
 Le formulaire n'avait pas de champ pour les cas d'or. Conséquence, invisible et totale :

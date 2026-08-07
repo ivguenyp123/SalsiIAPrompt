@@ -22,6 +22,7 @@ import { formToArtifact } from './form-to-artifact.js';
 import { artifactToForm, restoreCarried } from './artifact-to-form.js';
 import { inventaire, aCorriger, ETATS } from './inventory.js';
 import { QUESTIONS, composer } from './assistant.js';
+import { SITUATIONS, PROPOSITIONS, composerCas } from './assistant-cas.js';
 import { toYaml } from './to-yaml.js';
 
 const session = requireSession('../app/login.html');
@@ -555,6 +556,100 @@ function ouvrirSalsi() {
   poser();
 }
 
+
+/* ── Salsi — les cas d'or ─────────────────────────────────────────────────────
+ *
+ * Le formulaire demande quatre concepts d'un coup, dans un vocabulaire que personne n'a
+ * jamais vu. Ici on ne demande qu'une chose, en français : QUEL GENRE de situation.
+ *
+ * Tout le reste est déjà dans l'artefact — le contexte vient des variables déclarées,
+ * l'attente des critères déclarés. Ne pas les redemander est ce qui rend les cas
+ * cohérents par construction, donc L022 satisfaite sans y penser.
+ */
+function ouvrirSalsiCas() {
+  const dlg = $('salsi');
+  const fil = $('salsiFil');
+  fil.textContent = '';
+  dlg.classList.add('on');
+
+  const bulle = (classe, texte) => {
+    const n = el('div', { className: `bul ${classe}` }, el('div', { textContent: texte }));
+    fil.append(n); fil.scrollTop = fil.scrollHeight; return n;
+  };
+
+  const form = readForm();
+  const niveau = form.targetLevel || 'experimental';
+  const requis = GOLDEN_THRESHOLDS[niveau] ?? 0;
+
+  bulle('bot', 'Les cas d\'or, c\'est ce qui rejoue ton artefact quand le modèle change. '
+             + 'Sans eux, une montée de version se constate en production.');
+  bulle('bot', `Tu vises « ${niveau} » : ${requis === 0 ? 'aucun n\'est exigé, mais un seul change déjà tout' : `il en faut ${requis}`}. `
+             + 'Je n\'ai besoin que d\'une chose — le genre de situation. Le reste, je le prends dans tes variables et tes critères.');
+
+  if (!form.criteria.some((c) => c?.target)) {
+    bulle('aide', 'Attention : tu n\'as aucun critère déclaré. Je peux composer les cas, '
+                + 'mais ils n\'attendront rien — remplis d\'abord les critères, ce sera bien plus utile.');
+  }
+
+  const choisies = [...(PROPOSITIONS[niveau] || PROPOSITIONS.experimental)];
+
+  const liste = el('div', { className: 'choix' });
+  const reco = el('div', { className: 'reco' });
+  fil.append(liste, reco);
+
+  function dessiner() {
+    liste.textContent = '';
+    for (const [i, id] of choisies.entries()) {
+      const s = SITUATIONS.find((x) => x.id === id);
+      const del = el('button', { className: 'del', textContent: '✕', title: 'retirer' });
+      del.onclick = () => { choisies.splice(i, 1); dessiner(); };
+      liste.append(el('div', { className: 'opt', style: 'cursor:default' },
+        el('span', { className: 'ic', textContent: s.icone }),
+        el('span', { style: 'flex:1' }, el('b', { textContent: s.titre }), el('small', { textContent: s.pourquoi })),
+        del));
+    }
+
+    const ajout = el('div', { className: 'choix', style: 'margin-top:8px' });
+    for (const s of SITUATIONS) {
+      const b = el('button', { className: 'opt' },
+        el('span', { className: 'ic', textContent: s.icone }),
+        el('span', {}, el('b', { textContent: `＋ ${s.titre}` }), el('small', { textContent: s.sous })));
+      b.onclick = () => { choisies.push(s.id); dessiner(); };
+      ajout.append(b);
+    }
+    liste.append(ajout);
+
+    reco.textContent = '';
+    const manque = requis - choisies.length;
+    reco.append(el('div', { className: 'reco-h',
+      textContent: manque > 0 ? `${choisies.length} cas — il en manque ${manque} pour « ${niveau} »`
+                              : `${choisies.length} cas — le seuil de « ${niveau} » est atteint` }));
+    reco.append(el('div', { className: 'reste' },
+      el('b', { textContent: 'Ce qui reste à toi' }),
+      el('small', { textContent:
+        'Les valeurs du contexte sont des exemples lisibles, pas tes vraies données. '
+        + 'Remplace-les par des dépôts et des branches qui existent — c\'est ce qui rendra le banc d\'essai utile.' })));
+
+    const appliquer = el('button', { className: 'primary', textContent: `Ajouter ces ${choisies.length} cas` });
+    appliquer.disabled = choisies.length === 0;
+    appliquer.onclick = () => {
+      const actuel = readForm();
+      const cas = composerCas({ situations: choisies, variables: actuel.variables,
+                                criteria: actuel.criteria, targets });
+      // On AJOUTE : écraser les cas déjà écrits punirait celui qui a commencé seul.
+      state.goldenCases.push(...cas.map(({ pourquoi, ...c }) => c));
+      renderGolden(); run();
+      dlg.classList.remove('on');
+    };
+    const annuler = el('button', { textContent: 'Annuler' });
+    annuler.onclick = () => dlg.classList.remove('on');
+    reco.append(el('div', { className: 'reco-foot' }, appliquer, annuler));
+    fil.scrollTop = fil.scrollHeight;
+  }
+
+  dessiner();
+}
+
 // ── Câblage ──────────────────────────────────────────────────────────────────
 for (const id of ['title', 'purpose', 'notFor', 'spec']) $(id).oninput = run;
 for (const id of ['kind', 'targetLevel', 'ownerScope']) $(id).onchange = run;
@@ -565,6 +660,7 @@ $('add-crit').onclick = () => { state.criteria.push({ target: '', op: 'eq', valu
 $('add-gold').onclick = () => { state.goldenCases.push(casVide()); renderGolden(); run(); };
 
 $('salsi-open').onclick = ouvrirSalsi;
+$('salsi-cas').onclick = ouvrirSalsiCas;
 
 /*
  * Le même appel depuis l'établi. C'est là que la question « par où je commence ? » se
