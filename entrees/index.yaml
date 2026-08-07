@@ -114,3 +114,55 @@ natures:
         fichier: pipeline-log/succes.txt
         lignes: 51
         origine: SalsiIAPrompt, run 31154646845, job « lint » — extrait de la fin du journal.
+
+  - nature: code
+    titre: Un fichier de code source
+    quoi: >
+      Le contenu brut d'un fichier, tel que l'éditeur le montre. Ce que reçoit tout
+      agent qui explique, relit, teste ou refactore.
+    entrees:
+      - id: petit-module
+        genre: nominal
+        titre: Un module court et lisible
+        resume: >
+          72 lignes, une seule responsabilité — le bascule de thème clair/sombre.
+          Le cas où une explication doit être courte et juste.
+        fichier: code/petit-module.js
+        lignes: 72
+        origine: Salsifi, js/theme.js @main
+
+      - id: regles-metier
+        genre: nominal
+        titre: Des règles métier, denses
+        resume: >
+          350 lignes de règles de suggestion : beaucoup de conditions, peu de structure
+          apparente. C'est là qu'un résumé se trompe de sujet le plus facilement.
+        fichier: code/regles-metier.js
+        lignes: 350
+        origine: Salsifi, js/hub/suggestions/rules.js @main
+
+      - id: fichier-fleuve
+        genre: limite
+        titre: Un fichier fleuve
+        resume: 1 992 lignes de rendu. Ne tient dans aucune fenêtre confortable.
+        fichier: code/fichier-fleuve.js
+        lignes: 1992
+        origine: Salsifi, js/modules/secrets-scanner/render.js @main
+
+      - id: pas-du-code
+        genre: refus
+        titre: Ce n'est pas du code
+        resume: >
+          Une feuille de style. Il n'y a ni logique ni intention à expliquer, et
+          l'agent doit le dire au lieu de raconter quelque chose.
+        fichier: code/pas-du-code.css
+        lignes: 193
+        origine: Salsifi, css/core/tokens.css @main
+
+      - id: vide
+        genre: vide
+        titre: Fichier vide
+        resume: Rien du tout. Le dépôt n'a pas ce qu'il faut — l'agent doit le constater.
+        fichier: code/vide.txt
+        lignes: 0
+        origine: Fichier vide, volontairement.

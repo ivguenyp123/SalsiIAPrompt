@@ -1,0 +1,97 @@
+# Un agent qui ne touche pas au code du tout. Il est ici parce que le découpage d'une
+# story est exactement le genre de tâche où l'IA fait gagner une heure de réunion — et
+# parce qu'un registre qui ne contiendrait que des agents de développeur raterait la
+# moitié de ses utilisateurs.
+
+id: decouper-une-user-story
+kind: prompt
+title: Découper une user story
+owner:
+  person: ivguenyp123
+  scope: Data
+tags: [agilite, cadrage]
+moment: cadrage
+
+intent:
+  purpose: >
+    Découper une user story trop grosse en tranches livrables indépendamment, chacune
+    apportant de la valeur seule.
+  not_for: >
+    Ne pas utiliser pour estimer une charge ni pour arbitrer une priorité : le découpage
+    est une question de valeur, l'estimation une question d'équipe.
+
+spec: |
+  Tu découpes cette user story de l'équipe qui travaille sur {{repo}}.
+
+  Structure ta réponse ainsi, avec ces titres exactement :
+  ## Pourquoi elle est trop grosse
+  ## Les tranches
+  ## Ce que je n'ai pas su découper
+
+  Règles :
+  - entre deux et cinq tranches, jamais plus
+  - chaque tranche est livrable SEULE et apporte quelque chose à quelqu'un : un
+    découpage par couche technique n'en est pas un
+  - chaque tranche porte un critère d'acceptation vérifiable, pas une intention
+  - « Ce que je n'ai pas su découper » dit ce qui manque comme information, s'il
+    manque quelque chose. Sinon écris « rien ».
+  - si la story est déjà assez petite, dis-le et arrête-toi
+
+  Story :
+  {{story}}
+
+variables:
+  - name: repo
+    source: repo
+    required: true
+    description: Dépôt de l'équipe, pour situer le domaine métier.
+  - name: story
+    source: user
+    required: true
+    description: L'énoncé de la story, collé par l'utilisateur.
+
+tools:
+  - id: read_repo_metadata
+    mode: read
+    executor: llm
+
+criteria:
+  - target: output.sections
+    op: exists
+    value: true
+  - target: output.length
+    op: lte
+    value: 2500
+  - target: output.contains_secret
+    op: eq
+    value: false
+
+golden_cases:
+  - id: gc-01-story-trop-grosse
+    context: { repo: demo-front, story: "En tant que client je veux gerer mon profil complet avec photo, preferences, historique et export de mes donnees" }
+    expect: { output.sections: true, output.length: 2000 }
+    runs: 5
+    pass_at_least: 5
+
+  - id: gc-02-story-a-la-limite
+    context: { repo: demo-front, story: "En tant que client je veux changer mon mot de passe et recevoir un courriel de confirmation" }
+    expect: { output.sections: true }
+    runs: 5
+    pass_at_least: 4
+
+  - id: gc-03-story-deja-petite
+    context: { repo: demo-front, story: "En tant que client je veux voir mon numero de contrat sur la page d'accueil" }
+    expect: { output.length: 700 }
+    runs: 3
+    pass_at_least: 3
+
+  - id: gc-04-enonce-vide
+    context: { repo: demo-front, story: " " }
+    expect: { output.length: 300 }
+    runs: 3
+    pass_at_least: 3
+
+target_level: team
+model_tier: small
+classification:
+  max_repo_sensitivity: interne

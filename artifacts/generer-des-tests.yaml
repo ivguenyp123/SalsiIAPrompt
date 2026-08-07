@@ -1,0 +1,110 @@
+# Un agent qui écrit du code, mais qui ne l'écrit nulle part : il rend un patch, et c'est
+# l'humain qui l'applique. `output.patch_applies` et `output.files_touched` rendent cette
+# sortie vérifiable sans exécuter quoi que ce soit.
+
+id: generer-des-tests
+kind: agent
+title: Générer des tests unitaires
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [tests, qualite]
+moment: commit
+
+intent:
+  purpose: >
+    Proposer des tests unitaires pour un fichier qui n'en a pas, sous forme de patch
+    applicable, en couvrant d'abord les chemins d'erreur.
+  not_for: >
+    Ne pas utiliser pour des tests d'intégration ni de bout en bout : ils demandent un
+    environnement que cet agent ne connaît pas et produiraient des tests qui ne passent
+    nulle part.
+
+spec: |
+  Tu proposes des tests unitaires pour ce fichier du dépôt {{repo}}, en {{stack}}.
+
+  Rends UNIQUEMENT un patch au format diff unifié, sans commentaire autour.
+
+  Règles :
+  - un seul fichier de test créé, à côté du fichier testé
+  - commence par les chemins d'ERREUR et les cas limites : le chemin nominal se
+    remarque tout seul quand il casse, les autres non
+  - n'invente aucune fonction ni aucun import qui n'existe pas dans le fichier fourni
+  - chaque test porte un nom qui dit ce qu'il protège, pas ce qu'il appelle
+  - si le fichier ne contient rien de testable, rends un patch vide et une seule ligne
+    d'explication en commentaire de diff
+
+  Fichier :
+  {{code}}
+
+variables:
+  - name: repo
+    source: repo
+    required: true
+    description: Dépôt concerné.
+  - name: stack
+    source: repo
+    required: true
+    description: Stack technique détectée, pour choisir le cadre de test.
+  - name: code
+    source: signal
+    required: true
+    description: Contenu du fichier à couvrir.
+
+tools:
+  - id: read_repo_metadata
+    mode: read
+    executor: llm
+  - id: run_tests
+    mode: read
+    executor: llm
+
+criteria:
+  - target: output.patch_applies
+    op: eq
+    value: true
+  - target: output.files_touched
+    op: lte
+    value: 1
+  - target: output.contains_secret
+    op: eq
+    value: false
+
+golden_cases:
+  - id: gc-01-module-court
+    context: { repo: demo-front, stack: node, code_fixture: petit-module }
+    expect: { output.patch_applies: true, output.files_touched: 1 }
+    runs: 5
+    pass_at_least: 4
+
+  - id: gc-02-regles-denses
+    context: { repo: demo-front, stack: node, code_fixture: regles-metier }
+    expect: { output.files_touched: 1 }
+    runs: 5
+    pass_at_least: 4
+
+  - id: gc-03-fichier-fleuve
+    context: { repo: demo-front, stack: node, code_fixture: fichier-fleuve }
+    expect: { output.files_touched: 1 }
+    runs: 5
+    pass_at_least: 4
+
+  # Rien à tester dans une feuille de style : le patch doit rester vide.
+  - id: gc-04-rien-a-tester
+    context: { repo: demo-front, stack: node, code_fixture: pas-du-code }
+    expect: { output.files_touched: 0 }
+    runs: 3
+    pass_at_least: 3
+    expects_violation: true
+
+  - id: gc-05-vide
+    context: { repo: demo-front, stack: node, code_fixture: vide }
+    expect: { output.files_touched: 0 }
+    runs: 3
+    pass_at_least: 3
+    expects_violation: true
+
+target_level: officiel
+model_tier: mid
+classification:
+  max_repo_sensitivity: interne

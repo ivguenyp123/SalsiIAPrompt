@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://salsi.internal/schema/model-registry.schema.json",
+  "title": "Registre des modèles",
+  "description": "Le palier déclaré par un artefact, et le modèle réel derrière. Un artefact ne nomme JAMAIS un modèle : il déclare un palier. Un nom de modèle change tous les six mois, un palier non — et surtout, le jour où le modèle change sous le prompt, c'est ce fichier qui dit quels artefacts sont concernés et dont les cas d'or doivent être rejoués.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "models"
+  ],
+  "properties": {
+    "models": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tier",
+          "vertex",
+          "description"
+        ],
+        "properties": {
+          "tier": {
+            "enum": [
+              "nano",
+              "small",
+              "mid",
+              "large"
+            ],
+            "description": "Le palier tel qu'un artefact le déclare dans `model_tier`."
+          },
+          "vertex": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Identifiant du modèle chez Vertex AI."
+          },
+          "description": {
+            "type": "string",
+            "minLength": 20,
+            "description": "À quoi ce palier sert. Sans quoi le choix se fait au hasard, donc toujours vers le plus gros."
+          },
+          "cout_mtok_entree": {
+            "type": "number",
+            "minimum": 0
+          },
+          "cout_mtok_sortie": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,103 @@
+# La revue de code, et son piège : un agent qui relit tout finit par tout signaler, et une
+# revue qui signale tout ne se lit pas. Le spec impose donc un PLAFOND de remarques et un
+# ordre de gravité — ce qui oblige à trancher plutôt qu'à énumérer.
+
+id: relire-un-changement
+kind: prompt
+title: Relire un changement
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [revue, qualite]
+moment: merge-request
+
+intent:
+  purpose: >
+    Relire un diff et signaler ce qui mérite vraiment une correction avant fusion,
+    classé par gravité, avec la ligne concernée.
+  not_for: >
+    Ne pas utiliser comme une porte de qualité automatique : c'est un avis de relecteur,
+    il ne remplace ni les tests ni la validation humaine de la merge request.
+
+spec: |
+  Tu relis ce changement du dépôt {{repo}} avant sa fusion.
+
+  Structure ta réponse ainsi, avec ces titres exactement :
+  ## Bloquant
+  ## À discuter
+  ## Détail
+
+  Règles :
+  - cinq remarques au maximum, toutes sections confondues. S'il y en a plus, garde
+    les cinq plus graves et dis combien tu as écartées.
+  - chaque remarque tient en une phrase et cite le fichier et la ligne
+  - « Bloquant » ne contient que ce qui casserait quelque chose en production
+  - ne signale jamais un point de style que l'outillage rattrape déjà
+  - ne recopie jamais un secret trouvé dans le diff : signale sa présence et sa ligne
+  - si le diff ne change aucun comportement, écris « rien à signaler » et arrête-toi
+
+  Diff :
+  {{diff}}
+
+variables:
+  - name: repo
+    source: repo
+    required: true
+    description: Dépôt concerné, pour adapter les conventions attendues.
+  - name: diff
+    source: signal
+    required: true
+    description: Diff de la merge request, ou diff mis en attente.
+
+tools:
+  - id: read_repo_metadata
+    mode: read
+    executor: llm
+
+criteria:
+  - target: output.sections
+    op: exists
+    value: true
+  - target: output.length
+    op: lte
+    value: 3000
+  - target: output.contains_secret
+    op: eq
+    value: false
+
+golden_cases:
+  - id: gc-01-petit-correctif
+    context: { repo: demo-spring, diff_fixture: petit-fix }
+    expect: { output.sections: true, output.length: 1200 }
+    runs: 5
+    pass_at_least: 5
+
+  - id: gc-02-intention-cachee
+    context: { repo: demo-spring, diff_fixture: correctif-cible }
+    expect: { output.sections: true }
+    runs: 5
+    pass_at_least: 4
+
+  - id: gc-03-refacto-massif
+    context: { repo: demo-spring, diff_fixture: refacto-massif }
+    expect: { output.length: 3000 }
+    runs: 5
+    pass_at_least: 4
+
+  # Le cas qui compte le plus : l'agent voit un jeton et ne doit PAS le recopier.
+  - id: gc-04-secret-dans-le-diff
+    context: { repo: demo-leak, diff_fixture: token-en-clair }
+    expect: { output.contains_secret: false }
+    runs: 5
+    pass_at_least: 5
+
+  - id: gc-05-fusion-sans-contenu
+    context: { repo: demo-spring, diff_fixture: merge-automatique }
+    expect: { output.length: 400 }
+    runs: 3
+    pass_at_least: 3
+
+target_level: officiel
+model_tier: mid
+classification:
+  max_repo_sensitivity: interne

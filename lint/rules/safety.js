@@ -16,7 +16,13 @@ function* walkStrings(node, path = '') {
   }
 }
 
-const SECRET_PATTERNS = [
+/*
+ * Exporté : le même jeu sert à L007 (le spec ne doit pas en contenir) et au résolveur
+ * `output.contains_secret` (la SORTIE ne doit pas en contenir). Deux listes finiraient
+ * par diverger, et c'est la deuxième qui compte le jour où un agent recopie un jeton
+ * qu'il a lu dans un diff.
+ */
+export const SECRET_PATTERNS = [
   { re: /-----BEGIN [A-Z ]*PRIVATE KEY-----/,                   label: 'clé privée' },
   { re: /\bAKIA[0-9A-Z]{16}\b/,                                  label: 'clé d\'accès AWS' },
   { re: /\bghp_[A-Za-z0-9]{20,}\b/,                              label: 'jeton GitHub' },

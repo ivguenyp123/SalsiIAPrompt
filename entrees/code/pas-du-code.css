@@ -1,0 +1,193 @@
+/*
+ * Salsifi — design tokens communs
+ * ------------------------------------------------------------------
+ * Palette partagée par toutes les pages. Ordre de chargement dans la page :
+ *   1. le script  js/theme.js
+ *   2. la feuille css/theme.css
+ *   3. la feuille css/<page>.css
+ *
+ * L'ordre est décrit en toutes lettres, sans balises littérales, et ce n'est
+ * pas une coquetterie : un WAF qui inspecte les réponses voit une balise de
+ * script dans un corps servi en text/css et bloque le fichier. Comme cette
+ * feuille est chargée par TOUTES les pages, une règle de ce genre les casse
+ * toutes d'un coup — en 500, et seulement là où l'inspection existe, donc
+ * jamais en local. Un commentaire ne vaut pas ce risque.
+ *
+ * ── THÈME CLAIR / SOMBRE ──────────────────────────────────────────
+ * Piloté par l'attribut data-theme sur la racine du document ("dark" par
+ * défaut, "light").
+ * Choisi sur le hub, mémorisé dans localStorage ('salsifi-theme'),
+ * appliqué avant le rendu par js/theme.js.
+ *
+ * Anti-régression : en mode SOMBRE, chaque token garde EXACTEMENT la
+ * valeur qui était codée en dur dans les pages. Les couleurs sombres
+ * littérales des pages ont été remplacées par ces tokens ; le rendu
+ * sombre est donc identique, et le mode clair bascule d'un coup.
+ *
+ * Les tokens --ov-* / --glass-* / --raise-* / --card-* sont GÉNÉRÉS
+ * (scan des CSS). Ne pas éditer à la main : relancer le tokeniseur.
+ *
+ * NB : --ok n'est volontairement PAS ici.
+ */
+
+/* ═══════════════ MODE SOMBRE — défaut ═══════════════ */
+:root {
+    color-scheme: dark;
+
+    --bg-deep:  #0f0a1f;
+    --bg-mid:   #1a1230;
+    --bg-card:  rgba(28, 20, 50, 0.6);
+    --bg-card-hover: rgba(40, 28, 70, 0.75);
+
+    --border-subtle: rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.18);
+
+    --text-primary:   #f5f1ff;
+    --text-secondary: #b8aed8;
+    --text-muted:     #7a6fa3;
+
+    --inspect: #fb923c;
+    --deliver: #2dd4bf;
+    --measure: #7c5cff;
+    --collab:  #f472b6;
+
+    --info: #60a5fa;
+    --warn: #fbbf24;
+    --err:  #f87171;
+
+    /* Graphiques (Chart.js/SVG) — lus au rendu via cssVar() : le canvas ne
+     * résout pas les variables CSS, on les injecte donc au moment du rendu. */
+    --chart-ink:  rgba(255, 255, 255, 0.6);
+    --chart-grid: rgba(255, 255, 255, 0.08);
+
+    /* Surfaces générées (voiles / panneaux) — valeurs sombres d'origine */
+    --ov-01: rgba(255, 255, 255, 0.01);
+    --ov-02: rgba(255, 255, 255, 0.02);
+    --ov-03: rgba(255, 255, 255, 0.03);
+    --ov-035: rgba(255, 255, 255, 0.035);
+    --ov-04: rgba(255, 255, 255, 0.04);
+    --ov-045: rgba(255, 255, 255, 0.045);
+    --ov-05: rgba(255, 255, 255, 0.05);
+    --ov-06: rgba(255, 255, 255, 0.06);
+    --ov-07: rgba(255, 255, 255, 0.07);
+    --ov-075: rgba(255, 255, 255, 0.075);
+    --ov-08: rgba(255, 255, 255, 0.08);
+    --ov-09: rgba(255, 255, 255, 0.09);
+    --ov-1: rgba(255, 255, 255, 0.1);
+    --ov-12: rgba(255, 255, 255, 0.12);
+    --ov-13: rgba(255, 255, 255, 0.13);
+    --ov-14: rgba(255, 255, 255, 0.14);
+    --ov-15: rgba(255, 255, 255, 0.15);
+    --ov-17: rgba(255, 255, 255, 0.17);
+    --ov-18: rgba(255, 255, 255, 0.18);
+    --ov-2: rgba(255, 255, 255, 0.2);
+    --ov-22: rgba(255, 255, 255, 0.22);
+    --ov-25: rgba(255, 255, 255, 0.25);
+    --ov-28: rgba(255, 255, 255, 0.28);
+    --ov-3: rgba(255, 255, 255, 0.3);
+    --ov-35: rgba(255, 255, 255, 0.35);
+    --ov-4: rgba(255, 255, 255, 0.4);
+    --ov-45: rgba(255, 255, 255, 0.45);
+    --ov-5: rgba(255, 255, 255, 0.5);
+    --ov-55: rgba(255, 255, 255, 0.55);
+    --ov-65: rgba(255, 255, 255, 0.65);
+    --ov-7: rgba(255, 255, 255, 0.7);
+    --ov-75: rgba(255, 255, 255, 0.75);
+    --ov-8: rgba(255, 255, 255, 0.8);
+    --ov-85: rgba(255, 255, 255, 0.85);
+    --ov-9: rgba(255, 255, 255, 0.9);
+    --ov-95: rgba(255, 255, 255, 0.95);
+
+    --glass-5: rgba(15, 10, 31, 0.5);
+    --glass-6: rgba(15, 10, 31, 0.6);
+    --glass-7: rgba(15, 10, 31, 0.7);
+    --glass-75: rgba(15, 10, 31, 0.75);
+    --glass-8: rgba(15, 10, 31, 0.8);
+    --glass-85: rgba(15, 10, 31, 0.85);
+    --glass-9: rgba(15, 10, 31, 0.9);
+    --glass-92: rgba(15, 10, 31, 0.92);
+
+    --raise-75: rgba(40, 28, 70, 0.75);
+    --raise-78: rgba(40, 28, 70, 0.78);
+
+    --card-4: rgba(28, 20, 50, 0.4);
+    --card-6: rgba(28, 20, 50, 0.6);
+}
+
+/* ═══════════════ MODE CLAIR — surcharges ═══════════════ */
+:root[data-theme="light"] {
+    color-scheme: light;
+
+    --bg-deep:  #f4f2fb;
+    --bg-mid:   #eae5f6;
+    --bg-card:  rgba(255, 255, 255, 0.72);
+    --bg-card-hover: rgba(255, 255, 255, 0.95);
+
+    --border-subtle: rgba(26, 18, 48, 0.10);
+    --border-strong: rgba(26, 18, 48, 0.20);
+
+    --text-primary:   #1b1430;
+    --text-secondary: #4c4368;
+    --text-muted:     #7c7299;
+
+    --info: #2563eb;
+    --warn: #b45309;
+    --err:  #dc2626;
+
+    /* Graphiques → encre foncée / grille discrète sur fond clair */
+    --chart-ink:  rgba(26, 18, 48, 0.62);
+    --chart-grid: rgba(26, 18, 48, 0.12);
+
+    /* Surfaces générées → encre/blanc translucide */
+    --ov-01: rgba(26, 18, 48, 0.01);
+    --ov-02: rgba(26, 18, 48, 0.02);
+    --ov-03: rgba(26, 18, 48, 0.03);
+    --ov-035: rgba(26, 18, 48, 0.035);
+    --ov-04: rgba(26, 18, 48, 0.04);
+    --ov-045: rgba(26, 18, 48, 0.045);
+    --ov-05: rgba(26, 18, 48, 0.05);
+    --ov-06: rgba(26, 18, 48, 0.06);
+    --ov-07: rgba(26, 18, 48, 0.07);
+    --ov-075: rgba(26, 18, 48, 0.075);
+    --ov-08: rgba(26, 18, 48, 0.08);
+    --ov-09: rgba(26, 18, 48, 0.09);
+    --ov-1: rgba(26, 18, 48, 0.1);
+    --ov-12: rgba(26, 18, 48, 0.12);
+    --ov-13: rgba(26, 18, 48, 0.13);
+    --ov-14: rgba(26, 18, 48, 0.14);
+    --ov-15: rgba(26, 18, 48, 0.15);
+    --ov-17: rgba(26, 18, 48, 0.17);
+    --ov-18: rgba(26, 18, 48, 0.18);
+    --ov-2: rgba(26, 18, 48, 0.2);
+    --ov-22: rgba(26, 18, 48, 0.22);
+    --ov-25: rgba(26, 18, 48, 0.25);
+    --ov-28: rgba(26, 18, 48, 0.28);
+    --ov-3: rgba(26, 18, 48, 0.3);
+    --ov-35: rgba(26, 18, 48, 0.35);
+    --ov-4: rgba(26, 18, 48, 0.4);
+    --ov-45: rgba(26, 18, 48, 0.45);
+    --ov-5: rgba(26, 18, 48, 0.5);
+    --ov-55: rgba(26, 18, 48, 0.55);
+    --ov-65: rgba(26, 18, 48, 0.65);
+    --ov-7: rgba(26, 18, 48, 0.7);
+    --ov-75: rgba(26, 18, 48, 0.75);
+    --ov-8: rgba(26, 18, 48, 0.8);
+    --ov-85: rgba(26, 18, 48, 0.85);
+    --ov-9: rgba(26, 18, 48, 0.9);
+    --ov-95: rgba(26, 18, 48, 0.95);
+
+    --glass-5: rgba(255, 255, 255, 0.55);
+    --glass-6: rgba(255, 255, 255, 0.65);
+    --glass-7: rgba(255, 255, 255, 0.75);
+    --glass-75: rgba(255, 255, 255, 0.80);
+    --glass-8: rgba(255, 255, 255, 0.85);
+    --glass-85: rgba(255, 255, 255, 0.90);
+    --glass-9: rgba(255, 255, 255, 0.95);
+    --glass-92: rgba(255, 255, 255, 0.95);
+
+    --raise-75: rgba(255, 255, 255, 0.85);
+    --raise-78: rgba(255, 255, 255, 0.85);
+
+    --card-4: rgba(255, 255, 255, 0.52);
+    --card-6: rgba(255, 255, 255, 0.72);
+}

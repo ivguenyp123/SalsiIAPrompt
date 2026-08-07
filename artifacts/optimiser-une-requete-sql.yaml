@@ -1,0 +1,95 @@
+# Le contre-exemple utile : cet agent ne reçoit AUCUN signal du poste. Sa matière est une
+# requête que l'utilisateur colle. Pas de banque d'entrées, pas de fixture — et c'est
+# légitime, tout ne se capture pas.
+
+id: optimiser-une-requete-sql
+kind: prompt
+title: Optimiser une requête SQL
+owner:
+  person: ivguenyp123
+  scope: Data
+tags: [sql, performance]
+moment: revue
+
+intent:
+  purpose: >
+    Diagnostiquer une requête SQL lente et proposer la réécriture ou l'index qui change
+    l'ordre de grandeur, en expliquant pourquoi.
+  not_for: >
+    Ne pas utiliser pour créer un index en production ni pour arbitrer un modèle de
+    données : cet agent lit une requête, il ne connaît ni la volumétrie ni les usages.
+
+spec: |
+  Tu analyses cette requête SQL du dépôt {{repo}}.
+
+  Structure ta réponse ainsi, avec ces titres exactement :
+  ## Ce qui coûte
+  ## Ce que je changerais
+  ## Ce que je vérifierais avant
+
+  Règles :
+  - « Ce qui coûte » nomme l'opération responsable, pas une impression générale
+  - une seule réécriture proposée, celle qui change l'ordre de grandeur
+  - tout index proposé est écrit en entier, avec ses colonnes dans l'ordre
+  - « Ce que je vérifierais avant » cite l'EXPLAIN à regarder et ce qui devrait y changer
+  - ne propose jamais un index sur une colonne à faible sélectivité
+  - si la requête est déjà correcte, dis-le et arrête-toi
+
+  Requête :
+  {{requete}}
+
+variables:
+  - name: repo
+    source: repo
+    required: true
+    description: Dépôt concerné, pour situer le schéma.
+  - name: requete
+    source: user
+    required: true
+    description: La requête SQL, collée par l'utilisateur.
+
+tools:
+  - id: read_repo_metadata
+    mode: read
+    executor: llm
+
+criteria:
+  - target: output.sections
+    op: exists
+    value: true
+  - target: output.length
+    op: lte
+    value: 2500
+  - target: output.contains_secret
+    op: eq
+    value: false
+
+golden_cases:
+  - id: gc-01-jointure-sans-index
+    context: { repo: demo-data, requete: "SELECT * FROM commandes c JOIN clients cl ON cl.id = c.client_id WHERE cl.email = 'x@y.z'" }
+    expect: { output.sections: true, output.length: 1800 }
+    runs: 5
+    pass_at_least: 5
+
+  - id: gc-02-fonction-sur-colonne-filtree
+    context: { repo: demo-data, requete: "SELECT id FROM evenements WHERE DATE(cree_le) = '2026-08-07'" }
+    expect: { output.sections: true }
+    runs: 5
+    pass_at_least: 4
+
+  - id: gc-03-requete-deja-correcte
+    context: { repo: demo-data, requete: "SELECT id, libelle FROM referentiel WHERE code = $1" }
+    expect: { output.length: 700 }
+    runs: 3
+    pass_at_least: 3
+
+  - id: gc-04-entree-vide
+    context: { repo: demo-data, requete: " " }
+    expect: { output.length: 300 }
+    runs: 3
+    pass_at_least: 3
+
+target_level: team
+model_tier: mid
+classification:
+  max_repo_sensitivity: interne

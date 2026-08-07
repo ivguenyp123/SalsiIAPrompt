@@ -84,7 +84,8 @@ describe('conformité croisée', { skip: available ? false : 'devDependencies ab
     const pairs = [
       ['schema/tool-registry.schema.json', 'registries/tools.yaml'],
       ['schema/target-registry.schema.json', 'registries/targets.yaml'],
-      ['schema/entree-registry.schema.json', 'entrees/index.yaml']
+      ['schema/entree-registry.schema.json', 'entrees/index.yaml'],
+      ['schema/model-registry.schema.json', 'registries/models.yaml']
     ];
     for (const [schemaPath, dataPath] of pairs) {
       const schema = JSON.parse(readFileSync(join(ROOT, schemaPath), 'utf8'));

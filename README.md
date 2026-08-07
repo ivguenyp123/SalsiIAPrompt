@@ -48,6 +48,75 @@ la session a sa propre clé de stockage (deux applications, deux cycles de vie),
 vit **dans l'onglet** par défaut plutôt que sur le navigateur, et une session Salsifi
 ouverte ne sert qu'à pré-remplir l'instance : le jeton est toujours ressaisi.
 
+## Lancer un agent pour de vrai — Vertex AI
+
+Jusqu'ici le registre décrivait des capacités. Il en **exécute** maintenant.
+
+```bash
+export VERTEX_PROJECT=lcl-ia-preprod
+export VERTEX_LOCATION=europe-west9          # Paris. Défaut : europe-west1
+export GOOGLE_SERVICE_ACCOUNT_JSON="$(cat cle.json)"
+#   ou : export GOOGLE_APPLICATION_CREDENTIALS=/chemin/vers/cle.json
+
+node runtime/cli.js expliquer-un-code --cas=gc-01-module-court
+node runtime/cli.js optimiser-une-requete-sql --repo=demo-data --requete="SELECT ..."
+```
+
+`--cas` rejoue un cas d'or : le contexte du cas fournit les valeurs, et les entrées
+`*_fixture` sont **lues dans la banque**. C'est la première fois que ces fichiers
+servent à autre chose qu'à être comptés.
+
+Le compte de service a besoin du rôle **Utilisateur Vertex AI** sur le projet, et
+de rien d'autre.
+
+### Ce qui se passe à chaque appel
+
+1. **le pré-vol tranche** — avant le premier jeton dépensé. Refuser après coûterait
+   le prix de l'appel et aurait laissé partir le prompt.
+2. **la confirmation** — un artefact qui écrit ne part pas sans `--assume`. Ce n'est
+   pas de la discipline d'appelant, c'est une condition dans le code.
+3. **Vertex répond**, au palier déclaré par `model_tier`.
+4. **le post-vol évalue le contrat** sur la sortie réelle.
+
+Le 4 est le vrai changement. `criteria` était déclaré depuis le début et **jamais
+évalué** : le registre décrivait des vérifications que personne ne faisait. Chaque
+cible de classe `form` a maintenant son résolveur — longueur, sections, JSON valide,
+convention de commit, secret dans la sortie, fichiers touchés, patch applicable —
+et le verdict tombe sans juge LLM. Du code.
+
+Les cibles de classe `state` rendent `non résolu`, jamais `satisfait` : elles portent
+sur l'état du monde après exécution et demandent le banc d'essai. Les confondre avec
+un succès ferait passer un agent dont on n'a vérifié que la longueur pour un agent
+conforme.
+
+### Le palier, pas le modèle
+
+Un artefact déclare `model_tier: nano`, jamais `gemini-2.5-flash-lite`. La
+correspondance vit dans `registries/models.yaml`, avec les tarifs. Trois raisons, et
+la troisième est la vraie :
+
+- un nom de modèle change tous les six mois, un palier non
+- 200 artefacts portant un nom de modèle, ce sont 200 fichiers à rouvrir à chaque montée
+- **surtout** : le jour où le modèle change sous le prompt, il faut pouvoir dire quels
+  artefacts sont concernés et rejouer *leurs* cas d'or. C'est ce fichier qui le dit.
+
+`VERTEX_MODEL_MID=gemini-3-pro` force un modèle sur un palier — c'est ce qui permettra
+de rejouer les cas d'or sur un modèle candidat sans toucher au catalogue.
+
+### Les identifiants ne sont jamais dans le dépôt
+
+Tout le reste du produit tourne dans l'onglet, avec le jeton de l'utilisateur. Pas
+ça. Vertex s'authentifie avec une **clé privée RSA** qui ouvre le projet GCP entier,
+pas seulement un modèle : la mettre dans une page, c'est la donner à quiconque ouvre
+les outils de développement. Ce module tourne donc côté serveur, là où le CI tourne
+déjà. Rien n'est lu depuis le dépôt, rien n'est journalisé, et la clé ne sort pas de
+la fonction qui signe.
+
+Zéro dépendance, comme le reste : `google-auth-library` ferait ça en trois lignes et
+amènerait cinquante paquets dans un dépôt qui n'en a aucun. Signer un JWT RS256 tient
+dans `node:crypto`. Le socle reste installable derrière un proxy d'entreprise sans
+demander l'ouverture d'un registre npm.
+
 ## Le Catalogue — relire le registre
 
 Le Studio écrit, le Catalogue relit. La liste est **lue dans le dépôt**, jamais tenue à

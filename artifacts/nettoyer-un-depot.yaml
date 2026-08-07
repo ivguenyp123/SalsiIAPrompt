@@ -1,0 +1,100 @@
+# L'agent qui fait gagner le plus de place et le moins de gloire. Il rend une liste de
+# suppressions PROPOSÉES : il ne supprime rien lui-même, parce qu'un faux positif sur un
+# fichier mort coûte beaucoup plus cher que les octets qu'il libère.
+
+id: nettoyer-un-depot
+kind: agent
+title: Nettoyer un dépôt
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [maintenance, dette]
+moment: maintenance
+
+intent:
+  purpose: >
+    Repérer ce qui peut sortir d'un dépôt sans rien casser : code mort, fichiers
+    dupliqués, restes de génération, dépendances non utilisées.
+  not_for: >
+    Ne pas utiliser pour supprimer directement : chaque proposition demande une
+    vérification humaine, un faux positif coûte plus cher que la place gagnée.
+
+spec: |
+  Tu proposes ce qui peut sortir du dépôt {{repo}}, en {{stack}}, sans rien casser.
+
+  Structure ta réponse ainsi, avec ces titres exactement :
+  ## Sûr
+  ## À vérifier
+  ## Ne pas toucher
+
+  Règles :
+  - « Sûr » ne contient que ce dont l'absence de référence est démontrable dans
+    l'inventaire fourni. En cas de doute, la ligne va dans « À vérifier ».
+  - chaque ligne cite le chemin exact et la raison, en une phrase
+  - « Ne pas toucher » signale ce qui a l'air mort et ne l'est pas — c'est la section
+    qui évite l'accident
+  - ne propose jamais de supprimer un fichier de configuration ni un fichier de tests
+  - si rien ne peut sortir, dis-le et arrête-toi
+
+  Inventaire :
+  {{inventaire}}
+
+variables:
+  - name: repo
+    source: repo
+    required: true
+    description: Dépôt analysé.
+  - name: stack
+    source: repo
+    required: true
+    description: Stack technique, pour reconnaître les artefacts de génération.
+  - name: inventaire
+    source: user
+    required: true
+    description: Arborescence du dépôt et références croisées.
+
+tools:
+  - id: read_repo_metadata
+    mode: read
+    executor: llm
+
+criteria:
+  - target: output.sections
+    op: exists
+    value: true
+  - target: output.length
+    op: lte
+    value: 3000
+  - target: output.contains_secret
+    op: eq
+    value: false
+
+golden_cases:
+  - id: gc-01-restes-de-generation
+    context: { repo: demo-front, stack: node, inventaire: "dist/ non ignore, coverage/ commite, deux copies de utils.js, 3 dependances jamais importees" }
+    expect: { output.sections: true, output.length: 2500 }
+    runs: 5
+    pass_at_least: 5
+
+  - id: gc-02-faux-mort
+    context: { repo: demo-front, stack: node, inventaire: "un fichier charge dynamiquement par son nom, aucune reference statique" }
+    expect: { output.sections: true }
+    runs: 5
+    pass_at_least: 4
+
+  - id: gc-03-rien-a-nettoyer
+    context: { repo: demo-front, stack: node, inventaire: "aucun fichier orphelin, aucune dependance inutilisee" }
+    expect: { output.length: 500 }
+    runs: 3
+    pass_at_least: 3
+
+  - id: gc-04-inventaire-vide
+    context: { repo: demo-front, stack: node, inventaire: " " }
+    expect: { output.length: 300 }
+    runs: 3
+    pass_at_least: 3
+
+target_level: team
+model_tier: mid
+classification:
+  max_repo_sensitivity: interne

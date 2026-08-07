@@ -1,0 +1,41 @@
+# Registre des modèles — le palier déclaré, et le modèle réel derrière.
+#
+# POURQUOI UN REGISTRE ET PAS UN NOM DE MODÈLE DANS L'ARTEFACT
+# Un artefact déclare `model_tier: nano`, jamais `gemini-2.5-flash-lite`. Trois raisons,
+# et la troisième est la vraie :
+#   · un nom de modèle change tous les six mois ; un palier, non
+#   · 200 artefacts portant un nom de modèle = 200 fichiers à rouvrir à chaque montée
+#   · surtout : le jour où le modèle change SOUS le prompt, il faut pouvoir dire quels
+#     artefacts sont concernés et rejouer LEURS cas d'or. C'est ce fichier qui le dit.
+#
+# `expires_certification_on` : la date à laquelle une certification obtenue sur ce
+# palier cesse de valoir. Elle n'est pas décorative — L016 et P005 la lisent.
+
+models:
+  - tier: nano
+    vertex: gemini-2.5-flash-lite
+    description: Classer, extraire, reformater. Aucun raisonnement attendu.
+    cout_mtok_entree: 0.10
+    cout_mtok_sortie: 0.40
+
+  - tier: small
+    vertex: gemini-2.5-flash
+    description: Rédiger court, résumer, expliquer un morceau de code isolé.
+    cout_mtok_entree: 0.30
+    cout_mtok_sortie: 2.50
+
+  - tier: mid
+    vertex: gemini-2.5-flash
+    description: >
+      Analyser un diff, une requête, un journal. Le palier par défaut : c'est là que
+      se joue la majorité du catalogue.
+    cout_mtok_entree: 0.30
+    cout_mtok_sortie: 2.50
+
+  - tier: large
+    vertex: gemini-2.5-pro
+    description: >
+      Raisonner sur un dépôt entier, planifier une migration, arbitrer un risque.
+      Coûte dix fois le palier mid : à réserver à ce qui l'exige vraiment.
+    cout_mtok_entree: 1.25
+    cout_mtok_sortie: 10.00
