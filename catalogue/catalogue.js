@@ -392,21 +392,49 @@ function ouvrirPrevol(entry) {
       el('span', { style: 'font-weight:600;font-size:12px',
                    textContent: `${rapport.erreurs} erreur(s) · ${rapport.avertissements} avertissement(s)` }));
 
-    // La confirmation n'est pas un refus : c'est une condition de départ. Les confondre
-    // ferait passer « il faut valider » pour « c'est interdit ».
+    /*
+     * La confirmation n'est pas un refus : c'est une condition de départ. Les confondre
+     * ferait passer « il faut valider » pour « c'est interdit ».
+     *
+     * Et depuis que le pré-vol renvoie à l'humain ce qu'il IGNORE — dépôt non classé,
+     * artefact jamais certifié, niveau jamais mesuré — cette liste est le prix du
+     * desserrage. Une phrase générique la viderait de son sens : on assume des choses
+     * précises, une par ligne, ou on n'assume rien.
+     */
     conf.hidden = !rapport.confirmationRequise;
+    conf.textContent = '';
     if (rapport.confirmationRequise) {
-      conf.textContent = '✋ Cette capacité écrit. Même autorisée, elle ne part pas seule : '
-        + 'aperçu puis confirmation humaine. C\'est le système qui l\'impose, pas la discipline de l\'appelant.';
+      conf.append(el('b', { textContent:
+        `✋ ${rapport.raisons.length} point(s) que la plateforme ne peut pas trancher seule` }));
+      const ul = el('ul');
+      for (const c of rapport.raisons) {
+        ul.append(el('li', {}, el('b', { textContent: c.code }), ` ${c.message}`));
+      }
+      conf.append(ul);
+      const coche = el('input', { type: 'checkbox' });
+      coche.onchange = () => { verdict.dataset.assume = coche.checked ? 'oui' : ''; };
+      conf.append(el('label', {}, coche,
+        el('span', { textContent: `Je l'assume, en tant que ${session.username}. Sans cette case, `
+          + 'rien ne part — ni ici, ni depuis un appel automatique.' })));
     }
 
+    /*
+     * Le reste des constats — ce qui n'est PAS déjà dans l'encadré de confirmation.
+     *
+     * Les répéter mot pour mot deux écrans plus bas apprenait à sauter la liste, donc à
+     * sauter aussi les refus qui s'y trouvent. Ce qu'on doit assumer est en haut ; ce
+     * qui reste est ici.
+     */
+    const restants = rapport.constats.filter((c) => !c.confirme);
     liste.textContent = '';
-    for (const c of rapport.constats) {
+    for (const c of restants) {
       liste.append(el('li', {}, c.severity === ERROR ? '🔴 ' : '🟡 ',
         el('code', { textContent: c.code }), ` ${c.message}`));
     }
-    if (!rapport.constats.length) {
-      liste.append(el('li', {}, 'Aucun constat : les sept contrôles passent.'));
+    if (!restants.length) {
+      liste.append(el('li', { textContent: rapport.constats.length
+        ? 'Rien d\'autre : tout ce qui reste est dans l\'encadré ci-dessus.'
+        : 'Aucun constat : les sept contrôles passent.' }));
     }
   }
 

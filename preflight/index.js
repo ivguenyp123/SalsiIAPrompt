@@ -16,6 +16,30 @@
  * Zéro IA, comme la porte. Le verdict est déterministe, reproductible et explicable —
  * et il tombe AVANT le premier jeton dépensé, pas après.
  *
+ * ── QUAND UN CONTRÔLE REFUSE, ET QUAND IL DEMANDE UN HUMAIN ──────────────────
+ *
+ * Première version : tout ce qui n'allait pas refusait. Résultat, le pré-vol refusait
+ * TOUT — pas parce que les artefacts étaient mauvais, mais parce que la plateforme
+ * n'avait pas encore de quoi répondre. Aucun dépôt n'est classé, donc P002 refusait
+ * partout. Aucun banc d'essai ne tourne, donc rien n'est certifié et rien ne dépasse
+ * `expérimental`, donc P005 et P006 refusaient toute production. Un contrôle qui refuse
+ * tout ne protège de rien : on finit par le contourner, et c'est là qu'on perd.
+ *
+ * La règle qui remplace ça tient en une phrase :
+ *
+ *     un contrôle REFUSE quand il sait que c'est non ;
+ *     il demande une CONFIRMATION HUMAINE quand il ne sait pas.
+ *
+ * Un dépôt classé `secret` sous un plafond `interne` : c'est non, on refuse. Un dépôt
+ * non classé : la plateforme l'ignore, donc elle demande à quelqu'un qui sait. C'est
+ * exactement « le noyau gouverne, l'humain valide » — l'ignorance devient une question,
+ * pas un mur.
+ *
+ * Et c'est AUTO-RESSERRANT, ce qui compte plus que le desserrage lui-même : le jour où
+ * le référentiel des dépôts existe, P002 se remet à refuser sans qu'on touche au code.
+ * Le jour où le banc mesure un niveau, P006 aussi. Rien à se rappeler de durcir — on
+ * n'a pas baissé une exigence, on a branché la sévérité sur ce que la plateforme sait.
+ *
  * Module PUR : ni forge, ni DOM, ni horloge implicite (`now` est passé). Testable.
  */
 import { lint, ERROR, WARN } from '../lint/index.js';
@@ -37,8 +61,15 @@ const PLAFOND_PAR_DEFAUT = 'interne';
 /** Les niveaux, du moins au plus exigeant. */
 const NIVEAUX = ['experimental', 'team', 'officiel'];
 
-/** Un constat de pré-vol. Même forme qu'un constat de lint : un seul rendu possible. */
-const constat = (code, severity, message, quoi = '') => ({ code, severity, message, path: quoi });
+/**
+ * Un constat de pré-vol. Même forme qu'un constat de lint : un seul rendu possible.
+ *
+ * `confirme` marque un avertissement qui EXIGE une confirmation humaine avant le
+ * départ. Sans ce drapeau, desserrer un contrôle reviendrait à le supprimer : la
+ * question disparaîtrait dans une liste d'avertissements que personne ne lit.
+ */
+const constat = (code, severity, message, quoi = '', confirme = false) =>
+  ({ code, severity, message, path: quoi, confirme });
 
 /* ── P001 ─────────────────────────────────────────────────────────────────── */
 /**
@@ -62,11 +93,17 @@ function P001(artifact, ctx) {
 
 /* ── P002 ─────────────────────────────────────────────────────────────────── */
 /**
- * La sensibilité du dépôt cible dépasse-t-elle le plafond déclaré ? 🔴
+ * La sensibilité du dépôt cible dépasse-t-elle le plafond déclaré ? 🔴 / 🟡
  *
  * LE contrôle qui ne peut exister qu'ici : le lint ne sait pas sur quel dépôt on va
  * tourner. C'est aussi celui qui porte le risque — un agent autorisé sur de l'interne
  * qui lit un dépôt confidentiel, c'est une fuite, pas une erreur de conformité.
+ *
+ * Dépassement AVÉRÉ : refus, sans discussion. Sensibilité INCONNUE : ce n'est pas le
+ * même constat, et le confondre coûtait cher — aucun dépôt n'étant classé aujourd'hui,
+ * refuser l'inconnu revenait à tout refuser. On demande donc à un humain de dire ce que
+ * la plateforme ignore, et le jour où le référentiel des dépôts répond, ce chemin-là
+ * ne s'emprunte plus.
  */
 function P002(artifact, ctx) {
   const declare = artifact?.classification?.max_repo_sensitivity;
@@ -76,10 +113,12 @@ function P002(artifact, ctx) {
   const out = [];
 
   if (!reelle) {
-    return [constat('P002', ERROR,
-      'Sensibilité du dépôt cible inconnue : impossible de vérifier le plafond. ' +
-      'Une exécution sur un dépôt non classé se refuse — c\'est la classification qui manque, pas l\'artefact.',
-      'depot.sensibilite')];
+    return [constat('P002', WARN,
+      `Sensibilité du dépôt cible inconnue : le plafond \`${plafond}\`` +
+      `${declare ? '' : ' (par défaut)'} ne peut pas être vérifié. ` +
+      'C\'est la classification du dépôt qui manque, pas l\'artefact — quelqu\'un qui sait ce que ' +
+      'ce dépôt contient doit confirmer avant le départ.',
+      'depot.sensibilite', true)];
   }
 
   if (!declare) {
@@ -146,19 +185,27 @@ function P004(artifact, ctx) {
 
 /* ── P005 ─────────────────────────────────────────────────────────────────── */
 /**
- * La certification est-elle présente et valide pour le modèle courant ? 🔴 (contextuelle)
+ * La certification est-elle présente et valide pour le modèle courant ? 🔴 / 🟡 (contextuelle)
  *
  * Un agent se périme : le modèle bouge sous le prompt. C'est le vrai point d'application
  * de L016, qui ne peut rien vérifier au lint de fichier seul. Sans état dérivé joignable,
  * la règle s'abstient plutôt que de rendre un faux verdict.
+ *
+ * PÉRIMÉE, c'est un fait mesuré : refus. JAMAIS CERTIFIÉ, c'est autre chose — tant
+ * qu'aucun banc d'essai ne tourne, AUCUN artefact ne peut l'être, et refuser là-dessus
+ * reviendrait à interdire la plateforme au nom d'un outil qui n'existe pas encore. On
+ * demande une confirmation humaine, et le refus reviendra tout seul le jour où la
+ * certification sera possible : un artefact non certifié le sera alors par choix.
  */
 function P005(artifact, ctx) {
   if (!ctx.derive) return [];
 
   const cert = ctx.derive[artifact?.id]?.certification;
   if (!cert) {
-    return [constat('P005', ERROR,
-      'Aucune certification enregistrée : l\'artefact n\'a jamais passé le banc d\'essai.', 'certification')];
+    return [constat('P005', WARN,
+      'Aucune certification enregistrée : l\'artefact n\'a jamais passé le banc d\'essai. ' +
+      'Ses cas d\'or n\'ont donc jamais été joués — ce qu\'il fait vraiment reste une hypothèse.',
+      'certification', true)];
   }
 
   const maintenant = ctx.now instanceof Date ? ctx.now : new Date();
@@ -172,18 +219,25 @@ function P005(artifact, ctx) {
   if (ctx.modele && cert.model_version && ctx.modele !== cert.model_version) {
     return [constat('P005', WARN,
       `Certifié sur \`${cert.model_version}\`, exécution demandée sur \`${ctx.modele}\`. ` +
-      'Les cas d\'or n\'ont pas été rejoués sur ce modèle.', 'certification')];
+      'Les cas d\'or n\'ont pas été rejoués sur ce modèle.', 'certification', true)];
   }
   return [];
 }
 
 /* ── P006 ─────────────────────────────────────────────────────────────────── */
 /**
- * Le niveau atteint suffit-il au contexte d'exécution ? 🔴
+ * Le niveau atteint suffit-il au contexte d'exécution ? 🔴 / 🟡
  *
  * Un artefact `expérimental` n'a pas sa place en production. Le niveau ATTEINT est
  * dérivé — il se mérite sur preuve. Faute d'état dérivé, on retombe sur le niveau VISÉ,
  * et on le dit : sinon on prendrait une intention pour un acquis.
+ *
+ * D'où la sévérité, qui suit d'où vient le niveau et non sa valeur :
+ *   niveau DÉRIVÉ et insuffisant  → refus. La mesure a été faite, elle dit non.
+ *   niveau seulement DÉCLARÉ      → confirmation humaine. Rien n'a été mesuré ; refuser
+ *                                   sur une intention non vérifiée fermerait la
+ *                                   production à tout le catalogue, puisque aucun
+ *                                   artefact ne peut aujourd'hui dépasser l'expérimental.
  */
 function P006(artifact, ctx) {
   if (ctx.criticite !== 'production') return [];
@@ -192,15 +246,26 @@ function P006(artifact, ctx) {
   const niveau = derive || artifact?.target_level || 'experimental';
 
   if (NIVEAUX.indexOf(niveau) >= NIVEAUX.indexOf('team')) {
+    // Niveau suffisant, mais annoncé et non mesuré : la plateforme ne sait pas, donc
+    // elle demande. Même raison que plus bas, même traitement.
     return derive ? [] : [constat('P006', WARN,
       `Niveau \`${niveau}\` retenu d'après le niveau VISÉ, faute d'état dérivé joignable. ` +
       'Le niveau atteint se mérite sur preuve : sans banc d\'essai, c\'est une intention.',
+      'target_level', true)];
+  }
+
+  if (derive) {
+    return [constat('P006', ERROR,
+      `Niveau \`${niveau}\` insuffisant pour un contexte de production (\`team\` au minimum). ` +
+      'Ce niveau a été MESURÉ au banc d\'essai : c\'est un fait, pas une déclaration.',
       'target_level')];
   }
 
-  return [constat('P006', ERROR,
-    `Niveau \`${niveau}\` insuffisant pour un contexte de production (\`team\` au minimum).`,
-    'target_level')];
+  return [constat('P006', WARN,
+    `Niveau visé \`${niveau}\`, insuffisant pour un contexte de production (\`team\` au minimum) — ` +
+    'et rien n\'a été mesuré, faute de banc d\'essai. Quelqu\'un doit assumer ce départ. ' +
+    'Le jour où le niveau sera dérivé d\'une mesure, ce constat deviendra un refus.',
+    'target_level', true)];
 }
 
 /* ── P007 ─────────────────────────────────────────────────────────────────── */
@@ -218,7 +283,7 @@ function P007(artifact) {
   return [constat('P007', WARN,
     `${ecritures.length} outil(s) d'écriture (${ecritures.map((t) => t.id).join(', ')}) : ` +
     'l\'exécution exige une confirmation humaine après aperçu. Aucun lancement autonome.',
-    'tools')];
+    'tools', true)];
 }
 
 /* ── Le pré-vol ───────────────────────────────────────────────────────────── */
@@ -240,7 +305,7 @@ const CONTROLES = [
  * @param {object} ctx       le contexte D'EXÉCUTION :
  *   { depot: { path, scope, sensibilite }, valeurs: {}, criticite: 'test'|'production',
  *     modele, derive, now, registres: { tools, targets, validateArtifact } }
- * @returns {{constats, bloque, erreurs, avertissements, confirmationRequise}}
+ * @returns {{constats, bloque, erreurs, avertissements, confirmationRequise, raisons}}
  */
 export function prevol(artifact, ctx = {}) {
   const constats = [];
@@ -257,6 +322,15 @@ export function prevol(artifact, ctx = {}) {
   }
 
   const erreurs = constats.filter((c) => c.severity === ERROR).length;
+  /*
+   * Ce qu'un humain doit assumer avant le départ.
+   *
+   * Ce n'était que P007 — « ça écrit, il faut confirmer ». S'y ajoute maintenant tout
+   * ce que la plateforme ne SAIT pas : un dépôt non classé, un artefact jamais certifié,
+   * un niveau jamais mesuré. La liste est le prix du desserrage : sans elle, un contrôle
+   * qu'on passe d'erreur à avertissement disparaît purement et simplement.
+   */
+  const raisons = constats.filter((c) => c.confirme);
 
   return {
     constats,
@@ -264,7 +338,8 @@ export function prevol(artifact, ctx = {}) {
     erreurs,
     avertissements: constats.length - erreurs,
     // Distinct de `bloque` : ce n'est pas un refus, c'est une condition de départ.
-    confirmationRequise: constats.some((c) => c.code === 'P007')
+    confirmationRequise: raisons.length > 0,
+    raisons
   };
 }
 

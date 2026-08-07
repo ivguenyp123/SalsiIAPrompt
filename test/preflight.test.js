@@ -101,8 +101,23 @@ describe('P002 — la sensibilité est le contrôle qui ne peut exister qu\'ici'
       'ne rien déclarer ne doit pas être le chemin le plus permissif');
   });
 
-  test('un dépôt non classé est refusé, pas toléré', () => {
+  test('un dépôt non classé n\'est pas refusé : il est renvoyé à un humain', () => {
+    // Première version : refus. Conséquence, le pré-vol refusait PARTOUT — aucun dépôt
+    // n'est classé, faute de référentiel. Un contrôle qui refuse tout ne protège de
+    // rien : il se contourne. Le doute devient donc une question, pas un mur.
     const r = prevol(officiel(), contexteOk({ depot: { path: 'x/y', scope: 'Plateforme' } }));
+    assert.ok(!codes(r, ERROR).includes('P002'), 'ce n\'est pas l\'artefact qui est en faute');
+    assert.ok(codes(r, WARN).includes('P002'));
+    assert.ok(r.raisons.some((c) => c.code === 'P002'), 'mais quelqu\'un doit l\'assumer');
+  });
+
+  test('un dépassement AVÉRÉ reste un refus, et c\'est la distinction qui compte', () => {
+    // Ignorer la sensibilité et la connaître trop élevée ne sont pas le même constat.
+    // Le desserrage porte sur l'ignorance, jamais sur le fait mesuré.
+    const r = prevol(officiel(), contexteOk({
+      depot: { path: 'x/y', scope: 'Plateforme', sensibilite: 'secret' }
+    }));
+    assert.equal(r.bloque, true);
     assert.ok(codes(r, ERROR).includes('P002'));
   });
 
@@ -162,9 +177,12 @@ describe('P005 — un agent se périme, le modèle bouge sous le prompt', () => 
     assert.ok(!codes(prevol(officiel(), contexteOk()), ERROR).includes('P005'));
   });
 
-  test('jamais certifié : refus', () => {
+  test('jamais certifié : confirmation humaine, pas refus', () => {
+    // Tant qu'aucun banc d'essai ne tourne, AUCUN artefact ne peut être certifié.
+    // Refuser là-dessus interdirait la plateforme au nom d'un outil qui n'existe pas.
     const r = prevol(officiel(), contexteOk({ derive: { 'prep-delivery': {} } }));
-    assert.ok(codes(r, ERROR).includes('P005'));
+    assert.ok(!codes(r, ERROR).includes('P005'));
+    assert.ok(r.raisons.some((c) => c.code === 'P005'));
   });
 
   test('certification périmée : refus', () => {
@@ -183,12 +201,29 @@ describe('P005 — un agent se périme, le modèle bouge sous le prompt', () => 
 });
 
 describe('P006 — l\'expérimental n\'a pas sa place en production', () => {
-  test('un artefact expérimental est refusé en production', () => {
+  test('expérimental DÉCLARÉ en production : confirmation, pas refus', () => {
+    // Rien n'a été mesuré. Refuser sur une intention non vérifiée fermerait la
+    // production à tout le catalogue, puisque aucun artefact ne peut aujourd'hui
+    // dépasser l'expérimental — faute de banc, pas faute de qualité.
     const a = officiel();
     a.target_level = 'experimental';
     a.golden_cases = [];
     const r = prevol(a, contexteOk({ criticite: 'production' }));
+    assert.ok(!codes(r, ERROR).includes('P006'));
+    assert.ok(r.raisons.some((c) => c.code === 'P006'));
+  });
+
+  test('expérimental MESURÉ en production : refus', () => {
+    // LA propriété qui rend le desserrage acceptable : il est auto-resserrant. Le jour
+    // où le banc mesure un niveau, le refus revient tout seul, sans toucher au code.
+    const a = officiel();
+    a.target_level = 'experimental';
+    const r = prevol(a, contexteOk({
+      criticite: 'production',
+      derive: { 'prep-delivery': { level: 'experimental' } }
+    }));
     assert.ok(codes(r, ERROR).includes('P006'));
+    assert.equal(r.bloque, true);
   });
 
   test('hors production, le niveau ne bloque pas', () => {
@@ -211,6 +246,45 @@ describe('P006 — l\'expérimental n\'a pas sa place en production', () => {
       derive: { 'prep-delivery': { level: 'officiel' } }
     }));
     assert.ok(!codes(r, WARN).includes('P006'));
+  });
+});
+
+/*
+ * La règle de sévérité, prise pour elle-même.
+ *
+ * C'est elle qu'il faut protéger, pas les trois contrôles qu'elle a fait bouger : la
+ * prochaine fois qu'on ajoutera un contrôle, c'est à cette question qu'il faudra répondre.
+ */
+describe('un contrôle refuse ce qu\'il sait, il demande ce qu\'il ignore', () => {
+  test('tout ce qui est desserré reste porté par quelqu\'un', () => {
+    // Un avertissement qu'on n'a pas à assumer disparaît dans une liste que personne ne
+    // lit : desserrer sans `raisons` reviendrait à supprimer le contrôle.
+    const r = prevol(officiel(), contexteOk({
+      criticite: 'production',
+      depot: { path: 'x/y', scope: 'Plateforme' },        // non classé
+      derive: { 'prep-delivery': {} }                     // jamais certifié
+    }));
+    assert.equal(r.bloque, false, `refusé pour : ${codes(r, ERROR).join(', ')}`);
+    assert.deepEqual([...new Set(r.raisons.map((c) => c.code))].sort(),
+                     ['P002', 'P005', 'P006', 'P007']);
+    assert.equal(r.confirmationRequise, true);
+  });
+
+  test('aucune raison de confirmer n\'est muette', () => {
+    // Une case à cocher sans phrase se coche sans lire. Chaque raison doit dire ce
+    // qu'on assume.
+    const r = prevol(officiel(), contexteOk({ criticite: 'production',
+                                              depot: { path: 'x/y', scope: 'Plateforme' } }));
+    for (const c of r.raisons) assert.ok(c.message.length > 60, `${c.code} trop laconique`);
+  });
+
+  test('un refus, lui, ne se confirme pas — il se corrige', () => {
+    // Confondre les deux ferait de la confirmation un moyen de passer outre.
+    const casse = officiel();
+    casse.criteria = [];
+    const r = prevol(casse, contexteOk());
+    assert.equal(r.bloque, true);
+    assert.ok(!r.raisons.some((c) => c.code === 'P001'));
   });
 });
 
