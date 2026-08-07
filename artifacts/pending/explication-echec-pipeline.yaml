@@ -1,0 +1,93 @@
+# salsi-provenance: demande
+# besoin: un agent qui explique pourquoi mon pipeline a échoué
+# demande-par: ivguenyp123
+# le: 2026-08-07
+# tours-de-correction: 2
+# modele: deepseek-chat via deepseek
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+
+id: explication-echec-pipeline
+kind: agent
+title: Explication d'un échec de pipeline
+owner:
+  person: ivguenyp123
+  scope: Data
+intent:
+  purpose: Analyser les journaux et le contexte d'un pipeline ayant échoué pour produire une explication claire et actionnable de la cause racine.
+  not_for: Ne pas utiliser pour corriger automatiquement le pipeline, modifier du code ou re-déclencher des jobs.
+spec: |-
+    Analyse le statut et les journaux du dernier pipeline du dépôt pour expliquer la cause de son échec.
+    Commence par lire le statut du pipeline et les journaux associés.
+    Examine ensuite les métadonnées du dépôt pour comprendre la stack et la configuration.
+    Identifie l'étape précise du pipeline qui a échoué.
+    Distingue une cause d'infrastructure (problème d'environnement, de ressource, de réseau) d'une cause de code (erreur de compilation, test échoué, problème de dépendance).
+    Formule ton explication en t'appuyant sur les preuves trouvées dans les journaux.
+    Structure ta réponse en trois sections : 'cause_racine', 'preuves', et 'recommandation'.
+    Dans 'cause_racine', décris la raison principale de l'échec en une ou deux phrases.
+    Dans 'preuves', liste les extraits de journaux ou les faits saillants qui soutiennent ton diagnostic.
+    Dans 'recommandation', propose une action concrète et non destructive pour résoudre le problème.
+    Sois précis et factuel, ne spécule pas sur des causes sans preuve dans les journaux.
+    Prends en compte le contexte supplémentaire fourni par l'utilisateur : {{contexte_analyse}}
+variables:
+  - name: contexte_analyse
+    source: user
+    required: true
+    description: Contexte supplémentaire fourni par l'utilisateur sur l'échec observé.
+tools:
+  - id: read_pipeline_status
+    mode: read
+    executor: llm
+  - id: read_repo_metadata
+    mode: read
+    executor: llm
+criteria:
+  - target: output.sections
+    op: contains
+    value:
+      - cause_racine
+  - target: output.sections
+    op: contains
+    value:
+      - preuves
+  - target: output.sections
+    op: contains
+    value:
+      - recommandation
+  - target: output.length
+    op: gte
+    value: 200
+golden_cases:
+  - id: gc-01-echec-infra
+    context:
+      contexte_analyse: Le pipeline a échoué après 10 minutes, semble-t-il au moment de la compilation.
+    expect:
+      output.sections:
+        - cause_racine
+        - preuves
+        - recommandation
+    runs: 5
+    pass_at_least: 4
+  - id: gc-02-echec-tests
+    context:
+      contexte_analyse: L'échec semble lié à un test de non-régression.
+    expect:
+      output.sections:
+        - cause_racine
+        - preuves
+        - recommandation
+    runs: 5
+    pass_at_least: 4
+  - id: gc-03-echec-bruit
+    context:
+      contexte_analyse: Le journal est volumineux, difficile de trouver l'erreur.
+    expect:
+      output.sections:
+        - cause_racine
+        - preuves
+        - recommandation
+    runs: 5
+    pass_at_least: 4
+target_level: team
+model_tier: mid
