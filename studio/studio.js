@@ -21,6 +21,7 @@ import yaml from '../lib/yaml.js';
 import { formToArtifact } from './form-to-artifact.js';
 import { artifactToForm, restoreCarried } from './artifact-to-form.js';
 import { inventaire, aCorriger, ETATS } from './inventory.js';
+import { QUESTIONS, composer } from './assistant.js';
 import { toYaml } from './to-yaml.js';
 
 const session = requireSession('../app/login.html');
@@ -437,6 +438,123 @@ function bandeauEdition() {
   barre.style.color = state.editId ? 'var(--accent)' : '';
 }
 
+
+/* ── Salsi — le dialogue d'aide à l'écriture ──────────────────────────────────
+ *
+ * Une question à la fois, comme le scaffolder du hub. On répond à ce qu'on SAIT — ce
+ * qu'on veut obtenir — au lieu de remplir un formulaire qui réclame le résultat de la
+ * réflexion.
+ *
+ * À la fin, Salsi montre son raisonnement avant d'appliquer. Un choix qu'on ne comprend
+ * pas, on le subit : on ne saura pas le corriger quand le contexte changera.
+ */
+function ouvrirSalsi() {
+  const dlg = $('salsi');
+  const fil = $('salsiFil');
+  fil.textContent = '';
+  dlg.classList.add('on');
+
+  const reponses = {};
+  let qi = 0;
+
+  const bulle = (classe, ...contenu) => {
+    const n = el('div', { className: `bul ${classe}` }, ...contenu);
+    fil.append(n);
+    fil.scrollTop = fil.scrollHeight;
+    return n;
+  };
+
+  const dire = (texte) => bulle('bot', el('div', {}, texte));
+  const repondu = (texte) => bulle('moi', el('div', { textContent: texte }));
+
+  function poser() {
+    if (qi >= QUESTIONS.length) return conclure();
+    const q = QUESTIONS[qi];
+
+    dire(q.q);
+    if (q.aide) bulle('aide', el('div', { textContent: q.aide }));
+
+    // La progression est affichée : savoir combien il reste change l'envie de continuer.
+    const compteur = el('div', { className: 'qmeta' },
+      el('span', { textContent: `question ${qi + 1} / ${QUESTIONS.length}` }));
+    for (let k = 0; k < QUESTIONS.length; k++) {
+      compteur.append(el('i', { className: k < qi ? 'done' : k === qi ? 'cur' : '' }));
+    }
+    fil.append(compteur);
+
+    const choix = el('div', { className: 'choix' });
+    for (const o of q.options) {
+      const b = el('button', { className: 'opt' },
+        el('span', { className: 'ic', textContent: o.icone }),
+        el('span', {}, el('b', { textContent: o.titre }), el('small', { textContent: o.sous })));
+      b.onclick = () => {
+        reponses[q.cle] = o.id;
+        choix.remove();
+        compteur.remove();
+        repondu(o.titre);
+        qi += 1;
+        poser();
+      };
+      choix.append(b);
+    }
+    fil.append(choix);
+    fil.scrollTop = fil.scrollHeight;
+  }
+
+  function conclure() {
+    const form = composer(reponses, ctx);
+
+    dire('Voilà ce que j\'en tire. Rien n\'est écrit tant que tu n\'as pas appliqué.');
+
+    const reco = el('div', { className: 'reco' });
+    reco.append(el('div', { className: 'reco-h', textContent: 'Ce que je propose, et pourquoi' }));
+    for (const [icone, decision, raison] of form.pourquoi) {
+      reco.append(el('div', { className: 'sig' },
+        el('span', { className: 'sg-ic', textContent: icone }),
+        el('span', {}, el('b', { textContent: decision }), el('small', { textContent: raison }))));
+    }
+
+    // Ce que Salsi ne fait PAS. Le dire évite de croire l'artefact terminé.
+    reco.append(el('div', { className: 'reste' },
+      el('b', { textContent: 'Ce qui reste à toi' }),
+      el('small', { textContent:
+        'Le titre et « à quoi ça sert » : c\'est ce que tu sais et que je ne peux pas deviner. '
+        + 'Et le prompt est une charpente — j\'y ai mis les règles qui valent pour tous, pas ton métier.' })));
+
+    const appliquer = el('button', { className: 'primary', textContent: 'Appliquer au formulaire' });
+    const refaire = el('button', { textContent: 'Recommencer' });
+    const annuler = el('button', { textContent: 'Annuler' });
+
+    appliquer.onclick = () => {
+      /*
+       * On n'écrase QUE ce que Salsi a rempli. Si l'auteur avait déjà saisi un titre ou
+       * une intention avant d'appeler à l'aide, les perdre serait la pire des punitions
+       * pour avoir demandé de l'aide.
+       */
+      const actuel = readForm();
+      apply({
+        ...form,
+        title: actuel.title || form.title,
+        purpose: actuel.purpose || form.purpose,
+        ownerScope: actuel.ownerScope
+      });
+      dlg.classList.remove('on');
+    };
+    refaire.onclick = () => ouvrirSalsi();
+    annuler.onclick = () => dlg.classList.remove('on');
+
+    reco.append(el('div', { className: 'reco-foot' }, appliquer, refaire, annuler));
+    fil.append(reco);
+    fil.scrollTop = fil.scrollHeight;
+  }
+
+  dire('Salut 👋 moi c\'est Salsi. Écrire un artefact devant un formulaire vide, c\'est dur : '
+     + 'il demande le résultat de ta réflexion, pas son point de départ.');
+  dire('Je te pose quatre questions sur ce que tu veux OBTENIR, et je compose le reste. '
+     + 'Je n\'invente rien : mes outils et mes critères viennent du registre, donc ce qui sort franchit la porte.');
+  poser();
+}
+
 // ── Câblage ──────────────────────────────────────────────────────────────────
 for (const id of ['title', 'purpose', 'notFor', 'spec']) $(id).oninput = run;
 for (const id of ['kind', 'targetLevel', 'ownerScope']) $(id).onchange = run;
@@ -445,6 +563,10 @@ $('add-var').onclick = () => { state.variables.push({ name: '', source: 'repo' }
 $('add-tool').onclick = () => { state.tools.push({ id: '' }); renderTools(); run(); };
 $('add-crit').onclick = () => { state.criteria.push({ target: '', op: 'eq', value: '' }); renderCriteria(); run(); };
 $('add-gold').onclick = () => { state.goldenCases.push(casVide()); renderGolden(); run(); };
+
+$('salsi-open').onclick = ouvrirSalsi;
+$('salsi-close').onclick = () => $('salsi').classList.remove('on');
+$('salsi').onclick = (e) => { if (e.target === $('salsi')) $('salsi').classList.remove('on'); };
 
 /*
  * Soumission — l'artefact part dans la FILE DE VALIDATION, pas au catalogue.

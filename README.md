@@ -268,6 +268,46 @@ Trois principes portés par le formulaire lui-même :
 - **les cibles et opérateurs proposés viennent du registre** — un critère non assertable
   devient difficile à écrire plutôt que refusé après coup.
 
+### 🌱 Salsi — l'aide à l'écriture
+
+Un bouton à droite de la section **Identité**. Le formulaire réclame le *résultat* de la
+réflexion — titre, intention, variables, outils, critères — pas son point de départ.
+Devant une page vide, on ne sait pas par où commencer, et les 22 règles n'aident pas :
+elles jugent ce qui est écrit, elles n'aident pas à l'écrire.
+
+Salsi renverse l'ordre : **quatre questions sur ce qu'on veut obtenir**, et l'artefact se
+compose. Une question à la fois, avec la progression affichée — la forme du scaffolder du
+hub, pour la même raison : on répond à ce qu'on sait.
+
+**Aucun LLM, et c'est le point.** Salsi ne rédige pas, il **compose à partir des
+registres**. Les outils qu'il propose existent au registre des outils, les critères aux
+cibles assertables. Il ne peut donc pas inventer un outil inexistant ni une cible non
+vérifiable — les deux erreurs les plus fréquentes quand on écrit à la main, celles que
+`L004` et `L009` refusent.
+
+D'où une propriété qu'un assistant génératif ne pourrait pas offrir :
+
+> **Quel que soit le chemin suivi dans le dialogue, l'artefact produit franchit la porte.**
+
+Elle est vérifiée **exhaustivement** : les 108 chemins (4×3×3×3) sont énumérés et passés
+au linter. Viser plus haut qu'`expérimental` n'est refusé que par `L010` — le manque de cas
+d'or, la seule chose que Salsi ne peut pas savoir à la place de l'auteur.
+
+Trois refus délibérés :
+
+- **Le titre et « à quoi ça sert » restent vides.** C'est ce que l'auteur sait et que
+  Salsi ne peut pas deviner. Les remplir d'à-peu-près donnerait un artefact d'apparence
+  complète que personne ne relirait.
+- **Le spec est une charpente, pas un prompt fini.** Salsi y met les règles qui valent pour
+  tous et interpole chaque variable déclarée ; le métier reste à écrire. Prétendre rédiger
+  à la place de l'auteur demanderait un modèle, et un modèle ne garantit rien.
+- **Ce qui était déjà saisi n'est pas écrasé.** Perdre un titre déjà tapé serait la pire
+  des punitions pour avoir demandé de l'aide.
+
+Et le raisonnement est **montré** : une ligne par question, qui nomme la décision, sa
+conséquence et la règle concernée. Un choix qu'on ne comprend pas, on le subit — et on ne
+saura pas le corriger quand le contexte changera.
+
 ### Les cas d'or, et pourquoi l'échelle de maturité tenait à eux
 
 Le formulaire n'avait pas de champ pour les cas d'or. Conséquence, invisible et totale :

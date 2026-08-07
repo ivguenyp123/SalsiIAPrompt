@@ -80,6 +80,51 @@
   .row.ctx{grid-template-columns:150px 1fr 34px}
   .row.exp{grid-template-columns:1fr 1fr 34px}
   .mini.sub{font-size:11.5px;padding:5px}
+  /* ── Salsi : l'aide à l'écriture ── */
+  .aide-ligne{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+  .aide-ligne p{flex:1}
+  .salsi-btn{white-space:nowrap;color:var(--tp);border-color:var(--accent);
+             background:rgba(167,139,250,.16);font-weight:800}
+  .salsi-btn:hover{background:rgba(167,139,250,.28)}
+
+  #salsi{position:fixed;inset:0;background:rgba(8,5,18,.74);backdrop-filter:blur(4px);
+         display:none;z-index:50;padding:30px 20px;overflow:auto}
+  #salsi.on{display:block}
+  #salsi .boite{max-width:660px;margin:0 auto;background:#160f2b;border:1px solid var(--line2);
+                border-radius:18px;overflow:hidden}
+  #salsi header{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--line)}
+  #salsi header h3{flex:1;margin:0;font-size:16px;font-family:var(--fd)}
+  #salsiFil{padding:18px 20px;display:flex;flex-direction:column;gap:10px;max-height:66vh;overflow:auto}
+
+  .bul{max-width:88%;padding:11px 14px;border-radius:14px;font-size:13.5px;line-height:1.6}
+  .bul.bot{background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--ts);align-self:flex-start}
+  .bul.moi{background:rgba(167,139,250,.18);border:1px solid rgba(167,139,250,.4);color:var(--tp);
+           align-self:flex-end;font-weight:700}
+  .bul.aide{background:rgba(0,0,0,.28);border:1px dashed var(--line2);color:var(--tm);
+            font-size:12.5px;align-self:flex-start}
+
+  .qmeta{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--tm);margin:2px 0}
+  .qmeta i{width:16px;height:3px;border-radius:2px;background:var(--line2);display:inline-block}
+  .qmeta i.done{background:var(--ok)} .qmeta i.cur{background:var(--accent)}
+
+  .choix{display:grid;gap:8px}
+  .opt{display:flex;align-items:flex-start;gap:11px;text-align:left;padding:12px 14px;width:100%}
+  .opt .ic{font-size:19px;line-height:1.2}
+  .opt b{display:block;color:var(--tp);font-size:13.5px}
+  .opt small{display:block;color:var(--tm);font-size:11.5px;font-weight:500;margin-top:2px;line-height:1.5}
+
+  .reco{border:1px solid rgba(167,139,250,.4);border-radius:14px;padding:14px 16px;
+        background:rgba(167,139,250,.07)}
+  .reco-h{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;
+          color:var(--accent);margin-bottom:10px;font-family:var(--fb)}
+  .reco .sig{display:flex;gap:10px;margin-bottom:9px;font-size:12.5px}
+  .reco .sig b{display:block;color:var(--tp)}
+  .reco .sig small{display:block;color:var(--tm);font-size:11.5px;line-height:1.55;margin-top:2px}
+  .reco .reste{border-top:1px solid var(--line);padding-top:11px;margin-top:4px}
+  .reco .reste b{display:block;color:var(--warn);font-size:12px}
+  .reco .reste small{display:block;color:var(--tm);font-size:11.5px;line-height:1.55;margin-top:3px}
+  .reco-foot{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}
+
   label.viol{display:flex;align-items:center;gap:7px;margin:9px 0 0;font-size:11.5px;
              color:var(--tm);text-transform:none;letter-spacing:0;font-weight:600;cursor:pointer}
   label.viol input{width:auto;margin:0}
@@ -153,6 +198,11 @@
   <section class="col left">
     <fieldset>
       <legend>Identité</legend>
+      <div class="aide-ligne">
+        <p class="hint" style="margin:0">Tu ne sais pas par où commencer ? C'est normal —
+          ce formulaire demande le résultat de la réflexion, pas son point de départ.</p>
+        <button id="salsi-open" type="button" class="salsi-btn">🌱 Salsi m'aide</button>
+      </div>
       <label for="title">Titre</label>
       <input id="title" placeholder="Vérifier les migrations Flyway">
       <div class="grid2">
@@ -240,6 +290,17 @@
       formulaire. Le formulaire n'est qu'une commodité de saisie.</p>
   </section>
 </main>
+
+<div id="salsi">
+  <div class="boite">
+    <header>
+      <span style="font-size:20px">🌱</span>
+      <h3>Salsi — aide à l'écriture</h3>
+      <button id="salsi-close" type="button">Fermer</button>
+    </header>
+    <div id="salsiFil"></div>
+  </div>
+</div>
 
 <script type="module" src="./studio.js"></script>
 </body>
