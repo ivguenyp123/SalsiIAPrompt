@@ -52,12 +52,27 @@ async function load() {
                 'Retourne à l\'accueil pour en sélectionner un — c\'est là que vivent les artefacts.');
   }
   $('source').textContent = `lu dans ${repo} · artifacts/`;
+  /*
+   * `cache: 'no-cache'` sur les référentiels — pas une coquetterie.
+   *
+   * Le linter tranche à partir de CES fichiers. Un navigateur qui sert une version
+   * périmée du manifeste des entrées fait refuser des artefacts parfaitement valides :
+   * cinq erreurs `L023` sur « Explique-moi ce code » parce que la banque en cache ne
+   * connaissait pas encore la nature `code`. L'auteur voit un artefact cassé, il ne l'est
+   * pas, et rien à l'écran ne peut le lui dire.
+   *
+   * `no-cache` ne saute pas le cache : il le REVALIDE. Sur des fichiers inchangés, la
+   * réponse est un 304 vide. Le coût est nul, le verdict cesse de dépendre de l'âge d'un
+   * onglet.
+   */
+  const FRAIS = { cache: 'no-cache' };
+
 
   const [tools, targets, entrees, schema] = await Promise.all([
-    fetch('../registries/tools.yaml').then((r) => r.text()).then((t) => yaml.parse(t).tools),
-    fetch('../registries/targets.yaml').then((r) => r.text()).then((t) => yaml.parse(t).targets),
-    fetch('../entrees/index.yaml').then((r) => r.text()).then((t) => yaml.parse(t)),
-    fetch('../schema/artifact.schema.json').then((r) => r.json())
+    fetch('../registries/tools.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t).tools),
+    fetch('../registries/targets.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t).targets),
+    fetch('../entrees/index.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t)),
+    fetch('../schema/artifact.schema.json', FRAIS).then((r) => r.json())
   ]);
   ctx = { tools, targets, entrees, validateArtifact: makeValidator(schema) };
   scopes = knownScopes(tools);
