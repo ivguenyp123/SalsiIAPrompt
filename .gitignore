@@ -1,1 +1,23 @@
 node_modules/
+
+# ── Identifiants Vertex ───────────────────────────────────────────────────────
+#
+# Le geste naturel, quand on reçoit une clé de compte de service, est de la déposer à
+# côté du code : c'est là qu'on la cherchera pour lancer `node serve.js`. Un `git add -A`
+# suffit alors à la publier, et une clé publiée ouvre le projet GCP entier — pas un
+# modèle, le projet.
+#
+# Ces motifs couvrent les noms qu'une clé porte en pratique. Ils ne remplacent pas
+# `test/secrets.test.js`, qui refuse qu'un fichier suivi ressemble à une clé : ce
+# fichier-ci est une intention, ce test-là est une porte.
+*.pem
+*.key
+*-key.json
+*-credentials.json
+*service-account*.json
+cle*.json
+key*.json
+gcp*.json
+vertex*.json
+.env
+.env.*
