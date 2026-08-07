@@ -1,0 +1,23 @@
+{
+  "name": "SalsiIAPrompt",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
+
+  // Un dépôt sans dépendance de production : `npm install` ne sert qu'aux tests de
+  // conformité croisée, qui comparent le YAML et le schéma maison à js-yaml et ajv.
+  "postCreateCommand": "npm install --no-audit --no-fund",
+
+  // Le serveur écoute sur la boucle locale ; Codespaces publie le port dans l'onglet.
+  "forwardPorts": [8080],
+  "portsAttributes": { "8080": { "label": "SalsiIAPrompt", "onAutoForward": "openBrowser" } },
+
+  // La clé ne vit ni ici ni dans le dépôt : elle se pose en secret Codespaces
+  // (Settings → Codespaces → Secrets) et arrive dans l'environnement du conteneur.
+  // C'est la même frontière que sur un poste — le navigateur ne la voit jamais.
+  "remoteEnv": {
+    "DEEPSEEK_API_KEY": "${localEnv:DEEPSEEK_API_KEY}",
+    "VERTEX_PROJECT": "${localEnv:VERTEX_PROJECT}",
+    "GOOGLE_SERVICE_ACCOUNT_JSON": "${localEnv:GOOGLE_SERVICE_ACCOUNT_JSON}"
+  },
+
+  "customizations": { "vscode": { "extensions": ["redhat.vscode-yaml"] } }
+}

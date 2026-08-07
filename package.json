@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Registre de capacités IA certifiées. Le déterministe décide et bloque, le LLM conseille, l'humain tranche.",
   "engines": {
-    "node": ">=18"
+    "node": ">=20.12"
   },
   "scripts": {
     "start": "node --env-file-if-exists=.env serve.js",

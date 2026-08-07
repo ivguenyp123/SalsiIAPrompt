@@ -59,6 +59,17 @@ npm start                 # l'écran, sur http://localhost:8080
 npm run agent -- expliquer-un-code --cas=gc-01-module-court
 ```
 
+**Sans rien installer — Codespaces.** Le dépôt porte un `.devcontainer` : `Code ▸
+Codespaces ▸ Create codespace`, et tout est là. La clé se pose une fois dans
+*Settings ▸ Codespaces ▸ Secrets* et arrive dans l'environnement du conteneur — jamais
+dans le dépôt, jamais dans le navigateur. C'est la même frontière que sur un poste, et
+c'est le seul chemin praticable depuis un Chromebook.
+
+**Pourquoi ça ne marchera jamais depuis Pages ou raw.githack** : ces hôtes servent des
+fichiers statiques. Il n'y a aucun serveur derrière, donc pas de `/api/lancer` — et la
+clé ne peut pas descendre dans la page, sinon elle appartient à qui ouvre les outils de
+développement. L'écran le dit au lieu d'échouer au clic.
+
 `.env` est ignoré par git **et** refusé par `test/secrets.test.js` s'il y entrait quand
 même. Node le lit lui-même — `--env-file-if-exists` — donc aucune dépendance de plus, et
 la clé ne traîne pas dans l'historique du shell comme le ferait un `export`.
