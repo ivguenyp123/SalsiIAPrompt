@@ -14,6 +14,7 @@ import { createForge } from '../app/forge.js';
 import { mountShell } from '../app/shell.js';
 import { lint, ERROR } from '../lint/index.js';
 import { prevol, SENSIBILITES } from '../preflight/index.js';
+import { niveau, pastille } from '../lib/niveau.js';
 import { BUMPS } from '../runtime/livraison.js';
 import { preparer as preparerLivraison, executer as executerLivraison } from '../runtime/executer.js';
 import { knownScopes, guessScope } from '../app/scopes.js';
@@ -36,7 +37,6 @@ mountShell({ active: 'catalogue', session, base: '../',
 const forge = createForge(session);
 const repo = localStorage.getItem('salsi_ia_registry_repo');
 
-const LEVELS = { experimental: 'expérimental', team: 'équipe', officiel: 'officiel' };
 const ICONS = { agent: '🤖', prompt: '📚', chain: '🔗' };
 
 let items = [];
@@ -177,8 +177,19 @@ function card(entry) {
   );
 
   const foot = el('div', { className: 'foot' });
-  foot.append(el('span', { className: `pill ${artifact.target_level || ''}`,
-                           textContent: LEVELS[artifact.target_level] || 'expérimental' }));
+  /*
+   * La pastille de niveau porte sa PROVENANCE.
+   *
+   * Elle affichait « officiel » en vert, à côté du titre — donc exactement comme un
+   * fait. Qui lit « officiel » comprend « ça a été éprouvé ». Rien ne l'a été : aucun
+   * banc d'essai ne tourne. C'est la faute la plus grave que ce produit puisse commettre,
+   * puisqu'elle porte sur ce qu'il vend — la séparation entre le déclaré et le dérivé.
+   *
+   * Tant que rien n'est mesuré, la pastille est en POINTILLÉS et dit « visé ».
+   */
+  const niv = pastille(artifact, ctx.derive);
+  foot.append(el('span', { className: `pill ${niv.cle} ${niv.mesure ? '' : 'vise'}`,
+                           textContent: niv.texte, title: niv.aide }));
   if (report.blocked) {
     foot.append(el('span', { className: 'pill ko', textContent: `${report.errors} erreur(s)` }));
   }
@@ -234,7 +245,7 @@ function openSheet(entry) {
     ['Identifiant', artifact.id],
     ['Type', artifact.kind],
     ['Owner', `${artifact.owner?.person || '—'} · ${artifact.owner?.scope || '—'}`],
-    ['Niveau visé', LEVELS[artifact.target_level] || 'expérimental'],
+    ['Niveau', niveau(artifact, ctx.derive).texte],
     ['Palier de modèle', artifact.model_tier || '—'],
     ['Porte', report.blocked ? `✕ ${report.errors} erreur(s)` : '✔ conforme'],
     ['Fichier', file.path]

@@ -36,6 +36,7 @@ import { makeValidator } from '../lib/schema.js';
 import yaml from '../lib/yaml.js';
 import { depuisCommits, parJour, resume, horsParcours, ACTIONS } from './journal.js';
 import { STATUTS, DOSSIERS, inventaireParc, compter, filtrer } from './parc.js';
+import { niveau } from '../lib/niveau.js';
 
 const session = requireSession('../app/login.html');
 if (!session) await new Promise(() => {});
@@ -54,7 +55,6 @@ const forge = createForge(session);
 const repo = localStorage.getItem('salsi_ia_registry_repo');
 const PENDING = 'artifacts/pending';
 
-const LEVELS = { experimental: 'expérimental', team: 'équipe', officiel: 'officiel' };
 const ICONS = { agent: '🤖', prompt: '📚', chain: '🔗' };
 
 let ctx = null;
@@ -163,7 +163,7 @@ function row(entry) {
     ['Identifiant', artifact.id],
     ['Type', artifact.kind || 'agent'],
     ['Owner', `${artifact.owner?.person || '—'} · ${artifact.owner?.scope || '—'}`],
-    ['Niveau visé', LEVELS[artifact.target_level] || 'expérimental'],
+    ['Niveau', niveau(artifact, ctx?.derive).texte],
     ['Palier de modèle', artifact.model_tier || '— (non précisé)'],
     ['Sensibilité maximale', artifact.classification?.max_repo_sensitivity || '— (non précisée)'],
     ['Étiquettes', (artifact.tags || []).join(', ') || '—']
@@ -364,7 +364,10 @@ async function chargerParc() {
 
   try {
     const lots = await Promise.all(DOSSIERS.map(([, d]) => lire(d)));
-    pvue.entrees = inventaireParc(Object.fromEntries(DOSSIERS.map(([s], i) => [s, lots[i]])));
+    // `ctx.derive` n'existe pas encore — aucun banc d'essai ne tourne. Le passer quand
+    // même est ce qui fera basculer les niveaux de « visé » à « atteint » le jour venu,
+    // sans revenir ici.
+    pvue.entrees = inventaireParc(Object.fromEntries(DOSSIERS.map(([s], i) => [s, lots[i]])), ctx.derive);
     pvue.charge = true;
   } catch (error) {
     $('pcount').textContent = '';
@@ -453,7 +456,7 @@ function ligneParc(e) {
     el('div', { style: 'min-width:0' },
       el('div', { className: 't', textContent: e.titre, title: e.titre }),
       el('div', { className: 'o', title: e.path,
-                  textContent: [e.owner, e.scope, LEVELS[e.niveau]].filter(Boolean).join(' · ') || e.path }))));
+                  textContent: [e.owner, e.scope, e.niveauTexte].filter(Boolean).join(' · ') || e.path }))));
 
   row.append(el('span', {}, e.kind
     ? el('span', { className: `kb ${e.kind}`, textContent: e.kind === 'agent' ? '🤖 Agent' : '📚 Prompt' })

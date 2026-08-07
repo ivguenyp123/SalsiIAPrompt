@@ -34,6 +34,9 @@
   .pill.officiel{color:var(--ok);border-color:rgba(52,211,153,.45);background:rgba(52,211,153,.1)}
   .pill.team{color:var(--info);border-color:rgba(96,165,250,.45);background:rgba(96,165,250,.1)}
   .pill.ko{color:var(--err);border-color:rgba(248,113,113,.5);background:rgba(248,113,113,.12)}
+  /* Un niveau non mesuré : pointillés et fond transparent. On lit « pas encore prouvé »
+     avant d'avoir lu le mot. Une pastille pleine, elle, est un fait. */
+  .pill.vise{border-style:dashed;background:transparent;opacity:.85}
 
   .empty{padding:34px;text-align:center;color:var(--tm);border:1px dashed var(--line2);border-radius:16px}
   .empty b{color:var(--tp);display:block;margin-bottom:6px;font-family:var(--fd);font-size:15px}

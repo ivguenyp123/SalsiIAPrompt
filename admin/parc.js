@@ -28,6 +28,7 @@
  *
  * Module PUR : aucune forge, aucun DOM.
  */
+import { niveau } from '../lib/niveau.js';
 
 /** Les statuts, du plus demandeur d'attention au plus stable. */
 export const STATUTS = {
@@ -62,7 +63,7 @@ export const plier = (s) => String(s || '')
  *                         chaque élément : { path, artifact, report, error }
  * @returns {Array} entrées triées : ce qui attend une décision d'abord
  */
-export function inventaireParc(entree = {}) {
+export function inventaireParc(entree = {}, derive = null) {
   const out = [];
 
   for (const [statut] of DOSSIERS) {
@@ -77,6 +78,9 @@ export function inventaireParc(entree = {}) {
         owner: a.owner?.person || '',
         scope: a.owner?.scope || '',
         niveau: a.target_level || 'experimental',
+        // Avec sa PROVENANCE : « officiel — visé » tant que rien ne l'a mesuré. Une
+        // ligne de parc qui dirait « officiel » tout court referait le bug du catalogue.
+        niveauTexte: niveau(a, derive).texte,
         // Ce qu'on SAIT de sa santé : franchit-il encore la porte.
         porte: f?.report ? (f.report.blocked ? 'refuse' : 'conforme') : null,
         erreurs: f?.report?.errors ?? 0,
