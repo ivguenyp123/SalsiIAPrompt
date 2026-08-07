@@ -525,6 +525,7 @@ divergerait au premier correctif — précisément ce qu'on évite.
 | `demande/` | l'écran de demande : une phrase, un agent, la file de validation |
 | `runtime/redacteur.js` · `runtime/rediger-cli.js` | la dictée : une phrase → un artefact, corrigé par le linter |
 | `lib/provenance.js` | l'en-tête qui dit qu'un modèle a écrit le fichier, et depuis quelle phrase |
+| `lib/matiere.js` | d'où vient ce qu'un agent lit : fichier du dépôt, diff d'une PR, ou ta saisie |
 | `runtime/banc.js` · `runtime/banc-cli.js` | le banc d'essai : joue les cas d'or, dérive le niveau |
 | `runtime/etat-derive.js` · `derive/etat.json` | la mémoire de la plateforme — mesurée, jamais écrite à la main |
 | `studio/` | le formulaire, le pont vers l'artefact, le serveur local |
@@ -787,6 +788,75 @@ une erreur 501 explicite : un commit multi-fichiers y demande de reconstruire un
 à la main, du code non trivial pour une opération que personne n'exécutera sur cette
 forge. Mieux vaut une erreur qui dit la vérité qu'une implémentation à moitié. La
 **préparation**, elle, fonctionne partout — on peut voir le plan sans pouvoir l'écrire.
+
+## 📥 La matière — aller la chercher, et te laisser choisir
+
+Jusqu'ici, exécuter un agent supposait de **coller** sa matière : le diff, le fichier, la
+requête. Ça marche une fois, pour la démonstration. Personne ne le fait deux fois — et un
+registre d'agents que personne ne relance est un catalogue de bonnes intentions.
+
+Sur l'écran d'exécution, chaque variable de matière porte maintenant un bouton
+**« 📥 Récupérer »** :
+
+| source | ce qu'elle rend |
+|---|---|
+| 📄 **Un fichier du dépôt** | tu cherches par fragments — `foo serv` trouve `FooService.java` — et son contenu remplit le champ |
+| 🔀 **Une pull request ouverte** | le diff complet, tel qu'un relecteur le verrait |
+| ⌨️ **Je colle moi-même** | rien n'est récupéré, le champ reste à toi |
+
+Tout se passe **dans ton navigateur, avec ton jeton**. La clé de la forge ne franchit
+aucune frontière — même règle que partout ailleurs dans ce produit.
+
+### La règle qui gouverne l'écran
+
+> **Elle propose, elle n'injecte jamais.**
+
+Rien n'arrive sans un clic. Tout ce qui arrive **reste modifiable**. Et ce qui part au
+modèle est exactement ce qui est affiché — pas une relecture faite au moment du départ,
+qui aurait pu changer entre-temps.
+
+C'est le principe du pré-vol, appliqué à l'entrée au lieu de la sortie : *un contrôle
+refuse ce qu'il SAIT, il demande ce qu'il IGNORE.* La plateforme sait aller chercher un
+diff ; elle ignore si c'est **ce** diff-là que tu voulais.
+
+Trois conséquences concrètes :
+
+- la source est **proposée** d'après le nom de la variable — `diff` ouvre sur les pull
+  requests, `code` sur les fichiers — et se change d'un clic. Deviner sans le montrer
+  serait exactement ce qu'on refuse ; ne rien proposer ferait refaire le même réglage à
+  chaque exécution
+- `pipeline_log` propose **« je colle »**, parce qu'un journal vit dans la CI et pas au
+  dépôt. Proposer « fichier » ouvrirait sur une impasse
+- dès que tu touches au texte, **l'origine disparaît** de la ligne d'info : elle ne vaut
+  plus
+
+### Ce que l'écran te dit avant d'envoyer
+
+```
+ivguenyp123/demo-spring · PR #12 · 2 fichier(s) · 1 binaire(s) non lisible(s)
+                                          10 ligne(s) · ≈ 81 jetons   [vider]
+```
+
+L'origine, le volume, et un ordre de grandeur du coût. Au-delà de 40 000 caractères, un
+avertissement — **pas un refus** : donner un gros fichier à un agent est légitime, mais
+l'envoyer sans le savoir coûte, et surtout **dilue**. Un agent noyé dans 2 000 lignes
+répond moins bien que sur les 80 qui comptent. C'est ce que l'entrée `fichier-fleuve` de
+la banque a montré.
+
+### Un diff unifié, quelle que soit la forge
+
+GitHub et GitLab rendent tous deux un patch **par fichier**, sans les en-têtes
+`diff --git` qui font d'une liste de morceaux un diff. Or c'est cette forme-là que les
+agents attendent : celle de la banque d'entrées, celle qu'un `git diff` produit, celle que
+`output.files_touched` sait compter.
+
+`lib/matiere.js` les recolle — la forge transporte, elle ne met pas en forme. Un test le
+vérifie en comptant les fichiers du diff assemblé **avec le vrai résolveur**. Les binaires
+sont nommés (`Binary files a/logo.png and b/logo.png differ`) et comptés à part : les
+omettre en silence ferait croire à un diff complet.
+
+Et les deux backends rendent la **même forme**. Le jour où LCL bascule sur son GitLab,
+ni `matiere.js` ni l'écran ne bougent.
 
 ## ✨ Demander un agent — une phrase, et c'est tout
 

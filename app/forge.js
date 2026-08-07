@@ -18,6 +18,14 @@
  *   moveFile(repo, from, to, { message, branch })      → déplace (copie puis supprime)
  *   listCommits(repo, path, { perPage, ref })          → [{ sha, message, author, date }]
  *
+ * Matière (moment 5) — aller chercher ce qu'un agent doit LIRE, dans le dépôt de
+ * l'utilisateur, avec son jeton, depuis son navigateur :
+ *   listPullRequests(repo)                             → [{ numero, titre, branche, cible, auteur }]
+ *   pullRequestChanges(repo, numero)                   → [{ fichier, ancien, patch, binaire }]
+ *
+ * Les deux forges rendent un patch PAR FICHIER : `lib/matiere.js` les recolle en diff
+ * unifié. La forge transporte, elle ne met pas en forme.
+ *
  * Livraison (moment 5) — implémentée sur GitLab, la cible. Sur GitHub, `commitFiles` et
  * `createMergeRequest` lèvent une erreur explicite plutôt que d'exister à moitié :
  *   projectInfo(repo)                                  → { defaultBranch, path, visibility }
@@ -161,6 +169,26 @@ function gitlab(session, fetchImpl) {
       call(filePath(repo, path), { method: 'DELETE', body: { branch, commit_message: message } }),
 
     /* ── Ce qu'exige la livraison (moment 5) ─────────────────────────────── */
+
+    /*
+     * Les merge requests OUVERTES. Fermées et fusionnées sont volontairement exclues :
+     * on vient chercher ce qui est en cours de relecture, pas de l'archive.
+     */
+    listPullRequests: async (repo) => {
+      const list = await call(`/projects/${encodeURIComponent(repo)}/merge_requests`,
+                              { params: { state: 'opened', per_page: 50, order_by: 'updated_at' } });
+      return list.map((m) => ({ numero: m.iid, titre: m.title, branche: m.source_branch,
+                                cible: m.target_branch, auteur: m.author?.username || '',
+                                url: m.web_url || '' }));
+    },
+
+    pullRequestChanges: async (repo, numero) => {
+      const r = await call(`/projects/${encodeURIComponent(repo)}/merge_requests/${numero}/changes`);
+      return (r.changes || []).map((c) => ({
+        fichier: c.new_path, ancien: c.old_path, patch: c.diff || '',
+        binaire: Boolean(c.binary) || !c.diff
+      }));
+    },
 
     projectInfo: async (repo) => {
       const p = await call(`/projects/${encodeURIComponent(repo)}`);
@@ -308,6 +336,28 @@ function github(session, fetchImpl) {
      * que personne n'exécutera jamais sur cette forge. Le construire « au cas où » serait
      * du poids mort à maintenir. Mieux vaut une erreur qui dit la vérité.
      */
+    listPullRequests: async (repo) => {
+      const list = await call(`/repos/${repo}/pulls`,
+                              { params: { state: 'open', per_page: 50, sort: 'updated', direction: 'desc' } });
+      return list.map((p) => ({ numero: p.number, titre: p.title, branche: p.head?.ref || '',
+                                cible: p.base?.ref || '', auteur: p.user?.login || '',
+                                url: p.html_url || '' }));
+    },
+
+    /*
+     * `/pulls/:n/files` et pas l'en-tête `Accept: …v3.diff`.
+     *
+     * Le diff brut demanderait une variante du transport qui ne parse pas de JSON — un
+     * chemin à part pour un seul appel. Cette route rend la même information en JSON, et
+     * dans la MÊME forme que GitLab : un patch par fichier, que `lib/matiere.js` recolle.
+     * Un format commun aux deux forges vaut mieux qu'un raccourci propre à l'une.
+     */
+    pullRequestChanges: async (repo, numero) => {
+      const list = await call(`/repos/${repo}/pulls/${numero}/files`, { params: { per_page: 100 } });
+      return list.map((f) => ({ fichier: f.filename, ancien: f.previous_filename || f.filename,
+                                patch: f.patch || '', binaire: !f.patch }));
+    },
+
     projectInfo: async (repo) => {
       const r = await call(`/repos/${repo}`);
       return { defaultBranch: r.default_branch, path: r.full_name,

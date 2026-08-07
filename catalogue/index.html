@@ -59,6 +59,35 @@
   @media (max-width:620px){ .pv .champs{grid-template-columns:1fr} }
   .pv label{display:block;margin:0 0 5px;font-size:11px;font-weight:700;color:var(--tm);
             text-transform:uppercase;letter-spacing:.05em}
+  /* ── La matière : aller la chercher dans la forge, et la garder modifiable ── */
+  .mat{grid-column:1/-1}
+  .mat-tete{display:flex;align-items:center;gap:8px;margin:0 0 5px}
+  .mat-tete label{flex:1;margin:0}
+  .mat-tete button{font-size:11px;padding:4px 10px;color:#fbbf24;
+                   border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.12);font-weight:700}
+  .mat-tete button:hover{background:rgba(251,191,36,.24)}
+  .mat textarea{width:100%;min-height:82px;resize:vertical;font-family:var(--fm);
+                font-size:11.5px;line-height:1.6}
+  .mat-info{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:5px;
+            font-size:11px;color:var(--tm)}
+  .mat-info b{color:var(--tp);font-weight:700}
+  .mat-info button{font-size:10.5px;padding:2px 8px}
+  .mat-info.gros{color:#fcd34d}
+
+  .picker{margin-top:8px;border:1px solid rgba(251,191,36,.35);border-radius:12px;
+          background:rgba(0,0,0,.28);padding:12px}
+  .picker .rangee{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+  .picker select,.picker input{font-size:12px;padding:7px 9px}
+  .picker .rangee select{flex:1;min-width:150px}
+  .picker input{width:100%}
+  .picker .liste{max-height:212px;overflow:auto;display:grid;gap:3px;margin-top:8px}
+  .picker .ligne{text-align:left;width:100%;font:inherit;color:inherit;padding:6px 9px;
+                 border-radius:8px;border:1px solid transparent;background:transparent;
+                 font-size:11.5px;font-family:var(--fm);cursor:pointer;color:var(--ts)}
+  .picker .ligne:hover{background:rgba(255,255,255,.06);border-color:var(--line2);color:var(--tp)}
+  .picker .ligne small{display:block;font-family:var(--fb);font-size:10.5px;color:var(--tm);margin-top:2px}
+  .picker .vide{font-size:11.5px;color:var(--tm);padding:8px 2px;line-height:1.6}
+
   .pv .verdict{display:flex;align-items:center;gap:10px;padding:13px 16px;border-radius:12px;
                font-weight:800;font-size:14px}
   .pv .verdict.ok{color:#6ee7b7;background:rgba(52,211,153,.13);border:1px solid rgba(52,211,153,.4)}

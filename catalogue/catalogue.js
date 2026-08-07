@@ -14,6 +14,7 @@ import { createForge } from '../app/forge.js';
 import { mountShell } from '../app/shell.js';
 import { lint, ERROR } from '../lint/index.js';
 import { prevol, SENSIBILITES } from '../preflight/index.js';
+import { SOURCES, sourceProbable, chercher, diffUnifie, resume, grosse } from '../lib/matiere.js';
 import { niveau, pastille } from '../lib/niveau.js';
 import { BUMPS } from '../runtime/livraison.js';
 import { preparer as preparerLivraison, executer as executerLivraison } from '../runtime/executer.js';
@@ -645,6 +646,210 @@ async function etatMoteur() {
   return MOTEUR;
 }
 
+/* ── La matière : la chercher dans la forge, la garder à toi ──────────────────
+ *
+ * Exécuter un agent supposait de COLLER sa matière — le diff, le fichier, la requête.
+ * Ça marche une fois, pour la démonstration. Personne ne le fait deux fois, et un
+ * registre d'agents que personne ne relance est un catalogue de bonnes intentions.
+ *
+ * Ici la plateforme va la chercher dans TON dépôt, avec TON jeton, depuis ton navigateur
+ * — la clé de la forge ne franchit aucune frontière, comme partout ailleurs dans ce
+ * produit. Et la règle qui gouverne tout l'écran :
+ *
+ *   elle PROPOSE, elle n'injecte jamais.
+ *
+ * Rien n'arrive sans un clic. Tout ce qui arrive reste modifiable. Et ce qui part au
+ * modèle est exactement ce qui est affiché — pas une relecture faite au moment du
+ * départ, qui aurait pu changer entre-temps. C'est le principe du pré-vol appliqué à
+ * l'entrée : un contrôle refuse ce qu'il SAIT, il demande ce qu'il IGNORE. La plateforme
+ * sait aller chercher un diff ; elle ignore si c'est CE diff-là que tu voulais.
+ */
+
+/** Ce qu'on a déjà chargé — un arbre de dépôt ne se redemande pas à chaque frappe. */
+const CACHE = { depots: null, arbres: new Map(), branches: new Map() };
+
+async function depots() {
+  if (!CACHE.depots) CACHE.depots = await forge.listRepos({ perPage: 100 });
+  return CACHE.depots;
+}
+
+async function arbre(depot) {
+  if (!CACHE.arbres.has(depot)) {
+    if (!CACHE.branches.has(depot)) {
+      const info = await forge.projectInfo(depot);
+      CACHE.branches.set(depot, info.defaultBranch || 'main');
+    }
+    CACHE.arbres.set(depot, await forge.listTree(depot, CACHE.branches.get(depot)));
+  }
+  return CACHE.arbres.get(depot);
+}
+
+/**
+ * Un champ de matière : une zone de saisie, un bouton pour aller chercher, et le
+ * sélecteur qui s'ouvre dessous.
+ *
+ * @returns {{noeud, controle}} — `controle` est la zone de texte, c'est elle qui fait foi
+ */
+function champMatiere(variable) {
+  const zone = el('textarea', {
+    rows: 4,
+    placeholder: variable.source === 'signal'
+      ? 'colle ici, ou va le chercher au dépôt →'
+      : 'saisie libre, ou va la chercher au dépôt →'
+  });
+
+  const bouton = el('button', { type: 'button', textContent: '📥 Récupérer' });
+  const info = el('div', { className: 'mat-info', hidden: true });
+  const panneau = el('div', { className: 'picker', hidden: true });
+
+  const noeud = el('div', { className: 'mat' },
+    el('div', { className: 'mat-tete' },
+      el('label', { textContent: `{{${variable.name}}}${variable.required === false ? ' · facultative' : ''}` }),
+      bouton),
+    zone, info, panneau);
+
+  /* ── Ce que l'écran dit de ce qu'on s'apprête à envoyer ── */
+  const majInfo = (origine = '') => {
+    const r = resume(zone.value, origine);
+    if (!zone.value) { info.hidden = true; return; }
+    info.hidden = false;
+    info.textContent = '';
+    info.className = `mat-info${grosse(zone.value) ? ' gros' : ''}`;
+    // Chaque enfant est un élément flex : un « · » posé seul deviendrait une colonne à
+    // lui, avec un écart de chaque côté. Les séparateurs vivent DANS le texte.
+    if (r.origine) info.append(el('b', { textContent: r.origine }));
+    info.append(`${r.lignes} ligne(s) · ≈ ${r.jetons} jetons`);
+    if (grosse(zone.value)) {
+      // Ni refus ni blocage : donner un gros fichier à un agent est légitime. Mais
+      // l'envoyer sans le savoir coûte, et surtout DILUE — un agent noyé dans 2 000
+      // lignes répond moins bien que sur les 80 qui comptent.
+      info.append(el('span', { textContent: 'c\'est beaucoup : l\'agent risque de se diluer' }));
+    }
+    const vider = el('button', { type: 'button', textContent: 'vider' });
+    vider.onclick = () => { zone.value = ''; majInfo(); };
+    info.append(vider);
+  };
+  // Modifiable après récupération : dès qu'on y touche, l'origine ne vaut plus.
+  zone.oninput = () => majInfo();
+
+  /* ── Le sélecteur ── */
+  const source = el('select');
+  for (const s of SOURCES) source.append(el('option', { value: s.id, textContent: `${s.icone} ${s.libelle}` }));
+  source.value = sourceProbable(variable);
+
+  const depot = el('select');
+  const recherche = el('input', { placeholder: 'chercher un chemin…' });
+  const liste = el('div', { className: 'liste' });
+  const aide = el('div', { className: 'vide' });
+
+  panneau.append(el('div', { className: 'rangee' }, source, depot), recherche, aide, liste);
+
+  const dire = (texte) => { aide.textContent = texte; };
+  const vider = () => { liste.textContent = ''; };
+
+  async function remplirDepots() {
+    if (depot.options.length) return;
+    const tous = await depots();
+    for (const d of tous) depot.append(el('option', { value: d.path, textContent: d.path }));
+    const prefere = localStorage.getItem('salsi_ia_project_path') || '';
+    if (tous.some((d) => d.path === prefere)) depot.value = prefere;
+  }
+
+  /** Poser la matière dans la zone, et refermer. C'est le seul endroit qui écrit dedans. */
+  const poser = (texte, origine) => {
+    zone.value = texte;
+    majInfo(origine);
+    panneau.hidden = true;
+    zone.focus();
+  };
+
+  async function chargerFichiers() {
+    recherche.hidden = false;
+    vider();
+    dire('Chargement de l\'arbre du dépôt…');
+    let chemins;
+    try { chemins = await arbre(depot.value); }
+    catch (error) { dire(`Lecture impossible : ${error.message}`); return; }
+
+    const rendre = () => {
+      vider();
+      const q = recherche.value.trim();
+      if (!q) { dire(`${chemins.length} fichier(s). Tape un fragment de chemin — « foo serv » trouve FooService.`); return; }
+      const r = chercher(chemins, q);
+      dire(r.total === 0 ? 'Aucun chemin ne correspond.'
+        : `${r.total} résultat(s)${r.tronque ? ` — les ${r.chemins.length} premiers` : ''}.`);
+      for (const c of r.chemins) {
+        const b = el('button', { type: 'button', className: 'ligne', textContent: c });
+        b.onclick = async () => {
+          dire(`Lecture de ${c}…`);
+          try {
+            const f = await forge.getFile(depot.value, c, CACHE.branches.get(depot.value));
+            if (!f) { dire('Fichier introuvable sur cette branche.'); return; }
+            poser(f.content, `${depot.value} · ${c}`);
+          } catch (error) { dire(`Lecture impossible : ${error.message}`); }
+        };
+        liste.append(b);
+      }
+    };
+    recherche.oninput = rendre;
+    rendre();
+  }
+
+  async function chargerPulls() {
+    recherche.hidden = true;
+    vider();
+    dire('Chargement des pull requests ouvertes…');
+    let pulls;
+    try { pulls = await forge.listPullRequests(depot.value); }
+    catch (error) { dire(`Lecture impossible : ${error.message}`); return; }
+
+    if (pulls.length === 0) { dire('Aucune pull request ouverte sur ce dépôt.'); return; }
+    dire(`${pulls.length} en cours de relecture.`);
+
+    for (const p of pulls) {
+      const b = el('button', { type: 'button', className: 'ligne' },
+        `#${p.numero}  ${p.titre}`,
+        el('small', { textContent: `${p.branche} → ${p.cible}${p.auteur ? ` · par ${p.auteur}` : ''}` }));
+      b.onclick = async () => {
+        dire(`Assemblage du diff de #${p.numero}…`);
+        try {
+          const changements = await forge.pullRequestChanges(depot.value, p.numero);
+          const d = diffUnifie(changements);
+          if (!d.texte) { dire('Cette pull request ne change aucun fichier texte.'); return; }
+          poser(d.texte, `${depot.value} · PR #${p.numero} · ${d.fichiers} fichier(s)`
+                       + (d.ignores.length ? ` · ${d.ignores.length} binaire(s) non lisible(s)` : ''));
+        } catch (error) { dire(`Lecture impossible : ${error.message}`); }
+      };
+      liste.append(b);
+    }
+  }
+
+  async function ouvrirPanneau() {
+    panneau.hidden = false;
+    try { await remplirDepots(); }
+    catch (error) { dire(`Dépôts illisibles : ${error.message}`); return; }
+    charger();
+  }
+
+  function charger() {
+    if (source.value === 'colle') {
+      recherche.hidden = true;
+      vider();
+      dire('Rien ne sera récupéré : le champ est à toi. C\'est le bon choix pour un '
+         + 'journal de pipeline, qui vit dans la CI et pas au dépôt.');
+      return;
+    }
+    (source.value === 'pull' ? chargerPulls : chargerFichiers)();
+  }
+
+  bouton.onclick = () => { if (panneau.hidden) ouvrirPanneau(); else panneau.hidden = true; };
+  source.onchange = charger;
+  depot.onchange = charger;
+
+  return { noeud, controle: zone };
+}
+
+
 function ouvrirExecution(entry) {
   const { artifact } = entry;
   const inner = $('sheetInner');
@@ -697,13 +902,28 @@ function ouvrirExecution(entry) {
   form.append(el('div', { className: 'champs' },
     champ('Entrée', choixCas), champ('Sensibilité du dépôt', sensibilite), champ('Criticité', criticite)));
 
-  // Une saisie par variable déclarée. Elle se grise quand un cas d'or les fournit.
+  /*
+   * Une saisie par variable déclarée, et deux formes selon ce que la variable EST.
+   *
+   * `source: repo` désigne un identifiant — un nom de dépôt, une stack, une version.
+   * Une ligne, pas de matière à aller chercher : un champ simple.
+   *
+   * `signal` et `user` désignent de la MATIÈRE — un diff, un fichier, une requête. Zone
+   * de texte, et le bouton qui va la chercher dans la forge. Mettre un sélecteur de
+   * fichiers sur « stack » n'aiderait personne et ferait douter du reste.
+   */
   const saisies = {};
   const grille = el('div', { className: 'champs' });
   for (const v of artifact.variables || []) {
-    const input = el('input', { placeholder: v.source === 'repo' ? 'issu du dépôt' : 'saisie' });
-    saisies[v.name] = input;
-    grille.append(champ(`{{${v.name}}}${v.required === false ? ' · facultative' : ''}`, input));
+    if (v.source === 'repo') {
+      const input = el('input', { placeholder: 'issu du dépôt' });
+      saisies[v.name] = input;
+      grille.append(champ(`{{${v.name}}}${v.required === false ? ' · facultative' : ''}`, input));
+      continue;
+    }
+    const bloc = champMatiere(v);
+    saisies[v.name] = bloc.controle;
+    grille.append(bloc.noeud);
   }
   if (artifact.variables?.length) {
     form.append(el('h4', { textContent: `Valeurs (${artifact.variables.length})` }), grille);
