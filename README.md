@@ -522,7 +522,9 @@ divergerait au premier correctif — précisément ce qu'on évite.
 | `entrees/` | la banque d'entrées — de la matière réelle, rangée par nature de signal |
 | `runtime/vertex.js` · `runtime/deepseek.js` · `runtime/moteur.js` | les fournisseurs, et le seul endroit qui choisit |
 | `runtime/resolveurs.js` | ce qui rend `criteria` exécutable, sans juge LLM |
+| `demande/` | l'écran de demande : une phrase, un agent, la file de validation |
 | `runtime/redacteur.js` · `runtime/rediger-cli.js` | la dictée : une phrase → un artefact, corrigé par le linter |
+| `lib/provenance.js` | l'en-tête qui dit qu'un modèle a écrit le fichier, et depuis quelle phrase |
 | `runtime/banc.js` · `runtime/banc-cli.js` | le banc d'essai : joue les cas d'or, dérive le niveau |
 | `runtime/etat-derive.js` · `derive/etat.json` | la mémoire de la plateforme — mesurée, jamais écrite à la main |
 | `studio/` | le formulaire, le pont vers l'artefact, le serveur local |
@@ -786,18 +788,57 @@ une erreur 501 explicite : un commit multi-fichiers y demande de reconstruire un
 forge. Mieux vaut une erreur qui dit la vérité qu'une implémentation à moitié. La
 **préparation**, elle, fonctionne partout — on peut voir le plan sans pouvoir l'écrire.
 
-## ✨ La dictée — une phrase, un artefact
+## ✨ Demander un agent — une phrase, et c'est tout
+
+> « Je voudrais un agent pour vérifier mes branches mortes. »
+
+`demande/` est un écran, un champ, un bouton. Aucun vocabulaire de registre : ni
+`criteria`, ni `golden_cases`, ni `model_tier`. Ils sont pourtant tous dans le fichier
+déposé — c'est le travail du modèle, pas celui du demandeur.
+
+### Pourquoi un écran à part, et pas un bouton du Studio
+
+Il l'a d'abord été, et c'était une erreur de public. Le Studio est **l'établi de
+l'auteur** : variables, outils, cibles assertables, cas d'or. Quelqu'un qui voudrait un
+agent pour ses branches mortes n'est pas auteur d'artefacts — il a un besoin. Lui demander
+d'ouvrir un établi pour l'exprimer, c'est lui demander d'apprendre le métier de quelqu'un
+d'autre avant d'avoir le droit de demander quelque chose.
+
+Le bouton du Studio reste, pour l'auteur qui veut amorcer son formulaire. Ce n'est plus la
+porte d'entrée.
+
+### Ce que l'écran montre pendant que ça se passe
+
+```
+↩ Tour 1 — 3 refus, renvoyés au modèle
+     L001 · Schéma : propriété obligatoire manquante (`criteria`)
+     L004 · Outil inconnu : `read_the_whole_internet` n'existe pas au registre
+     L008 · Aucun critère : l'artefact n'est pas vérifiable au post-vol
+✔ Tour 2 — les 23 règles le laissent passer
+```
+
+On pourrait n'afficher que le résultat. Ce serait plus propre et moins vrai : voir le
+linter refuser puis le modèle corriger fait comprendre, sans une ligne d'explication, que
+**la machine n'a pas eu le dernier mot**.
+
+Puis la fiche, en français : le titre, à quoi ça sert, quand ne PAS l'utiliser, **le prompt
+en clair**, et ce qui sera vérifié à chaque exécution. Le prompt surtout — quelqu'un qui ne
+le lit pas ne peut pas dire si l'agent fait ce qu'il voulait, et il sera le premier à s'en
+plaindre après.
+
+## La dictée — la mécanique derrière
 
 C'est la phrase du dépôt, appliquée au dépôt :
 
 > « L'IA traduit l'intention, le noyau gouverne, l'humain valide. »
 
-```
-npm run rediger -- "un agent qui relit une requête SQL lente et propose un index"
-npm run rediger -- "…" --scope=Data --auteur=ivguenyp123 --ecrire
-```
+Trois entrées, un seul moteur :
 
-…ou, au Studio, le bouton **« ✨ Décris-le en une phrase »**.
+| | pour qui |
+|---|---|
+| `demande/` | celui qui a un besoin. Une phrase, un bouton, et c'est déposé |
+| Studio → **« ✨ Décris-le en une phrase »** | l'auteur qui veut amorcer son formulaire |
+| `npm run rediger -- "…"` | la ligne de commande, pour essayer sans navigateur |
 
 ### Les trois termes, un par un
 
@@ -827,7 +868,7 @@ ne montrerait que son résultat final demanderait qu'on lui fasse confiance ; c'
 exactement ce que ce produit refuse.
 
 **L'humain valide.** Le brouillon part dans `artifacts/pending/` — **la file de
-validation** — sur un clic, et c'est tout. Rien de ce qui s'y trouve n'est exécutable ni
+validation** — sur un clic, et c'est tout. Depuis les trois entrées, par le même chemin. Rien de ce qui s'y trouve n'est exécutable ni
 visible au Catalogue ; l'écran d'Admin refuse ou accepte pièce par pièce, avec le fichier
 entier et le verdict du lint sous les yeux. Le relecteur est mieux placé que l'auteur pour
 trancher : c'est son rôle, et c'était déjà le seul point de passage obligé du moment 3.
@@ -837,21 +878,45 @@ dossier, même branche, même lint bloquant avant l'envoi. Deux chemins auraient
 premier correctif, et l'un des deux aurait fini plus permissif que l'autre — probablement
 celui qu'une machine emprunte.
 
-Ce qui n'est pas négociable, c'est la **provenance**. Un artefact rédigé par un modèle ne
-se présente pas comme un artefact écrit à la main : l'en-tête du fichier porte la phrase
-d'origine, le nombre de tours de correction et le modèle qui a répondu, et le message de
-commit aussi. On relit autrement ce qu'une machine a écrit.
+Ce qui n'est pas négociable, c'est la **provenance** — `lib/provenance.js` :
 
 ```yaml
-# Rédigé par la dictée, à partir d'une phrase, et déposé sans passer par le formulaire.
-# Besoin d'origine : « un agent qui relit une requête SQL lente et propose un index »
-# 2 tour(s) de correction par le linter · deepseek-chat via deepseek
-# Le linter le laisse passer. Aucun cas d'or n'a été joué : ce qu'il FAIT reste à mesurer.
+# salsi-provenance: demande
+# besoin: je voudrais un agent pour vérifier mes branches mortes
+# demande-par: ivguenyp123
+# le: 2026-08-07
+# tours-de-correction: 2
+# modele: deepseek-chat via deepseek
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
 ```
 
-« Ouvrir dans le formulaire » reste là pour qui veut retoucher avant d'envoyer. Et un
-brouillon que la porte refuse n'a **pas** de bouton d'envoi : un bouton qui échoue
-toujours finit par se cliquer par habitude jusqu'à ce qu'on cherche à le contourner.
+En **commentaires de tête**, pas en champ d'artefact — et c'est un choix, pas un
+contournement du schéma. La provenance ne décrit pas la capacité : deux artefacts
+identiques, l'un tapé et l'autre dicté, sont la même capacité. Elle décrit comment le
+fichier est arrivé là. Le parseur YAML les jette, donc rien n'atteint le linter,
+l'exécution ni le catalogue — un test le vérifie sur un artefact réel.
+
+**Des clés plutôt que de la prose**, parce que l'écran d'Admin doit en faire un bandeau :
+
+> ✨ **Demandé en une phrase, rédigé par un modèle**
+> *« je voudrais un agent pour vérifier mes branches mortes »*
+> demandé par ivguenyp123 · 2026-08-07 · 2 tours de correction par le linter · deepseek-chat
+
+Ambre, pas rouge : ce n'est pas une alerte, c'est un cadrage de lecture. Et la phrase
+d'origine est là parce qu'elle dit ce que le demandeur **voulait** — la seule chose
+qu'aucune règle ne peut vérifier, donc exactement le travail que le relecteur est là pour
+faire. Sans elle il le ferait à l'aveugle.
+
+Trois écrans écrivent cet en-tête, un seul le lit. Un test tient les quatre sur le même
+module : sans lui, une des écritures dériverait et le bandeau disparaîtrait en silence sur
+les fichiers concernés — et un bandeau absent ne ressemble pas à un bug, il ressemble à un
+artefact écrit à la main.
+
+Enfin, un brouillon que la porte refuse n'est **pas** déposé et n'a pas de bouton d'envoi :
+un bouton qui échoue toujours finit par se cliquer par habitude jusqu'à ce qu'on cherche à
+le contourner.
 
 ### Ce que le modèle n'a pas le droit de décider
 

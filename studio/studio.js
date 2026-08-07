@@ -25,6 +25,7 @@ import { QUESTIONS, composer } from './assistant.js';
 import { SITUATIONS, PROPOSITIONS, composerCas } from './assistant-cas.js';
 import { natureDeCle, entree as entreeDeLaBanque, chemin } from '../lib/entrees.js';
 import { toYaml } from './to-yaml.js';
+import { entete as enteteProvenance } from '../lib/provenance.js';
 
 const session = requireSession('../app/login.html');
 // Sans session, requireSession a déjà lancé la redirection. On suspend l'évaluation du
@@ -810,11 +811,12 @@ function ouvrirDictee() {
       const avant = envoyer.textContent;
       envoyer.textContent = 'Envoi…';
 
-      const entete =
-        `# Rédigé par la dictée, à partir d'une phrase, et déposé sans passer par le formulaire.\n`
-        + `# Besoin d'origine : « ${phrase.replace(/\n/g, ' ')} »\n`
-        + `# ${corps.tours.length} tour(s) de correction par le linter · ${corps.modele} via ${corps.fournisseur}\n`
-        + `# Le linter le laisse passer. Aucun cas d'or n'a été joué : ce qu'il FAIT reste à mesurer.\n\n`;
+      // Le même générateur que l'écran « Demander » et que la CLI : l'écran d'Admin ne
+      // sait lire qu'un seul format de provenance, et trois écritures auraient divergé.
+      const entete = enteteProvenance({
+        origine: 'dictee', phrase, auteur: session.username,
+        date: new Date().toISOString().slice(0, 10),
+        tours: corps.tours.length, modele: corps.modele, fournisseur: corps.fournisseur });
 
       try {
         const ok = await deposer(a, { entete, motif:

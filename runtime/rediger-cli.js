@@ -31,6 +31,7 @@ import { createMoteur } from './moteur.js';
 import { cout, VertexError } from './vertex.js';
 import { rediger } from './redacteur.js';
 import { toYaml } from '../studio/to-yaml.js';
+import { entete } from '../lib/provenance.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const load = (p) => yaml.load(readFileSync(join(ROOT, p), 'utf8'));
@@ -126,12 +127,14 @@ if (existsSync(cible)) {
   process.exit(1);
 }
 
-const entete = `# Rédigé par la dictée à partir d'une phrase, relu par un humain avant dépôt.\n`
-             + `# Besoin d'origine : « ${phrase.replace(/\n/g, ' ')} »\n`
-             + `# Le linter l'a jugé conforme ; ce qu'il fait VRAIMENT reste à mesurer au banc d'essai.\n\n`;
+const tete = entete({
+  origine: 'demande', phrase, auteur: o.auteur || '',
+  date: new Date().toISOString().slice(0, 10),
+  tours: r.tours.length, modele: moteur.modele(r.artefact.model_tier),
+  fournisseur: moteur.fournisseur });
 
 mkdirSync(dirname(cible), { recursive: true });
-writeFileSync(cible, entete + r.rendu.trimEnd() + '\n');
+writeFileSync(cible, tete + r.rendu.trimEnd() + '\n');
 
 console.log(`\n  ✔ artifacts/pending/${r.artefact.id}.yaml déposé.`);
 console.log('    Il attend une décision humaine à l\'écran d\'Admin. Commite-le pour qu\'il y arrive.\n');

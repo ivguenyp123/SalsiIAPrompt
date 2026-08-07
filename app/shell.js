@@ -6,6 +6,10 @@
  */
 
 const TABS = [
+  // « Demander » en tête : c'est l'entrée du public le plus large — celui qui a un besoin
+  // et pas un artefact. Le mettre après les écrans d'auteur reviendrait à le réserver à
+  // ceux qui savent déjà que le registre existe.
+  { id: 'demande', label: '✨ Demander', href: 'demande' },
   { id: 'catalogue', label: '🧰 Catalogue', href: 'catalogue' },
   { id: 'studio', label: '🛠️ Studio', href: 'studio' },
   { id: 'admin', label: '📊 Admin', href: 'admin' },
@@ -18,7 +22,8 @@ const TABS = [
  *   base : préfixe vers la racine du dépôt ('' depuis /app, '../' depuis /studio)
  */
 export function mountShell({ active = '', session, base = '', onLogout }) {
-  const href = { catalogue: `${base}catalogue/index.html`, studio: `${base}studio/index.html`,
+  const href = { demande: `${base}demande/index.html`,
+                 catalogue: `${base}catalogue/index.html`, studio: `${base}studio/index.html`,
                  admin: `${base}admin/index.html`, maquette: `${base}maquette.html` };
 
   const bar = document.createElement('div');

@@ -38,6 +38,7 @@ import { depuisCommits, parJour, resume, horsParcours, ACTIONS } from './journal
 import { STATUTS, DOSSIERS, inventaireParc, compter, filtrer } from './parc.js';
 import { niveau } from '../lib/niveau.js';
 import { carte } from '../runtime/etat-derive.js';
+import { lire as lireProvenance } from '../lib/provenance.js';
 
 /*
  * `cache: 'no-cache'` sur les référentiels — pas une coquetterie.
@@ -146,7 +147,11 @@ async function load() {
     try {
       const found = await forge.getFile(repo, file.path);
       const artifact = yaml.parse(found.content);
-      return { file, artifact, report: lint(artifact, { ...ctx, artifacts: [] }) };
+      // La provenance vit en commentaires de tête : le parseur YAML les jette, donc elle
+      // se lit sur le TEXTE. C'est voulu — elle ne décrit pas la capacité, elle décrit
+      // comment le fichier est arrivé ici, et le relecteur doit le savoir avant de lire.
+      return { file, artifact, provenance: lireProvenance(found.content),
+               report: lint(artifact, { ...ctx, artifacts: [] }) };
     } catch (error) {
       return { file, artifact: null, error: error.message };
     }
@@ -171,7 +176,7 @@ const chips = (valeurs) => {
 };
 
 function row(entry) {
-  const { artifact, report, file, error } = entry;
+  const { artifact, report, file, error, provenance } = entry;
   const node = el('div', { className: 'row' });
 
   if (!artifact) {
@@ -190,6 +195,33 @@ function row(entry) {
   node.append(titre);
 
   node.append(el('p', { className: 'purpose', textContent: artifact.intent?.purpose || '—' }));
+
+  /*
+   * Le bandeau de provenance, quand une machine a écrit le fichier.
+   *
+   * Il n'accuse pas : un artefact dicté n'est ni meilleur ni pire qu'un artefact tapé.
+   * Mais il se relit autrement. La phrase d'origine dit ce que le demandeur VOULAIT, ce
+   * qu'aucune règle ne peut vérifier — c'est exactement le travail que le relecteur est
+   * là pour faire, et sans elle il le ferait à l'aveugle.
+   */
+  if (provenance) {
+    const detail = [
+      provenance.auteur ? `demandé par ${provenance.auteur}` : '',
+      provenance.date,
+      provenance.tours ? `${provenance.tours} tour(s) de correction par le linter` : '',
+      provenance.modele
+    ].filter(Boolean).join(' · ');
+
+    node.append(el('div', { className: 'prov' },
+      el('span', { className: 'prov-ic', textContent: '✨' }),
+      el('span', {},
+        el('b', { textContent: provenance.libelle }),
+        provenance.phrase
+          ? el('q', { textContent: provenance.phrase })
+          : null,
+        el('small', { textContent: `${detail}${detail ? ' · ' : ''}`
+          + 'aucun cas d\'or n\'a été joué : la forme est vérifiée, pas le résultat.' }))));
+  }
 
   if (artifact.intent?.not_for) {
     node.append(bloc('Quand NE PAS l\'utiliser',
