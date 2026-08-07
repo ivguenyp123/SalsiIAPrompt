@@ -66,12 +66,13 @@ async function load() {
   $('source').textContent = `${repo} · ${PENDING}/`;
 
   if (!ctx) {
-    const [tools, targets, schema] = await Promise.all([
+    const [tools, targets, entrees, schema] = await Promise.all([
       fetch('../registries/tools.yaml').then((r) => r.text()).then((t) => yaml.parse(t).tools),
       fetch('../registries/targets.yaml').then((r) => r.text()).then((t) => yaml.parse(t).targets),
+      fetch('../entrees/index.yaml').then((r) => r.text()).then((t) => yaml.parse(t)),
       fetch('../schema/artifact.schema.json').then((r) => r.json())
     ]);
-    ctx = { tools, targets, validateArtifact: makeValidator(schema) };
+    ctx = { tools, targets, entrees, validateArtifact: makeValidator(schema) };
   }
 
   let files;

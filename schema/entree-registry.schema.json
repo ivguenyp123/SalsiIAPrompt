@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://salsi.internal/schema/entree-registry.schema.json",
+  "title": "Banque d'entrées — manifeste",
+  "description": "Catalogue des entrées capturées sur lesquelles se jouent les cas d'or.\n\nPOURQUOI ELLE EST PARTAGÉE ET NON RANGÉE PAR AGENT : un diff est un diff. Le même fichier sert à l'agent qui rédige un message de commit, à celui qui relit un changement et à celui qui estime un risque. Rangée par agent, la banque obligerait chaque auteur à en constituer une ; rangée par NATURE de signal, un nouvel artefact hérite de ce qui existe et son auteur n'a rien à fournir.\n\nLE LIEN AVEC L'ARTEFACT : une variable de `source: signal` nommée `diff` se sert dans la nature `diff` ; le cas d'or l'y désigne par une clé de contexte `diff_fixture`. La règle L023 refuse un cas qui pointe vers une entrée absente.\n\nLE CHAMP `origine` EST OBLIGATOIRE : une entrée dont on ne sait pas d'où elle vient est une entrée inventée, et un banc d'essai qui tourne sur des entrées inventées ne prouve rien. Ce qui n'a pas pu être récolté — on ne récolte pas une vraie fuite de secret — se déclare `synthetique: true`.",
+
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["natures"],
+  "properties": {
+    "natures": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["nature", "titre", "quoi", "entrees"],
+        "properties": {
+          "nature": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "description": "Nom de la nature de signal. Il correspond au nom d'une variable de `source: signal`, ce qui suffit à relier une variable à ses entrées sans champ supplémentaire dans l'artefact."
+          },
+
+          "titre": { "type": "string", "minLength": 3 },
+
+          "quoi": {
+            "type": "string",
+            "minLength": 20,
+            "description": "Ce qu'est concrètement cette matière — la commande qui la produit, le poste qui l'émet. Sans quoi personne ne sait ce qu'il regarde."
+          },
+
+          "entrees": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "genre", "titre", "resume", "fichier", "origine"],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                  "description": "Désigné depuis un cas d'or, par la clé `<nature>_fixture`."
+                },
+
+                "genre": {
+                  "enum": ["nominal", "limite", "refus", "vide"],
+                  "description": "Le genre de situation que cette entrée incarne. Ce sont les genres de assistant-cas.js : c'est ce qui permet à Salsi de choisir le fichier tout seul, sans rien demander à l'auteur."
+                },
+
+                "titre": { "type": "string", "minLength": 3 },
+
+                "resume": {
+                  "type": "string",
+                  "minLength": 20,
+                  "description": "Ce que l'auteur lit dans le Studio, à la place du nom du fichier."
+                },
+
+                "fichier": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9_-]*(/[a-z0-9][a-z0-9_.-]*)+$",
+                  "description": "Chemin relatif au dossier entrees/."
+                },
+
+                "lignes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Taille de l'entrée. Un chiffre, pas une impression : c'est ce qui distingue un cas courant d'un cas limite."
+                },
+
+                "synthetique": {
+                  "type": "boolean",
+                  "description": "Vrai quand l'entrée a été écrite plutôt que récoltée. Elle reste utilisable, mais on sait qu'elle ne prouve pas la même chose."
+                },
+
+                "origine": {
+                  "type": "string",
+                  "minLength": 10,
+                  "description": "Dépôt et commit, ou pipeline et numéro de run. Obligatoire."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

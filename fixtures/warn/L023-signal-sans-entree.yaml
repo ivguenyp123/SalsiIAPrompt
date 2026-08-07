@@ -1,0 +1,34 @@
+# L'artefact consomme un signal — un diff — et son cas d'or n'en fournit aucun.
+#
+# Il ne pointe pas vers un fichier absent : il ne pointe vers rien. Le cas s'exécutera
+# donc sur un `{{diff}}` vide, et il PASSERA — un modèle à qui l'on ne donne rien répond
+# court, et le seul critère porte sur la longueur. C'est un test qui compte pour L010 et
+# qui ne prouve rien.
+#
+# Avertissement et non refus : un cas d'or peut légitimement décrire une entrée absente
+# (« le dépôt n'a pas ce qu'il faut, l'agent doit le dire »). Mais alors il le désigne
+# explicitement — la banque a une entrée `vide` pour ça — au lieu de l'omettre.
+id: l023-signal-sans-entree
+kind: agent
+title: Artefact minimal
+owner: { person: m.dubois, scope: Plateforme }
+intent:
+  purpose: Faire une chose utile et suffisamment décrite pour le schéma.
+  not_for: Ne pas utiliser hors du périmètre décrit juste au-dessus.
+spec: |
+  Tu résumes le changement suivant, pour le dépôt {{repo}} :
+  {{diff}}
+variables:
+  - { name: repo, source: repo }
+  - { name: diff, source: signal }
+tools:
+  - { id: read_repo_metadata, mode: read, executor: llm }
+criteria:
+  - { target: output.length, op: lte, value: 500 }
+target_level: experimental
+golden_cases:
+  - id: gc-01-sans-matiere
+    context: { repo: demo }
+    expect: { output.length: 300 }
+    runs: 3
+    pass_at_least: 3

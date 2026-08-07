@@ -1,5 +1,5 @@
 /*
- * L008 · L009 · L017 — le contrat de runtime et les cas d'or.
+ * L008 · L009 · L017 · L022 · L023 — le contrat de runtime et les cas d'or.
  *
  * Rappel de la distinction, souvent confondue :
  *   criteria     → contrat de RUNTIME, évalué au moment 5 sur chaque exécution en
@@ -8,6 +8,7 @@
  *   golden_cases → TESTS de développement, joués au banc d'essai.
  */
 import { finding, ERROR, WARN, indexBy, jsonType } from '../core.js';
+import { references, naturesRequises, nature } from '../../lib/entrees.js';
 
 /** Seuils de cas d'or par niveau visé (L010, appliqué dans lifecycle.js). */
 export const GOLDEN_THRESHOLDS = { experimental: 0, team: 3, officiel: 5 };
@@ -205,6 +206,81 @@ export function L022(artifact) {
           `golden_cases[${i}].expect.${cible}`
         ));
       }
+    }
+  });
+
+  return out;
+}
+
+/*
+ * L023 — Un cas d'or joue sur une entrée qui existe. 🔴 / 🟡
+ *
+ * Née du même constat que L017 : depuis que le Studio sait saisir des cas d'or, il est
+ * facile d'en produire cinq qui comptent pour L010 sans rien prouver. L017 a fermé la
+ * porte du cas creux — sans attente, sans seuil. L023 ferme celle du cas qui asserte
+ * correctement… sur une entrée qui n'a jamais existé.
+ *
+ * `diff_fixture: feat-add-endpoint` était écrit à la main dans commit-message.yaml bien
+ * avant la banque. Personne ne pouvait dire si ce fichier existait : la convention était
+ * une intention, pas un lien. Elle devient vérifiable.
+ *
+ * DEUX SÉVÉRITÉS, ET LA DIFFÉRENCE COMPTE :
+ *   🔴 le cas DÉSIGNE une entrée absente — le banc d'essai ne pourra pas le jouer,
+ *      c'est un test cassé, pas un test exigeant.
+ *   🟡 le cas ne désigne RIEN alors que l'artefact consomme un signal dont la banque a
+ *      la matière — il jouera sur du vide en croyant tester quelque chose.
+ *
+ * La règle se tait entièrement sans `ctx.entrees`, comme L001 sans validateur : mieux
+ * vaut une règle absente qu'une règle qui invente son référentiel.
+ */
+export function L023(artifact, ctx) {
+  const banque = ctx?.entrees;
+  if (!banque) return [];
+
+  const out = [];
+  const requises = naturesRequises(artifact?.variables);
+
+  (artifact?.golden_cases || []).forEach((g, i) => {
+    const vues = new Set();
+
+    for (const r of references(g.context, banque)) {
+      vues.add(r.nature);
+
+      if (!r.natureConnue) {
+        out.push(finding(
+          'L023', ERROR,
+          `Cas d'or \`${g.id}\` : \`${r.cle}\` désigne une nature d'entrée inconnue — ` +
+          `la banque n'a rien de nature \`${r.nature}\`. Natures disponibles : ` +
+          `${(banque.natures || []).map((n) => n.nature).join(', ') || 'aucune'}.`,
+          `golden_cases[${i}].context.${r.cle}`
+        ));
+        continue;
+      }
+
+      if (!r.entree) {
+        const dispo = (nature(banque, r.nature).entrees || []).map((e) => e.id);
+        out.push(finding(
+          'L023', ERROR,
+          `Cas d'or \`${g.id}\` : l'entrée \`${r.id}\` n'existe pas à la banque. ` +
+          `Le banc d'essai n'aura rien à lui donner à lire. Entrées de nature ` +
+          `\`${r.nature}\` : ${dispo.join(', ') || 'aucune'}.`,
+          `golden_cases[${i}].context.${r.cle}`
+        ));
+      }
+    }
+
+    // L'inverse : une matière disponible que le cas n'utilise pas.
+    for (const nom of requises) {
+      if (vues.has(nom)) continue;
+      const bloc = nature(banque, nom);
+      if (!bloc) continue;                    // rien à proposer : le silence est honnête
+      out.push(finding(
+        'L023', WARN,
+        `Cas d'or \`${g.id}\` : l'artefact consomme \`${nom}\` (source \`signal\`) mais le ` +
+        `cas ne désigne aucune entrée. Il jouera sur du vide alors que la banque en ` +
+        `propose ${bloc.entrees.length} — ajoute \`${nom}_fixture\` au contexte.`,
+        `golden_cases[${i}].context`
+      ));
     }
   });
 

@@ -23,6 +23,7 @@ import { artifactToForm, restoreCarried } from './artifact-to-form.js';
 import { inventaire, aCorriger, ETATS } from './inventory.js';
 import { QUESTIONS, composer } from './assistant.js';
 import { SITUATIONS, PROPOSITIONS, composerCas } from './assistant-cas.js';
+import { natureDeCle, entree as entreeDeLaBanque, chemin } from '../lib/entrees.js';
 import { toYaml } from './to-yaml.js';
 
 const session = requireSession('../app/login.html');
@@ -39,13 +40,14 @@ const el = (tag, attrs = {}, ...kids) => {
 };
 
 // ── Chargement des registres et du schéma ────────────────────────────────────
-const [tools, targets, schema] = await Promise.all([
+const [tools, targets, entrees, schema] = await Promise.all([
   fetch('../registries/tools.yaml').then((r) => r.text()).then((t) => yaml.parse(t).tools),
   fetch('../registries/targets.yaml').then((r) => r.text()).then((t) => yaml.parse(t).targets),
+  fetch('../entrees/index.yaml').then((r) => r.text()).then((t) => yaml.parse(t)),
   fetch('../schema/artifact.schema.json').then((r) => r.json())
 ]);
 
-const ctx = { tools, targets, validateArtifact: makeValidator(schema) };
+const ctx = { tools, targets, entrees, validateArtifact: makeValidator(schema) };
 
 // ── Identité : l'owner vient de la connexion, il ne se saisit pas ────────────
 // Un artefact est SIGNÉ. Laisser l'auteur taper le nom de quelqu'un d'autre — ou un
@@ -245,6 +247,22 @@ function renderGolden() {
       bloc.append(ligne(g.context, i, 'key', cle,
         () => { g.context.splice(i, 1); renderGolden(); run(); }));
     });
+    /*
+     * Ce sur quoi le cas se joue VRAIMENT.
+     *
+     * Une clé `*_fixture` ne désigne pas une chaîne, elle désigne un fichier de la
+     * banque. Afficher `diff_fixture = petit-fix` et s'arrêter là obligerait l'auteur à
+     * aller ouvrir le fichier pour savoir ce qu'il teste — donc à ne pas le faire.
+     */
+    for (const row of g.context) {
+      const nom = natureDeCle(row.key);
+      if (!nom) continue;
+      const e = entreeDeLaBanque(entrees, nom, row.value);
+      bloc.append(el('div', { className: `src ${e ? 'ok' : 'ko'}`, textContent: e
+        ? `📄 ${e.titre} — ${e.lignes} ligne(s) · ${chemin(e)}`
+        : `⚠ aucune entrée « ${row.value} » de nature « ${nom} » à la banque (L023)` }));
+    }
+
     const addCtx = el('button', { className: 'mini sub', textContent: '＋ entrée' });
     addCtx.onclick = () => { g.context.push({ key: '', value: '' }); renderGolden(); run(); };
     bloc.append(addCtx);
@@ -598,15 +616,29 @@ function ouvrirSalsiCas() {
   fil.append(liste, reco);
 
   function dessiner() {
+    /*
+     * On compose à chaque redessin, pas seulement au clic final : c'est ce qui permet
+     * de MONTRER sur quelle entrée chaque cas va se jouer. Un auteur qui ne voit pas
+     * la matière ne peut pas juger si le test vaut quelque chose.
+     */
+    const actuel = readForm();
+    const apercu = composerCas({ situations: choisies, variables: actuel.variables,
+                                 criteria: actuel.criteria, targets, entrees });
+
     liste.textContent = '';
     for (const [i, id] of choisies.entries()) {
       const s = SITUATIONS.find((x) => x.id === id);
       const del = el('button', { className: 'del', textContent: '✕', title: 'retirer' });
       del.onclick = () => { choisies.splice(i, 1); dessiner(); };
+
+      const detail = el('span', { style: 'flex:1' },
+        el('b', { textContent: s.titre }), el('small', { textContent: s.pourquoi }));
+      for (const e of apercu[i]?.entrees || []) {
+        detail.append(el('small', { className: 'src',
+          textContent: `📄 ${e.titre} — ${e.lignes} ligne(s), ${e.origine}` }));
+      }
       liste.append(el('div', { className: 'opt', style: 'cursor:default' },
-        el('span', { className: 'ic', textContent: s.icone }),
-        el('span', { style: 'flex:1' }, el('b', { textContent: s.titre }), el('small', { textContent: s.pourquoi })),
-        del));
+        el('span', { className: 'ic', textContent: s.icone }), detail, del));
     }
 
     const ajout = el('div', { className: 'choix', style: 'margin-top:8px' });
@@ -624,20 +656,29 @@ function ouvrirSalsiCas() {
     reco.append(el('div', { className: 'reco-h',
       textContent: manque > 0 ? `${choisies.length} cas — il en manque ${manque} pour « ${niveau} »`
                               : `${choisies.length} cas — le seuil de « ${niveau} » est atteint` }));
+    /*
+     * Ce qui reste à l'auteur — et ce qui ne lui reste plus.
+     *
+     * Les entrées de `source: signal` sont servies par la banque : de vrais diffs, de
+     * vrais journaux. Il n'a rien à capturer, rien à coller. Ce qui reste tient aux
+     * chaînes — un nom de dépôt, une branche — et seulement si le banc en a besoin.
+     */
+    const servies = apercu.flatMap((c) => c.entrees || []).length;
     reco.append(el('div', { className: 'reste' },
       el('b', { textContent: 'Ce qui reste à toi' }),
-      el('small', { textContent:
-        'Les valeurs du contexte sont des exemples lisibles, pas tes vraies données. '
-        + 'Remplace-les par des dépôts et des branches qui existent — c\'est ce qui rendra le banc d\'essai utile.' })));
+      el('small', { textContent: servies > 0
+        ? `Rien à capturer : ${servies} entrée(s) réelle(s) viennent de la banque, listées ci-dessus. `
+          + 'Les autres valeurs du contexte sont des exemples lisibles — un nom de dépôt à remplacer '
+          + 'si tu veux que le cas parle de quelque chose de précis.'
+        : 'Les valeurs du contexte sont des exemples lisibles, pas tes vraies données. '
+          + 'Remplace-les par des dépôts et des branches qui existent — c\'est ce qui rendra le banc d\'essai utile.' })));
 
     const appliquer = el('button', { className: 'primary', textContent: `Ajouter ces ${choisies.length} cas` });
     appliquer.disabled = choisies.length === 0;
     appliquer.onclick = () => {
-      const actuel = readForm();
-      const cas = composerCas({ situations: choisies, variables: actuel.variables,
-                                criteria: actuel.criteria, targets });
+      // `pourquoi` et `entrees` sont de l'affichage : ils ne descendent pas dans l'artefact.
       // On AJOUTE : écraser les cas déjà écrits punirait celui qui a commencé seul.
-      state.goldenCases.push(...cas.map(({ pourquoi, ...c }) => c));
+      state.goldenCases.push(...apercu.map(({ pourquoi, entrees: _e, ...c }) => c));
       renderGolden(); run();
       dlg.classList.remove('on');
     };

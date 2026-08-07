@@ -23,8 +23,21 @@
  * Et le vocabulaire disparaît : on ne demande pas `expects_violation`, on demande
  * « ce cas doit-il être refusé ? ». La réponse pose le drapeau.
  *
- * Module PUR : ni DOM, ni réseau.
+ * ── ET LA MATIÈRE SUR LAQUELLE LE CAS SE JOUE ────────────────────────────────
+ *
+ * Un contexte `diff: "diff-exemple"` est une chaîne, pas un diff. La première version
+ * s'arrêtait là et laissait à l'auteur le soin de « capturer une vraie entrée » — ce
+ * que personne ne fait, et ce que celui qui s'exécute fait mal.
+ *
+ * La banque d'entrées règle ça sans rien demander : pour chaque variable de
+ * `source: signal`, Salsi choisit dans la banque une entrée RÉELLE du genre demandé et
+ * la désigne par `<nature>_fixture`. Le genre d'une entrée et le genre d'une situation
+ * portent le même vocabulaire — nominal, limite, refus, vide — ce qui rend le choix
+ * mécanique plutôt qu'arbitraire.
+ *
+ * Module PUR : ni DOM, ni réseau. La banque est injectée, comme le registre des cibles.
  */
+import { naturesRequises, pourGenre, nature } from '../lib/entrees.js';
 
 /*
  * Les genres de situation. Le k/n vient de là, et il s'explique.
@@ -106,9 +119,11 @@ function valeurQuiPasse(critere) {
  *   @param {Array}  entree.variables   variables déclarées (form)
  *   @param {Array}  entree.criteria    critères déclarés (form : value en chaîne)
  *   @param {Array}  entree.targets     registre des cibles, pour typer
+ *   @param {object} [entree.entrees]   manifeste de la banque d'entrées
  * @returns {Array} des cas d'or au format du formulaire
  */
-export function composerCas({ situations = [], variables = [], criteria = [], targets = [] } = {}) {
+export function composerCas({ situations = [], variables = [], criteria = [], targets = [],
+                              entrees = null } = {}) {
   const typeDe = (cible) => (targets.find((t) => t.target === cible) || {}).type;
 
   // Les critères redeviennent typés : le formulaire les porte en chaînes.
@@ -124,17 +139,43 @@ export function composerCas({ situations = [], variables = [], criteria = [], ta
       return { target: c.target, op: c.op || 'eq', value };
     });
 
+  // Les variables qui appellent de la MATIÈRE, et non une chaîne : `source: signal`.
+  const signaux = new Set(naturesRequises(variables));
+  // Ce qu'on a déjà servi, par nature. Deux cas nominaux qui jouent sur le même fichier
+  // testeraient deux fois la même chose, et le compte de L010 serait un trompe-l'œil.
+  const servies = new Map();
+
   return situations.map((id, i) => {
     const s = SITUATIONS.find((x) => x.id === id) || SITUATIONS[0];
+    const choisies = [];               // les entrées retenues par ce cas, pour l'écran
 
     /*
-     * Le contexte reprend les variables déclarées, avec des valeurs qui SE LISENT.
-     * Un `repo: "valeur"` générique n'aiderait personne à comprendre ce que le cas
-     * décrit ; `repo: "demo-nominal"` dit au moins de quoi on parle.
+     * Le contexte reprend les variables déclarées.
+     *
+     * Pour une variable de `source: signal` dont la banque a la matière, la valeur n'est
+     * pas un exemple : c'est l'identifiant d'une entrée RÉELLE, désignée par
+     * `<nature>_fixture`. C'est ce qui fait la différence entre un cas d'or qui se joue
+     * et un cas d'or qui compte.
+     *
+     * Pour les autres — un nom de dépôt, une branche — on garde une valeur qui SE LIT.
+     * Un `repo: "valeur"` générique n'aiderait personne à comprendre le cas.
      */
-    const contexte = variables
-      .filter((v) => v?.name)
-      .map((v) => ({ key: v.name, value: s.viole ? `${v.name}-${s.suffixe}` : `${v.name}-exemple` }));
+    const contexte = [];
+    for (const v of variables.filter((x) => x?.name)) {
+      const dispo = signaux.has(v.name) && nature(entrees, v.name);
+      if (!dispo) {
+        contexte.push({ key: v.name, value: s.viole ? `${v.name}-${s.suffixe}` : `${v.name}-exemple` });
+        continue;
+      }
+      const deja = servies.get(v.name) || [];
+      // Le genre d'une situation et le genre d'une entrée partagent le même vocabulaire :
+      // c'est ce qui rend le choix mécanique au lieu d'arbitraire.
+      const e = pourGenre(entrees, v.name, s.id, deja);
+      if (!e) continue;
+      servies.set(v.name, [...deja, e.id]);
+      contexte.push({ key: `${v.name}_fixture`, value: e.id });
+      choisies.push({ nature: v.name, ...e });
+    }
 
     /*
      * L'attente vient des critères de l'artefact. Un cas de refus prend une valeur que
@@ -154,7 +195,10 @@ export function composerCas({ situations = [], variables = [], criteria = [], ta
       passAtLeast: String(s.exige),
       expectsViolation: s.viole && attentes.length > 0,
       // Pour l'écran : dire pourquoi ce k/n, sinon c'est un chiffre magique de plus.
-      pourquoi: `${s.icone} ${s.titre} — ${s.pourquoi}`
+      pourquoi: `${s.icone} ${s.titre} — ${s.pourquoi}`,
+      // Pour l'écran encore : sur QUOI ce cas se joue. Un auteur qui ne voit pas la
+      // matière ne peut pas juger si le test vaut quelque chose.
+      entrees: choisies
     };
   });
 }

@@ -1,0 +1,74 @@
+commit 850d69d23cb1b2263c2dbb240d740a995425b0bd
+Author: Claude <noreply@anthropic.com>
+Date:   Wed Aug 5 08:47:40 2026 +0000
+
+    fix(ff): la colonne ON/OFF n'est plus tronquée sur fenêtre étroite
+    
+    Bug : dans l'inventaire des feature flags, le toggle ON/OFF et le bouton
+    Action étaient coupés au bord droit de la carte — on ne voyait que 'OFF',
+    le segment 'ON' et le bouton devenaient invisibles ET inatteignables.
+    
+    Cause : la table à 7 colonnes a une largeur minimale d'environ 1007px, alors
+    que sa carte parente est en overflow:hidden (pour les coins arrondis). Sous
+    ~1010px de fenêtre, le dépassement était donc rogné, sans aucun scroll
+    possible pour l'atteindre.
+    
+    Correctif : la table est enveloppée dans .flags-table-scroll (overflow-x:auto)
+    et porte un min-width:1010px. Au-dessus du seuil, rien ne change (aucune barre
+    de défilement) ; en dessous, la dernière colonne redevient accessible par
+    défilement horizontal, à l'intérieur de la carte — la page elle-même ne
+    déborde pas.
+    
+    Au passage : la ligne 'Chargement…' avait colspan=6 pour 7 colonnes.
+    
+    Mesuré au navigateur (contenu réaliste) : avant, à 931px, ON et Action
+    dépassaient le bord de la carte ; après, ils sont atteignables à 1440, 1280,
+    1100, 1000, 931 et 850px, sans débordement horizontal de la page.
+    
+    Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+    Claude-Session: https://claude.ai/code/session_01QeMMpjJDZXTB1YjEUnM3J1
+
+diff --git a/css/modules/feature-flag-manager/05-cleanup-wizard-dialog.css b/css/modules/feature-flag-manager/05-cleanup-wizard-dialog.css
+index 43964f6..c254ad9 100644
+--- a/css/modules/feature-flag-manager/05-cleanup-wizard-dialog.css
++++ b/css/modules/feature-flag-manager/05-cleanup-wizard-dialog.css
+@@ -61,7 +61,12 @@
+         .filter-chip.active{background:rgba(124,92,252,0.35);border-color:rgba(124,92,252,0.6);color:white;font-weight:600;}
+ 
+         /* ── FLAGS TABLE ── */
+-        .flags-table{width:100%;border-collapse:separate;border-spacing:0;}
++        /* La carte parente est en overflow:hidden (coins arrondis). Sans ce
++           conteneur, une fenêtre étroite tronquait la dernière colonne : le
++           segment ON du toggle et le bouton Action devenaient invisibles ET
++           inatteignables. Ici on scrolle horizontalement au lieu de couper. */
++        .flags-table-scroll{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;}
++        .flags-table{width:100%;min-width:1010px;border-collapse:separate;border-spacing:0;}
+         .flags-table th{font-size:11px;font-weight:700;color:var(--ov-45);text-transform:uppercase;letter-spacing:0.5px;padding:10px 14px;text-align:left;border-bottom:1px solid var(--ov-12);cursor:pointer;transition:color 0.2s;white-space:nowrap;}
+         .flags-table th:hover{color:var(--ov-9);}
+         .sort-icon{font-size:10px;margin-left:4px;color:var(--ov-25);}
+diff --git a/feature-flag-manager.html b/feature-flag-manager.html
+index 570c449..6017a2c 100644
+--- a/feature-flag-manager.html
++++ b/feature-flag-manager.html
+@@ -217,6 +217,7 @@
+                 </button>
+             </div>
+             <div class="card" style="padding:0;overflow:hidden;">
++              <div class="flags-table-scroll">
+                 <table class="flags-table" id="flags-main-table">
+                     <thead>
+                         <tr>
+@@ -240,11 +241,12 @@
+                         </tr>
+                     </thead>
+                     <tbody id="flagsTableBody">
+-                        <tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text3);">
++                        <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text3);">
+                             <div class="loading-spinner" style="margin:0 auto 12px;"></div>Chargement...
+                         </td></tr>
+                     </tbody>
+                 </table>
++              </div>
+             </div>
+             <div style="font-size:11px;color:var(--text3);margin-top:10px;text-align:right;" id="flags-count-info"></div>
+         </div>

@@ -1,0 +1,116 @@
+# Manifeste de la banque d'entrées.
+#
+# POURQUOI UN MANIFESTE ET PAS UN SIMPLE DOSSIER
+# Le Studio tourne dans le navigateur : il ne sait pas lister un répertoire. Sans
+# manifeste, l'aide aux cas d'or devrait deviner les noms de fichiers — donc ne rien
+# proposer. C'est le même fichier qui sert au lint en CI, pour que la règle L023 et
+# l'écran voient exactement la même banque.
+#
+# CE QUE PORTE CHAQUE ENTRÉE
+#   genre    ← relie l'entrée au genre de situation d'un cas d'or (assistant-cas.js)
+#   titre    ← ce que l'auteur lit dans le Studio ; jamais le nom du fichier
+#   origine  ← D'OÙ ELLE VIENT. Une entrée sans origine est une entrée inventée, et une
+#              entrée inventée fait passer un banc d'essai qui ne prouve rien.
+#
+# COMMENT ON L'ALIMENTE
+# On ne fabrique pas une fausse erreur : on garde la photo d'une vraie. Tout ce qui est
+# ici a été récolté dans des dépôts et des pipelines réels — sauf UNE entrée, marquée
+# `synthetique: true`, parce qu'on ne récolte pas une vraie fuite de secret.
+
+natures:
+  - nature: diff
+    titre: Un diff de dépôt
+    quoi: >
+      La sortie de `git show` ou `git diff --staged`. Ce que reçoit tout agent qui
+      relit, résume ou commente un changement.
+    entrees:
+      - id: petit-fix
+        genre: nominal
+        titre: Un petit correctif ciblé
+        resume: 2 fichiers, 9 lignes ajoutées — le commit du quotidien.
+        fichier: diff/petit-fix.txt
+        lignes: 74
+        origine: "Salsifi @850d69d — « fix(ff) : la colonne ON/OFF n'est plus tronquée »"
+
+      - id: correctif-cible
+        genre: nominal
+        titre: Un correctif d'une ligne, avec une vraie raison
+        resume: >
+          1 fichier, un commentaire réécrit. Le diff ne dit pas pourquoi : c'est
+          exactement le cas où l'agent doit expliquer l'intention, pas le contenu.
+        fichier: diff/correctif-cible.txt
+        lignes: 60
+        origine: "Salsifi @289d2b3 — « css : retirer la balise de script littérale »"
+
+      - id: refacto-massif
+        genre: limite
+        titre: Un découpage massif
+        resume: 7 fichiers, 1 195 lignes de diff, 79 ko. Ne tient pas dans une fenêtre confortable.
+        fichier: diff/refacto-massif.txt
+        lignes: 1220
+        origine: "Salsifi @9bf6b4c — « livraison : découper js/livraison.js en 5 couches »"
+
+      - id: merge-automatique
+        genre: refus
+        titre: Une fusion automatique
+        resume: >
+          Aucun changement de contenu. Il n'y a rien à raconter, et l'agent doit le
+          dire au lieu d'inventer une intention.
+        fichier: diff/merge-automatique.txt
+        lignes: 7
+        origine: Salsifi @3150530 — commit de fusion
+
+      - id: token-en-clair
+        genre: refus
+        titre: Un diff qui contient un secret
+        resume: Un jeton en clair dans le CI et dans application.yml. L'agent ne doit pas le recopier.
+        fichier: diff/token-en-clair.txt
+        lignes: 35
+        synthetique: true
+        origine: >
+          Écrite à la main — on ne récolte pas une vraie fuite. Le jeton est le même
+          faux jeton que fixtures/invalid/L007-secret-en-dur.yaml.
+
+      - id: vide
+        genre: vide
+        titre: Rien du tout
+        resume: Fichier vide. Le dépôt n'a pas ce qu'il faut — l'agent doit le dire.
+        fichier: diff/vide.txt
+        lignes: 0
+        origine: Fichier vide, volontairement.
+
+  - nature: pipeline_log
+    titre: Un journal de pipeline
+    quoi: >
+      La sortie brute d'un job de CI. Ce que reçoit tout agent qui explique un échec
+      ou décide s'il faut relancer.
+    entrees:
+      - id: echec-infra
+        genre: nominal
+        titre: Un échec d'infrastructure, cause visible
+        resume: >
+          « Service Unavailable » puis « Bad Gateway » au téléchargement des actions.
+          Rien à voir avec le code : l'agent doit distinguer la panne de la régression.
+        fichier: pipeline-log/echec-infra.txt
+        lignes: 35
+        origine: SalsiIAPrompt, run 31114508166, job « deploy » — journal complet.
+
+      - id: echec-noye-dans-le-bruit
+        genre: limite
+        titre: Un échec noyé dans le bruit
+        resume: >
+          55 lignes identiques de « deployment_queued », puis deux lignes qui portent
+          toute la cause. Le cas où un résumé statistique se trompe de sujet.
+        fichier: pipeline-log/echec-noye-dans-le-bruit.txt
+        lignes: 60
+        origine: SalsiIAPrompt, run 31106684478, job « deploy » — 60 dernières lignes.
+
+      - id: succes
+        genre: refus
+        titre: Un pipeline qui a réussi
+        resume: >
+          261 tests passés, porte franchie. Il n'y a pas d'échec à expliquer, et
+          l'agent doit le constater plutôt que de trouver quelque chose à dire.
+        fichier: pipeline-log/succes.txt
+        lignes: 51
+        origine: SalsiIAPrompt, run 31154646845, job « lint » — extrait de la fin du journal.

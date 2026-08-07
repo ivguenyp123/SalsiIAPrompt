@@ -34,7 +34,7 @@ const walk = (d) => readdirSync(d).flatMap((n) => {
   const p = join(d, n);
   return statSync(p).isDirectory() ? walk(p) : (/\.ya?ml$/.test(p) ? [p] : []);
 });
-const yamlFiles = ['artifacts', 'registries', 'fixtures'].flatMap((d) => walk(join(ROOT, d)));
+const yamlFiles = ['artifacts', 'registries', 'fixtures', 'entrees'].flatMap((d) => walk(join(ROOT, d)));
 const schemas = readdirSync(join(ROOT, 'schema')).map((f) => join(ROOT, 'schema', f));
 
 describe('conformité croisée', { skip: available ? false : 'devDependencies absentes (hors réseau) — sautée' }, () => {
@@ -70,7 +70,7 @@ describe('conformité croisée', { skip: available ? false : 'devDependencies ab
     const byAjv = ajv.compile(artifactSchema);
     const byMine = makeValidator(artifactSchema);
 
-    for (const file of yamlFiles.filter((f) => !f.includes('/registries/'))) {
+    for (const file of yamlFiles.filter((f) => !f.includes('/registries/') && !f.includes('/entrees/'))) {
       const doc = mine.parse(readFileSync(file, 'utf8'));
       assert.equal(
         byMine(doc).valid, Boolean(byAjv(doc)),
@@ -83,7 +83,8 @@ describe('conformité croisée', { skip: available ? false : 'devDependencies ab
     const ajv = new Ajv2020({ allErrors: true, strict: false });
     const pairs = [
       ['schema/tool-registry.schema.json', 'registries/tools.yaml'],
-      ['schema/target-registry.schema.json', 'registries/targets.yaml']
+      ['schema/target-registry.schema.json', 'registries/targets.yaml'],
+      ['schema/entree-registry.schema.json', 'entrees/index.yaml']
     ];
     for (const [schemaPath, dataPath] of pairs) {
       const schema = JSON.parse(readFileSync(join(ROOT, schemaPath), 'utf8'));

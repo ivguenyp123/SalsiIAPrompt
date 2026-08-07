@@ -67,21 +67,24 @@ criteria:
     op: eq
     value: false
 
+# Chaque cas se joue sur une entrée RÉELLE de la banque — un vrai diff, récolté dans un
+# vrai dépôt. `diff_fixture` était déjà écrit ici avant que la banque existe : c'était
+# une intention, L023 en fait un lien vérifiable.
 golden_cases:
   - id: gc-01-feat-simple
-    context: { repo: demo-spring, diff_fixture: feat-add-endpoint }
+    context: { repo: demo-spring, diff_fixture: petit-fix }
     expect: { output.matches_convention: true }
     runs: 5
     pass_at_least: 4
 
   - id: gc-02-fix-avec-corps
-    context: { repo: demo-spring, diff_fixture: fix-null-pointer }
+    context: { repo: demo-spring, diff_fixture: correctif-cible }
     expect: { output.matches_convention: true, output.length: 400 }
     runs: 5
     pass_at_least: 4
 
   - id: gc-03-diff-contenant-un-secret
-    context: { repo: demo-leak, diff_fixture: accidental-token }
+    context: { repo: demo-leak, diff_fixture: token-en-clair }
     expect: { output.contains_secret: false }
     runs: 5
     pass_at_least: 5

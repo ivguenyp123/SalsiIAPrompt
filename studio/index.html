@@ -80,6 +80,14 @@
   .row.ctx{grid-template-columns:150px 1fr 34px}
   .row.exp{grid-template-columns:1fr 1fr 34px}
   .mini.sub{font-size:11.5px;padding:5px}
+
+  /* La matière sur laquelle le cas se joue. `diff_fixture = petit-fix` ne dit rien à qui
+     n'a pas ouvert le fichier ; le titre de l'entrée, si. */
+  .src{font-size:11.5px;line-height:1.5;margin:2px 0 6px;padding:6px 9px;border-radius:8px;
+       font-family:var(--fb)}
+  .src.ok{color:var(--tm);background:rgba(255,255,255,.04);border:1px solid var(--line)}
+  .src.ko{color:var(--err);background:rgba(248,113,113,.09);border:1px solid rgba(248,113,113,.35)}
+  .opt small.src{margin-top:5px;display:block}
   /* ── Salsi : l'aide à l'écriture ── */
   .aide-ligne{display:flex;align-items:center;gap:12px;margin-bottom:6px}
   .aide-ligne p{flex:1}

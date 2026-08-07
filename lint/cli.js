@@ -41,6 +41,9 @@ if (paths.length === 0) {
 const ctx = {
   tools: loadYaml(join(ROOT, 'registries/tools.yaml')).tools,
   targets: loadYaml(join(ROOT, 'registries/targets.yaml')).targets,
+  // La banque d'entrées : sans elle L023 se tait, et un cas d'or peut désigner un
+  // fichier qui n'existe pas sans que la porte s'en aperçoive.
+  entrees: loadYaml(join(ROOT, 'entrees/index.yaml')),
   validateArtifact: makeValidator(loadJson(join(ROOT, 'schema/artifact.schema.json')))
 };
 

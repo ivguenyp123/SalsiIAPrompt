@@ -1,0 +1,51 @@
+2026-08-07T06:38:33.6455155Z ok 70 - toYaml — aller-retour
+2026-08-07T06:38:33.6455390Z   ---
+2026-08-07T06:38:33.6455578Z   duration_ms: 5.227009
+2026-08-07T06:38:33.6455790Z   type: 'suite'
+2026-08-07T06:38:33.6455975Z   ...
+2026-08-07T06:38:33.6531690Z 1..70
+2026-08-07T06:38:33.6532083Z # tests 261
+2026-08-07T06:38:33.6532664Z # suites 70
+2026-08-07T06:38:33.6533061Z # pass 261
+2026-08-07T06:38:33.6533403Z # fail 0
+2026-08-07T06:38:33.6533757Z # cancelled 0
+2026-08-07T06:38:33.6534530Z # skipped 0
+2026-08-07T06:38:33.6534889Z # todo 0
+2026-08-07T06:38:33.6535271Z # duration_ms 924.939653
+2026-08-07T06:38:33.6681899Z ##[group]Run npm run lint
+2026-08-07T06:38:33.6682181Z npm run lint
+2026-08-07T06:38:33.6726512Z shell: /usr/bin/bash -e {0}
+2026-08-07T06:38:33.6726778Z ##[endgroup]
+2026-08-07T06:38:33.7747178Z
+2026-08-07T06:38:33.7747687Z > salsi-ia-prompt@0.1.0 lint
+2026-08-07T06:38:33.7748243Z > node lint/cli.js artifacts
+2026-08-07T06:38:33.7748450Z
+2026-08-07T06:38:33.8281246Z
+2026-08-07T06:38:33.8282138Z   Lint du registre — 4 artefact(s)
+2026-08-07T06:38:33.8283469Z   ────────────────────────────────────────────────────────
+2026-08-07T06:38:33.8336723Z
+2026-08-07T06:38:33.8337234Z   artifacts/commit-message.yaml
+2026-08-07T06:38:33.8337952Z     ✔ conforme — aucun constat
+2026-08-07T06:38:33.8347970Z
+2026-08-07T06:38:33.8348410Z   artifacts/expliquer-un-pipeline-en-echec.yaml
+2026-08-07T06:38:33.8349193Z     ✔ conforme — aucun constat
+2026-08-07T06:38:33.8361355Z
+2026-08-07T06:38:33.8361853Z   artifacts/prep-delivery.yaml
+2026-08-07T06:38:33.8362922Z     ✔ conforme — aucun constat
+2026-08-07T06:38:33.8369207Z
+2026-08-07T06:38:33.8369633Z   artifacts/verifier-les-migrations-flyway.yaml
+2026-08-07T06:38:33.8370397Z     ✔ conforme — aucun constat
+2026-08-07T06:38:33.8371287Z
+2026-08-07T06:38:33.8371888Z   ────────────────────────────────────────────────────────
+2026-08-07T06:38:33.8372796Z   ✔ porte franchie
+2026-08-07T06:38:33.8373051Z
+2026-08-07T06:38:33.8598629Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-08-07T06:38:33.8599858Z Post job cleanup.
+2026-08-07T06:38:33.9801082Z (node:2337) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-08-07T06:38:33.9802080Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-08-07T06:38:34.0002995Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-08-07T06:38:34.0004255Z Post job cleanup.
+2026-08-07T06:38:34.0877251Z [command]/usr/bin/git version
+2026-08-07T06:38:34.0920114Z git version 2.54.0
+2026-08-07T06:38:34.2080768Z Cleaning up orphan processes
+2026-08-07T06:38:34.2376261Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

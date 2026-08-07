@@ -1,0 +1,1220 @@
+commit 9bf6b4c221c927389a713094283ac3bf5cdfb791
+Author: Claude <noreply@anthropic.com>
+Date:   Tue Aug 4 15:50:58 2026 +0000
+
+    livraison : découper js/livraison.js en 5 couches
+    
+    js/livraison.js (567 l., une IIFE) → js/modules/livraison/ selon le pattern
+    maison state/data/compute/render/index :
+    
+      state.js    15   config + état + regexes/icônes
+      data.js     89   I/O GitLab (MR, branches, pipelines, logs)
+      compute.js  31   helpers purs (format, versions, statuts)
+      render.js  213   rendu DOM (liste, détail, analyse IA, train)
+      index.js  226   orchestration (init/actions/prépa) & câblage
+    
+    Déplacement pur (aucune ligne de logique modifiée), vérifié :
+    - multiset des lignes identique ; chaque fichier passe node --check
+      (aucune fonction coupée) ; concat ordonnée sans redéclaration ;
+    - smoke navigateur : les 5 fichiers partagent le scope global, init tourne
+      et le câblage window.livraison* résout les fonctions cross-fichiers.
+    
+    pipeline-generator.html charge désormais les 5 fichiers ordonnés.
+    Page peu chargée (scripts encapsulés) → aucune collision de scope.
+    
+    Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+    Claude-Session: https://claude.ai/code/session_01QeMMpjJDZXTB1YjEUnM3J1
+
+diff --git a/js/livraison.js b/js/livraison.js
+deleted file mode 100644
+index 74c35a8..0000000
+--- a/js/livraison.js
++++ /dev/null
+@@ -1,567 +0,0 @@
+-/* Livraison — cockpit MR (module réel, câblé GitLab).
+- * Tranche 1 : liste MR réelle + filtre par auteur + détail (diff, approbations,
+- * pipeline) + actions réelles (approuver / merger / fermer / commenter).
+- * Réutilise le socle plateforme : Salsifi.loadAuth / gitlabFetch / gitlabPaginate /
+- * escapeHtml (mêmes appels que mr-reviewer, éprouvés). Aucune donnée fictive.
+- *
+- * Tranche 2 : Préparer (choisir branche + bump IMAGE_TAG + sync overlays + créer MR).
+- * TODO tranche 3 : suivi du train de pipeline + logs après merge.
+- */
+-(function () {
+-  'use strict';
+-  const HUB_URL = 'hub.html';
+-  let GITLAB_URL = null, TOKEN = null, PROJECT_ID = null, PROJECT_PATH = '', USERNAME = '', DEFAULT_BRANCH = 'main';
+-  let mrList = [], selected = null, authorFilter = '', busy = false;
+-  // Tranche 2 — préparation : bump IMAGE_TAG + sync overlays + création de MR.
+-  let branches = [], prepBranch = '', prepBumpType = 'minor', prepCurTag = '';
+-  // Tranche 3 — suivi du train de pipeline + logs.
+-  let pipeId = null, pipeTimer = null, logTimer = null, curJobId = null, autoScroll = true;
+-  const IMAGE_TAG_RX = /^(\s*IMAGE_TAG:\s*)(["']?)([^"'\n]+)(["']?)(\s*)$/m;
+-  const KUSTO_RX = /(^|\/)kustomization\.ya?ml$/i;
+-
+-  const $ = (id) => document.getElementById(id);
+-  const esc = (v) => (window.Salsifi && window.Salsifi.escapeHtml) ? window.Salsifi.escapeHtml(v) : String(v == null ? '' : v);
+-  const glFetch = (ep, init) => window.Salsifi.gitlabFetch(GITLAB_URL, TOKEN, ep, init);
+-  const glAll = (ep) => window.Salsifi.gitlabPaginate(GITLAB_URL, TOKEN, ep, { throwOnError: true });
+-  const initials = (n) => (n || '?').split(/[\s_.@-]/).filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('') || '?';
+-  const timeAgo = (iso) => {
+-    if (!iso) return '';
+-    const s = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
+-    if (s < 60) return s + ' s'; if (s < 3600) return Math.round(s / 60) + ' min';
+-    if (s < 86400) return Math.round(s / 3600) + ' h'; return Math.round(s / 86400) + ' j';
+-  };
+-
+-  let toastT;
+-  function toast(msg) { const el = $('toast'); if (!el) return; el.innerHTML = msg; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 3600); }
+-
+-  async function init() {
+-    const auth = window.Salsifi.loadAuth({ redirect: false });
+-    if (!auth) { location.href = 'login.html'; return; }
+-    TOKEN = auth.token; GITLAB_URL = auth.gitlabUrl; USERNAME = auth.username || '';
+-    PROJECT_ID = new URLSearchParams(location.search).get('repo') || localStorage.getItem('hub_selected_repo_id');
+-    if (!PROJECT_ID) { location.href = HUB_URL; return; }
+-    document.querySelectorAll('[data-hub]').forEach(a => { a.href = HUB_URL; });
+-    try {
+-      const r = await glFetch(`/projects/${PROJECT_ID}`);
+-      if (r.ok) { const p = await r.json(); PROJECT_PATH = p.path_with_namespace || ''; DEFAULT_BRANCH = p.default_branch || 'main'; const el = $('svcName'); if (el) el.textContent = p.name || PROJECT_PATH; }
+-    } catch (e) { /* non bloquant */ }
+-    await loadMRs();
+-    loadBranches(); // asynchrone, ne bloque pas l'affichage des MR
+-  }
+-
+-  async function loadMRs() {
+-    const list = $('list');
+-    if (list) list.innerHTML = '<div class="d-empty">Chargement des MR…</div>';
+-    try {
+-      mrList = await glAll(`/projects/${PROJECT_ID}/merge_requests?state=opened&with_labels_details=false`);
+-      populateAuthors();
+-      renderList();
+-    } catch (e) {
+-      if (list) list.innerHTML = `<div class="d-empty">⚠️ ${esc(e.message || 'Erreur de chargement')}</div>`;
+-    }
+-  }
+-
+-  function populateAuthors() {
+-    const sel = $('who'); if (!sel) return;
+-    const authors = [...new Set(mrList.map(m => (m.author && m.author.username) || '?'))].sort();
+-    const cur = sel.value;
+-    sel.innerHTML = '<option value="">Tous</option>' + authors.map(a => `<option value="${esc(a)}">${esc(a)}</option>`).join('');
+-    if (authors.includes(cur)) sel.value = cur;
+-    authorFilter = sel.value;
+-  }
+-
+-  function renderList() {
+-    const c = $('list'); if (!c) return;
+-    const rows = mrList.filter(m => !authorFilter || (m.author && m.author.username) === authorFilter);
+-    const cnt = $('mrcount'); if (cnt) cnt.textContent = rows.length + ' MR ouvertes';
+-    if (!rows.length) { c.innerHTML = '<div class="d-empty">Aucune MR ouverte' + (authorFilter ? ' pour ce créateur.' : '.') + '</div>'; return; }
+-    c.innerHTML = rows.map(m => {
+-      const av = initials((m.author && (m.author.name || m.author.username)) || '');
+-      const pipe = m.head_pipeline && m.head_pipeline.status;
+-      const pipeCls = pipe === 'success' ? 'pipe-ok' : (pipe === 'running' || pipe === 'pending') ? 'pipe-run' : '';
+-      const pipeDot = pipeCls ? `<span class="dot2 ${pipeCls}" title="pipeline ${esc(pipe)}"></span>` : '';
+-      return `<div class="mri ${selected === m.iid ? 'sel' : ''}" data-iid="${m.iid}">
+-        <div class="ava" style="background:#7c5cfc">${esc(av)}</div>
+-        <div class="ti"><div class="tt">!${m.iid} · ${esc(m.title)}</div>
+-          <div class="ts">${esc((m.author && m.author.username) || '?')} · ${esc(m.source_branch)} → ${esc(m.target_branch)} · il y a ${timeAgo(m.created_at)}</div></div>
+-        ${pipeDot}</div>`;
+-    }).join('');
+-    c.querySelectorAll('.mri').forEach(el => el.addEventListener('click', () => selectMR(parseInt(el.dataset.iid, 10))));
+-  }
+-
+-  async function selectMR(iid) {
+-    selected = iid; renderList();
+-    const m = mrList.find(x => x.iid === iid); if (!m) return;
+-    const d = $('detail');
+-    d.innerHTML = '<div class="d-empty">Chargement de la MR…</div>';
+-    // Appels réels en parallèle : diff, approbations, discussion.
+-    const [changes, approvals, notes] = await Promise.all([
+-      glFetch(`/projects/${PROJECT_ID}/merge_requests/${iid}/changes`).then(r => r.ok ? r.json() : null).catch(() => null),
+-      glFetch(`/projects/${PROJECT_ID}/merge_requests/${iid}/approvals`).then(r => r.ok ? r.json() : null).catch(() => null),
+-      glFetch(`/projects/${PROJECT_ID}/merge_requests/${iid}/notes?sort=asc&per_page=100`).then(r => r.ok ? r.json() : []).catch(() => []),
+-    ]);
+-    if (selected !== iid) return; // l'utilisateur a cliqué ailleurs entre-temps
+-    renderDetail(m, changes, approvals, notes);
+-  }
+-
+-  function renderDetail(m, changes, approvals, notes) {
+-    const mine = (m.author && m.author.username) === USERNAME;
+-    const need = approvals ? (approvals.approvals_required || 0) : 0;
+-    const got = approvals ? (approvals.approved_by ? approvals.approved_by.length : (need - (approvals.approvals_left || 0))) : 0;
+-    const okAppr = need > 0 ? got >= need : true;
+-    const iApproved = approvals && approvals.approved_by && approvals.approved_by.some(a => a.user && a.user.username === USERNAME);
+-    const pipe = m.head_pipeline && m.head_pipeline.status;
+-    const files = (changes && changes.changes) || [];
+-    const dots = need > 0 ? Array.from({ length: need }, (_, i) => `<span class="d ${i < got ? 'on' : ''}"></span>`).join('') : '<span class="d on"></span>';
+-    const notesList = (notes || []).filter(n => !n.system && n.body);
+-
+-    const d = $('detail');
+-    d.innerHTML = `
+-      <div style="display:flex;align-items:flex-start;gap:10px">
+-        <span style="font-family:var(--fm);font-weight:800;color:var(--accent)">!${m.iid}</span>
+-        <div><div class="d-title">${esc(m.title)}</div>
+-          <div class="d-meta">${esc(m.source_branch)} → ${esc(m.target_branch)} · par ${esc((m.author && m.author.username) || '?')} · il y a ${timeAgo(m.created_at)}</div></div>
+-        <a class="pill g" href="${esc(GITLAB_URL + '/' + PROJECT_PATH + '/-/merge_requests/' + m.iid)}" target="_blank" rel="noopener" style="margin-left:auto;text-decoration:none">GitLab ↗</a></div>
+-      <div>
+-        ${pipe ? `<span class="pill ${pipe === 'success' ? 'ok' : 'run'}">${pipe === 'success' ? '✅ pipeline OK' : '⏳ ' + esc(pipe)}</span>` : ''}
+-        <span class="pill g">${files.length} fichier${files.length > 1 ? 's' : ''}</span>
+-        <span class="pill g">${mine ? '🙋 la tienne' : '👤 ' + esc((m.author && m.author.username) || '?')}</span>
+-        <span class="pill ${m.merge_status === 'can_be_merged' ? 'ok' : 'g'}">${m.merge_status === 'can_be_merged' ? 'mergeable' : esc(m.merge_status || '')}</span>
+-        ${(m.head_pipeline && m.head_pipeline.id) ? `<button class="pill g" id="btnTrain" style="all:unset;cursor:pointer;display:inline-flex" data-pipe="${m.head_pipeline.id}">🚂 voir le train</button>` : ''}
+-        <button class="pill g" id="btnAI" style="all:unset;cursor:pointer;display:inline-flex">🤖 Analyse IA</button>
+-      </div>
+-
+-      <div class="box"><div class="bh">Fichiers (${files.length})</div>
+-        ${files.length ? files.map((f, i) => diffRow(f, i)).join('') : '<span style="color:var(--tm);font-size:12px">Diff indisponible.</span>'}</div>
+-
+-      <div class="box"><div class="bh">Validation</div>
+-        <div class="appr"><div style="display:flex;gap:5px">${dots}</div>
+-          <div class="txt">${need > 0 ? (okAppr ? `<b style="color:var(--ok)">Validée ${got}/${need}</b>` : `En attente <b style="color:var(--warn)">${got}/${need}</b>`) : '<span style="color:var(--tm)">Pas de règle d\'approbation</span>'}</div></div></div>
+-
+-      <div class="box"><div class="bh">💬 Discussion</div>
+-        <div id="disc">${notesList.length ? notesList.map(noteRow).join('') : '<span style="color:var(--tm);font-size:12px">Aucun commentaire.</span>'}</div>
+-        <div class="cbox"><textarea id="cin" placeholder="Commenter la MR…"></textarea><button class="btn ghost" id="btnComment">Commenter</button></div></div>
+-
+-      <div class="roles">
+-        <div class="role"><div class="rl">👍 relecteur</div><div class="btns">
+-          <button class="btn ghost" id="btnApprove" ${(mine || iApproved) ? 'disabled' : ''}>${iApproved ? '✅ approuvée par toi' : 'Approuver'}</button></div>
+-          ${mine ? '<div style="font-size:11px;color:var(--tm);margin-top:7px">Tu es le créateur — un autre approuve.</div>' : ''}</div>
+-        <div class="role"><div class="rl">🚀 créateur</div><div class="btns">
+-          <button class="btn ship" id="btnMerge" ${(m.merge_status === 'can_be_merged' && okAppr) ? '' : 'disabled'}>Merger &amp; livrer</button>
+-          <button class="btn del" id="btnClose">Fermer la MR</button></div>
+-          ${(m.merge_status !== 'can_be_merged' || !okAppr) ? '<div style="font-size:11px;color:var(--tm);margin-top:7px">Merge possible quand : validée + mergeable (pipeline/conflits OK).</div>' : ''}</div>
+-      </div>`;
+-
+-    // câblage des actions réelles
+-    const cb = $('btnComment'); if (cb) cb.addEventListener('click', () => doComment(m.iid));
+-    const ba = $('btnApprove'); if (ba && !ba.disabled) ba.addEventListener('click', () => doApprove(m.iid));
+-    const bm = $('btnMerge'); if (bm && !bm.disabled) bm.addEventListener('click', () => doMerge(m.iid));
+-    const bc = $('btnClose'); if (bc) bc.addEventListener('click', () => doClose(m.iid));
+-    const bt = $('btnTrain'); if (bt) bt.addEventListener('click', () => showTrain(parseInt(bt.dataset.pipe, 10), { delivery: false }));
+-    const bai = $('btnAI'); if (bai) bai.addEventListener('click', () => runAI(m.iid));
+-    // dépliage des diffs
+-    d.querySelectorAll('[data-diff]').forEach(h => h.addEventListener('click', () => {
+-      const el = $('diff-' + h.dataset.diff); if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+-    }));
+-  }
+-
+-  // ══════════════════════════════════════════════════════════════════
+-  // ASSISTANT IA — un bouton sur la MR → analyse par le backend IA LCL.
+-  // L'URL de l'assistant se colle dans localStorage 'mr_reviewer_api_url'
+-  // (ou window.MR_REVIEWER_API_URL). Rien n'est stocké tant qu'elle n'est
+-  // pas fournie ; l'IA reste un assistant (elle propose, l'humain décide).
+-  // ══════════════════════════════════════════════════════════════════
+-  function aiUrl() { return (localStorage.getItem('mr_reviewer_api_url') || window.MR_REVIEWER_API_URL || '').trim(); }
+-
+-  async function runAI(iid) {
+-    const url = aiUrl();
+-    if (!url) { aiModal(aiConfigForm("L'assistant IA n'est pas encore configuré.")); wireAiConfig(iid); return; }
+-    aiModal('<div style="text-align:center;padding:28px;color:var(--tm)">⏳ Analyse IA de la MR en cours…</div>');
+-    try {
+-      const r = await fetch(url.replace(/\/+$/, '') + '/api/analyze-from-gitlab', {
+-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+-        body: JSON.stringify({ gitlab_url: GITLAB_URL, project_id: PROJECT_ID, mr_iid: iid, gitlab_token: TOKEN })
+-      });
+-      if (!r.ok) { const t = await r.text().catch(() => ''); throw new Error('API ' + r.status + (t ? ' — ' + t.slice(0, 160) : '')); }
+-      const a = await r.json();
+-      aiModal(renderAiAnalysis(a, iid));
+-      const bc = $('aiComment'); if (bc) bc.addEventListener('click', () => aiPostComment(iid, a));
+-    } catch (e) {
+-      aiModal('<div style="border:1px solid var(--err);background:rgba(248,113,113,.08);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--err)">Analyse indisponible : ' + esc(e.message) + '</div>'
+-        + '<div style="margin-top:12px">' + aiConfigForm("Vérifie l'URL de l'assistant :") + '</div>');
+-      wireAiConfig(iid);
+-    }
+-  }
+-
+-  function renderAiAnalysis(a, iid) {
+-    const dec = a.decision === 'REJECT' ? ['❌', 'Rejet recommandé', 'var(--err)']
+-      : a.decision === 'CHANGES_REQUESTED' ? ['📝', 'Changements suggérés', 'var(--warn)']
+-      : ['✅', 'Prêt à merger', 'var(--ok)'];
+-    const sc = a.scores || {};
+-    const scoreRow = [['Global', sc.global], ['🔒 Sécu', sc.security], ['📐 Qualité', sc.quality], ['⚡ Perf', sc.performance]].map(s => aiScore(s[0], s[1])).join('');
+-    const sec = (title, arr, color) => (arr && arr.length)
+-      ? `<div style="margin-top:14px"><div style="font-weight:700;font-size:12px;color:${color};margin-bottom:6px">${title} (${arr.length})</div>${arr.map(aiFinding).join('')}</div>` : '';
+-    return `
+-      <div style="display:flex;align-items:center;gap:12px;border:1px solid ${dec[2]};background:rgba(255,255,255,.03);border-radius:12px;padding:12px 14px;margin-bottom:14px">
+-        <div style="font-size:26px">${dec[0]}</div>
+-        <div><div style="font-weight:800;color:${dec[2]}">${dec[1]}</div><div style="font-size:12px;color:var(--tm)">${esc(a.summary || '')}</div></div></div>
+-      <div style="display:flex;gap:8px;flex-wrap:wrap">${scoreRow}</div>
+-      ${sec('🔴 Critiques', a.critical_issues, 'var(--err)')}
+-      ${sec("🟡 Points d'attention", a.warnings, 'var(--warn)')}
+-      ${sec('✓ Points positifs', a.positives, 'var(--ok)')}
+-      <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
+-        <button class="btn ghost" id="aiComment" style="cursor:pointer">💬 Commenter la MR avec l'analyse</button>
+-      </div>
+-      <div style="font-size:11px;color:var(--tm);margin-top:12px">Analyse IA — indicative. Tu approuves / merges comme d'habitude.</div>`;
+-  }
+-  function aiScore(label, val) {
+-    const shown = (val == null) ? '—' : val;
+-    const col = val == null ? 'var(--tm)' : (val >= 80 ? 'var(--ok)' : val >= 50 ? 'var(--warn)' : 'var(--err)');
+-    return `<div style="flex:1;min-width:70px;text-align:center;border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:8px 4px"><div style="font-size:20px;font-weight:800;color:${col}">${shown}</div><div style="font-size:10px;color:var(--tm)">${label}</div></div>`;
+-  }
+-  function aiFinding(f) {
+-    const sev = (f.severity === 'critical' || (f.title || '').includes('❌')) ? '🔴' : f.severity === 'positive' ? '✓' : '🟡';
+-    return `<div style="border-left:2px solid rgba(255,255,255,.12);padding:6px 10px;margin-bottom:6px;background:rgba(255,255,255,.02);border-radius:6px">
+-      <div style="font-size:12.5px;font-weight:600">${sev} ${esc(f.title || '')}${f.location ? ` <span style="color:var(--tm);font-weight:400">· ${esc(f.location)}</span>` : ''}</div>
+-      ${f.description ? `<div style="font-size:11.5px;color:var(--tm);margin-top:2px">${esc(f.description)}</div>` : ''}</div>`;
+-  }
+-  function aiConfigForm(msg) {
+-    return `<div style="font-size:13px;margin-bottom:8px">${esc(msg || '')}</div>
+-      <div style="font-size:12px;color:var(--tm);margin-bottom:8px">Colle l'URL de l'assistant IA LCL, puis relance l'analyse :</div>
+-      <div style="display:flex;gap:8px"><input id="aiUrlIn" placeholder="https://mr-reviewer-api.lcl.internal" value="${esc(aiUrl())}" style="flex:1;background:#0a0716;border:1px solid rgba(255,255,255,.14);border-radius:8px;color:#f5f1ff;padding:8px 10px;font-family:var(--fm)"><button class="btn" id="aiUrlSave" style="cursor:pointer">Enregistrer &amp; analyser</button></div>`;
+-  }
+-  function wireAiConfig(iid) {
+-    const s = $('aiUrlSave'); if (!s) return;
+-    s.addEventListener('click', () => {
+-      const v = ($('aiUrlIn') || {}).value;
+-      if (v && v.trim()) { localStorage.setItem('mr_reviewer_api_url', v.trim()); window.MR_REVIEWER_API_URL = v.trim(); runAI(iid); }
+-      else toast('⚠️ Renseigne une URL.');
+-    });
+-  }
+-  async function aiPostComment(iid, a) {
+-    const lines = [];
+-    lines.push('## 🤖 Analyse IA' + (a.decision ? ' — ' + a.decision : ''));
+-    if (a.summary) lines.push('', a.summary);
+-    const block = (title, arr) => { if (arr && arr.length) { lines.push('', '### ' + title); arr.forEach(f => lines.push('- **' + (f.title || '') + '**' + (f.location ? ' _(' + f.location + ')_' : '') + (f.description ? ' — ' + f.description : ''))); } };
+-    block('🔴 Critiques', a.critical_issues); block("🟡 Points d'attention", a.warnings); block('✓ Points positifs', a.positives);
+-    const r = await glFetch(`/projects/${PROJECT_ID}/merge_requests/${iid}/notes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body: lines.join('\n') }) });
+-    if (!r.ok) { const b = await r.json().catch(() => ({})); return toast('⚠️ Commentaire refusé : ' + esc(b.message || r.status)); }
+-    toast('💬 Analyse postée sur la MR.'); closeAiModal(); await selectMR(iid);
+-  }
+-  function aiModal(inner) {
+-    let ov = $('aiOverlay');
+-    if (!ov) {
+-      ov = document.createElement('div'); ov.id = 'aiOverlay';
+-      ov.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(6,4,14,.72);display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto';
+-      ov.addEventListener('click', e => { if (e.target === ov) closeAiModal(); });
+-      document.body.appendChild(ov);
+-    }
+-    ov.innerHTML = `<div style="width:100%;max-width:620px;background:#17122b;border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:20px 22px">
+-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><div style="font-size:16px;font-weight:800">🤖 Analyse IA de la MR</div><div style="flex:1"></div><button id="aiClose" style="all:unset;cursor:pointer;font-size:18px;color:var(--tm)">✕</button></div>
+-      ${inner}</div>`;
+-    ov.style.display = 'flex';
+-    const c = $('aiClose'); if (c) c.addEventListener('click', closeAiModal);
+-  }
+-  function closeAiModal() { const ov = $('aiOverlay'); if (ov) ov.style.display = 'none'; }
+-
+-  function diffRow(f, i) {
+-    const path = f.new_path || f.old_path || '';
+-    const tag = /(^|\/)\.gitlab-ci\.ya?ml$/.test(path) ? '🏷️' : /kustomization\.ya?ml$/.test(path) ? '🏷️' : (f.new_file ? '🟢' : f.deleted_file ? '🔴' : '📄');
+-    const diff = (f.diff || '').split('\n').map(l => {
+-      const e = esc(l);
+-      if (l.startsWith('+') && !l.startsWith('+++')) return `<span style="color:var(--ok)">${e}</span>`;
+-      if (l.startsWith('-') && !l.startsWith('---')) return `<span style="color:var(--err)">${e}</span>`;
+-      if (l.startsWith('@@')) return `<span style="color:var(--info)">${e}</span>`;
+-      return e;
+-    }).join('\n');
+-    return `<div class="f" style="cursor:pointer" data-diff="${i}"><span>${tag}</span><span style="flex:1">${esc(path)}</span><span style="color:var(--tm);font-size:11px">voir diff ▾</span></div>
+-      <pre id="diff-${i}" style="display:none;white-space:pre-wrap;font-family:var(--fm);font-size:11px;line-height:1.6;background:#0a0716;border-radius:8px;padding:10px 12px;margin:4px 0 8px;overflow:auto;max-height:280px">${diff || '(diff vide)'}</pre>`;
+-  }
+-  function noteRow(n) {
+-    const who = (n.author && (n.author.username || n.author.name)) || '?';
+-    const av = initials((n.author && n.author.name) || who);
+-    return `<div class="cmt"><div class="ca" style="background:#7c5cfc">${esc(av)}</div>
+-      <div><div><span class="cn">${esc(who)}</span><span class="cw">il y a ${timeAgo(n.created_at)}</span></div>
+-      <div class="ct">${esc(n.body)}</div></div></div>`;
+-  }
+-
+-  // ── Actions réelles (mêmes endpoints que mr-reviewer) ──
+-  async function guard(fn) { if (busy) return; busy = true; try { await fn(); } finally { busy = false; } }
+-
+-  function doComment(iid) {
+-    const ta = $('cin'); const body = (ta && ta.value || '').trim(); if (!body) return;
+-    guard(async () => {
+-      const r = await glFetch(`/projects/${PROJECT_ID}/merge_requests/${iid}/notes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body }) });
+-      if (!r.ok) { const b = await r.json().catch(() => ({})); return toast('⚠️ Commentaire refusé : ' + esc(b.message || r.status)); }
+-      toast('💬 Commentaire posté.'); await selectMR(iid);
+-    });
+-  }
+-  function doApprove(iid) {
+-    guard(async () => {
+-      const r = await glFetch(`/projects/${PROJECT_ID}/merge_requests/${iid}/approve`, { method: 'POST' });
+-      if (!r.ok) { const b = await r.json().catch(() => ({})); return toast('⚠️ Approbation refusée : ' + esc(b.message || r.status)); }
+-      toast('👍 MR approuvée.'); await selectMR(iid);
+-    });
+-  }
+-  function doMerge(iid) {
+-    if (!confirm('Merger cette MR ? Le merge déclenche la pipeline (livraison).')) return;
+-    guard(async () => {
+-      const r = await glFetch(`/projects/${PROJECT_ID}/merge_requests/${iid}/merge`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+-      if (!r.ok) { const b = await r.json().catch(() => ({})); return toast('⚠️ Merge refusé : ' + esc(b.message || r.status)); }
+-      const merged = await r.json().catch(() => ({}));
+-      toast('🚀 MR mergée — la pipeline part.'); selected = null; await loadMRs();
+-      const d = $('detail'); if (d) d.innerHTML = '<div class="d-empty">✅ Mergée. La livraison démarre — suis le train ci-dessous.</div>';
+-      trackDeliveryPipeline(iid, merged.merge_commit_sha || merged.squash_commit_sha || null); // train du commit de merge uniquement
+-    });
+-  }
+-  function doClose(iid) {
+-    if (!confirm('Fermer cette MR ?')) return;
+-    guard(async () => {
+-      const r = await glFetch(`/projects/${PROJECT_ID}/merge_requests/${iid}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ state_event: 'close' }) });
+-      if (!r.ok) { const b = await r.json().catch(() => ({})); return toast('⚠️ Fermeture refusée : ' + esc(b.message || r.status)); }
+-      toast('🚫 MR fermée.'); selected = null; await loadMRs(); const d = $('detail'); if (d) d.innerHTML = '<div class="d-empty">← Clique une MR pour l\'ouvrir</div>';
+-    });
+-  }
+-
+-  // ── Tranche 2 : préparer une livraison (bump + overlays + MR) ──
+-  async function readFile(path, ref) {
+-    const r = await glFetch(`/projects/${PROJECT_ID}/repository/files/${encodeURIComponent(path)}?ref=${encodeURIComponent(ref)}`);
+-    if (!r.ok) return null;
+-    const d = await r.json().catch(() => null); if (!d || d.content == null) return null;
+-    try { return decodeURIComponent(escape(atob(d.content))); } catch (e) { try { return atob(d.content); } catch (_) { return null; } }
+-  }
+-  function bumpVer(v, type) {
+-    const m = (v || '').match(/^(\d+)\.(\d+)\.(\d+)/); if (!m) return '';
+-    let a = +m[1], b = +m[2], c = +m[3];
+-    if (type === 'major') { a++; b = 0; c = 0; } else if (type === 'minor') { b++; c = 0; } else c++;
+-    return a + '.' + b + '.' + c;
+-  }
+-  function prepTarget() { return bumpVer(prepCurTag, prepBumpType); }
+-  function renderPrepTarget() { const el = $('prepTgt'); if (el) el.textContent = prepTarget() || '—'; }
+-
+-  // Découverte dynamique des overlays kustomize (les chemins varient d'un repo
+-  // à l'autre : Manifests/overlays/…, deploy/…, k8s/… etc.). On liste l'arbre du
+-  // repo et on retient tous les kustomization.ya?ml — le bump ne touchera que
+-  // ceux qui portent réellement un newTag/APP_VERSION.
+-  async function findOverlays(ref) {
+-    try {
+-      const tree = await window.Salsifi.gitlabPaginate(GITLAB_URL, TOKEN,
+-        `/projects/${PROJECT_ID}/repository/tree?recursive=true&ref=${encodeURIComponent(ref)}`, { throwOnError: false });
+-      return (tree || []).filter(t => t && t.type === 'blob' && KUSTO_RX.test(t.path)).map(t => t.path);
+-    } catch (e) { return []; }
+-  }
+-
+-  async function loadBranches() {
+-    const sel = $('prepBranch'); if (!sel) return;
+-    const dbl = $('prepDefBr'); if (dbl) dbl.textContent = DEFAULT_BRANCH;
+-    try {
+-      branches = await glAll(`/projects/${PROJECT_ID}/repository/branches`);
+-      const opts = branches.filter(b => b.name !== DEFAULT_BRANCH)
+-        .map(b => `<option value="${esc(b.name)}">${esc(b.name)}</option>`).join('');
+-      sel.innerHTML = '<option value="">— choisir une branche —</option>' + opts;
+-    } catch (e) { sel.innerHTML = '<option value="">erreur de chargement</option>'; }
+-  }
+-
+-  async function prepOnBranch() {
+-    prepBranch = ($('prepBranch') || {}).value || '';
+-    prepCurTag = '';
+-    const curEl = $('prepCur'), tgtEl = $('prepTgt');
+-    if (!prepBranch) { if (curEl) curEl.textContent = '—'; if (tgtEl) tgtEl.textContent = '—'; return; }
+-    if (curEl) curEl.textContent = '…';
+-    const ci = await readFile('.gitlab-ci.yml', prepBranch);
+-    if (ci != null) { const m = ci.match(IMAGE_TAG_RX); if (m) prepCurTag = m[3].trim(); }
+-    if (curEl) curEl.textContent = prepCurTag || 'IMAGE_TAG introuvable';
+-    renderPrepTarget();
+-  }
+-  function prepSetBump(type) {
+-    prepBumpType = type;
+-    ['major', 'minor', 'patch'].forEach(x => { const b = $('pb-' + x); if (b) b.classList.toggle('on', x === type); });
+-    renderPrepTarget();
+-  }
+-
+-  function prepGo() {
+-    if (!prepBranch) return toast('⚠️ Choisis une branche à livrer.');
+-    if (!prepCurTag) return toast('⚠️ IMAGE_TAG introuvable dans le .gitlab-ci.yml de cette branche.');
+-    const target = prepTarget();
+-    if (!target) return toast('⚠️ Version courante non SemVer (x.y.z) — bump impossible.');
+-    if (!confirm(`Préparer la livraison ${target} ?\n\n• branche : ${prepBranch} → ${DEFAULT_BRANCH}\n• IMAGE_TAG : ${prepCurTag} → ${target}\n• sync overlays (si présents)\n• création d'une MR\n\nLe merge de la MR déclenchera la livraison.`)) return;
+-    guard(async () => {
+-      const actions = [];
+-      const ci = await readFile('.gitlab-ci.yml', prepBranch);
+-      if (ci == null) return toast('⚠️ .gitlab-ci.yml introuvable sur ' + esc(prepBranch));
+-      const newCi = ci.replace(IMAGE_TAG_RX, (m, p, q, v, q2, s) => p + q + target + q2 + s);
+-      if (newCi !== ci) actions.push({ action: 'update', file_path: '.gitlab-ci.yml', content: newCi });
+-      // Overlays : découverts dynamiquement puis bumpés (newTag + APP_VERSION).
+-      // On n'inclut au commit que ceux qui portent vraiment la version (donc pas
+-      // le kustomization de base, qui n'a pas de newTag).
+-      let overlaysTouched = 0;
+-      const overlayFiles = await findOverlays(prepBranch);
+-      for (const path of overlayFiles) {
+-        const c = await readFile(path, prepBranch);
+-        if (c == null) continue;
+-        const nc = c.replace(/^(\s*newTag:\s*).*$/gm, `$1"${target}"`).replace(/^(\s*-\s+APP_VERSION=).*$/gm, `$1${target}`);
+-        if (nc !== c) { actions.push({ action: 'update', file_path: path, content: nc }); overlaysTouched++; }
+-      }
+-      if (!actions.length) return toast(`⚠️ Rien à modifier — IMAGE_TAG est peut-être déjà à ${esc(target)}.`);
+-      // Commit atomique sur la branche.
+-      const cr = await glFetch(`/projects/${PROJECT_ID}/repository/commits`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ branch: prepBranch, commit_message: `[Livraison] Bump IMAGE_TAG → ${target}`, actions }) });
+-      if (!cr.ok) { const b = await cr.json().catch(() => ({})); return toast('⚠️ Commit refusé : ' + esc(b.message || cr.status)); }
+-      // Création de la MR vers la branche par défaut.
+-      const mr = await glFetch(`/projects/${PROJECT_ID}/merge_requests`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source_branch: prepBranch, target_branch: DEFAULT_BRANCH, title: `release ${target}` }) });
+-      if (!mr.ok) {
+-        const b = await mr.json().catch(() => ({}));
+-        const msg = (b.message || b.error || cr.status); const txt = Array.isArray(msg) ? msg.join(', ') : msg;
+-        // Cas fréquent : une MR existe déjà pour ce couple de branches → on rafraîchit quand même.
+-        toast('⚠️ MR non créée : ' + esc(txt) + '. Le commit, lui, est passé.'); prepCurTag = target; await loadMRs(); return;
+-      }
+-      const created = await mr.json();
+-      toast(`🔀 MR !${created.iid} « release ${target} » ouverte → ${esc(DEFAULT_BRANCH)} · ${overlaysTouched ? overlaysTouched + ' overlay(s) sync' : 'aucun overlay trouvé'}.`);
+-      prepCurTag = target; renderPrepTarget();
+-      await loadMRs();
+-      if (created.iid) selectMR(created.iid);
+-    });
+-  }
+-
+-  // ── Tranche 3 : le train de la pipeline + logs en direct ──
+-  const PIPE_ICON = { success: '✅', running: '🔄', pending: '⏳', created: '⏳', failed: '❌', canceled: '⏹️', skipped: '⏭️', manual: '👆' };
+-  function stageStatus(jobs) {
+-    if (jobs.some(j => j.status === 'failed')) return 'failed';
+-    if (jobs.some(j => j.status === 'running')) return 'running';
+-    if (jobs.length && jobs.every(j => ['success', 'skipped', 'manual'].includes(j.status))) return 'success';
+-    return 'pending';
+-  }
+-  function fmtDur(s) { if (!s) return ''; if (s < 60) return Math.round(s) + 's'; return Math.floor(s / 60) + 'm ' + Math.round(s % 60) + 's'; }
+-
+-  function stopTrain() {
+-    clearInterval(pipeTimer); clearInterval(logTimer); pipeTimer = logTimer = null; pipeId = null; curJobId = null;
+-    const sec = $('trainSection'); if (sec) sec.style.display = 'none';
+-  }
+-
+-  async function showTrain(pipelineId, opts) {
+-    opts = opts || {};
+-    if (!pipelineId) return;
+-    stopTrain();
+-    pipeId = pipelineId;
+-    const sec = $('trainSection'); if (sec) sec.style.display = 'block';
+-    const t = $('trainTitle'); if (t) t.textContent = (opts.delivery ? '🚀 Livraison en cours' : '🔎 Pipeline de la MR') + ' · #' + pipelineId;
+-    const gl = $('trainGl'); if (gl) gl.href = `${GITLAB_URL}/${PROJECT_PATH}/-/pipelines/${pipelineId}`;
+-    const logs = $('trainLogs'); if (logs) logs.innerHTML = '<span style="color:var(--tm)">Sélectionne un job pour voir ses logs…</span>';
+-    const jn = $('trainJobName'); if (jn) jn.textContent = '';
+-    if (sec && opts.scroll !== false) sec.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+-    await pollPipeline();
+-    pipeTimer = setInterval(pollPipeline, 3000);
+-  }
+-
+-  async function pollPipeline() {
+-    if (!pipeId) return;
+-    try {
+-      const [pRes, jRes] = await Promise.all([
+-        glFetch(`/projects/${PROJECT_ID}/pipelines/${pipeId}`),
+-        glFetch(`/projects/${PROJECT_ID}/pipelines/${pipeId}/jobs?per_page=100`),
+-      ]);
+-      if (!pRes.ok || !jRes.ok) return;
+-      const pipeline = await pRes.json();
+-      let jobs = await jRes.json();
+-      // Ordre déterministe : id croissant = ordre de création = ordre des stages
+-      // (indépendant de l'ordre renvoyé par l'API, qui varie).
+-      jobs = Array.isArray(jobs) ? jobs.slice().sort((a, b) => (a.id || 0) - (b.id || 0)) : [];
+-      renderTrain(pipeline, jobs);
+-      // auto-sélection du job en cours si l'utilisateur n'a rien choisi manuellement
+-      const running = jobs.find(j => j.status === 'running');
+-      if (running && curJobId == null) selectJob(running.id, running.name);
+-      if (['success', 'failed', 'canceled', 'skipped'].includes(pipeline.status)) {
+-        clearInterval(pipeTimer); pipeTimer = null;
+-        toast(pipeline.status === 'success' ? '✅ Pipeline terminée — livraison OK.' : '❌ Pipeline ' + esc(pipeline.status) + '.');
+-      }
+-    } catch (e) { /* transitoire, on retente au prochain tick */ }
+-  }
+-
+-  function renderTrain(pipeline, jobs) {
+-    const st = $('trainStatus');
+-    if (st) { st.textContent = (PIPE_ICON[pipeline.status] || '') + ' ' + pipeline.status; st.className = 'pill ' + (pipeline.status === 'success' ? 'ok' : pipeline.status === 'failed' ? 'err' : 'run'); }
+-    // regroupe par stage en conservant l'ordre d'apparition
+-    const order = [], byStage = {};
+-    jobs.forEach(j => { const s = j.stage || '—'; if (!byStage[s]) { byStage[s] = []; order.push(s); } byStage[s].push(j); });
+-    const train = $('train');
+-    if (train) {
+-      train.innerHTML = order.map((s, i) => {
+-        const cls = stageStatus(byStage[s]);
+-        const ic = cls === 'success' ? '✓' : cls === 'failed' ? '✕' : cls === 'running' ? '🔄' : '•';
+-        const rail = i ? `<div class="rail ${stageStatus(byStage[order[i - 1]]) === 'success' ? 'done' : ''}"></div>` : '';
+-        return rail + `<div class="stg ${cls === 'success' ? 'done' : cls === 'running' ? 'run' : cls === 'failed' ? 'fail' : ''}"><div class="ic">${ic}</div><div class="nm">${esc(s)}</div></div>`;
+-      }).join('');
+-    }
+-    const jc = $('trainJobs');
+-    if (jc) {
+-      jc.innerHTML = jobs.map(j => `<button class="jobchip ${j.status} ${curJobId === j.id ? 'on' : ''}" data-job="${j.id}" data-jobname="${esc(j.name)}">${PIPE_ICON[j.status] || '•'} ${esc(j.name)}${j.duration ? ` · ${fmtDur(j.duration)}` : ''}</button>`).join('');
+-      jc.querySelectorAll('.jobchip').forEach(b => b.addEventListener('click', () => selectJob(parseInt(b.dataset.job, 10), b.dataset.jobname)));
+-    }
+-  }
+-
+-  async function selectJob(jobId, jobName) {
+-    curJobId = jobId;
+-    const jn = $('trainJobName'); if (jn) jn.textContent = jobName || '';
+-    document.querySelectorAll('.jobchip').forEach(b => b.classList.toggle('on', parseInt(b.dataset.job, 10) === jobId));
+-    clearInterval(logTimer); logTimer = null;
+-    await fetchLogs();
+-    const active = document.querySelector('.jobchip.on');
+-    if (active && active.classList.contains('running')) logTimer = setInterval(fetchLogs, 2500);
+-  }
+-
+-  async function fetchLogs() {
+-    if (!curJobId) return;
+-    const el = $('trainLogs'); if (!el) return;
+-    try {
+-      const r = await glFetch(`/projects/${PROJECT_ID}/jobs/${curJobId}/trace`);
+-      if (!r.ok) { el.innerHTML = '<span style="color:var(--tm)">Logs indisponibles (job pas encore démarré ?).</span>'; return; }
+-      const raw = await r.text();
+-      const clean = raw.replace(/\x1b\[[0-9;]*m/g, '');
+-      el.innerHTML = clean.split('\n').map(line => {
+-        let c = '';
+-        if (/(?:✅|\bsuccess|SUCCESS)/.test(line)) c = 'ok';
+-        else if (/(?:❌|\berror|ERROR|fatal|FAIL)/.test(line)) c = 'err';
+-        else if (/(?:⚠️|warning|WARNING)/.test(line)) c = 'warn';
+-        else if (/(?:ℹ️|INFO|section_)/.test(line)) c = 'info';
+-        return `<div class="l"><span class="${c}">${esc(line)}</span></div>`;
+-      }).join('');
+-      if (autoScroll) el.scrollTop = el.scrollHeight;
+-    } catch (e) { /* transitoire */ }
+-  }
+-
+-  // Après un merge : suit UNIQUEMENT la pipeline du commit de merge (par sha).
+-  // On ne prend jamais « la dernière pipeline de la branche » : au moment du
+-  // merge, la nouvelle pipeline n'existe pas encore, et ce fallback verrouillait
+-  // sur une ancienne pipeline sans rapport. On patiente qu'elle apparaisse.
+-  const sleep = (ms) => new Promise(res => setTimeout(res, ms));
+-  async function trackDeliveryPipeline(iid, sha) {
+-    // Récupère le sha du commit de merge si la réponse du merge ne l'avait pas.
+-    for (let i = 0; i < 5 && !sha; i++) {
+-      try {
+-        const r = await glFetch(`/projects/${PROJECT_ID}/merge_requests/${iid}`);
+-        if (r.ok) { const m = await r.json(); sha = m.merge_commit_sha || m.squash_commit_sha || null; }
+-      } catch (e) { /* retry */ }
+-      if (!sha) await sleep(1500);
+-    }
+-    if (!sha) { toast('ℹ️ Merge OK — sha du commit introuvable. Ouvre la pipeline dans GitLab ↗.'); return; }
+-    // Attend que la pipeline du commit de merge existe (jusqu'à ~50 s), puis la suit.
+-    for (let i = 0; i < 20; i++) {
+-      try {
+-        const r = await glFetch(`/projects/${PROJECT_ID}/pipelines?sha=${encodeURIComponent(sha)}&per_page=1`);
+-        if (r.ok) { const a = await r.json(); if (Array.isArray(a) && a.length && a[0].id) { showTrain(a[0].id, { delivery: true }); return; } }
+-      } catch (e) { /* retry */ }
+-      await sleep(2500);
+-    }
+-    toast('ℹ️ Pipeline de livraison pas encore visible — clique « ↻ Rafraîchir » ou ouvre GitLab ↗.');
+-  }
+-
+-  // exposé pour le filtre + refresh + préparation + train
+-  window.livraisonFilter = () => { authorFilter = ($('who') || {}).value || ''; renderList(); };
+-  window.livraisonRefresh = () => loadMRs();
+-  window.livraisonPrepBranch = prepOnBranch;
+-  window.livraisonPrepBump = prepSetBump;
+-  window.livraisonPrepGo = prepGo;
+-  window.livraisonStopTrain = stopTrain;
+-  window.livraisonToggleScroll = () => { autoScroll = !autoScroll; const b = $('trainScroll'); if (b) b.textContent = '📜 auto-scroll : ' + (autoScroll ? 'ON' : 'OFF'); };
+-
+-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+-})();
+diff --git a/js/modules/livraison/compute.js b/js/modules/livraison/compute.js
+new file mode 100644
+index 0000000..5f6406b
+--- /dev/null
++++ b/js/modules/livraison/compute.js
+@@ -0,0 +1,31 @@
++/* livraison · compute.js — helpers purs (format, versions, statuts) (chargé en 3e). */
++
++'use strict';
++
++  const esc = (v) => (window.Salsifi && window.Salsifi.escapeHtml) ? window.Salsifi.escapeHtml(v) : String(v == null ? '' : v);
++  const initials = (n) => (n || '?').split(/[\s_.@-]/).filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('') || '?';
++  const timeAgo = (iso) => {
++    if (!iso) return '';
++    const s = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
++    if (s < 60) return s + ' s'; if (s < 3600) return Math.round(s / 60) + ' min';
++    if (s < 86400) return Math.round(s / 3600) + ' h'; return Math.round(s / 86400) + ' j';
++  };
++
++  function aiUrl() { return (localStorage.getItem('mr_reviewer_api_url') || window.MR_REVIEWER_API_URL || '').trim(); }
++
++  function bumpVer(v, type) {
++    const m = (v || '').match(/^(\d+)\.(\d+)\.(\d+)/); if (!m) return '';
++    let a = +m[1], b = +m[2], c = +m[3];
++    if (type === 'major') { a++; b = 0; c = 0; } else if (type === 'minor') { b++; c = 0; } else c++;
++    return a + '.' + b + '.' + c;
++  }
++  function prepTarget() { return bumpVer(prepCurTag, prepBumpType); }
++  function stageStatus(jobs) {
++    if (jobs.some(j => j.status === 'failed')) return 'failed';
++    if (jobs.some(j => j.status === 'running')) return 'running';
++    if (jobs.length && jobs.every(j => ['success', 'skipped', 'manual'].includes(j.status))) return 'success';
++    return 'pending';
++  }
++  function fmtDur(s) { if (!s) return ''; if (s < 60) return Math.round(s) + 's'; return Math.floor(s / 60) + 'm ' + Math.round(s % 60) + 's'; }
++
++  const sleep = (ms) => new Promise(res => setTimeout(res, ms));
+diff --git a/js/modules/livraison/data.js b/js/modules/livraison/data.js
+new file mode 100644
+index 0000000..076ace3
+--- /dev/null
++++ b/js/modules/livraison/data.js
+@@ -0,0 +1,89 @@
++/* livraison · data.js — I/O GitLab (MR, branches, pipelines, logs) (chargé en 2e). */
++
++'use strict';
++
++  const glFetch = (ep, init) => window.Salsifi.gitlabFetch(GITLAB_URL, TOKEN, ep, init);
++  const glAll = (ep) => window.Salsifi.gitlabPaginate(GITLAB_URL, TOKEN, ep, { throwOnError: true });
++  async function aiPostComment(iid, a) {
++    const lines = [];
++    lines.push('## 🤖 Analyse IA' + (a.decision ? ' — ' + a.decision : ''));
++    if (a.summary) lines.push('', a.summary);
++    const block = (title, arr) => { if (arr && arr.length) { lines.push('', '### ' + title); arr.forEach(f => lines.push('- **' + (f.title || '') + '**' + (f.location ? ' _(' + f.location + ')_' : '') + (f.description ? ' — ' + f.description : ''))); } };
++    block('🔴 Critiques', a.critical_issues); block("🟡 Points d'attention", a.warnings); block('✓ Points positifs', a.positives);
++    const r = await glFetch(`/projects/${PROJECT_ID}/merge_requests/${iid}/notes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body: lines.join('\n') }) });
++    if (!r.ok) { const b = await r.json().catch(() => ({})); return toast('⚠️ Commentaire refusé : ' + esc(b.message || r.status)); }
++    toast('💬 Analyse postée sur la MR.'); closeAiModal(); await selectMR(iid);
++  }
++  async function readFile(path, ref) {
++    const r = await glFetch(`/projects/${PROJECT_ID}/repository/files/${encodeURIComponent(path)}?ref=${encodeURIComponent(ref)}`);
++    if (!r.ok) return null;
++    const d = await r.json().catch(() => null); if (!d || d.content == null) return null;
++    try { return decodeURIComponent(escape(atob(d.content))); } catch (e) { try { return atob(d.content); } catch (_) { return null; } }
++  }
++  async function findOverlays(ref) {
++    try {
++      const tree = await window.Salsifi.gitlabPaginate(GITLAB_URL, TOKEN,
++        `/projects/${PROJECT_ID}/repository/tree?recursive=true&ref=${encodeURIComponent(ref)}`, { throwOnError: false });
++      return (tree || []).filter(t => t && t.type === 'blob' && KUSTO_RX.test(t.path)).map(t => t.path);
++    } catch (e) { return []; }
++  }
++
++  async function loadBranches() {
++    const sel = $('prepBranch'); if (!sel) return;
++    const dbl = $('prepDefBr'); if (dbl) dbl.textContent = DEFAULT_BRANCH;
++    try {
++      branches = await glAll(`/projects/${PROJECT_ID}/repository/branches`);
++      const opts = branches.filter(b => b.name !== DEFAULT_BRANCH)
++        .map(b => `<option value="${esc(b.name)}">${esc(b.name)}</option>`).join('');
++      sel.innerHTML = '<option value="">— choisir une branche —</option>' + opts;
++    } catch (e) { sel.innerHTML = '<option value="">erreur de chargement</option>'; }
++  }
++
++  async function pollPipeline() {
++    if (!pipeId) return;
++    try {
++      const [pRes, jRes] = await Promise.all([
++        glFetch(`/projects/${PROJECT_ID}/pipelines/${pipeId}`),
++        glFetch(`/projects/${PROJECT_ID}/pipelines/${pipeId}/jobs?per_page=100`),
++      ]);
++      if (!pRes.ok || !jRes.ok) return;
++      const pipeline = await pRes.json();
++      let jobs = await jRes.json();
++      // Ordre déterministe : id croissant = ordre de création = ordre des stages
++      // (indépendant de l'ordre renvoyé par l'API, qui varie).
++      jobs = Array.isArray(jobs) ? jobs.slice().sort((a, b) => (a.id || 0) - (b.id || 0)) : [];
++      renderTrain(pipeline, jobs);
++      // auto-sélection du job en cours si l'utilisateur n'a rien choisi manuellement
++      const running = jobs.find(j => j.status === 'running');
++      if (running && curJobId == null) selectJob(running.id, running.name);
++      if (['success', 'failed', 'canceled', 'skipped'].includes(pipeline.status)) {
++        clearInterval(pipeTimer); pipeTimer = null;
++        toast(pipeline.status === 'success' ? '✅ Pipeline terminée — livraison OK.' : '❌ Pipeline ' + esc(pipeline.status) + '.');
++      }
++    } catch (e) { /* transitoire, on retente au prochain tick */ }
++  }
++
++  async function fetchLogs() {
++    if (!curJobId) return;
++    const el = $('trainLogs'); if (!el) return;
++    try {
++      const r = await glFetch(`/projects/${PROJECT_ID}/jobs/${curJobId}/trace`);
++      if (!r.ok) { el.innerHTML = '<span style="color:var(--tm)">Logs indisponibles (job pas encore démarré ?).</span>'; return; }
++      const raw = await r.text();
++      const clean = raw.replace(/\x1b\[[0-9;]*m/g, '');
++      el.innerHTML = clean.split('\n').map(line => {
++        let c = '';
++        if (/(?:✅|\bsuccess|SUCCESS)/.test(line)) c = 'ok';
++        else if (/(?:❌|\berror|ERROR|fatal|FAIL)/.test(line)) c = 'err';
++        else if (/(?:⚠️|warning|WARNING)/.test(line)) c = 'warn';
++        else if (/(?:ℹ️|INFO|section_)/.test(line)) c = 'info';
++        return `<div class="l"><span class="${c}">${esc(line)}</span></div>`;
++      }).join('');
++      if (autoScroll) el.scrollTop = el.scrollHeight;
++    } catch (e) { /* transitoire */ }
++  }
++
++  // Après un merge : suit UNIQUEMENT la pipeline du commit de merge (par sha).
++  // On ne prend jamais « la dernière pipeline de la branche » : au moment du
++  // merge, la nouvelle pipeline n'existe pas encore, et ce fallback verrouillait
++  // sur une ancienne pipeline sans rapport. On patiente qu'elle apparaisse.
+diff --git a/js/modules/livraison/index.js b/js/modules/livraison/index.js
+new file mode 100644
+index 0000000..f35098c
+--- /dev/null
++++ b/js/modules/livraison/index.js
+@@ -0,0 +1,226 @@
++/* livraison · index.js — orchestration & câblage (chargé en dernier). */
++
++'use strict';
++
++  async function init() {
++    const auth = window.Salsifi.loadAuth({ redirect: false });
++    if (!auth) { location.href = 'login.html'; return; }
++    TOKEN = auth.token; GITLAB_URL = auth.gitlabUrl; USERNAME = auth.username || '';
++    PROJECT_ID = new URLSearchParams(location.search).get('repo') || localStorage.getItem('hub_selected_repo_id');
++    if (!PROJECT_ID) { location.href = HUB_URL; return; }
++    document.querySelectorAll('[data-hub]').forEach(a => { a.href = HUB_URL; });
++    try {
++      const r = await glFetch(`/projects/${PROJECT_ID}`);
++      if (r.ok) { const p = await r.json(); PROJECT_PATH = p.path_with_namespace || ''; DEFAULT_BRANCH = p.default_branch || 'main'; const el = $('svcName'); if (el) el.textContent = p.name || PROJECT_PATH; }
++    } catch (e) { /* non bloquant */ }
++    await loadMRs();
++    loadBranches(); // asynchrone, ne bloque pas l'affichage des MR
++  }
++
++  async function loadMRs() {
++    const list = $('list');
++    if (list) list.innerHTML = '<div class="d-empty">Chargement des MR…</div>';
++    try {
++      mrList = await glAll(`/projects/${PROJECT_ID}/merge_requests?state=opened&with_labels_details=false`);
++      populateAuthors();
++      renderList();
++    } catch (e) {
++      if (list) list.innerHTML = `<div class="d-empty">⚠️ ${esc(e.message || 'Erreur de chargement')}</div>`;
++    }
++  }
++
++  async function selectMR(iid) {
++    selected = iid; renderList();
++    const m = mrList.find(x => x.iid === iid); if (!m) return;
++    const d = $('detail');
++    d.innerHTML = '<div class="d-empty">Chargement de la MR…</div>';
++    // Appels réels en parallèle : diff, approbations, discussion.
++    const [changes, approvals, notes] = await Promise.all([
++      glFetch(`/projects/${PROJECT_ID}/merge_requests/${iid}/changes`).then(r => r.ok ? r.json() : null).catch(() => null),
++      glFetch(`/projects/${PROJECT_ID}/merge_requests/${iid}/approvals`).then(r => r.ok ? r.json() : null).catch(() => null),
++      glFetch(`/projects/${PROJECT_ID}/merge_requests/${iid}/notes?sort=asc&per_page=100`).then(r => r.ok ? r.json() : []).catch(() => []),
++    ]);
++    if (selected !== iid) return; // l'utilisateur a cliqué ailleurs entre-temps
++    renderDetail(m, changes, approvals, notes);
++  }
++
++  async function runAI(iid) {
++    const url = aiUrl();
++    if (!url) { aiModal(aiConfigForm("L'assistant IA n'est pas encore configuré.")); wireAiConfig(iid); return; }
++    aiModal('<div style="text-align:center;padding:28px;color:var(--tm)">⏳ Analyse IA de la MR en cours…</div>');
++    try {
++      const r = await fetch(url.replace(/\/+$/, '') + '/api/analyze-from-gitlab', {
++        method: 'POST', headers: { 'Content-Type': 'application/json' },
++        body: JSON.stringify({ gitlab_url: GITLAB_URL, project_id: PROJECT_ID, mr_iid: iid, gitlab_token: TOKEN })
++      });
++      if (!r.ok) { const t = await r.text().catch(() => ''); throw new Error('API ' + r.status + (t ? ' — ' + t.slice(0, 160) : '')); }
++      const a = await r.json();
++      aiModal(renderAiAnalysis(a, iid));
++      const bc = $('aiComment'); if (bc) bc.addEventListener('click', () => aiPostComment(iid, a));
++    } catch (e) {
++      aiModal('<div style="border:1px solid var(--err);background:rgba(248,113,113,.08);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--err)">Analyse indisponible : ' + esc(e.message) + '</div>'
++        + '<div style="margin-top:12px">' + aiConfigForm("Vérifie l'URL de l'assistant :") + '</div>');
++      wireAiConfig(iid);
++    }
++  }
++
++  async function guard(fn) { if (busy) return; busy = true; try { await fn(); } finally { busy = false; } }
++
++  function doComment(iid) {
++    const ta = $('cin'); const body = (ta && ta.value || '').trim(); if (!body) return;
++    guard(async () => {
++      const r = await glFetch(`/projects/${PROJECT_ID}/merge_requests/${iid}/notes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body }) });
++      if (!r.ok) { const b = await r.json().catch(() => ({})); return toast('⚠️ Commentaire refusé : ' + esc(b.message || r.status)); }
++      toast('💬 Commentaire posté.'); await selectMR(iid);
++    });
++  }
++  function doApprove(iid) {
++    guard(async () => {
++      const r = await glFetch(`/projects/${PROJECT_ID}/merge_requests/${iid}/approve`, { method: 'POST' });
++      if (!r.ok) { const b = await r.json().catch(() => ({})); return toast('⚠️ Approbation refusée : ' + esc(b.message || r.status)); }
++      toast('👍 MR approuvée.'); await selectMR(iid);
++    });
++  }
++  function doMerge(iid) {
++    if (!confirm('Merger cette MR ? Le merge déclenche la pipeline (livraison).')) return;
++    guard(async () => {
++      const r = await glFetch(`/projects/${PROJECT_ID}/merge_requests/${iid}/merge`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
++      if (!r.ok) { const b = await r.json().catch(() => ({})); return toast('⚠️ Merge refusé : ' + esc(b.message || r.status)); }
++      const merged = await r.json().catch(() => ({}));
++      toast('🚀 MR mergée — la pipeline part.'); selected = null; await loadMRs();
++      const d = $('detail'); if (d) d.innerHTML = '<div class="d-empty">✅ Mergée. La livraison démarre — suis le train ci-dessous.</div>';
++      trackDeliveryPipeline(iid, merged.merge_commit_sha || merged.squash_commit_sha || null); // train du commit de merge uniquement
++    });
++  }
++  function doClose(iid) {
++    if (!confirm('Fermer cette MR ?')) return;
++    guard(async () => {
++      const r = await glFetch(`/projects/${PROJECT_ID}/merge_requests/${iid}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ state_event: 'close' }) });
++      if (!r.ok) { const b = await r.json().catch(() => ({})); return toast('⚠️ Fermeture refusée : ' + esc(b.message || r.status)); }
++      toast('🚫 MR fermée.'); selected = null; await loadMRs(); const d = $('detail'); if (d) d.innerHTML = '<div class="d-empty">← Clique une MR pour l\'ouvrir</div>';
++    });
++  }
++
++  // ── Tranche 2 : préparer une livraison (bump + overlays + MR) ──
++  async function prepOnBranch() {
++    prepBranch = ($('prepBranch') || {}).value || '';
++    prepCurTag = '';
++    const curEl = $('prepCur'), tgtEl = $('prepTgt');
++    if (!prepBranch) { if (curEl) curEl.textContent = '—'; if (tgtEl) tgtEl.textContent = '—'; return; }
++    if (curEl) curEl.textContent = '…';
++    const ci = await readFile('.gitlab-ci.yml', prepBranch);
++    if (ci != null) { const m = ci.match(IMAGE_TAG_RX); if (m) prepCurTag = m[3].trim(); }
++    if (curEl) curEl.textContent = prepCurTag || 'IMAGE_TAG introuvable';
++    renderPrepTarget();
++  }
++  function prepSetBump(type) {
++    prepBumpType = type;
++    ['major', 'minor', 'patch'].forEach(x => { const b = $('pb-' + x); if (b) b.classList.toggle('on', x === type); });
++    renderPrepTarget();
++  }
++
++  function prepGo() {
++    if (!prepBranch) return toast('⚠️ Choisis une branche à livrer.');
++    if (!prepCurTag) return toast('⚠️ IMAGE_TAG introuvable dans le .gitlab-ci.yml de cette branche.');
++    const target = prepTarget();
++    if (!target) return toast('⚠️ Version courante non SemVer (x.y.z) — bump impossible.');
++    if (!confirm(`Préparer la livraison ${target} ?\n\n• branche : ${prepBranch} → ${DEFAULT_BRANCH}\n• IMAGE_TAG : ${prepCurTag} → ${target}\n• sync overlays (si présents)\n• création d'une MR\n\nLe merge de la MR déclenchera la livraison.`)) return;
++    guard(async () => {
++      const actions = [];
++      const ci = await readFile('.gitlab-ci.yml', prepBranch);
++      if (ci == null) return toast('⚠️ .gitlab-ci.yml introuvable sur ' + esc(prepBranch));
++      const newCi = ci.replace(IMAGE_TAG_RX, (m, p, q, v, q2, s) => p + q + target + q2 + s);
++      if (newCi !== ci) actions.push({ action: 'update', file_path: '.gitlab-ci.yml', content: newCi });
++      // Overlays : découverts dynamiquement puis bumpés (newTag + APP_VERSION).
++      // On n'inclut au commit que ceux qui portent vraiment la version (donc pas
++      // le kustomization de base, qui n'a pas de newTag).
++      let overlaysTouched = 0;
++      const overlayFiles = await findOverlays(prepBranch);
++      for (const path of overlayFiles) {
++        const c = await readFile(path, prepBranch);
++        if (c == null) continue;
++        const nc = c.replace(/^(\s*newTag:\s*).*$/gm, `$1"${target}"`).replace(/^(\s*-\s+APP_VERSION=).*$/gm, `$1${target}`);
++        if (nc !== c) { actions.push({ action: 'update', file_path: path, content: nc }); overlaysTouched++; }
++      }
++      if (!actions.length) return toast(`⚠️ Rien à modifier — IMAGE_TAG est peut-être déjà à ${esc(target)}.`);
++      // Commit atomique sur la branche.
++      const cr = await glFetch(`/projects/${PROJECT_ID}/repository/commits`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ branch: prepBranch, commit_message: `[Livraison] Bump IMAGE_TAG → ${target}`, actions }) });
++      if (!cr.ok) { const b = await cr.json().catch(() => ({})); return toast('⚠️ Commit refusé : ' + esc(b.message || cr.status)); }
++      // Création de la MR vers la branche par défaut.
++      const mr = await glFetch(`/projects/${PROJECT_ID}/merge_requests`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source_branch: prepBranch, target_branch: DEFAULT_BRANCH, title: `release ${target}` }) });
++      if (!mr.ok) {
++        const b = await mr.json().catch(() => ({}));
++        const msg = (b.message || b.error || cr.status); const txt = Array.isArray(msg) ? msg.join(', ') : msg;
++        // Cas fréquent : une MR existe déjà pour ce couple de branches → on rafraîchit quand même.
++        toast('⚠️ MR non créée : ' + esc(txt) + '. Le commit, lui, est passé.'); prepCurTag = target; await loadMRs(); return;
++      }
++      const created = await mr.json();
++      toast(`🔀 MR !${created.iid} « release ${target} » ouverte → ${esc(DEFAULT_BRANCH)} · ${overlaysTouched ? overlaysTouched + ' overlay(s) sync' : 'aucun overlay trouvé'}.`);
++      prepCurTag = target; renderPrepTarget();
++      await loadMRs();
++      if (created.iid) selectMR(created.iid);
++    });
++  }
++
++  // ── Tranche 3 : le train de la pipeline + logs en direct ──
++  function stopTrain() {
++    clearInterval(pipeTimer); clearInterval(logTimer); pipeTimer = logTimer = null; pipeId = null; curJobId = null;
++    const sec = $('trainSection'); if (sec) sec.style.display = 'none';
++  }
++
++  async function showTrain(pipelineId, opts) {
++    opts = opts || {};
++    if (!pipelineId) return;
++    stopTrain();
++    pipeId = pipelineId;
++    const sec = $('trainSection'); if (sec) sec.style.display = 'block';
++    const t = $('trainTitle'); if (t) t.textContent = (opts.delivery ? '🚀 Livraison en cours' : '🔎 Pipeline de la MR') + ' · #' + pipelineId;
++    const gl = $('trainGl'); if (gl) gl.href = `${GITLAB_URL}/${PROJECT_PATH}/-/pipelines/${pipelineId}`;
++    const logs = $('trainLogs'); if (logs) logs.innerHTML = '<span style="color:var(--tm)">Sélectionne un job pour voir ses logs…</span>';
++    const jn = $('trainJobName'); if (jn) jn.textContent = '';
++    if (sec && opts.scroll !== false) sec.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
++    await pollPipeline();
++    pipeTimer = setInterval(pollPipeline, 3000);
++  }
++
++  async function selectJob(jobId, jobName) {
++    curJobId = jobId;
++    const jn = $('trainJobName'); if (jn) jn.textContent = jobName || '';
++    document.querySelectorAll('.jobchip').forEach(b => b.classList.toggle('on', parseInt(b.dataset.job, 10) === jobId));
++    clearInterval(logTimer); logTimer = null;
++    await fetchLogs();
++    const active = document.querySelector('.jobchip.on');
++    if (active && active.classList.contains('running')) logTimer = setInterval(fetchLogs, 2500);
++  }
++
++  async function trackDeliveryPipeline(iid, sha) {
++    // Récupère le sha du commit de merge si la réponse du merge ne l'avait pas.
++    for (let i = 0; i < 5 && !sha; i++) {
++      try {
++        const r = await glFetch(`/projects/${PROJECT_ID}/merge_requests/${iid}`);
++        if (r.ok) { const m = await r.json(); sha = m.merge_commit_sha || m.squash_commit_sha || null; }
++      } catch (e) { /* retry */ }
++      if (!sha) await sleep(1500);
++    }
++    if (!sha) { toast('ℹ️ Merge OK — sha du commit introuvable. Ouvre la pipeline dans GitLab ↗.'); return; }
++    // Attend que la pipeline du commit de merge existe (jusqu'à ~50 s), puis la suit.
++    for (let i = 0; i < 20; i++) {
++      try {
++        const r = await glFetch(`/projects/${PROJECT_ID}/pipelines?sha=${encodeURIComponent(sha)}&per_page=1`);
++        if (r.ok) { const a = await r.json(); if (Array.isArray(a) && a.length && a[0].id) { showTrain(a[0].id, { delivery: true }); return; } }
++      } catch (e) { /* retry */ }
++      await sleep(2500);
++    }
++    toast('ℹ️ Pipeline de livraison pas encore visible — clique « ↻ Rafraîchir » ou ouvre GitLab ↗.');
++  }
++
++  // exposé pour le filtre + refresh + préparation + train
++  window.livraisonFilter = () => { authorFilter = ($('who') || {}).value || ''; renderList(); };
++  window.livraisonRefresh = () => loadMRs();
++  window.livraisonPrepBranch = prepOnBranch;
++  window.livraisonPrepBump = prepSetBump;
++  window.livraisonPrepGo = prepGo;
++  window.livraisonStopTrain = stopTrain;
++  window.livraisonToggleScroll = () => { autoScroll = !autoScroll; const b = $('trainScroll'); if (b) b.textContent = '📜 auto-scroll : ' + (autoScroll ? 'ON' : 'OFF'); };
++
++  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+diff --git a/js/modules/livraison/render.js b/js/modules/livraison/render.js
+new file mode 100644
+index 0000000..819729b
+--- /dev/null
++++ b/js/modules/livraison/render.js
+@@ -0,0 +1,213 @@
++/* livraison · render.js — rendu DOM (liste, détail, analyse IA, train) (chargé en 4e). */
++
++'use strict';
++
++  const $ = (id) => document.getElementById(id);
++  let toastT;
++  function toast(msg) { const el = $('toast'); if (!el) return; el.innerHTML = msg; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 3600); }
++
++  function populateAuthors() {
++    const sel = $('who'); if (!sel) return;
++    const authors = [...new Set(mrList.map(m => (m.author && m.author.username) || '?'))].sort();
++    const cur = sel.value;
++    sel.innerHTML = '<option value="">Tous</option>' + authors.map(a => `<option value="${esc(a)}">${esc(a)}</option>`).join('');
++    if (authors.includes(cur)) sel.value = cur;
++    authorFilter = sel.value;
++  }
++
++  function renderList() {
++    const c = $('list'); if (!c) return;
++    const rows = mrList.filter(m => !authorFilter || (m.author && m.author.username) === authorFilter);
++    const cnt = $('mrcount'); if (cnt) cnt.textContent = rows.length + ' MR ouvertes';
++    if (!rows.length) { c.innerHTML = '<div class="d-empty">Aucune MR ouverte' + (authorFilter ? ' pour ce créateur.' : '.') + '</div>'; return; }
++    c.innerHTML = rows.map(m => {
++      const av = initials((m.author && (m.author.name || m.author.username)) || '');
++      const pipe = m.head_pipeline && m.head_pipeline.status;
++      const pipeCls = pipe === 'success' ? 'pipe-ok' : (pipe === 'running' || pipe === 'pending') ? 'pipe-run' : '';
++      const pipeDot = pipeCls ? `<span class="dot2 ${pipeCls}" title="pipeline ${esc(pipe)}"></span>` : '';
++      return `<div class="mri ${selected === m.iid ? 'sel' : ''}" data-iid="${m.iid}">
++        <div class="ava" style="background:#7c5cfc">${esc(av)}</div>
++        <div class="ti"><div class="tt">!${m.iid} · ${esc(m.title)}</div>
++          <div class="ts">${esc((m.author && m.author.username) || '?')} · ${esc(m.source_branch)} → ${esc(m.target_branch)} · il y a ${timeAgo(m.created_at)}</div></div>
++        ${pipeDot}</div>`;
++    }).join('');
++    c.querySelectorAll('.mri').forEach(el => el.addEventListener('click', () => selectMR(parseInt(el.dataset.iid, 10))));
++  }
++
++  function renderDetail(m, changes, approvals, notes) {
++    const mine = (m.author && m.author.username) === USERNAME;
++    const need = approvals ? (approvals.approvals_required || 0) : 0;
++    const got = approvals ? (approvals.approved_by ? approvals.approved_by.length : (need - (approvals.approvals_left || 0))) : 0;
++    const okAppr = need > 0 ? got >= need : true;
++    const iApproved = approvals && approvals.approved_by && approvals.approved_by.some(a => a.user && a.user.username === USERNAME);
++    const pipe = m.head_pipeline && m.head_pipeline.status;
++    const files = (changes && changes.changes) || [];
++    const dots = need > 0 ? Array.from({ length: need }, (_, i) => `<span class="d ${i < got ? 'on' : ''}"></span>`).join('') : '<span class="d on"></span>';
++    const notesList = (notes || []).filter(n => !n.system && n.body);
++
++    const d = $('detail');
++    d.innerHTML = `
++      <div style="display:flex;align-items:flex-start;gap:10px">
++        <span style="font-family:var(--fm);font-weight:800;color:var(--accent)">!${m.iid}</span>
++        <div><div class="d-title">${esc(m.title)}</div>
++          <div class="d-meta">${esc(m.source_branch)} → ${esc(m.target_branch)} · par ${esc((m.author && m.author.username) || '?')} · il y a ${timeAgo(m.created_at)}</div></div>
++        <a class="pill g" href="${esc(GITLAB_URL + '/' + PROJECT_PATH + '/-/merge_requests/' + m.iid)}" target="_blank" rel="noopener" style="margin-left:auto;text-decoration:none">GitLab ↗</a></div>
++      <div>
++        ${pipe ? `<span class="pill ${pipe === 'success' ? 'ok' : 'run'}">${pipe === 'success' ? '✅ pipeline OK' : '⏳ ' + esc(pipe)}</span>` : ''}
++        <span class="pill g">${files.length} fichier${files.length > 1 ? 's' : ''}</span>
++        <span class="pill g">${mine ? '🙋 la tienne' : '👤 ' + esc((m.author && m.author.username) || '?')}</span>
++        <span class="pill ${m.merge_status === 'can_be_merged' ? 'ok' : 'g'}">${m.merge_status === 'can_be_merged' ? 'mergeable' : esc(m.merge_status || '')}</span>
++        ${(m.head_pipeline && m.head_pipeline.id) ? `<button class="pill g" id="btnTrain" style="all:unset;cursor:pointer;display:inline-flex" data-pipe="${m.head_pipeline.id}">🚂 voir le train</button>` : ''}
++        <button class="pill g" id="btnAI" style="all:unset;cursor:pointer;display:inline-flex">🤖 Analyse IA</button>
++      </div>
++
++      <div class="box"><div class="bh">Fichiers (${files.length})</div>
++        ${files.length ? files.map((f, i) => diffRow(f, i)).join('') : '<span style="color:var(--tm);font-size:12px">Diff indisponible.</span>'}</div>
++
++      <div class="box"><div class="bh">Validation</div>
++        <div class="appr"><div style="display:flex;gap:5px">${dots}</div>
++          <div class="txt">${need > 0 ? (okAppr ? `<b style="color:var(--ok)">Validée ${got}/${need}</b>` : `En attente <b style="color:var(--warn)">${got}/${need}</b>`) : '<span style="color:var(--tm)">Pas de règle d\'approbation</span>'}</div></div></div>
++
++      <div class="box"><div class="bh">💬 Discussion</div>
++        <div id="disc">${notesList.length ? notesList.map(noteRow).join('') : '<span style="color:var(--tm);font-size:12px">Aucun commentaire.</span>'}</div>
++        <div class="cbox"><textarea id="cin" placeholder="Commenter la MR…"></textarea><button class="btn ghost" id="btnComment">Commenter</button></div></div>
++
++      <div class="roles">
++        <div class="role"><div class="rl">👍 relecteur</div><div class="btns">
++          <button class="btn ghost" id="btnApprove" ${(mine || iApproved) ? 'disabled' : ''}>${iApproved ? '✅ approuvée par toi' : 'Approuver'}</button></div>
++          ${mine ? '<div style="font-size:11px;color:var(--tm);margin-top:7px">Tu es le créateur — un autre approuve.</div>' : ''}</div>
++        <div class="role"><div class="rl">🚀 créateur</div><div class="btns">
++          <button class="btn ship" id="btnMerge" ${(m.merge_status === 'can_be_merged' && okAppr) ? '' : 'disabled'}>Merger &amp; livrer</button>
++          <button class="btn del" id="btnClose">Fermer la MR</button></div>
++          ${(m.merge_status !== 'can_be_merged' || !okAppr) ? '<div style="font-size:11px;color:var(--tm);margin-top:7px">Merge possible quand : validée + mergeable (pipeline/conflits OK).</div>' : ''}</div>
++      </div>`;
++
++    // câblage des actions réelles
++    const cb = $('btnComment'); if (cb) cb.addEventListener('click', () => doComment(m.iid));
++    const ba = $('btnApprove'); if (ba && !ba.disabled) ba.addEventListener('click', () => doApprove(m.iid));
++    const bm = $('btnMerge'); if (bm && !bm.disabled) bm.addEventListener('click', () => doMerge(m.iid));
++    const bc = $('btnClose'); if (bc) bc.addEventListener('click', () => doClose(m.iid));
++    const bt = $('btnTrain'); if (bt) bt.addEventListener('click', () => showTrain(parseInt(bt.dataset.pipe, 10), { delivery: false }));
++    const bai = $('btnAI'); if (bai) bai.addEventListener('click', () => runAI(m.iid));
++    // dépliage des diffs
++    d.querySelectorAll('[data-diff]').forEach(h => h.addEventListener('click', () => {
++      const el = $('diff-' + h.dataset.diff); if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
++    }));
++  }
++
++  // ══════════════════════════════════════════════════════════════════
++  // ASSISTANT IA — un bouton sur la MR → analyse par le backend IA LCL.
++  // L'URL de l'assistant se colle dans localStorage 'mr_reviewer_api_url'
++  // (ou window.MR_REVIEWER_API_URL). Rien n'est stocké tant qu'elle n'est
++  // pas fournie ; l'IA reste un assistant (elle propose, l'humain décide).
++  // ══════════════════════════════════════════════════════════════════
++  function renderAiAnalysis(a, iid) {
++    const dec = a.decision === 'REJECT' ? ['❌', 'Rejet recommandé', 'var(--err)']
++      : a.decision === 'CHANGES_REQUESTED' ? ['📝', 'Changements suggérés', 'var(--warn)']
++      : ['✅', 'Prêt à merger', 'var(--ok)'];
++    const sc = a.scores || {};
++    const scoreRow = [['Global', sc.global], ['🔒 Sécu', sc.security], ['📐 Qualité', sc.quality], ['⚡ Perf', sc.performance]].map(s => aiScore(s[0], s[1])).join('');
++    const sec = (title, arr, color) => (arr && arr.length)
++      ? `<div style="margin-top:14px"><div style="font-weight:700;font-size:12px;color:${color};margin-bottom:6px">${title} (${arr.length})</div>${arr.map(aiFinding).join('')}</div>` : '';
++    return `
++      <div style="display:flex;align-items:center;gap:12px;border:1px solid ${dec[2]};background:rgba(255,255,255,.03);border-radius:12px;padding:12px 14px;margin-bottom:14px">
++        <div style="font-size:26px">${dec[0]}</div>
++        <div><div style="font-weight:800;color:${dec[2]}">${dec[1]}</div><div style="font-size:12px;color:var(--tm)">${esc(a.summary || '')}</div></div></div>
++      <div style="display:flex;gap:8px;flex-wrap:wrap">${scoreRow}</div>
++      ${sec('🔴 Critiques', a.critical_issues, 'var(--err)')}
++      ${sec("🟡 Points d'attention", a.warnings, 'var(--warn)')}
++      ${sec('✓ Points positifs', a.positives, 'var(--ok)')}
++      <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
++        <button class="btn ghost" id="aiComment" style="cursor:pointer">💬 Commenter la MR avec l'analyse</button>
++      </div>
++      <div style="font-size:11px;color:var(--tm);margin-top:12px">Analyse IA — indicative. Tu approuves / merges comme d'habitude.</div>`;
++  }
++  function aiScore(label, val) {
++    const shown = (val == null) ? '—' : val;
++    const col = val == null ? 'var(--tm)' : (val >= 80 ? 'var(--ok)' : val >= 50 ? 'var(--warn)' : 'var(--err)');
++    return `<div style="flex:1;min-width:70px;text-align:center;border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:8px 4px"><div style="font-size:20px;font-weight:800;color:${col}">${shown}</div><div style="font-size:10px;color:var(--tm)">${label}</div></div>`;
++  }
++  function aiFinding(f) {
++    const sev = (f.severity === 'critical' || (f.title || '').includes('❌')) ? '🔴' : f.severity === 'positive' ? '✓' : '🟡';
++    return `<div style="border-left:2px solid rgba(255,255,255,.12);padding:6px 10px;margin-bottom:6px;background:rgba(255,255,255,.02);border-radius:6px">
++      <div style="font-size:12.5px;font-weight:600">${sev} ${esc(f.title || '')}${f.location ? ` <span style="color:var(--tm);font-weight:400">· ${esc(f.location)}</span>` : ''}</div>
++      ${f.description ? `<div style="font-size:11.5px;color:var(--tm);margin-top:2px">${esc(f.description)}</div>` : ''}</div>`;
++  }
++  function aiConfigForm(msg) {
++    return `<div style="font-size:13px;margin-bottom:8px">${esc(msg || '')}</div>
++      <div style="font-size:12px;color:var(--tm);margin-bottom:8px">Colle l'URL de l'assistant IA LCL, puis relance l'analyse :</div>
++      <div style="display:flex;gap:8px"><input id="aiUrlIn" placeholder="https://mr-reviewer-api.lcl.internal" value="${esc(aiUrl())}" style="flex:1;background:#0a0716;border:1px solid rgba(255,255,255,.14);border-radius:8px;color:#f5f1ff;padding:8px 10px;font-family:var(--fm)"><button class="btn" id="aiUrlSave" style="cursor:pointer">Enregistrer &amp; analyser</button></div>`;
++  }
++  function wireAiConfig(iid) {
++    const s = $('aiUrlSave'); if (!s) return;
++    s.addEventListener('click', () => {
++      const v = ($('aiUrlIn') || {}).value;
++      if (v && v.trim()) { localStorage.setItem('mr_reviewer_api_url', v.trim()); window.MR_REVIEWER_API_URL = v.trim(); runAI(iid); }
++      else toast('⚠️ Renseigne une URL.');
++    });
++  }
++  function aiModal(inner) {
++    let ov = $('aiOverlay');
++    if (!ov) {
++      ov = document.createElement('div'); ov.id = 'aiOverlay';
++      ov.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(6,4,14,.72);display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto';
++      ov.addEventListener('click', e => { if (e.target === ov) closeAiModal(); });
++      document.body.appendChild(ov);
++    }
++    ov.innerHTML = `<div style="width:100%;max-width:620px;background:#17122b;border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:20px 22px">
++      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><div style="font-size:16px;font-weight:800">🤖 Analyse IA de la MR</div><div style="flex:1"></div><button id="aiClose" style="all:unset;cursor:pointer;font-size:18px;color:var(--tm)">✕</button></div>
++      ${inner}</div>`;
++    ov.style.display = 'flex';
++    const c = $('aiClose'); if (c) c.addEventListener('click', closeAiModal);
++  }
++  function closeAiModal() { const ov = $('aiOverlay'); if (ov) ov.style.display = 'none'; }
++
++  function diffRow(f, i) {
++    const path = f.new_path || f.old_path || '';
++    const tag = /(^|\/)\.gitlab-ci\.ya?ml$/.test(path) ? '🏷️' : /kustomization\.ya?ml$/.test(path) ? '🏷️' : (f.new_file ? '🟢' : f.deleted_file ? '🔴' : '📄');
++    const diff = (f.diff || '').split('\n').map(l => {
++      const e = esc(l);
++      if (l.startsWith('+') && !l.startsWith('+++')) return `<span style="color:var(--ok)">${e}</span>`;
++      if (l.startsWith('-') && !l.startsWith('---')) return `<span style="color:var(--err)">${e}</span>`;
++      if (l.startsWith('@@')) return `<span style="color:var(--info)">${e}</span>`;
++      return e;
++    }).join('\n');
++    return `<div class="f" style="cursor:pointer" data-diff="${i}"><span>${tag}</span><span style="flex:1">${esc(path)}</span><span style="color:var(--tm);font-size:11px">voir diff ▾</span></div>
++      <pre id="diff-${i}" style="display:none;white-space:pre-wrap;font-family:var(--fm);font-size:11px;line-height:1.6;background:#0a0716;border-radius:8px;padding:10px 12px;margin:4px 0 8px;overflow:auto;max-height:280px">${diff || '(diff vide)'}</pre>`;
++  }
++  function noteRow(n) {
++    const who = (n.author && (n.author.username || n.author.name)) || '?';
++    const av = initials((n.author && n.author.name) || who);
++    return `<div class="cmt"><div class="ca" style="background:#7c5cfc">${esc(av)}</div>
++      <div><div><span class="cn">${esc(who)}</span><span class="cw">il y a ${timeAgo(n.created_at)}</span></div>
++      <div class="ct">${esc(n.body)}</div></div></div>`;
++  }
++
++  // ── Actions réelles (mêmes endpoints que mr-reviewer) ──
++  function renderPrepTarget() { const el = $('prepTgt'); if (el) el.textContent = prepTarget() || '—'; }
++
++  // Découverte dynamique des overlays kustomize (les chemins varient d'un repo
++  // à l'autre : Manifests/overlays/…, deploy/…, k8s/… etc.). On liste l'arbre du
++  // repo et on retient tous les kustomization.ya?ml — le bump ne touchera que
++  // ceux qui portent réellement un newTag/APP_VERSION.
++  function renderTrain(pipeline, jobs) {
++    const st = $('trainStatus');
++    if (st) { st.textContent = (PIPE_ICON[pipeline.status] || '') + ' ' + pipeline.status; st.className = 'pill ' + (pipeline.status === 'success' ? 'ok' : pipeline.status === 'failed' ? 'err' : 'run'); }
++    // regroupe par stage en conservant l'ordre d'apparition
++    const order = [], byStage = {};
++    jobs.forEach(j => { const s = j.stage || '—'; if (!byStage[s]) { byStage[s] = []; order.push(s); } byStage[s].push(j); });
++    const train = $('train');
++    if (train) {
++      train.innerHTML = order.map((s, i) => {
++        const cls = stageStatus(byStage[s]);
++        const ic = cls === 'success' ? '✓' : cls === 'failed' ? '✕' : cls === 'running' ? '🔄' : '•';
++        const rail = i ? `<div class="rail ${stageStatus(byStage[order[i - 1]]) === 'success' ? 'done' : ''}"></div>` : '';
++        return rail + `<div class="stg ${cls === 'success' ? 'done' : cls === 'running' ? 'run' : cls === 'failed' ? 'fail' : ''}"><div class="ic">${ic}</div><div class="nm">${esc(s)}</div></div>`;
++      }).join('');
++    }
++    const jc = $('trainJobs');
++    if (jc) {
++      jc.innerHTML = jobs.map(j => `<button class="jobchip ${j.status} ${curJobId === j.id ? 'on' : ''}" data-job="${j.id}" data-jobname="${esc(j.name)}">${PIPE_ICON[j.status] || '•'} ${esc(j.name)}${j.duration ? ` · ${fmtDur(j.duration)}` : ''}</button>`).join('');
++      jc.querySelectorAll('.jobchip').forEach(b => b.addEventListener('click', () => selectJob(parseInt(b.dataset.job, 10), b.dataset.jobname)));
++    }
++  }
+diff --git a/js/modules/livraison/state.js b/js/modules/livraison/state.js
+new file mode 100644
+index 0000000..11a2dd2
+--- /dev/null
++++ b/js/modules/livraison/state.js
+@@ -0,0 +1,15 @@
++/* livraison · state.js — état & config partagés (chargé en 1er). */
++
++'use strict';
++
++  const HUB_URL = 'hub.html';
++  let GITLAB_URL = null, TOKEN = null, PROJECT_ID = null, PROJECT_PATH = '', USERNAME = '', DEFAULT_BRANCH = 'main';
++  let mrList = [], selected = null, authorFilter = '', busy = false;
++  // Tranche 2 — préparation : bump IMAGE_TAG + sync overlays + création de MR.
++  let branches = [], prepBranch = '', prepBumpType = 'minor', prepCurTag = '';
++  // Tranche 3 — suivi du train de pipeline + logs.
++  let pipeId = null, pipeTimer = null, logTimer = null, curJobId = null, autoScroll = true;
++  const IMAGE_TAG_RX = /^(\s*IMAGE_TAG:\s*)(["']?)([^"'\n]+)(["']?)(\s*)$/m;
++  const KUSTO_RX = /(^|\/)kustomization\.ya?ml$/i;
++
++  const PIPE_ICON = { success: '✅', running: '🔄', pending: '⏳', created: '⏳', failed: '❌', canceled: '⏹️', skipped: '⏭️', manual: '👆' };
+diff --git a/pipeline-generator.html b/pipeline-generator.html
+index 42c02ab..b17a11b 100644
+--- a/pipeline-generator.html
++++ b/pipeline-generator.html
+@@ -200,6 +200,10 @@ textarea::placeholder{color:var(--tm)}
+ <script src="js/common/utils.js"></script>
+ <script src="js/common/gitlab.js"></script>
+ <script src="js/common/auth.js"></script>
+-<script src="js/livraison.js"></script>
++<script src="js/modules/livraison/state.js"></script>
++<script src="js/modules/livraison/data.js"></script>
++<script src="js/modules/livraison/compute.js"></script>
++<script src="js/modules/livraison/render.js"></script>
++<script src="js/modules/livraison/index.js"></script>
+ </body>
+ </html>

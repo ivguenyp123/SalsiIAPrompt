@@ -1,0 +1,35 @@
+2026-08-06T15:14:46.6971851Z Current runner version: '2.336.0'
+2026-08-06T15:14:46.7006300Z ##[group]Runner Image Provisioner
+2026-08-06T15:14:46.7007482Z Hosted Compute Agent
+2026-08-06T15:14:46.7008543Z Version: 20260729.566
+2026-08-06T15:14:46.7009508Z Commit: cf7153fe6e25b664e8693c24944bf2b00355d109
+2026-08-06T15:14:46.7010678Z Build Date: 2026-07-29T19:17:02Z
+2026-08-06T15:14:46.7011802Z Worker ID: {7a57ebcf-ec90-4e1d-b369-d497842a4b48}
+2026-08-06T15:14:46.7012907Z Azure Region: eastus
+2026-08-06T15:14:46.7013748Z ##[endgroup]
+2026-08-06T15:14:46.7015995Z ##[group]Operating System
+2026-08-06T15:14:46.7016983Z Ubuntu
+2026-08-06T15:14:46.7018059Z 24.04.4
+2026-08-06T15:14:46.7018838Z LTS
+2026-08-06T15:14:46.7019573Z ##[endgroup]
+2026-08-06T15:14:46.7020507Z ##[group]Runner Image
+2026-08-06T15:14:46.7021465Z Image: ubuntu-24.04
+2026-08-06T15:14:46.7022368Z Version: 20260804.265.1
+2026-08-06T15:14:46.7024318Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260804.265/images/ubuntu/Ubuntu2404-Readme.md
+2026-08-06T15:14:46.7026791Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260804.265
+2026-08-06T15:14:46.7028626Z ##[endgroup]
+2026-08-06T15:14:46.7030510Z ##[group]GITHUB_TOKEN Permissions
+2026-08-06T15:14:46.7033018Z Contents: read
+2026-08-06T15:14:46.7034001Z Metadata: read
+2026-08-06T15:14:46.7034928Z Pages: write
+2026-08-06T15:14:46.7035740Z ##[endgroup]
+2026-08-06T15:14:46.7038882Z Secret source: Actions
+2026-08-06T15:14:46.7040380Z Prepare workflow directory
+2026-08-06T15:14:46.7489347Z Prepare all required actions
+2026-08-06T15:14:46.7554995Z Getting action download info
+2026-08-06T15:16:21.6578376Z Failed to resolve action download info. Error: Service Unavailable
+2026-08-06T15:16:21.6657247Z Retrying in 23.601 seconds
+2026-08-06T15:17:55.6438671Z Failed to resolve action download info. Error: Bad Gateway
+2026-08-06T15:17:55.6441573Z Retrying in 21.097 seconds
+2026-08-06T15:19:44.8442648Z ##[error]Service Unavailable
+2026-08-06T15:19:44.8463051Z ##[error]Failed to resolve action download info.

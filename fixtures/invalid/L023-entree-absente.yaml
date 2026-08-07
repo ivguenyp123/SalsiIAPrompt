@@ -1,0 +1,32 @@
+# Le cas d'or qui désigne un fichier qui n'existe pas.
+#
+# Il est irréprochable au regard de tout le reste : identifiant lisible, contexte fourni,
+# attente sur une cible du registre, k/n explicite. L017 le laisse passer, L022 aussi,
+# L010 le compte. Et le banc d'essai n'aura rien à lui donner à lire.
+#
+# C'est exactement la forme qu'avait `diff_fixture: feat-add-endpoint` dans le registre
+# avant la banque : une convention écrite à la main, que personne ne pouvait vérifier.
+id: l023-entree-absente
+kind: agent
+title: Artefact minimal
+owner: { person: m.dubois, scope: Plateforme }
+intent:
+  purpose: Faire une chose utile et suffisamment décrite pour le schéma.
+  not_for: Ne pas utiliser hors du périmètre décrit juste au-dessus.
+spec: |
+  Tu résumes le changement suivant, pour le dépôt {{repo}} :
+  {{diff}}
+variables:
+  - { name: repo, source: repo }
+  - { name: diff, source: signal }
+tools:
+  - { id: read_repo_metadata, mode: read, executor: llm }
+criteria:
+  - { target: output.length, op: lte, value: 500 }
+target_level: experimental
+golden_cases:
+  - id: gc-01-entree-fantome
+    context: { repo: demo, diff_fixture: ce-fichier-na-jamais-existe }
+    expect: { output.length: 300 }
+    runs: 3
+    pass_at_least: 3

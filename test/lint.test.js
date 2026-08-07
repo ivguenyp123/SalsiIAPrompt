@@ -21,6 +21,7 @@ const loadYaml = (p) => yaml.load(readFileSync(p, 'utf8'));
 const ctx = {
   tools: loadYaml(join(ROOT, 'registries/tools.yaml')).tools,
   targets: loadYaml(join(ROOT, 'registries/targets.yaml')).targets,
+  entrees: loadYaml(join(ROOT, 'entrees/index.yaml')),
   validateArtifact: makeValidator(JSON.parse(readFileSync(join(ROOT, 'schema/artifact.schema.json'), 'utf8')))
 };
 

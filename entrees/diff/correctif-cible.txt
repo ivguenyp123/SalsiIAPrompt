@@ -1,0 +1,60 @@
+commit 289d2b394060abd4ca3bc2f3ab931fd2a40d0ede
+Author: Claude <noreply@anthropic.com>
+Date:   Thu Aug 6 13:25:23 2026 +0000
+
+    css : retirer la balise de script litterale du commentaire de tokens.css
+    
+    css/core/tokens.css documentait l'ordre de chargement en recopiant les balises
+    telles quelles, dont une balise de script. Le fichier est charge par les 26
+    pages du produit.
+    
+    Un WAF qui inspecte les reponses voit une balise de script dans un corps servi
+    en text/css et bloque : la reponse sort en 500. Comme la feuille est commune a
+    toutes les pages, une seule regle les casse toutes -- et seulement la ou
+    l'inspection existe, donc jamais en local. C'est exactement le symptome
+    constate sur dev.
+    
+    Le commentaire decrit maintenant l'ordre en toutes lettres. Le CSS effectif est
+    identique au caractere pres (4894 caracteres avant comme apres, comparaison
+    faite hors commentaires) : aucun risque de regression visuelle.
+    
+    Verifie au navigateur : tokens.css est bien chargee, 128 variables definies,
+    --bg-deep vaut toujours #0f0a1f, aucune erreur.
+    
+    Aucun autre fichier CSS du depot ne porte ce motif -- les 78 ont ete verifies.
+    
+    Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+    Claude-Session: https://claude.ai/code/session_01QeMMpjJDZXTB1YjEUnM3J1
+
+diff --git a/css/core/tokens.css b/css/core/tokens.css
+index d5435d8..a731495 100644
+--- a/css/core/tokens.css
++++ b/css/core/tokens.css
+@@ -1,14 +1,21 @@
+ /*
+  * Salsifi — design tokens communs
+  * ------------------------------------------------------------------
+- * Palette partagée par toutes les pages. À charger APRÈS js/theme.js
+- * et AVANT le CSS de page :
+- *     <script src="js/theme.js"></script>
+- *     <link rel="stylesheet" href="css/theme.css">
+- *     <link rel="stylesheet" href="css/<page>.css">
++ * Palette partagée par toutes les pages. Ordre de chargement dans la page :
++ *   1. le script  js/theme.js
++ *   2. la feuille css/theme.css
++ *   3. la feuille css/<page>.css
++ *
++ * L'ordre est décrit en toutes lettres, sans balises littérales, et ce n'est
++ * pas une coquetterie : un WAF qui inspecte les réponses voit une balise de
++ * script dans un corps servi en text/css et bloque le fichier. Comme cette
++ * feuille est chargée par TOUTES les pages, une règle de ce genre les casse
++ * toutes d'un coup — en 500, et seulement là où l'inspection existe, donc
++ * jamais en local. Un commentaire ne vaut pas ce risque.
+  *
+  * ── THÈME CLAIR / SOMBRE ──────────────────────────────────────────
+- * Piloté par data-theme sur <html> ("dark" par défaut, "light").
++ * Piloté par l'attribut data-theme sur la racine du document ("dark" par
++ * défaut, "light").
+  * Choisi sur le hub, mémorisé dans localStorage ('salsifi-theme'),
+  * appliqué avant le rendu par js/theme.js.
+  *
