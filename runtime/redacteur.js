@@ -8,7 +8,7 @@
  * Elle est écrite en tête du dépôt depuis le premier jour, et c'est exactement ce
  * fichier. L'IA TRADUIT : une phrase devient un artefact YAML. Le noyau GOUVERNE : le
  * lint le juge, et ce qu'il refuse repart en correction — la machine ne décide pas si son
- * travail est bon, les 23 règles le décident. L'humain VALIDE : rien n'est soumis sans un
+ * travail est bon, les 25 règles le décident. L'humain VALIDE : rien n'est soumis sans un
  * clic, et le brouillon atterrit dans le formulaire du Studio, pas dans la file.
  *
  * ── POURQUOI CE N'EST PAS « SALSI » EN PLUS BAVARD ───────────────────────────
@@ -37,6 +37,8 @@
  *
  * Module PUR : ni réseau, ni système de fichiers, ni DOM.
  */
+
+import { narrer, variablesDeduites, criteresHerites } from '../lib/chaine.js';
 
 /* ── L'identifiant ────────────────────────────────────────────────────────── */
 
@@ -345,4 +347,213 @@ export async function rediger({ phrase, auteur = '', scope = '' } = {},
   };
 }
 
-export default { rediger, consigne, correction, extraire, normaliser, identifiant, TOURS };
+
+/* ══════════════════════════════════════════════════════════════════════════════
+ * LA COMPOSITION — « pioche dans les prompts » plutôt que d'en écrire un de plus
+ * ════════════════════════════════════════════════════════════════════════════ */
+
+/*
+ * « Je veux un agent qui mixe le rapport DORA et le rapport journalier. »
+ *
+ * On pourrait faire écrire un gros prompt de plus. Il serait non testé, non mesuré, et il
+ * dupliquerait deux capacités qui existent déjà — le jour où l'une est corrigée, la copie
+ * reste fausse.
+ *
+ * En composition, la surface de sortie du modèle se réduit à DEUX choses : une liste
+ * d'identifiants d'artefacts du registre, et des expressions de câblage. Il ne peut pas
+ * écrire une ligne de prompt, même s'il essaie : `normaliserChaine()` jette tout le reste
+ * et RECALCULE le spec, les variables et les critères depuis les briques choisies.
+ *
+ * C'est la contrainte la plus forte qu'on ait posée à un modèle dans ce dépôt, et elle ne
+ * coûte rien en qualité : ce qu'on lui demande — comprendre une intention et choisir les
+ * bonnes briques — est précisément ce qu'il fait bien.
+ */
+
+const listeBriques = (briques = []) => briques.map((a) =>
+  `  - ${a.id} · ${a.title}\n`
+  + `      ${a.intent?.purpose || ''}\n`
+  + `      entrées : ${(a.variables || []).map((v) => `${v.name} (${v.source})`).join(', ') || 'aucune'}`
+).join('\n');
+
+/** La consigne de composition, assemblée depuis le REGISTRE des artefacts validés. */
+export function consigneComposition({ phrase, briques = [], auteur = '', scopes = [] } = {}) {
+  return `Tu composes une CHAÎNE pour SalsiIAPrompt : une séquence d'artefacts existants.
+
+Tu n'écris AUCUN prompt. Tu choisis des briques déjà validées et tu les branches.
+
+BESOIN :
+${String(phrase || '').trim()}
+
+BRIQUES DISPONIBLES — tu ne peux en citer aucune autre :
+${listeBriques(briques) || '  (aucune)'}
+
+RENDS EXACTEMENT ceci — un seul bloc \`\`\`yaml, aucun texte avant ni après :
+
+\`\`\`yaml
+kind: chain
+title: <titre court, en français, sans point final>
+owner:
+  person: ${auteur || '<personne>'}
+  scope: <un périmètre parmi : ${scopes.join(', ') || 'aucun déclaré'}>
+intent:
+  purpose: <à quoi sert la chaîne entière, une phrase>
+  not_for: <ce pour quoi il NE FAUT PAS l'utiliser, une phrase>
+steps:
+  - id: e1
+    artefact: <un identifiant de la liste ci-dessus>
+    entrees:
+      <variable de cette brique>: "{{<variable de la chaîne>}}"
+  - id: e2
+    artefact: <un autre identifiant de la liste>
+    entrees:
+      <variable de cette brique>: "{{e1.sortie}}"
+\`\`\`
+
+RÈGLES DU CÂBLAGE :
+
+1. \`{{e1.sortie}}\` désigne ce que l'étape \`e1\` a produit. Une étape ne peut citer que
+   des étapes ANTÉRIEURES, jamais elle-même ni une suivante.
+2. \`{{quelque_chose}}\` sans point désigne une entrée de la chaîne, fournie par
+   l'utilisateur au lancement. Nomme-la comme la variable de la brique.
+3. Une expression peut mêler texte et renvois, et c'est souvent mieux qu'un passe-plat :
+   \`entrees: { notes: "Chiffres DORA :\\n{{e1.sortie}}\\n\\nJournée :\\n{{e2.sortie}}" }\`
+4. CHAQUE variable de la brique doit être câblée, sinon son prompt partira troué.
+5. Deux étapes ne portent jamais le même \`id\`.
+
+CHOISIS LE MOINS D'ÉTAPES POSSIBLE. Une chaîne de deux briques bien branchées vaut mieux
+qu'une de cinq qui se repassent le même texte.
+
+SI AUCUNE COMBINAISON DE CES BRIQUES NE RÉPOND AU BESOIN, ne compose rien et réponds
+exactement : AUCUNE_BRIQUE
+
+N'invente pas d'identifiant. Écris les titres et l'intention en français.`;
+}
+
+/** Le modèle a-t-il déclaré forfait ? */
+export const forfait = (texte) => /\bAUCUNE_BRIQUE\b/.test(String(texte || ''));
+
+/**
+ * Ce que le modèle ne décide PAS, dans une chaîne.
+ *
+ * Presque tout. Il choisit des étapes et un câblage ; le reste est RECALCULÉ depuis les
+ * briques qu'il a choisies :
+ *
+ *   spec        la narration de la séquence — réordonner deux étapes la réécrit, donc
+ *               elle ne peut pas mentir sur ce que la chaîne fait
+ *   variables   déduites du câblage : l'auteur branche, la liste en découle
+ *   criteria    hérités de la DERNIÈRE étape — la chaîne rend ce qu'elle rend
+ *
+ * Un modèle qui écrirait ces trois champs pourrait décrire une chaîne qui n'est pas celle
+ * qu'il a composée. En les recalculant, la description et la séquence ne peuvent pas
+ * diverger — pas « ne divergeront pas si tout va bien » : ne PEUVENT pas.
+ */
+export function normaliserChaine(brut, { auteur = '', scope = '', parId = new Map() } = {}) {
+  if (!brut || typeof brut !== 'object') return null;
+
+  const { derived, spec, variables, criteria, golden_cases, ...reste } = brut;
+  const artefact = { ...reste, kind: 'chain' };
+
+  artefact.id = identifiant(artefact.id, artefact.title);
+  artefact.owner = {
+    ...(artefact.owner && typeof artefact.owner === 'object' ? artefact.owner : {}),
+    person: auteur || artefact.owner?.person || ''
+  };
+  if (scope) artefact.owner.scope = scope;
+
+  artefact.steps = (artefact.steps || []).map((e, i) => ({
+    id: e?.id || `e${i + 1}`,
+    artefact: e?.artefact,
+    ...(e?.titre ? { titre: e.titre } : {}),
+    entrees: e?.entrees && typeof e.entrees === 'object' ? e.entrees : {}
+  }));
+
+  artefact.variables = variablesDeduites(artefact, parId);
+  artefact.criteria = criteresHerites(artefact, parId);
+  artefact.spec = narrer(artefact, parId);
+
+  // Une chaîne neuve n'a jamais été jouée : elle ne vise pas plus haut qu'expérimental.
+  artefact.target_level = 'experimental';
+
+  return artefact;
+}
+
+/**
+ * Une phrase → une chaîne d'artefacts existants.
+ *
+ * Même boucle que `rediger()` : le linter juge, ses constats repartent au modèle. La
+ * différence est ce que le modèle a le droit d'écrire.
+ *
+ * @returns {{artefact, rendu, report, tours, jetons, cout, abandon, forfait}}
+ */
+export async function composer({ phrase, auteur = '', scope = '' } = {},
+                               { moteur, registres = {}, briques = [], lint, parse,
+                                 scopes = [], tours = TOURS, tier = 'mid',
+                                 cout = () => null, models = [], serialiser = null } = {}) {
+  const parId = new Map(briques.map((a) => [a.id, a]));
+  const journal = [];
+  const jetons = { entree: 0, sortie: 0 };
+  let euros = 0;
+  let tarife = false;
+
+  let invite = consigneComposition({ phrase, briques, auteur, scopes });
+  let dernier = null;
+  let aRenonce = false;
+
+  for (let tour = 1; tour <= Math.max(1, tours); tour++) {
+    const reponse = await moteur.generer({ prompt: invite, tier });
+    jetons.entree += reponse.jetons?.entree || 0;
+    jetons.sortie += reponse.jetons?.sortie || 0;
+    const c = cout(reponse, models);
+    if (typeof c === 'number') { euros += c; tarife = true; }
+
+    /*
+     * Le forfait est une RÉPONSE, pas un échec. Le registre n'a pas toujours de quoi
+     * répondre, et forcer une composition avec des briques qui ne conviennent pas
+     * produirait une chaîne conforme au lint et absurde à l'usage — le pire des deux
+     * mondes. L'appelant retombera sur la rédaction.
+     */
+    if (forfait(reponse.texte)) {
+      journal.push({ tour, yaml: '', forfait: true, report: null, illisible: '' });
+      aRenonce = true;
+      break;
+    }
+
+    const yamlBrut = extraire(reponse.texte);
+    let artefact = null;
+    let erreurLecture = '';
+    try { artefact = normaliserChaine(parse(yamlBrut), { auteur, scope, parId }); }
+    catch (error) { erreurLecture = error.message; }
+
+    if (!artefact) {
+      journal.push({ tour, yaml: yamlBrut, report: null,
+                     illisible: erreurLecture || 'YAML vide ou non structuré' });
+      invite = `Ta réponse n'était pas un YAML lisible (${erreurLecture || 'vide'}). `
+             + `Rends UNIQUEMENT un bloc \`\`\`yaml valide.\n\n`
+             + consigneComposition({ phrase, briques, auteur, scopes });
+      dernier = null;
+      continue;
+    }
+
+    // `artifacts: briques` — sans elles, L024 et L025 se taisent, et une chaîne cassée
+    // passerait pour conforme.
+    const report = lint(artefact, { ...registres, artifacts: briques });
+    journal.push({ tour, yaml: yamlBrut, report, illisible: '' });
+    dernier = { artefact, yaml: yamlBrut, report };
+
+    if (!report.blocked) break;
+    invite = correction({ yaml: yamlBrut, findings: report.findings, phrase });
+  }
+
+  return {
+    ...(dernier || { artefact: null, yaml: '', report: null }),
+    rendu: dernier?.artefact && serialiser ? serialiser(dernier.artefact) : '',
+    tours: journal,
+    jetons,
+    cout: tarife ? euros : null,
+    forfait: aRenonce,
+    abandon: aRenonce || !dernier || dernier.report?.blocked === true
+  };
+}
+
+export default { rediger, composer, consigne, consigneComposition, correction, extraire,
+                 normaliser, normaliserChaine, identifiant, forfait, TOURS };

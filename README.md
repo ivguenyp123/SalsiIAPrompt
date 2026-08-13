@@ -373,7 +373,7 @@ le réparer — et son bouton est inerte : le rouvrir produirait un formulaire v
 republierait par-dessus l'original. Il échappe aussi au filtre « seulement les miens »,
 puisqu'un fichier illisible n'a pas d'owner.
 
-Derrière l'établi, le formulaire d'écriture où **les 23 règles s'exécutent à la frappe**.
+Derrière l'établi, le formulaire d'écriture où **les 25 règles s'exécutent à la frappe**.
 Deux boutons chargent un exemple conforme et un exemple fautif, pour voir la porte
 s'ouvrir et se fermer.
 
@@ -402,7 +402,7 @@ Trois principes portés par le formulaire lui-même :
 
 Un bouton à droite de la section **Identité**. Le formulaire réclame le *résultat* de la
 réflexion — titre, intention, variables, outils, critères — pas son point de départ.
-Devant une page vide, on ne sait pas par où commencer, et les 23 règles n'aident pas :
+Devant une page vide, on ne sait pas par où commencer, et les 25 règles n'aident pas :
 elles jugent ce qui est écrit, elles n'aident pas à l'écrire.
 
 Salsi renverse l'ordre : **quatre questions sur ce qu'on veut obtenir**, et l'artefact se
@@ -517,7 +517,7 @@ divergerait au premier correctif — précisément ce qu'on évite.
 | `registries/targets.yaml` | les cibles qu'un critère a le droit de viser |
 | `registries/models.yaml` | les paliers, leur modèle réel chez chaque fournisseur, et les tarifs |
 | `lib/yaml.js` · `lib/schema.js` | lecteur YAML et évaluateur JSON Schema maison, sans dépendance |
-| `lint/` | les 23 règles |
+| `lint/` | les 25 règles |
 | `preflight/` | les sept contrôles du moment 4 |
 | `entrees/` | la banque d'entrées — de la matière réelle, rangée par nature de signal |
 | `runtime/vertex.js` · `runtime/deepseek.js` · `runtime/moteur.js` | les fournisseurs, et le seul endroit qui choisit |
@@ -525,6 +525,7 @@ divergerait au premier correctif — précisément ce qu'on évite.
 | `demande/` | l'écran de demande : une phrase, un agent, la file de validation |
 | `runtime/redacteur.js` · `runtime/rediger-cli.js` | la dictée : une phrase → un artefact, corrigé par le linter |
 | `lib/provenance.js` | l'en-tête qui dit qu'un modèle a écrit le fichier, et depuis quelle phrase |
+| `lib/chaine.js` · `runtime/chaine.js` | les chaînes : composer des briques validées, et les dérouler |
 | `lib/matiere.js` | d'où vient ce qu'un agent lit : fichier du dépôt, diff d'une PR, ou ta saisie |
 | `inventaire/hub-devops.yaml` · `lib/inventaire.js` | les 82 capacités demandables, tirées de la surface du hub |
 | `runtime/banc.js` · `runtime/banc-cli.js` | le banc d'essai : joue les cas d'or, dérive le niveau |
@@ -790,6 +791,76 @@ une erreur 501 explicite : un commit multi-fichiers y demande de reconstruire un
 forge. Mieux vaut une erreur qui dit la vérité qu'une implémentation à moitié. La
 **préparation**, elle, fonctionne partout — on peut voir le plan sans pouvoir l'écrire.
 
+## 🔗 Les chaînes — composer plutôt que réécrire
+
+> « Je veux un agent qui me mixe le rapport DORA et le rapport journalier. »
+
+`kind: chain` figure au schéma depuis le premier jour — *« séquence gouvernée d'autres
+artefacts »* — et rien ne l'implémentait. C'est fait.
+
+### Pourquoi composer, et pas faire écrire un prompt de plus
+
+On pourrait faire écrire un gros prompt par un modèle. Il serait non testé, non mesuré, et
+il **dupliquerait** deux capacités qui existent déjà : le jour où l'une est corrigée, la
+copie reste fausse.
+
+Une chaîne ne contient **aucun prompt**. Elle ordonne des artefacts qui ont chacun franchi
+la porte, avec leur intention, leurs outils autorisés, leur contrat et leurs cas d'or.
+Corriger une brique corrige toutes les chaînes qui l'utilisent — et une chaîne **hérite de
+la validation de ses briques**, ce qui est la clé pour composer sans repasser par la file à
+chaque essai.
+
+### En langage naturel : le modèle ne peut plus écrire de prompt
+
+En mode composition, la surface de sortie du modèle se réduit à **deux choses** : des
+identifiants d'artefacts du registre, et des expressions de câblage. Tout le reste est
+**recalculé** depuis les briques choisies :
+
+| | d'où ça vient |
+|---|---|
+| `spec` | la narration de la séquence — réordonner deux étapes la réécrit |
+| `variables` | déduites du câblage |
+| `criteria` | hérités de la **dernière** étape : la chaîne rend ce qu'elle rend |
+
+La description et la séquence ne **peuvent pas** diverger — pas « ne divergeront pas si
+tout va bien ». Un test l'établit en envoyant un `spec:` piégé dans la réponse du modèle :
+il n'atteint pas l'artefact.
+
+Et si le registre n'a pas de quoi répondre, le modèle rend `AUCUNE_BRIQUE`. **C'est une
+réponse, pas un échec** : forcer une composition avec des briques qui ne conviennent pas
+produirait une chaîne conforme au lint et absurde à l'usage — le pire des deux mondes.
+L'appelant retombe alors sur la rédaction d'un artefact neuf.
+
+### Le « manager » est du code
+
+La mode est à l'orchestrateur : un LLM lit l'état et décide de l'étape suivante. Ça se
+démontre bien et ça s'audite mal — six mois plus tard, personne ne peut dire pourquoi la
+chaîne a pris ce chemin-là ce jour-là.
+
+Ici la séquence est **déclarée**, `runtime/chaine.js` la déroule, et il ne décide de rien.
+Le seul jugement entre deux étapes est celui de `resolveurs.js` : **le contrat de la brique
+qui vient de finir**, évalué par du code.
+
+> **Une étape qui viole son contrat arrête la chaîne.**
+
+C'est le point. Sans lui, une chaîne est un tuyau : l'étape 2 reçoit une sortie aberrante,
+produit à son tour n'importe quoi, et l'erreur se constate au bout — attribuée à la
+mauvaise brique. Avec lui, on sait **laquelle a lâché, sur quel critère**, et on n'a pas
+payé les étapes suivantes. Une sortie partielle n'est jamais présentée comme un résultat.
+
+### Deux règles pour que « gouvernée » soit vrai
+
+- **`L024`** — chaque étape désigne un artefact qui existe vraiment. Une étape qui pointe
+  dans le vide ne rend pas la chaîne incomplète : elle rend l'héritage **mensonger**.
+  Couvre aussi le sens inverse — `steps` sur un artefact qui n'est pas une chaîne ne serait
+  jamais joué : des étapes écrites, visibles en revue, et mortes.
+- **`L025`** — le câblage est résoluble **au moment** où l'étape se joue. C'est la faute
+  que la composition provoque toute seule : on réordonne deux étapes, le câblage était bon,
+  et la référence pointe maintenant vers une sortie qui n'existe pas encore.
+
+Les deux se taisent sans `ctx.artifacts` — comme `L001` sans validateur, comme `L023` sans
+la banque. Mieux vaut une règle absente qu'une règle qui invente son référentiel.
+
 ## 📥 La matière — aller la chercher, et te laisser choisir
 
 Jusqu'ici, exécuter un agent supposait de **coller** sa matière : le diff, le fichier, la
@@ -931,7 +1002,7 @@ porte d'entrée.
      L001 · Schéma : propriété obligatoire manquante (`criteria`)
      L004 · Outil inconnu : `read_the_whole_internet` n'existe pas au registre
      L008 · Aucun critère : l'artefact n'est pas vérifiable au post-vol
-✔ Tour 2 — les 23 règles le laissent passer
+✔ Tour 2 — les 25 règles le laissent passer
 ```
 
 On pourrait n'afficher que le résultat. Ce serait plus propre et moins vrai : voir le

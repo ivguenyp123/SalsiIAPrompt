@@ -6,7 +6,7 @@
  *   npm run rediger -- "…" --scope=Data --auteur=ivguenyp123 --ecrire
  *
  * Une phrase entre, un artefact linté sort. Entre les deux, une boucle : le modèle écrit,
- * les 23 règles jugent, et ce qu'elles refusent repart au modèle comme travail à faire.
+ * les 25 règles jugent, et ce qu'elles refusent repart au modèle comme travail à faire.
  * C'est la phrase du dépôt appliquée au dépôt — « l'IA traduit l'intention, le noyau
  * gouverne, l'humain valide ».
  *

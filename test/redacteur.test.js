@@ -190,7 +190,7 @@ describe('la boucle de correction', () => {
     assert.equal(m.invites.length, 2, 'le refus a déclenché un second tour');
 
     // LA propriété : la seconde invite est faite des constats du linter. La machine ne
-    // juge pas son propre travail — les 23 règles le jugent, et elle s'y plie.
+    // juge pas son propre travail — les 25 règles le jugent, et elle s'y plie.
     const seconde = m.invites[1];
     assert.ok(seconde.includes('[L008]'), 'le critère manquant est rendu au modèle');
     assert.ok(seconde.includes('[L004]'), 'l\'outil inventé aussi');

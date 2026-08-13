@@ -215,7 +215,7 @@ function fiche(artefact, corps) {
   f.append(el('div', { className: 'avert' },
     el('b', { textContent: 'Le registre l\'a jugé sur sa FORME, pas sur son résultat.' }),
     el('small', { textContent:
-      'Les 23 règles vérifient qu\'il est complet, que ses outils existent et que son '
+      'Les 25 règles vérifient qu\'il est complet, que ses outils existent et que son '
       + 'contrat est vérifiable. Aucun de ses cas de test n\'a été joué : ce qu\'il fait '
       + 'vraiment se mesurera au banc d\'essai, après validation.' })));
 
@@ -283,7 +283,7 @@ $('envoyer').onclick = async () => {
     for (const t of corps.tours) {
       if (t.illisible) { etape('⚠', `Tour ${t.tour} — réponse illisible`, t.illisible); continue; }
       if (t.erreurs === 0) {
-        etape('✔', `Tour ${t.tour} — les 23 règles le laissent passer`,
+        etape('✔', `Tour ${t.tour} — les 25 règles le laissent passer`,
               t.avertissements ? `${t.avertissements} remarque(s) non bloquante(s).` : '', 'ok');
       } else {
         etape('↩', `Tour ${t.tour} — ${t.erreurs} refus, renvoyés au modèle`,
