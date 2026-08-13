@@ -1,0 +1,536 @@
+# Inventaire des prompts du hub DevOps — les briques du catalogue.
+#
+# ── CE QUE C'EST ─────────────────────────────────────────────────────────────
+#
+# Un agent ne se demande pas dans le vide. Devant un champ « décris ton besoin », la
+# question n'est pas « comment le dire » mais « qu'est-ce qui est possible ? ». Ce fichier
+# répond à celle-là : tout ce que le hub DevOps FAIT, retourné en capacités IA
+# demandables.
+#
+# Chaque entrée porte la PHRASE à coller dans l'écran « Demander ». C'est le seul format
+# qui compte : un inventaire dont chaque ligne n'est pas actionnable en un clic redevient
+# un document, et un document ne crée aucun agent.
+#
+# ── CE QU'IL COUVRE, ET CE QU'IL NE PRÉTEND PAS COUVRIR ──────────────────────
+#
+# Il est exhaustif sur la SURFACE RÉELLE du hub : ses 19 modules, leurs écrans, leurs
+# actions, leurs sorties. Chaque entrée se rattache à quelque chose qui existe et qu'on
+# peut ouvrir.
+#
+# Il ne prétend pas lister « tout ce qui est imaginable ». Une liste écrite d'avance pour
+# couvrir l'imaginable est périmée le mois suivant et personne ne la tient — c'est
+# exactement la gouvernance de papier que ce registre remplace. Le vrai catalogue se
+# remplit par l'usage : chaque demande qui passe par `demande/` devient un artefact réel,
+# gouverné, mesurable. Ce fichier est l'amorce, pas le registre.
+#
+# ── COMMENT LE TENIR ─────────────────────────────────────────────────────────
+#
+# `etat` est le seul champ qui bouge : `au-registre` quand un artefact du même identifiant
+# existe dans `artifacts/`. Il n'est PAS écrit ici — `lib/inventaire.js` le calcule en
+# confrontant cette liste au registre. Un état recopié à la main divergerait dès la
+# première validation en Admin.
+
+source: hub-devops
+version: 1
+
+familles:
+
+  # ══════════════════════════════════════════════════════════════════════════
+  - cle: mesurer
+    titre: "Mesurer & Progresser"
+    icone: 📊
+    modules:
+
+      - module: DORA Insights
+        prompts:
+          - id: expliquer-les-quatre-metriques-dora
+            titre: Expliquer les 4 métriques DORA
+            besoin: "un agent qui explique les 4 métriques DORA d'une équipe à quelqu'un qui ne les connaît pas"
+            entrees: [chiffres_dora]
+            sortie: texte
+          - id: diagnostiquer-une-frequence-de-deploiement-faible
+            titre: Diagnostiquer une fréquence de déploiement faible
+            besoin: "un agent qui dit pourquoi ma fréquence de déploiement est basse et par quoi commencer"
+            entrees: [chiffres_dora, historique_pipelines]
+            sortie: texte
+          - id: expliquer-une-hausse-du-taux-d-echec
+            titre: Expliquer une hausse du taux d'échec
+            besoin: "un agent qui explique une hausse du change failure rate à partir des pipelines du mois"
+            entrees: [historique_pipelines]
+            sortie: texte
+          - id: comparer-deux-squads-sur-dora
+            titre: Comparer deux squads sur DORA
+            besoin: "un agent qui compare les chiffres DORA de deux squads sans les classer, en disant ce qui les différencie"
+            entrees: [chiffres_dora]
+            sortie: texte
+          - id: rediger-le-commentaire-dora-du-comite
+            titre: Rédiger le commentaire DORA du comité
+            besoin: "un agent qui rédige en cinq lignes le commentaire DORA pour le comité mensuel"
+            entrees: [chiffres_dora]
+            sortie: texte
+
+      - module: DevOps Assessment
+        prompts:
+          - id: rediger-le-plan-d-accompagnement
+            titre: Rédiger le plan d'accompagnement
+            besoin: "un agent qui transforme un score de maturité DevOps en plan d'accompagnement sur trois mois"
+            entrees: [scores_maturite]
+            sortie: texte
+          - id: expliquer-un-axe-de-maturite-faible
+            titre: Expliquer un axe de maturité faible
+            besoin: "un agent qui explique pourquoi un axe de maturité est bas et ce qui le ferait monter"
+            entrees: [scores_maturite]
+            sortie: texte
+          - id: proposer-trois-actions-sur-l-axe-le-plus-bas
+            titre: Proposer trois actions sur l'axe le plus bas
+            besoin: "un agent qui propose trois actions concrètes sur l'axe de maturité le plus faible, classées par effort"
+            entrees: [scores_maturite]
+            sortie: liste
+          - id: rediger-la-synthese-d-evaluation
+            titre: Rédiger la synthèse d'évaluation
+            besoin: "un agent qui rédige la synthèse d'une évaluation de maturité pour un manager non technique"
+            entrees: [scores_maturite]
+            sortie: texte
+
+      - module: Bus Factor
+        prompts:
+          - id: expliquer-un-bus-factor-de-un
+            titre: Expliquer un bus factor de 1
+            besoin: "un agent qui explique le risque d'un bus factor de 1 sur un dépôt et ce qu'il faut faire d'abord"
+            entrees: [repartition_contributions]
+            sortie: texte
+          - id: proposer-un-plan-de-partage-de-connaissance
+            titre: Proposer un plan de partage de connaissance
+            besoin: "un agent qui propose un plan de partage de connaissance à partir de la répartition des contributions"
+            entrees: [repartition_contributions]
+            sortie: liste
+          - id: identifier-les-zones-a-documenter
+            titre: Identifier les zones à documenter
+            besoin: "un agent qui identifie les zones de code maîtrisées par une seule personne et à documenter en priorité"
+            entrees: [repartition_contributions]
+            sortie: liste
+
+      - module: Daily Report
+        prompts:
+          - id: rediger-le-standup-du-jour
+            titre: Rédiger le standup du jour
+            besoin: "un agent qui rédige mon point de standup à partir de l'activité GitLab d'hier"
+            entrees: [activite_du_jour]
+            sortie: texte
+          - id: resumer-l-activite-de-la-veille
+            titre: Résumer l'activité de la veille
+            besoin: "un agent qui résume en trois lignes ce qui s'est passé hier sur le dépôt"
+            entrees: [activite_du_jour]
+            sortie: texte
+          - id: signaler-ce-qui-merite-attention-aujourd-hui
+            titre: Signaler ce qui mérite attention aujourd'hui
+            besoin: "un agent qui signale ce qui mérite attention aujourd'hui : MR en attente, pipelines en échec, reverts"
+            entrees: [activite_du_jour]
+            sortie: liste
+          - id: expliquer-un-revert-detecte
+            titre: Expliquer un revert détecté
+            besoin: "un agent qui explique ce qu'un revert détecté dans l'historique dit du changement d'origine"
+            entrees: [diff, historique_commits]
+            sortie: texte
+
+      - module: Générateur de rapport
+        prompts:
+          - id: rediger-la-synthese-executive-d-un-rapport
+            titre: Rédiger la synthèse exécutive d'un rapport
+            besoin: "un agent qui écrit la synthèse exécutive en tête d'un rapport de dépôt, en dix lignes"
+            entrees: [rapport_depot]
+            sortie: texte
+          - id: commenter-un-bloc-de-rapport
+            titre: Commenter un bloc de rapport
+            besoin: "un agent qui commente un bloc de rapport en disant ce que les chiffres signifient vraiment"
+            entrees: [rapport_depot]
+            sortie: texte
+
+  # ══════════════════════════════════════════════════════════════════════════
+  - cle: livrer
+    titre: "Livrer & Déployer"
+    icone: 🚀
+    modules:
+
+      - module: Pipeline Generator
+        prompts:
+          - id: expliquer-un-pipeline-en-echec
+            titre: Expliquer un pipeline en échec
+            besoin: "un agent qui explique pourquoi mon pipeline a échoué et donne la première action"
+            entrees: [pipeline_log]
+            sortie: texte
+          - id: generer-un-gitlab-ci
+            titre: Générer un .gitlab-ci.yml
+            besoin: "un agent qui écrit un .gitlab-ci.yml pour une stack donnée, avec build, test et déploiement"
+            entrees: [stack, environnements]
+            sortie: yaml
+          - id: proposer-les-jobs-manquants
+            titre: Proposer les jobs manquants
+            besoin: "un agent qui relit un .gitlab-ci.yml et dit quels jobs manquent pour la stack déclarée"
+            entrees: [config_ci]
+            sortie: liste
+          - id: reduire-la-duree-d-un-pipeline
+            titre: Réduire la durée d'un pipeline
+            besoin: "un agent qui propose comment raccourcir un pipeline trop long, sans rien retirer aux contrôles"
+            entrees: [config_ci, pipeline_log]
+            sortie: texte
+          - id: expliquer-un-job-de-ci
+            titre: Expliquer un job de CI
+            besoin: "un agent qui explique ce qu'un job de CI fait vraiment, à quelqu'un qui ne l'a pas écrit"
+            entrees: [config_ci]
+            sortie: texte
+          - id: distinguer-un-test-instable-d-une-vraie-regression
+            titre: Distinguer un test instable d'une vraie régression
+            besoin: "un agent qui dit si un test qui échoue est instable ou s'il a trouvé une vraie régression"
+            entrees: [pipeline_log, historique_pipelines]
+            sortie: texte
+
+      - module: Feature Flag Manager
+        prompts:
+          - id: decider-flag-ou-pas
+            titre: "Décider : flag ou pas ?"
+            besoin: "un agent qui dit si un changement mérite un feature flag ou non, et pourquoi"
+            entrees: [besoin_metier, diff]
+            sortie: texte
+          - id: rediger-la-documentation-d-un-flag
+            titre: Rédiger la documentation d'un flag
+            besoin: "un agent qui rédige la fiche d'un feature flag : à quoi il sert, qui décide, quand on l'enlève"
+            entrees: [besoin_metier]
+            sortie: texte
+          - id: proposer-un-plan-de-decommission-de-flag
+            titre: Proposer un plan de décommission de flag
+            besoin: "un agent qui propose le plan de retrait d'un feature flag stabilisé, étape par étape"
+            entrees: [inventaire_flags, code]
+            sortie: liste
+          - id: auditer-les-flags-morts
+            titre: Auditer les flags morts
+            besoin: "un agent qui repère les feature flags qui ne servent plus et dit lesquels retirer d'abord"
+            entrees: [inventaire_flags]
+            sortie: liste
+          - id: rediger-la-checklist-de-rollout
+            titre: Rédiger la checklist de rollout
+            besoin: "un agent qui écrit la checklist de rollout d'un flag : critères d'activation, de rollback, mesure"
+            entrees: [besoin_metier]
+            sortie: liste
+
+      - module: Release Notes
+        prompts:
+          - id: rediger-les-notes-de-version
+            titre: Rédiger les notes de version
+            besoin: "un agent qui écrit les notes de version à partir des commits entre deux tags"
+            entrees: [historique_commits]
+            sortie: texte
+          - id: classer-les-changements-d-une-version
+            titre: Classer les changements d'une version
+            besoin: "un agent qui classe les changements d'une version en nouveautés, corrections et ruptures"
+            entrees: [historique_commits]
+            sortie: liste
+          - id: rediger-l-annonce-d-une-version
+            titre: Rédiger l'annonce d'une version
+            besoin: "un agent qui rédige l'annonce d'une version pour les utilisateurs, sans jargon technique"
+            entrees: [historique_commits]
+            sortie: texte
+          - id: reperer-les-ruptures-de-compatibilite
+            titre: Repérer les ruptures de compatibilité
+            besoin: "un agent qui repère dans un diff ce qui casse la compatibilité pour les appelants"
+            entrees: [diff]
+            sortie: liste
+
+      - module: Project Scaffolder
+        prompts:
+          - id: proposer-la-structure-d-un-projet
+            titre: Proposer la structure d'un projet
+            besoin: "un agent qui propose l'arborescence d'un nouveau projet pour une stack donnée"
+            entrees: [stack, besoin_metier]
+            sortie: liste
+          - id: rediger-le-readme-initial
+            titre: Rédiger le README initial
+            besoin: "un agent qui écrit le README d'un projet qui démarre : à quoi il sert, comment le lancer"
+            entrees: [besoin_metier, stack]
+            sortie: texte
+          - id: rediger-le-contrat-de-contribution
+            titre: Rédiger le contrat de contribution
+            besoin: "un agent qui rédige le CONTRIBUTING d'un dépôt à partir de ses conventions réelles"
+            entrees: [config_ci, historique_commits]
+            sortie: texte
+
+  # ══════════════════════════════════════════════════════════════════════════
+  - cle: inspecter
+    titre: "Inspecter & Sécuriser"
+    icone: 🔬
+    modules:
+
+      - module: Repo Analyzer
+        prompts:
+          - id: expliquer-un-code
+            titre: Expliquer un code
+            besoin: "un agent qui explique un fichier de code à quelqu'un qui ne l'a pas écrit"
+            entrees: [code]
+            sortie: texte
+          - id: analyser-un-code
+            titre: Analyser un code
+            besoin: "un agent qui dit ce qui rend un fichier difficile à changer et par où commencer"
+            entrees: [code]
+            sortie: texte
+          - id: resumer-l-etat-d-un-depot
+            titre: Résumer l'état d'un dépôt
+            besoin: "un agent qui résume l'état d'un dépôt : activité, contributeurs, langages, points de friction"
+            entrees: [rapport_depot]
+            sortie: texte
+          - id: reperer-le-code-mort
+            titre: Repérer le code mort
+            besoin: "un agent qui repère dans un fichier ce qui n'est plus appelé nulle part"
+            entrees: [code]
+            sortie: liste
+          - id: generer-des-tests
+            titre: Générer des tests
+            besoin: "un agent qui propose les tests manquants sur un fichier de code"
+            entrees: [code]
+            sortie: texte
+          - id: optimiser-une-requete-sql
+            titre: Optimiser une requête SQL
+            besoin: "un agent qui relit une requête SQL lente et propose un index, sans jamais la modifier"
+            entrees: [requete]
+            sortie: texte
+          - id: ecrire-une-expression-reguliere
+            titre: Écrire une expression régulière
+            besoin: "un agent qui traduit un besoin décrit en français en expression régulière, avec ses cas de test"
+            entrees: [besoin_metier]
+            sortie: texte
+          - id: preparer-une-migration-java-21
+            titre: Préparer une migration Java 21
+            besoin: "un agent qui liste ce qu'il faut changer pour passer un projet à Java 21"
+            entrees: [inventaire_dependances]
+            sortie: liste
+
+      - module: Security Scanner
+        prompts:
+          - id: analyser-une-vulnerabilite
+            titre: Analyser une vulnérabilité
+            besoin: "un agent qui dit si une vulnérabilité signalée est exploitable dans ce dépôt précis"
+            entrees: [rapport_vulnerabilites, code]
+            sortie: texte
+          - id: expliquer-un-ecart-cis
+            titre: Expliquer un écart CIS
+            besoin: "un agent qui explique un écart au référentiel CIS GitLab et ce qu'il faut changer"
+            entrees: [rapport_conformite]
+            sortie: texte
+          - id: prioriser-les-ecarts-de-conformite
+            titre: Prioriser les écarts de conformité
+            besoin: "un agent qui classe les écarts de conformité d'un dépôt par risque réel, pas par sévérité déclarée"
+            entrees: [rapport_conformite]
+            sortie: liste
+          - id: rediger-le-plan-de-remediation
+            titre: Rédiger le plan de remédiation
+            besoin: "un agent qui écrit le plan de remédiation d'un audit de sécurité, avec un responsable par ligne"
+            entrees: [rapport_conformite]
+            sortie: liste
+          - id: rediger-la-reponse-a-un-auditeur
+            titre: Rédiger la réponse à un auditeur
+            besoin: "un agent qui rédige la réponse à une question d'auditeur à partir des preuves du dépôt"
+            entrees: [rapport_conformite]
+            sortie: texte
+
+      - module: Secrets Scanner
+        prompts:
+          - id: qualifier-un-secret-detecte
+            titre: Qualifier un secret détecté
+            besoin: "un agent qui dit si un secret détecté est un vrai secret ou un faux positif"
+            entrees: [rapport_secrets, code]
+            sortie: texte
+          - id: rediger-la-procedure-de-revocation
+            titre: Rédiger la procédure de révocation
+            besoin: "un agent qui écrit la procédure de révocation d'un secret exposé, dans l'ordre"
+            entrees: [rapport_secrets]
+            sortie: liste
+          - id: rediger-le-post-mortem-d-une-fuite
+            titre: Rédiger le post-mortem d'une fuite
+            besoin: "un agent qui rédige le post-mortem d'un secret exposé : ce qui s'est passé, l'impact, ce qui change"
+            entrees: [rapport_secrets, historique_commits]
+            sortie: texte
+          - id: verifier-qu-un-diff-ne-porte-aucun-secret
+            titre: Vérifier qu'un diff ne porte aucun secret
+            besoin: "un agent qui vérifie qu'un diff ne contient aucune clé, aucun jeton, aucun mot de passe"
+            entrees: [diff]
+            sortie: texte
+
+      - module: Repo Diet
+        prompts:
+          - id: nettoyer-un-depot
+            titre: Nettoyer un dépôt
+            besoin: "un agent qui dit ce qu'on peut retirer d'un dépôt sans rien casser"
+            entrees: [inventaire_fichiers]
+            sortie: liste
+          - id: proposer-un-gitignore
+            titre: Proposer un .gitignore
+            besoin: "un agent qui propose un .gitignore adapté aux fichiers réellement présents dans le dépôt"
+            entrees: [inventaire_fichiers, stack]
+            sortie: texte
+          - id: expliquer-pourquoi-un-fichier-ne-doit-pas-etre-versionne
+            titre: Expliquer pourquoi un fichier ne doit pas être versionné
+            besoin: "un agent qui explique pourquoi un fichier n'a rien à faire dans un dépôt git"
+            entrees: [inventaire_fichiers]
+            sortie: texte
+
+      - module: Branch Monitor
+        prompts:
+          - id: identifie-les-branches-mortes
+            titre: Identifier les branches mortes
+            besoin: "un agent qui repère les branches mortes d'un dépôt et dit lesquelles sont sûres à supprimer"
+            entrees: [inventaire_branches]
+            sortie: liste
+          - id: rediger-l-annonce-de-suppression-de-branches
+            titre: Rédiger l'annonce de suppression de branches
+            besoin: "un agent qui rédige le message annonçant la suppression de branches, avec le délai de grâce"
+            entrees: [inventaire_branches]
+            sortie: texte
+          - id: verifier-les-migrations-flyway
+            titre: Vérifier les migrations Flyway
+            besoin: "un agent qui vérifie qu'aucune migration Flyway déjà appliquée n'a été modifiée"
+            entrees: [inventaire_fichiers, diff]
+            sortie: texte
+
+  # ══════════════════════════════════════════════════════════════════════════
+  - cle: collaborer
+    titre: "Collaborer & Améliorer"
+    icone: 🤝
+    modules:
+
+      - module: MR Reviewer AI
+        prompts:
+          - id: relire-un-changement
+            titre: Relire un changement
+            besoin: "un agent qui relit un diff et dit ce qui mérite une question avant la fusion"
+            entrees: [diff]
+            sortie: texte
+          - id: commit-message
+            titre: Rédiger un message de commit
+            besoin: "un agent qui rédige un message de commit à partir du diff, en expliquant l'intention"
+            entrees: [diff]
+            sortie: texte
+          - id: rediger-la-description-d-une-mr
+            titre: Rédiger la description d'une MR
+            besoin: "un agent qui rédige la description d'une merge request à partir de son diff"
+            entrees: [diff]
+            sortie: texte
+          - id: evaluer-le-risque-d-une-mr
+            titre: Évaluer le risque d'une MR
+            besoin: "un agent qui évalue le risque d'une merge request : surface touchée, réversibilité, tests"
+            entrees: [diff]
+            sortie: texte
+          - id: proposer-les-tests-manquants-d-une-mr
+            titre: Proposer les tests manquants d'une MR
+            besoin: "un agent qui dit quels tests manquent dans une merge request, au vu de ce qu'elle change"
+            entrees: [diff]
+            sortie: liste
+          - id: expliquer-une-mr-a-un-non-technique
+            titre: Expliquer une MR à un non-technique
+            besoin: "un agent qui explique ce que change une merge request à quelqu'un qui ne lit pas de code"
+            entrees: [diff]
+            sortie: texte
+          - id: reperer-l-intention-cachee-d-un-diff
+            titre: Repérer l'intention cachée d'un diff
+            besoin: "un agent qui repère dans un diff ce qui ne correspond pas au titre annoncé de la MR"
+            entrees: [diff]
+            sortie: texte
+          - id: proposer-un-decoupage-de-mr
+            titre: Proposer un découpage de MR
+            besoin: "un agent qui propose comment découper une merge request trop grosse en plusieurs relisibles"
+            entrees: [diff]
+            sortie: liste
+
+      - module: Auto Retro
+        prompts:
+          - id: rediger-la-retro-du-sprint
+            titre: Rédiger la rétro du sprint
+            besoin: "un agent qui rédige la rétrospective d'un sprint à partir de l'activité GitLab"
+            entrees: [activite_sprint]
+            sortie: texte
+          - id: extraire-les-user-stories-livrees
+            titre: Extraire les user stories livrées
+            besoin: "un agent qui extrait les user stories livrées d'un sprint à partir des merge requests"
+            entrees: [activite_sprint]
+            sortie: liste
+          - id: rediger-le-compte-rendu-teams
+            titre: Rédiger le compte rendu Teams
+            besoin: "un agent qui rédige le compte rendu de fin de sprint pour Teams, court et lisible"
+            entrees: [activite_sprint]
+            sortie: texte
+          - id: reperer-ce-qui-s-est-repete-d-un-sprint-a-l-autre
+            titre: Repérer ce qui se répète d'un sprint à l'autre
+            besoin: "un agent qui repère les problèmes qui reviennent d'un sprint à l'autre dans les rétros"
+            entrees: [activite_sprint]
+            sortie: liste
+
+      - module: Smart Estimate
+        prompts:
+          - id: estimer-une-fonctionnalite
+            titre: Estimer une fonctionnalité
+            besoin: "un agent qui estime la charge d'une fonctionnalité à partir de l'historique des MR comparables"
+            entrees: [besoin_metier, activite_sprint]
+            sortie: texte
+          - id: decouper-une-user-story
+            titre: Découper une user story
+            besoin: "un agent qui découpe une user story trop grosse en tranches livrables indépendamment"
+            entrees: [story]
+            sortie: liste
+          - id: justifier-une-estimation
+            titre: Justifier une estimation
+            besoin: "un agent qui justifie une estimation en nommant ce qui la rend incertaine"
+            entrees: [besoin_metier]
+            sortie: texte
+          - id: rediger-les-criteres-d-acceptation
+            titre: Rédiger les critères d'acceptation
+            besoin: "un agent qui écrit les critères d'acceptation d'une user story, testables un par un"
+            entrees: [story]
+            sortie: liste
+
+  # ══════════════════════════════════════════════════════════════════════════
+  - cle: transverse
+    titre: "Transverse"
+    icone: 🧭
+    modules:
+
+      - module: Platform Concierge
+        prompts:
+          - id: traduire-une-intention-en-action-plateforme
+            titre: Traduire une intention en action de la plateforme
+            besoin: "un agent qui traduit une phrase en français vers l'outil du hub qui répond au besoin"
+            entrees: [besoin_metier]
+            sortie: json
+          - id: expliquer-ce-que-fait-un-outil-du-hub
+            titre: Expliquer ce que fait un outil du hub
+            besoin: "un agent qui explique ce que fait un outil du hub et quand il ne sert à rien"
+            entrees: [besoin_metier]
+            sortie: texte
+
+      - module: Incidents
+        prompts:
+          - id: resumer-un-incident
+            titre: Résumer un incident
+            besoin: "un agent qui résume un incident en trois lignes pour la revue du lundi"
+            entrees: [notes_incident]
+            sortie: texte
+          - id: rediger-le-post-mortem-d-un-incident
+            titre: Rédiger le post-mortem d'un incident
+            besoin: "un agent qui rédige un post-mortem sans chercher de coupable : faits, impact, ce qui change"
+            entrees: [notes_incident, historique_commits]
+            sortie: texte
+          - id: reconstituer-la-chronologie-d-un-incident
+            titre: Reconstituer la chronologie d'un incident
+            besoin: "un agent qui reconstitue la chronologie d'un incident à partir des déploiements et des logs"
+            entrees: [notes_incident, historique_pipelines]
+            sortie: liste
+
+      - module: Livraison
+        prompts:
+          - id: prep-delivery
+            titre: Préparer une livraison
+            besoin: "un agent qui vérifie qu'une branche est prête à livrer et prépare la merge request"
+            entrees: [inventaire_branches, diff]
+            sortie: texte
+          - id: rediger-le-plan-de-retour-arriere
+            titre: Rédiger le plan de retour arrière
+            besoin: "un agent qui écrit le plan de retour arrière d'une livraison, avant de la lancer"
+            entrees: [diff, environnements]
+            sortie: liste

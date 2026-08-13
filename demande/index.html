@@ -23,9 +23,31 @@
   .boite label{display:block;font-size:11px;font-weight:800;text-transform:uppercase;
                letter-spacing:.06em;color:var(--tm);margin-bottom:9px}
   #besoin{width:100%;min-height:104px;resize:vertical;font-size:16px;line-height:1.6;padding:14px}
-  .exemples{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-  .exemples button{font-size:11.5px;padding:5px 10px;color:var(--tm);font-weight:600;border-radius:999px}
-  .exemples button:hover{color:var(--tp);border-color:rgba(167,139,250,.5)}
+  /* ── Le catalogue : ce qu'on PEUT demander ──
+     Quatre exemples en dur montraient le format, pas l'étendue. Quelqu'un qui ne voit que
+     « vérifier mes branches mortes » ne devinera jamais qu'il peut demander un plan de
+     décommission de feature flag. */
+  .catalogue{margin-top:14px;border-top:1px solid var(--line);padding-top:14px}
+  .cat-tete{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+  .cat-tete b{font-size:11.5px;color:var(--tm);font-weight:700}
+  .cat-tete .sp{flex:1}
+  .cat-tete input{width:auto;min-width:230px;flex:1;font-size:12.5px;padding:7px 11px}
+  .cat-familles{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+  .cat-familles button{font-size:11.5px;padding:5px 11px;border-radius:999px;color:var(--tm);font-weight:600}
+  .cat-familles button.on{color:#fff;background:rgba(124,92,252,.28);border-color:rgba(167,139,250,.6)}
+  .cat-liste{max-height:290px;overflow:auto;display:grid;gap:5px}
+  .cat-ligne{display:flex;align-items:flex-start;gap:10px;text-align:left;width:100%;font:inherit;
+             color:inherit;padding:9px 12px;border-radius:10px;border:1px solid var(--line);
+             background:rgba(0,0,0,.2);cursor:pointer}
+  .cat-ligne:hover{background:rgba(255,255,255,.05);border-color:rgba(167,139,250,.45)}
+  .cat-ligne b{display:block;font-size:12.5px;color:var(--tp)}
+  .cat-ligne small{display:block;font-size:11.5px;color:var(--tm);line-height:1.55;margin-top:2px}
+  .cat-ligne .mod{font-size:10.5px;color:var(--tm);font-family:var(--fm)}
+  .cat-ligne .sp{flex:1}
+  .cat-etat{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;
+            border-radius:5px;padding:2px 7px;border:1px solid var(--line2);color:var(--tm);white-space:nowrap}
+  .cat-etat.au-registre{color:var(--ok);border-color:rgba(52,211,153,.45);background:rgba(52,211,153,.1)}
+  .cat-vide{font-size:12px;color:var(--tm);padding:10px 2px;line-height:1.6}
 
   .pied{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:18px}
   .pied .sp{flex:1}
@@ -86,7 +108,15 @@
   <div class="boite">
     <label for="besoin">Ce que tu voudrais</label>
     <textarea id="besoin" placeholder="je voudrais un agent pour vérifier mes branches mortes"></textarea>
-    <div class="exemples" id="exemples"></div>
+    <div class="catalogue" id="catalogue">
+      <div class="cat-tete">
+        <b id="catCompte">Chargement du catalogue…</b>
+        <span class="sp"></span>
+        <input id="catQ" placeholder="chercher — « flag », « pipeline », « sécurité »…">
+      </div>
+      <div class="cat-familles" id="catFamilles"></div>
+      <div class="cat-liste" id="catListe"></div>
+    </div>
 
     <div class="pied">
       <span class="perimetre">

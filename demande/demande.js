@@ -30,10 +30,14 @@ import { createForge, toBase64 } from '../app/forge.js';
 import { mountShell } from '../app/shell.js';
 import { knownScopes, guessScope } from '../app/scopes.js';
 import { entete } from '../lib/provenance.js';
+import { aplatir, confronter, familles, filtrer, compter } from '../lib/inventaire.js';
 import yaml from '../lib/yaml.js';
 
 const session = requireSession('../app/login.html');
 if (!session) await new Promise(() => {});
+
+const forge = createForge(session);
+const repoRegistre = () => localStorage.getItem('salsi_ia_registry_repo') || '';
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, attrs = {}, ...kids) => {
@@ -46,12 +50,93 @@ mountShell({ active: 'demande', session, base: '../', onLogout: () => { clear();
 
 const FRAIS = { cache: 'no-cache' };
 
-const EXEMPLES = [
-  'je voudrais un agent pour vérifier mes branches mortes',
-  'un agent qui relit une requête SQL lente et propose un index',
-  'un agent qui résume un incident en trois lignes pour la revue du lundi',
-  'un agent qui explique pourquoi mon pipeline a échoué'
-];
+/* ── Le catalogue de ce qu'on PEUT demander ───────────────────────────────────
+ *
+ * Quatre exemples en dur montraient le FORMAT d'une demande, pas son ÉTENDUE. Quelqu'un
+ * qui ne voit que « vérifier mes branches mortes » ne devinera jamais qu'il peut demander
+ * un plan de décommission de feature flag ou la chronologie d'un incident.
+ *
+ * `inventaire/hub-devops.yaml` porte 82 capacités tirées de la surface RÉELLE du hub —
+ * ses 20 modules, leurs actions, leurs sorties. Chaque ligne est la PHRASE à envoyer :
+ * un clic la pose dans le champ, et c'est parti. Un inventaire dont les lignes ne sont
+ * pas actionnables en un clic redevient un document, et un document ne crée aucun agent.
+ *
+ * L'état — « au registre » contre « à créer » — n'est écrit nulle part : il se calcule en
+ * confrontant l'inventaire aux artefacts PUBLIÉS. Un catalogue qui mentirait sur ce qui
+ * existe déjà ferait créer deux fois le même agent.
+ */
+let CATALOGUE = [];
+let familleActive = '';
+
+async function chargerCatalogue() {
+  const [brut, publies] = await Promise.all([
+    fetch('../inventaire/hub-devops.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t)),
+    // Les artefacts du dossier `artifacts/` : le VALIDÉ. Ce qui attend en revue n'existe
+    // pas encore pour celui qui demande — le lui présenter comme fait serait faux.
+    forge.listFiles(repoRegistre(), 'artifacts')
+      .then((fs) => fs.filter((f) => f.type === 'file' && /\.ya?ml$/.test(f.name))
+                       .map((f) => f.name.replace(/\.ya?ml$/, '')))
+      .catch(() => [])
+  ]);
+
+  CATALOGUE = confronter(aplatir(brut), publies);
+  rendreFamilles();
+  rendreCatalogue();
+}
+
+function rendreFamilles() {
+  const zone = $('catFamilles');
+  zone.textContent = '';
+
+  const bouton = (cle, texte) => {
+    const b = el('button', { type: 'button', textContent: texte,
+                             className: familleActive === cle ? 'on' : '' });
+    b.onclick = () => { familleActive = cle; rendreFamilles(); rendreCatalogue(); };
+    return b;
+  };
+
+  zone.append(bouton('', 'Tout'));
+  for (const f of familles(CATALOGUE)) {
+    zone.append(bouton(f.cle, `${f.icone} ${f.titre} · ${f.total}`));
+  }
+}
+
+function rendreCatalogue() {
+  const liste = $('catListe');
+  liste.textContent = '';
+
+  const vus = filtrer(CATALOGUE, { q: $('catQ').value, famille: familleActive });
+  const c = compter(CATALOGUE);
+  $('catCompte').textContent = `${c.total} capacités possibles · ${c.faits} déjà au registre`
+    + (vus.length !== c.total ? ` · ${vus.length} affichée(s)` : '');
+
+  if (vus.length === 0) {
+    liste.append(el('div', { className: 'cat-vide', textContent:
+      'Rien ne correspond. Le catalogue n\'est qu\'une amorce — écris ton besoin dans le '
+      + 'champ, il n\'a pas besoin d\'y figurer.' }));
+    return;
+  }
+
+  for (const p of vus) {
+    const b = el('button', { type: 'button', className: 'cat-ligne' },
+      el('span', {},
+        el('b', { textContent: p.titre }),
+        el('small', { textContent: p.besoin }),
+        el('span', { className: 'mod', textContent: `${p.icone} ${p.module}` })),
+      el('span', { className: 'sp' }),
+      el('span', { className: `cat-etat ${p.etat}`,
+                   textContent: p.etat === 'au-registre' ? 'au registre' : 'à créer',
+                   title: p.etat === 'au-registre'
+                     ? 'Cet agent existe déjà : tu peux l\'ouvrir au Catalogue.'
+                     : 'Personne ne l\'a encore demandé.' }));
+    b.onclick = () => {
+      $('besoin').value = p.besoin;
+      $('besoin').focus();
+      $('besoin').scrollIntoView({ block: 'nearest' });
+    };
+    liste.append(b);
+  }
+}
 
 /* ── Le périmètre ─────────────────────────────────────────────────────────────
  *
@@ -139,15 +224,17 @@ function fiche(artefact, corps) {
 
 /* ── Départ ───────────────────────────────────────────────────────────────── */
 
-const exemples = $('exemples');
-for (const ex of EXEMPLES) {
-  const b = el('button', { type: 'button', textContent: ex });
-  b.onclick = () => { $('besoin').value = ex; $('besoin').focus(); };
-  exemples.append(b);
-}
+$('catQ').oninput = () => rendreCatalogue();
 
 chargerPerimetres().catch((error) => {
   etape('⚠', 'Registre des outils illisible', error.message, 'ko');
+});
+
+chargerCatalogue().catch((error) => {
+  // Le catalogue est un CONFORT : il montre l'étendue de ce qui est possible. S'il ne
+  // charge pas, on peut toujours écrire son besoin — c'est le champ qui compte.
+  $('catCompte').textContent = 'Catalogue indisponible — écris ton besoin, ça marche pareil.';
+  $('catListe').append(el('div', { className: 'cat-vide', textContent: error.message }));
 });
 
 $('envoyer').onclick = async () => {
@@ -163,7 +250,7 @@ $('envoyer').onclick = async () => {
     return;
   }
 
-  const repo = localStorage.getItem('salsi_ia_registry_repo');
+  const repo = repoRegistre();
   if (!repo) {
     etape('⚠', 'Aucun dépôt de registre choisi',
           'Retourne à l\'accueil pour en sélectionner un : c\'est là que les agents sont déposés.', 'ko');
@@ -240,7 +327,7 @@ $('envoyer').onclick = async () => {
                           tours: corps.tours.length, modele: corps.modele,
                           fournisseur: corps.fournisseur });
 
-    await createForge(session).putFile(repo, chemin, {
+    await forge.putFile(repo, chemin, {
       content: toBase64(tete + corps.yaml),
       message: `registre : demander ${corps.artefact.title}\n\n`
              + `Demandé par ${session.username} : « ${phrase} ».\n`

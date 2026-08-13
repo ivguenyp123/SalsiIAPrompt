@@ -526,6 +526,7 @@ divergerait au premier correctif — précisément ce qu'on évite.
 | `runtime/redacteur.js` · `runtime/rediger-cli.js` | la dictée : une phrase → un artefact, corrigé par le linter |
 | `lib/provenance.js` | l'en-tête qui dit qu'un modèle a écrit le fichier, et depuis quelle phrase |
 | `lib/matiere.js` | d'où vient ce qu'un agent lit : fichier du dépôt, diff d'une PR, ou ta saisie |
+| `inventaire/hub-devops.yaml` · `lib/inventaire.js` | les 82 capacités demandables, tirées de la surface du hub |
 | `runtime/banc.js` · `runtime/banc-cli.js` | le banc d'essai : joue les cas d'or, dérive le niveau |
 | `runtime/etat-derive.js` · `derive/etat.json` | la mémoire de la plateforme — mesurée, jamais écrite à la main |
 | `studio/` | le formulaire, le pont vers l'artefact, le serveur local |
@@ -865,6 +866,41 @@ ni `matiere.js` ni l'écran ne bougent.
 `demande/` est un écran, un champ, un bouton. Aucun vocabulaire de registre : ni
 `criteria`, ni `golden_cases`, ni `model_tier`. Ils sont pourtant tous dans le fichier
 déposé — c'est le travail du modèle, pas celui du demandeur.
+
+### Le catalogue de ce qu'on peut demander
+
+Devant un champ « décris ton besoin », la vraie question n'est pas *comment le formuler*
+mais **« qu'est-ce qui est possible ? »**. Quatre exemples en dur y répondaient mal : ils
+montrent le format, pas l'étendue. Quelqu'un qui ne voit que « vérifier mes branches
+mortes » ne devinera jamais qu'il peut demander un plan de décommission de feature flag.
+
+`inventaire/hub-devops.yaml` porte **82 capacités**, tirées de la surface réelle du hub
+DevOps — ses 20 modules, leurs actions, leurs sorties :
+
+| famille | capacités |
+|---|---|
+| 📊 Mesurer & Progresser | 18 — DORA, maturité, bus factor, daily, rapports |
+| 🚀 Livrer & Déployer | 18 — pipelines, feature flags, release notes, scaffolding |
+| 🔬 Inspecter & Sécuriser | 23 — analyse, CIS, secrets, diète, branches |
+| 🤝 Collaborer & Améliorer | 16 — revue de MR, rétro, estimation |
+| 🧭 Transverse | 7 — concierge, incidents, livraison |
+
+Chaque ligne porte **la phrase à envoyer**, pas une catégorie : un clic la pose dans le
+champ, le bouton part. Un inventaire dont les lignes ne sont pas actionnables en un clic
+redevient un document, et un document ne crée aucun agent.
+
+**L'état n'est écrit nulle part.** « au registre » contre « à créer » se calcule en
+confrontant l'inventaire aux artefacts publiés — même règle que partout ici : déclaré d'un
+côté, dérivé de l'autre, jamais les deux dans le même champ. Un catalogue qui mentirait
+sur ce qui existe ferait créer deux fois le même agent. Et un test tient le **sens
+inverse** : tout artefact publié doit figurer à l'inventaire, sinon il est invisible pour
+qui cherche, et il se fera redemander.
+
+Ce qu'il ne prétend pas être : la liste de « tout ce qui est imaginable ». Une liste
+écrite d'avance pour couvrir l'imaginable est périmée le mois suivant et personne ne la
+tient — c'est exactement la gouvernance de papier que ce registre remplace. Le vrai
+catalogue se remplit **par l'usage** : chaque demande devient un artefact réel, gouverné,
+et mesurable au banc d'essai. L'inventaire est l'amorce.
 
 ### Pourquoi un écran à part, et pas un bouton du Studio
 
