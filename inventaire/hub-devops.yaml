@@ -68,7 +68,11 @@ familles:
             besoin: "un agent qui rédige en cinq lignes le commentaire DORA pour le comité mensuel"
             entrees: [chiffres_dora]
             sortie: texte
-
+          - id: prevoir-l-atteinte-d-un-palier-dora
+            titre: Prévoir l'atteinte d'un palier DORA
+            besoin: "un agent qui dit ce qu'il faudrait changer pour passer au palier DORA supérieur"
+            entrees: [chiffres_dora, historique_pipelines]
+            sortie: liste
       - module: DevOps Assessment
         prompts:
           - id: rediger-le-plan-d-accompagnement
@@ -91,7 +95,11 @@ familles:
             besoin: "un agent qui rédige la synthèse d'une évaluation de maturité pour un manager non technique"
             entrees: [scores_maturite]
             sortie: texte
-
+          - id: preparer-l-entretien-d-evaluation
+            titre: Préparer l'entretien d'évaluation
+            besoin: "un agent qui prépare les questions à poser en entretien d'évaluation de maturité DevOps"
+            entrees: [scores_maturite]
+            sortie: liste
       - module: Bus Factor
         prompts:
           - id: expliquer-un-bus-factor-de-un
@@ -109,7 +117,11 @@ familles:
             besoin: "un agent qui identifie les zones de code maîtrisées par une seule personne et à documenter en priorité"
             entrees: [repartition_contributions]
             sortie: liste
-
+          - id: simuler-le-depart-d-une-personne
+            titre: Simuler le départ d'une personne
+            besoin: "un agent qui dit ce qui devient fragile dans un dépôt si telle personne s'en va"
+            entrees: [repartition_contributions]
+            sortie: texte
       - module: Daily Report
         prompts:
           - id: rediger-le-standup-du-jour
@@ -132,7 +144,11 @@ familles:
             besoin: "un agent qui explique ce qu'un revert détecté dans l'historique dit du changement d'origine"
             entrees: [diff, historique_commits]
             sortie: texte
-
+          - id: rediger-le-point-hebdomadaire
+            titre: Rédiger le point hebdomadaire
+            besoin: "un agent qui rédige le point de la semaine à partir de l'activité des sept derniers jours"
+            entrees: [activite_du_jour]
+            sortie: texte
       - module: Générateur de rapport
         prompts:
           - id: rediger-la-synthese-executive-d-un-rapport
@@ -184,7 +200,16 @@ familles:
             besoin: "un agent qui dit si un test qui échoue est instable ou s'il a trouvé une vraie régression"
             entrees: [pipeline_log, historique_pipelines]
             sortie: texte
-
+          - id: traduire-un-pipeline-jenkins-en-gitlab-ci
+            titre: Traduire un pipeline Jenkins en GitLab CI
+            besoin: "un agent qui traduit un Jenkinsfile en .gitlab-ci.yml équivalent, en signalant ce qui n'a pas d'équivalent"
+            entrees: [config_ci]
+            sortie: yaml
+          - id: rediger-la-documentation-d-un-pipeline
+            titre: Rédiger la documentation d'un pipeline
+            besoin: "un agent qui documente un pipeline existant : ce que chaque étape fait, et quand elle se déclenche"
+            entrees: [config_ci]
+            sortie: texte
       - module: Feature Flag Manager
         prompts:
           - id: decider-flag-ou-pas
@@ -212,7 +237,11 @@ familles:
             besoin: "un agent qui écrit la checklist de rollout d'un flag : critères d'activation, de rollback, mesure"
             entrees: [besoin_metier]
             sortie: liste
-
+          - id: estimer-la-dette-des-feature-flags
+            titre: Estimer la dette des feature flags
+            besoin: "un agent qui estime la dette technique portée par les feature flags encore en place"
+            entrees: [inventaire_flags, code]
+            sortie: texte
       - module: Release Notes
         prompts:
           - id: rediger-les-notes-de-version
@@ -235,7 +264,16 @@ familles:
             besoin: "un agent qui repère dans un diff ce qui casse la compatibilité pour les appelants"
             entrees: [diff]
             sortie: liste
-
+          - id: reperer-les-commits-sans-ticket
+            titre: Repérer les commits sans ticket
+            besoin: "un agent qui repère les commits d'une version qui ne référencent aucun ticket"
+            entrees: [historique_commits]
+            sortie: liste
+          - id: rediger-le-changelog-technique
+            titre: Rédiger le changelog technique
+            besoin: "un agent qui écrit le changelog destiné aux équipes qui intègrent, pas aux utilisateurs"
+            entrees: [historique_commits]
+            sortie: texte
       - module: Project Scaffolder
         prompts:
           - id: proposer-la-structure-d-un-projet
@@ -253,7 +291,16 @@ familles:
             besoin: "un agent qui rédige le CONTRIBUTING d'un dépôt à partir de ses conventions réelles"
             entrees: [config_ci, historique_commits]
             sortie: texte
-
+          - id: proposer-les-jobs-de-ci-d-un-nouveau-projet
+            titre: Proposer les jobs de CI d'un nouveau projet
+            besoin: "un agent qui propose les jobs de CI minimaux d'un projet qui démarre, sans sur-outiller"
+            entrees: [stack]
+            sortie: liste
+          - id: rediger-le-fichier-des-responsables
+            titre: Rédiger le fichier des responsables
+            besoin: "un agent qui propose un fichier CODEOWNERS à partir de qui touche réellement à quoi"
+            entrees: [repartition_contributions, inventaire_fichiers]
+            sortie: texte
   # ══════════════════════════════════════════════════════════════════════════
   - cle: inspecter
     titre: "Inspecter & Sécuriser"
@@ -302,7 +349,21 @@ familles:
             besoin: "un agent qui liste ce qu'il faut changer pour passer un projet à Java 21"
             entrees: [inventaire_dependances]
             sortie: liste
-
+          - id: estimer-l-effort-de-reprise-d-un-code
+            titre: Estimer l'effort de reprise d'un code
+            besoin: "un agent qui estime ce que coûterait de reprendre un code qu'on n'a pas écrit"
+            entrees: [code]
+            sortie: texte
+          - id: proposer-un-decoupage-en-modules
+            titre: Proposer un découpage en modules
+            besoin: "un agent qui propose comment découper un fichier trop gros en modules qui tiennent debout"
+            entrees: [code]
+            sortie: liste
+          - id: expliquer-a-quoi-sert-une-dependance
+            titre: Expliquer à quoi sert une dépendance
+            besoin: "un agent qui explique à quoi sert une dépendance dans ce projet précis, et si on peut s'en passer"
+            entrees: [inventaire_dependances, code]
+            sortie: texte
       - module: Security Scanner
         prompts:
           - id: analyser-une-vulnerabilite
@@ -330,7 +391,11 @@ familles:
             besoin: "un agent qui rédige la réponse à une question d'auditeur à partir des preuves du dépôt"
             entrees: [rapport_conformite]
             sortie: texte
-
+          - id: rediger-la-politique-de-protection-de-branche
+            titre: Rédiger la politique de protection de branche
+            besoin: "un agent qui rédige la politique de protection de branche adaptée à la taille de l'équipe"
+            entrees: [rapport_conformite, repartition_contributions]
+            sortie: texte
       - module: Secrets Scanner
         prompts:
           - id: qualifier-un-secret-detecte
@@ -353,7 +418,11 @@ familles:
             besoin: "un agent qui vérifie qu'un diff ne contient aucune clé, aucun jeton, aucun mot de passe"
             entrees: [diff]
             sortie: texte
-
+          - id: reperer-les-secrets-dans-l-historique
+            titre: Repérer les secrets dans l'historique
+            besoin: "un agent qui dit si un secret retiré du code est encore lisible dans l'historique git"
+            entrees: [rapport_secrets, historique_commits]
+            sortie: texte
       - module: Repo Diet
         prompts:
           - id: nettoyer-un-depot
@@ -371,7 +440,11 @@ familles:
             besoin: "un agent qui explique pourquoi un fichier n'a rien à faire dans un dépôt git"
             entrees: [inventaire_fichiers]
             sortie: texte
-
+          - id: estimer-le-gain-d-un-nettoyage
+            titre: Estimer le gain d'un nettoyage
+            besoin: "un agent qui estime ce qu'on gagne à nettoyer un dépôt, en poids et en temps de clone"
+            entrees: [inventaire_fichiers]
+            sortie: texte
       - module: Branch Monitor
         prompts:
           - id: identifie-les-branches-mortes
@@ -389,7 +462,11 @@ familles:
             besoin: "un agent qui vérifie qu'aucune migration Flyway déjà appliquée n'a été modifiée"
             entrees: [inventaire_fichiers, diff]
             sortie: texte
-
+          - id: rediger-la-convention-de-nommage-de-branches
+            titre: Rédiger la convention de nommage de branches
+            besoin: "un agent qui déduit la convention de nommage réellement pratiquée et l'écrit noir sur blanc"
+            entrees: [inventaire_branches]
+            sortie: texte
   # ══════════════════════════════════════════════════════════════════════════
   - cle: collaborer
     titre: "Collaborer & Améliorer"
@@ -438,7 +515,16 @@ familles:
             besoin: "un agent qui propose comment découper une merge request trop grosse en plusieurs relisibles"
             entrees: [diff]
             sortie: liste
-
+          - id: rediger-une-question-de-revue
+            titre: Rédiger une question de revue
+            besoin: "un agent qui transforme une critique de code en question de revue qui n'agresse personne"
+            entrees: [diff]
+            sortie: texte
+          - id: verifier-le-respect-des-conventions
+            titre: Vérifier le respect des conventions
+            besoin: "un agent qui vérifie qu'un diff respecte les conventions du dépôt, telles qu'on les pratique"
+            entrees: [diff, historique_commits]
+            sortie: texte
       - module: Auto Retro
         prompts:
           - id: rediger-la-retro-du-sprint
@@ -461,7 +547,16 @@ familles:
             besoin: "un agent qui repère les problèmes qui reviennent d'un sprint à l'autre dans les rétros"
             entrees: [activite_sprint]
             sortie: liste
-
+          - id: proposer-des-actions-de-retro
+            titre: Proposer des actions de rétro
+            besoin: "un agent qui propose trois actions de rétro tenables, à partir de ce qui a coincé dans le sprint"
+            entrees: [activite_sprint]
+            sortie: liste
+          - id: rediger-l-ordre-du-jour-de-la-retro
+            titre: Rédiger l'ordre du jour de la rétro
+            besoin: "un agent qui prépare l'ordre du jour d'une rétro à partir des faits du sprint"
+            entrees: [activite_sprint]
+            sortie: liste
       - module: Smart Estimate
         prompts:
           - id: estimer-une-fonctionnalite
@@ -483,6 +578,162 @@ familles:
             titre: Rédiger les critères d'acceptation
             besoin: "un agent qui écrit les critères d'acceptation d'une user story, testables un par un"
             entrees: [story]
+            sortie: liste
+          - id: identifier-les-risques-d-une-fonctionnalite
+            titre: Identifier les risques d'une fonctionnalité
+            besoin: "un agent qui identifie ce qui pourrait faire déraper une fonctionnalité avant de l'estimer"
+            entrees: [besoin_metier]
+            sortie: liste
+  # ══════════════════════════════════════════════════════════════════════════
+  #
+  # Cette famille-ci n'est pas un module du hub : c'est ce qui se passe ENTRE les
+  # modules. Toutes les capacités ci-dessus lisent UNE source et rendent UNE sortie.
+  # Celles-ci en croisent plusieurs — deux rapports, la rétro et les chiffres, le scan
+  # de secrets et l'audit de conformité. C'est là que la valeur cesse d'être la somme
+  # des outils pour devenir ce qu'aucun d'eux ne dit tout seul.
+  #
+  # Le nom de module dit ce qui est croisé, avec un `×` : la traçabilité vers le hub
+  # reste vraie, elle porte simplement sur deux surfaces au lieu d'une.
+  #
+  - cle: croiser
+    titre: "Croiser & Composer"
+    icone: 🧩
+    modules:
+
+      - module: Générateur de rapport × Générateur de rapport
+        prompts:
+          - id: fusionner-deux-rapports-de-depot
+            titre: Fusionner deux rapports de dépôt
+            besoin: "un agent qui fusionne deux rapports de dépôt en une seule synthèse, sans répéter deux fois la même chose"
+            entrees: [rapport_depot]
+            sortie: texte
+          - id: extraire-ce-qui-differe-entre-deux-rapports
+            titre: Extraire ce qui diffère entre deux rapports
+            besoin: "un agent qui dit ce qui différencie deux rapports de dépôt et laisse tomber ce qu'ils ont en commun"
+            entrees: [rapport_depot]
+            sortie: liste
+          - id: consolider-les-rapports-d-une-tribu
+            titre: Consolider les rapports d'une tribu
+            besoin: "un agent qui consolide les rapports de plusieurs squads en un rapport de tribu, avec un verdict par squad"
+            entrees: [rapport_depot]
+            sortie: texte
+          - id: resumer-trois-rapports-en-une-page
+            titre: Résumer trois rapports en une page
+            besoin: "un agent qui résume trois rapports de dépôt en une page, avec ce qui demande une décision"
+            entrees: [rapport_depot]
+            sortie: texte
+
+      - module: DORA Insights × DevOps Assessment
+        prompts:
+          - id: croiser-dora-et-maturite
+            titre: Croiser DORA et maturité
+            besoin: "un agent qui croise les chiffres DORA et le score de maturité pour dire où agir en premier"
+            entrees: [chiffres_dora, scores_maturite]
+            sortie: texte
+          - id: expliquer-un-ecart-entre-mesure-et-declaratif
+            titre: Expliquer un écart entre mesure et déclaratif
+            besoin: "un agent qui explique pourquoi une équipe a un bon score de maturité déclaré et de mauvais chiffres mesurés"
+            entrees: [chiffres_dora, scores_maturite]
+            sortie: texte
+
+      - module: Security Scanner × Secrets Scanner
+        prompts:
+          - id: croiser-secrets-et-conformite
+            titre: Croiser secrets et conformité
+            besoin: "un agent qui croise le scan de secrets et l'audit CIS pour classer les risques par urgence réelle"
+            entrees: [rapport_secrets, rapport_conformite]
+            sortie: liste
+          - id: croiser-vulnerabilites-et-dependances
+            titre: Croiser vulnérabilités et dépendances
+            besoin: "un agent qui croise les vulnérabilités signalées et les dépendances réellement utilisées pour dire lesquelles sont atteignables"
+            entrees: [rapport_vulnerabilites, inventaire_dependances]
+            sortie: liste
+
+      - module: Auto Retro × DORA Insights
+        prompts:
+          - id: confronter-la-retro-aux-chiffres
+            titre: Confronter la rétro aux chiffres
+            besoin: "un agent qui confronte ce que l'équipe a ressenti en rétro aux chiffres mesurés du sprint"
+            entrees: [activite_sprint, chiffres_dora]
+            sortie: texte
+          - id: relier-un-incident-aux-changements-livres
+            titre: Relier un incident aux changements livrés
+            besoin: "un agent qui relie un incident aux changements livrés juste avant, sans conclure trop vite"
+            entrees: [notes_incident, historique_commits]
+            sortie: texte
+
+      - module: Comparaisons
+        prompts:
+          - id: comparer-deux-depots
+            titre: Comparer deux dépôts
+            besoin: "un agent qui compare deux dépôts et dit ce que l'un fait mieux que l'autre, et ce qui est transposable"
+            entrees: [rapport_depot]
+            sortie: texte
+          - id: comparer-un-depot-a-lui-meme-dans-le-temps
+            titre: Comparer un dépôt à lui-même dans le temps
+            besoin: "un agent qui compare l'état d'un dépôt à celui d'il y a trois mois et dit ce qui a vraiment bougé"
+            entrees: [rapport_depot]
+            sortie: texte
+          - id: comparer-deux-configurations-de-ci
+            titre: Comparer deux configurations de CI
+            besoin: "un agent qui compare deux .gitlab-ci.yml et dit ce que l'un fait que l'autre ne fait pas"
+            entrees: [config_ci]
+            sortie: liste
+          - id: comparer-une-estimation-a-la-charge-reelle
+            titre: Comparer une estimation à la charge réelle
+            besoin: "un agent qui compare une estimation à la charge réellement passée et dit d'où vient l'écart"
+            entrees: [besoin_metier, activite_sprint]
+            sortie: texte
+
+      - module: Restitutions
+        prompts:
+          - id: reecrire-pour-un-comite
+            titre: Réécrire pour un comité
+            besoin: "un agent qui réécrit une synthèse technique pour un comité de direction, sans jargon et sans perdre le fond"
+            entrees: [rapport_depot]
+            sortie: texte
+          - id: reecrire-pour-quelqu-un-qui-arrive
+            titre: Réécrire pour quelqu'un qui arrive
+            besoin: "un agent qui réécrit une synthèse pour quelqu'un qui vient d'arriver sur le projet"
+            entrees: [rapport_depot]
+            sortie: texte
+          - id: transformer-un-rapport-en-message-teams
+            titre: Transformer un rapport en message Teams
+            besoin: "un agent qui transforme un rapport en message Teams court, avec les trois points qui comptent"
+            entrees: [rapport_depot]
+            sortie: texte
+          - id: transformer-un-rapport-en-tickets
+            titre: Transformer un rapport en tickets
+            besoin: "un agent qui transforme les actions d'un rapport en tickets prêts à créer, un par action"
+            entrees: [rapport_depot]
+            sortie: liste
+          - id: transformer-un-rapport-en-plan-de-presentation
+            titre: Transformer un rapport en plan de présentation
+            besoin: "un agent qui transforme un rapport en plan de présentation, une idée par diapositive"
+            entrees: [rapport_depot]
+            sortie: liste
+
+      - module: Cohérence
+        prompts:
+          - id: verifier-que-la-doc-dit-ce-que-le-code-fait
+            titre: Vérifier que la doc dit ce que le code fait
+            besoin: "un agent qui vérifie qu'un README décrit encore ce que le code fait vraiment"
+            entrees: [code, rapport_depot]
+            sortie: texte
+          - id: verifier-qu-une-mr-tient-sa-promesse
+            titre: Vérifier qu'une MR tient sa promesse
+            besoin: "un agent qui vérifie qu'une merge request fait ce que son titre annonce, et rien d'autre"
+            entrees: [diff]
+            sortie: texte
+          - id: verifier-la-coherence-entre-la-ci-et-la-stack
+            titre: Vérifier la cohérence entre la CI et la stack
+            besoin: "un agent qui vérifie qu'un pipeline correspond à la stack réellement présente dans le dépôt"
+            entrees: [config_ci, inventaire_fichiers]
+            sortie: texte
+          - id: verifier-qu-un-flag-documente-existe-encore
+            titre: Vérifier qu'un flag documenté existe encore
+            besoin: "un agent qui vérifie que les feature flags documentés existent encore dans le code, et l'inverse"
+            entrees: [inventaire_flags, code]
             sortie: liste
 
   # ══════════════════════════════════════════════════════════════════════════
@@ -521,7 +772,16 @@ familles:
             besoin: "un agent qui reconstitue la chronologie d'un incident à partir des déploiements et des logs"
             entrees: [notes_incident, historique_pipelines]
             sortie: liste
-
+          - id: rediger-la-communication-d-incident
+            titre: Rédiger la communication d'incident
+            besoin: "un agent qui rédige le message envoyé aux utilisateurs pendant un incident, sans promettre de délai"
+            entrees: [notes_incident]
+            sortie: texte
+          - id: proposer-les-alertes-manquantes
+            titre: Proposer les alertes manquantes
+            besoin: "un agent qui dit quelle alerte aurait permis de voir l'incident plus tôt"
+            entrees: [notes_incident, historique_pipelines]
+            sortie: liste
       - module: Livraison
         prompts:
           - id: prep-delivery

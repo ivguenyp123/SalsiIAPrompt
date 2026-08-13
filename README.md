@@ -874,16 +874,27 @@ mais **« qu'est-ce qui est possible ? »**. Quatre exemples en dur y répondaie
 montrent le format, pas l'étendue. Quelqu'un qui ne voit que « vérifier mes branches
 mortes » ne devinera jamais qu'il peut demander un plan de décommission de feature flag.
 
-`inventaire/hub-devops.yaml` porte **82 capacités**, tirées de la surface réelle du hub
-DevOps — ses 20 modules, leurs actions, leurs sorties :
+`inventaire/hub-devops.yaml` porte **130 capacités**, tirées de la surface réelle du hub
+DevOps — ses 27 modules, leurs actions, leurs sorties :
 
 | famille | capacités |
 |---|---|
-| 📊 Mesurer & Progresser | 18 — DORA, maturité, bus factor, daily, rapports |
-| 🚀 Livrer & Déployer | 18 — pipelines, feature flags, release notes, scaffolding |
-| 🔬 Inspecter & Sécuriser | 23 — analyse, CIS, secrets, diète, branches |
-| 🤝 Collaborer & Améliorer | 16 — revue de MR, rétro, estimation |
-| 🧭 Transverse | 7 — concierge, incidents, livraison |
+| 📊 Mesurer & Progresser | 22 — DORA, maturité, bus factor, daily, rapports |
+| 🚀 Livrer & Déployer | 25 — pipelines, feature flags, release notes, scaffolding |
+| 🔬 Inspecter & Sécuriser | 30 — analyse, CIS, secrets, diète, branches |
+| 🤝 Collaborer & Améliorer | 21 — revue de MR, rétro, estimation |
+| 🧩 **Croiser & Composer** | 23 — ce qui se passe ENTRE les modules |
+| 🧭 Transverse | 9 — concierge, incidents, livraison |
+
+**La famille `croiser` n'est pas un module du hub**, et c'est ce qui la rend intéressante.
+Les cinq autres lisent une source et rendent une sortie. Celle-ci en croise plusieurs :
+fusionner deux rapports, confronter la rétro aux chiffres mesurés, croiser le scan de
+secrets et l'audit CIS, vérifier qu'un README décrit encore ce que le code fait. C'est là
+que la valeur cesse d'être la somme des outils pour devenir ce qu'aucun d'eux ne dit tout
+seul — et c'est la matière naturelle d'une chaîne, quand `kind: chain` sera implémenté.
+Le nom de module porte le croisement (`Auto Retro × DORA Insights`) : la traçabilité vers
+le hub reste vraie, elle porte sur deux surfaces au lieu d'une. **38 capacités** lisent
+au moins deux sources.
 
 Chaque ligne porte **la phrase à envoyer**, pas une catégorie : un clic la pose dans le
 champ, le bouton part. Un inventaire dont les lignes ne sont pas actionnables en un clic
