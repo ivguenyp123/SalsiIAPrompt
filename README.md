@@ -525,6 +525,7 @@ divergerait au premier correctif — précisément ce qu'on évite.
 | `demande/` | l'écran de demande : une phrase, un agent, la file de validation |
 | `runtime/redacteur.js` · `runtime/rediger-cli.js` | la dictée : une phrase → un artefact, corrigé par le linter |
 | `lib/provenance.js` | l'en-tête qui dit qu'un modèle a écrit le fichier, et depuis quelle phrase |
+| `composer/` | l'établi : glisser-déposer des briques validées, ou une phrase |
 | `lib/chaine.js` · `runtime/chaine.js` | les chaînes : composer des briques validées, et les dérouler |
 | `lib/matiere.js` | d'où vient ce qu'un agent lit : fichier du dépôt, diff d'une PR, ou ta saisie |
 | `inventaire/hub-devops.yaml` · `lib/inventaire.js` | les 82 capacités demandables, tirées de la surface du hub |
@@ -847,6 +848,33 @@ C'est le point. Sans lui, une chaîne est un tuyau : l'étape 2 reçoit une sort
 produit à son tour n'importe quoi, et l'erreur se constate au bout — attribuée à la
 mauvaise brique. Avec lui, on sait **laquelle a lâché, sur quel critère**, et on n'a pas
 payé les étapes suivantes. Une sortie partielle n'est jamais présentée comme un résultat.
+
+### L'établi — `composer/`
+
+Deux colonnes : les briques validées à gauche, la chaîne à droite. On tire de l'une vers
+l'autre, on branche, on réordonne. **Aucun champ de prompt nulle part** — c'est la promesse
+de l'écran, et elle se voit avant de se lire.
+
+Le glisser-déposer et la dictée produisent **la même chose** : une liste d'étapes. La
+dictée n'est qu'une façon plus rapide de la remplir, et ce qu'elle rend atterrit dans
+l'établi — modifiable — pas dans la file. Même « c'est toi qui choisis » que pour la
+matière : la machine propose, elle ne dépose pas.
+
+**Le lint tourne à chaque geste, avec son référentiel.** `L024` et `L025` ont besoin des
+autres artefacts pour trancher ; la bibliothèque de briques *est* ce référentiel. Résultat
+visible : réordonner deux étapes casse une référence, et la carte passe au rouge à la
+seconde, avec la raison —
+
+```
+✕ La porte est fermée — 1 erreur(s)
+  L025  Étape `e2`, entrée `notes` : `{{e1.sortie}}` est irrésoluble
+        — l'étape `e1` vient APRÈS : sa sortie n'existe pas encore
+```
+
+…au lieu de s'en apercevoir au dépôt, ou pire, à l'exécution.
+
+Le clic fait la même chose que le glisser : un établi qui n'accepterait *que* le glisser
+serait inutilisable sur un écran tactile et au clavier.
 
 ### Deux règles pour que « gouvernée » soit vrai
 

@@ -1,0 +1,430 @@
+/*
+ * L'établi de composition — tirer des briques validées dans une chaîne.
+ *
+ * ── CE QUI SE PASSE ICI, ET CE QUI NE S'Y PASSE PAS ──────────────────────────
+ *
+ * On assemble. On n'écrit pas. Il n'y a aucun champ de prompt sur cet écran, et c'est la
+ * promesse à laquelle tout le reste se raccroche : une chaîne ne contient que des
+ * références à des artefacts qui ont déjà franchi la porte, plus un câblage. Elle hérite
+ * de leur validation — d'où le fait qu'on puisse composer librement sans rouvrir le débat
+ * sur chaque texte.
+ *
+ * ── LE LINT TOURNE ICI, LE MÊME QU'EN CI ─────────────────────────────────────
+ *
+ * `L024` et `L025` ont besoin des AUTRES artefacts pour trancher : sans eux, elles se
+ * taisent. On les leur donne — la bibliothèque de briques est exactement ce référentiel.
+ * Le verdict suit donc chaque glissement, et une référence cassée par un réordonnancement
+ * se voit à la seconde où elle apparaît, pas au dépôt.
+ *
+ * ── DEUX CHEMINS, UN SEUL MODÈLE DE DONNÉES ──────────────────────────────────
+ *
+ * Le glisser-déposer et la dictée produisent la MÊME chose : une liste d'étapes. La
+ * dictée n'est qu'une façon plus rapide de la remplir, et ce qu'elle rend est
+ * immédiatement modifiable à la main. Deux chemins qui produiraient deux formes
+ * divergeraient au premier correctif.
+ */
+import { requireSession, clear } from '../app/session.js';
+import { createForge, toBase64 } from '../app/forge.js';
+import { mountShell } from '../app/shell.js';
+import { knownScopes, guessScope } from '../app/scopes.js';
+import { lint, ERROR } from '../lint/index.js';
+import { makeValidator } from '../lib/schema.js';
+import { toYaml } from '../studio/to-yaml.js';
+import { entete } from '../lib/provenance.js';
+import { prochainId, etapePour, variablesDeduites, criteresHerites,
+         narrer, renvoisImpossibles } from '../lib/chaine.js';
+import yaml from '../lib/yaml.js';
+
+const session = requireSession('../app/login.html');
+if (!session) await new Promise(() => {});
+
+const $ = (id) => document.getElementById(id);
+const el = (tag, attrs = {}, ...kids) => {
+  const n = Object.assign(document.createElement(tag), attrs);
+  for (const k of kids) if (k !== null && k !== undefined) n.append(k);
+  return n;
+};
+
+mountShell({ active: 'composer', session, base: '../',
+             onLogout: () => { clear(); location.href = '../app/login.html'; } });
+
+const FRAIS = { cache: 'no-cache' };
+const forge = createForge(session);
+const repoRegistre = () => localStorage.getItem('salsi_ia_registry_repo') || '';
+
+/* ── L'état ───────────────────────────────────────────────────────────────── */
+
+let BRIQUES = [];                 // les artefacts validés, complets
+let PAR_ID = new Map();
+let ctx = null;                   // registres + validateur, pour le lint
+let etapes = [];                  // la chaîne en construction
+let identite = { titre: '', purpose: '', notFor: '' };
+
+/* ── Chargement ───────────────────────────────────────────────────────────── */
+
+async function charger() {
+  const [tools, targets, entrees, schema] = await Promise.all([
+    fetch('../registries/tools.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t).tools),
+    fetch('../registries/targets.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t).targets),
+    fetch('../entrees/index.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t)),
+    fetch('../schema/artifact.schema.json', FRAIS).then((r) => r.json())
+  ]);
+  ctx = { tools, targets, entrees, validateArtifact: makeValidator(schema) };
+
+  /*
+   * Les briques viennent de la FORGE, comme le catalogue : ce sont les artefacts validés
+   * du dépôt de registre choisi à l'accueil. `artifacts/` seulement — ce qui attend en
+   * revue n'est pas une brique, et composer avec lui ferait hériter d'une validation qui
+   * n'a pas eu lieu.
+   */
+  const repo = repoRegistre();
+  if (!repo) throw new Error('Aucun dépôt de registre choisi — retourne à l\'accueil.');
+
+  const fichiers = (await forge.listFiles(repo, 'artifacts'))
+    .filter((f) => f.type === 'file' && /\.ya?ml$/.test(f.name));
+
+  BRIQUES = (await Promise.all(fichiers.map(async (f) => {
+    try { return yaml.parse((await forge.getFile(repo, f.path)).content); }
+    catch { return null; }
+  }))).filter((a) => a && a.id && a.kind !== 'chain');
+
+  PAR_ID = new Map(BRIQUES.map((a) => [a.id, a]));
+  rendreBriques();
+  rendreChaine();
+}
+
+/* ── La bibliothèque ──────────────────────────────────────────────────────── */
+
+const plier = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+function rendreBriques() {
+  const zone = $('briques');
+  zone.textContent = '';
+  const q = plier($('recherche').value).split(/\s+/).filter(Boolean);
+
+  const vues = BRIQUES.filter((a) => {
+    const foin = plier(`${a.title} ${a.intent?.purpose} ${a.id}`);
+    return q.every((m) => foin.includes(m));
+  });
+
+  $('nbriques').textContent = `${vues.length}${vues.length !== BRIQUES.length ? ` / ${BRIQUES.length}` : ''}`;
+
+  if (vues.length === 0) {
+    zone.append(el('div', { className: 'vide-toile', textContent: 'Aucune brique ne correspond.' }));
+    return;
+  }
+
+  for (const a of vues) {
+    const n = el('div', { className: 'brique', draggable: true },
+      el('span', { className: 'poignee', textContent: '⠿' }),
+      el('span', {}, el('b', { textContent: a.title || a.id }),
+                     el('small', { textContent: a.intent?.purpose || '' })),
+      el('span', { className: 'sp' }),
+      el('span', { className: 'plus', textContent: '＋', title: 'ajouter à la chaîne' }));
+
+    n.ondragstart = (e) => {
+      n.classList.add('tire');
+      e.dataTransfer.setData('text/plain', `brique:${a.id}`);
+      e.dataTransfer.effectAllowed = 'copy';
+    };
+    n.ondragend = () => n.classList.remove('tire');
+    // Le clic fait la même chose que le glisser : sur un écran tactile, et pour qui va
+    // plus vite au clavier, un établi qui n'accepte QUE le glisser est inutilisable.
+    n.onclick = () => ajouter(a.id);
+    zone.append(n);
+  }
+}
+
+/* ── La chaîne ────────────────────────────────────────────────────────────── */
+
+function ajouter(id, position = etapes.length) {
+  const cible = PAR_ID.get(id);
+  if (!cible) return;
+  const etape = etapePour(cible, etapes);
+  etapes.splice(position, 0, etape);
+  if (!identite.titre) identite.titre = `Chaîne — ${cible.title || cible.id}`;
+  rendreChaine();
+}
+
+function deplacer(de, vers) {
+  if (de === vers || vers < 0 || vers >= etapes.length) return;
+  const [e] = etapes.splice(de, 1);
+  etapes.splice(vers, 0, e);
+  rendreChaine();
+}
+
+/** L'artefact complet, tel qu'il serait déposé. Une seule source de vérité. */
+function chaineCourante() {
+  const brut = {
+    id: identifiantDepuis(identite.titre),
+    kind: 'chain',
+    title: identite.titre || 'Chaîne sans nom',
+    owner: { person: session.username, scope: perimetre() },
+    intent: {
+      purpose: identite.purpose || `Enchaîner ${etapes.length} artefact(s) du registre.`,
+      not_for: identite.notFor
+        || 'Ne pas utiliser sans avoir relu ce que chaque étape produit : une chaîne '
+         + 'enchaîne des sorties de modèle.'
+    },
+    steps: structuredClone(etapes),
+    target_level: 'experimental'
+  };
+  brut.variables = variablesDeduites(brut, PAR_ID);
+  brut.criteria = criteresHerites(brut, PAR_ID);
+  brut.spec = narrer(brut, PAR_ID);
+  return brut;
+}
+
+const identifiantDepuis = (titre) => (String(titre || 'chaine')
+  .normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 64).replace(/-+$/, '')
+  || 'chaine');
+
+function perimetre() {
+  const scopes = knownScopes(ctx?.tools || []);
+  return guessScope(localStorage.getItem('salsi_ia_project_path') || '', scopes)
+      || scopes[0] || '';
+}
+
+function rendreChaine() {
+  const toile = $('toile');
+  toile.textContent = '';
+  $('netapes').textContent = `${etapes.length} étape${etapes.length > 1 ? 's' : ''}`;
+
+  if (etapes.length === 0) {
+    toile.append(el('div', { className: 'vide-toile' },
+      el('b', { textContent: 'Tire une brique ici' }),
+      'ou clique-la dans la liste. Deux briques bien branchées valent mieux que cinq qui '
+      + 'se repassent le même texte.'));
+    $('envoyer').disabled = true;
+    $('verdict').textContent = '';
+    $('narration').hidden = true;
+    $('note').textContent = '';
+    return;
+  }
+
+  const artefact = chaineCourante();
+
+  etapes.forEach((e, i) => {
+    const cible = PAR_ID.get(e.artefact);
+    const casses = renvoisImpossibles(artefact, i);
+
+    const carte = el('div', { className: `etape${casses.length ? ' ko' : ''}`, draggable: true });
+
+    const monter = el('button', { textContent: '↑', title: 'monter', disabled: i === 0 });
+    const descendre = el('button', { textContent: '↓', title: 'descendre', disabled: i === etapes.length - 1 });
+    const retirer = el('button', { textContent: '✕', title: 'retirer' });
+    monter.onclick = () => deplacer(i, i - 1);
+    descendre.onclick = () => deplacer(i, i + 1);
+    retirer.onclick = () => { etapes.splice(i, 1); rendreChaine(); };
+
+    carte.append(el('div', { className: 'etape-tete' },
+      el('span', { className: 'poignee', textContent: '⠿' }),
+      el('span', { className: 'rang', textContent: `${i + 1} · ${e.id}` }),
+      el('b', { textContent: cible?.title || e.artefact }),
+      el('span', { className: 'sp' }), monter, descendre, retirer));
+
+    if (cible?.intent?.purpose) {
+      carte.append(el('p', { className: 'purpose', textContent: cible.intent.purpose }));
+    }
+
+    /*
+     * Le câblage, éditable. C'est le seul endroit de l'écran où l'on tape — et on n'y
+     * tape jamais de prompt, seulement d'où vient une entrée. `{{e1.sortie}}` pour la
+     * sortie d'une étape antérieure, `{{nom}}` pour une entrée de la chaîne.
+     */
+    const cablage = el('div', { className: 'cablage' });
+    for (const v of cible?.variables || []) {
+      const champ = el('input', { value: e.entrees?.[v.name] ?? '',
+                                  placeholder: `{{${v.name}}} ou {{e1.sortie}}` });
+      champ.oninput = () => {
+        e.entrees = { ...e.entrees, [v.name]: champ.value };
+        majVerdict();
+      };
+      cablage.append(el('div', { className: 'fil' },
+        el('label', { textContent: v.name }), el('span', { className: 'flx', textContent: '←' }), champ));
+    }
+    carte.append(cablage);
+
+    for (const c of casses) {
+      carte.append(el('p', { className: 'purpose', style: 'color:#fca5a5;margin:8px 0 0',
+                             textContent: `${c.cible} : ${c.renvoi} — ${c.raison}` }));
+    }
+
+    carte.ondragstart = (ev) => {
+      carte.classList.add('tire');
+      ev.dataTransfer.setData('text/plain', `etape:${i}`);
+      ev.dataTransfer.effectAllowed = 'move';
+    };
+    carte.ondragend = () => carte.classList.remove('tire');
+    carte.ondragover = (ev) => ev.preventDefault();
+    carte.ondrop = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const charge = ev.dataTransfer.getData('text/plain');
+      if (charge.startsWith('etape:')) deplacer(Number(charge.slice(6)), i);
+      else if (charge.startsWith('brique:')) ajouter(charge.slice(7), i);
+    };
+
+    toile.append(carte);
+    if (i < etapes.length - 1) toile.append(el('div', { className: 'liaison', textContent: '↓' }));
+  });
+
+  majVerdict();
+}
+
+/* ── Le verdict, à chaque geste ───────────────────────────────────────────── */
+
+function majVerdict() {
+  const artefact = chaineCourante();
+  // `artifacts: BRIQUES` — sans elles, L024 et L025 se taisent et une chaîne cassée
+  // passerait pour conforme. C'est le même linter qu'en CI, avec son référentiel.
+  const report = lint(artefact, { ...ctx, artifacts: BRIQUES });
+
+  const zone = $('verdict');
+  zone.textContent = '';
+  const erreurs = report.findings.filter((f) => f.severity === ERROR);
+
+  const bloc = el('div', { className: `verdict ${report.blocked ? 'ko' : 'ok'}` },
+    el('span', { textContent: report.blocked ? '✕' : '✔' }),
+    el('span', {},
+      el('b', { textContent: report.blocked
+        ? `La porte est fermée — ${erreurs.length} erreur(s)`
+        : 'La porte est franchie' }),
+      report.blocked
+        ? el('ul', {}, ...erreurs.map((f) => el('li', {},
+            el('code', { textContent: f.code }), ' ', f.message)))
+        : el('div', { style: 'color:var(--tm);font-size:12px;margin-top:4px' },
+            `${artefact.variables.length} entrée(s) · ${artefact.criteria.length} critère(s) `
+            + 'hérité(s) de la dernière étape')));
+
+  zone.append(bloc);
+  $('envoyer').disabled = report.blocked;
+  $('narration').hidden = false;
+  $('yaml').textContent = toYaml(artefact);
+  $('note').textContent = report.blocked ? '' : `${artefact.id}.yaml`;
+}
+
+/* ── La dictée ────────────────────────────────────────────────────────────── */
+
+$('composer').onclick = async () => {
+  const phrase = $('phrase').value.trim();
+  const msg = $('msg');
+  msg.className = '';
+  msg.textContent = '';
+
+  if (phrase.length < 10) { $('phrase').focus(); return; }
+
+  const bouton = $('composer');
+  bouton.disabled = true;
+  const libelle = bouton.textContent;
+  bouton.textContent = 'Composition…';
+
+  try {
+    const r = await fetch('../api/composer', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phrase, auteur: session.username, scope: perimetre() })
+    });
+    const corps = await r.json();
+    if (!r.ok) throw new Error(corps.erreur || `Le serveur a répondu ${r.status}.`);
+
+    if (corps.forfait) {
+      msg.className = 'err';
+      msg.textContent = 'Aucune combinaison de briques ne répond à ce besoin. Ce n\'est pas '
+        + 'un échec : le registre n\'a pas encore la matière. Demande un agent neuf à '
+        + 'l\'écran « Demander », valide-le, et il deviendra une brique.';
+      return;
+    }
+    if (!corps.artefact) {
+      msg.className = 'err';
+      msg.textContent = 'Rien d\'exploitable n\'est sorti. Reformule.';
+      return;
+    }
+
+    /*
+     * Ce que la dictée rend atterrit dans l'ÉTABLI, pas dans la file. On peut réordonner,
+     * recâbler, retirer une étape avant d'envoyer — c'est le même « c'est toi qui
+     * choisis » que pour la matière : la machine propose, elle ne dépose pas.
+     */
+    etapes = corps.artefact.steps || [];
+    identite = {
+      titre: corps.artefact.title || '',
+      purpose: corps.artefact.intent?.purpose || '',
+      notFor: corps.artefact.intent?.not_for || ''
+    };
+    rendreChaine();
+
+    const tours = corps.tours.length;
+    msg.className = 'ok';
+    msg.textContent = `✔ ${etapes.length} étape(s) proposée(s) en ${tours} tour(s) `
+      + `· ${corps.modele} via ${corps.fournisseur}. Relis, réordonne, puis envoie.`;
+  } catch (error) {
+    msg.className = 'err';
+    msg.textContent = `✕ ${error.message}`;
+  } finally {
+    bouton.disabled = false;
+    bouton.textContent = libelle;
+  }
+};
+
+/* ── La toile accepte ce qu'on lui jette ──────────────────────────────────── */
+
+const toile = $('toile');
+toile.ondragover = (e) => { e.preventDefault(); toile.classList.add('survol'); };
+toile.ondragleave = () => toile.classList.remove('survol');
+toile.ondrop = (e) => {
+  e.preventDefault();
+  toile.classList.remove('survol');
+  const charge = e.dataTransfer.getData('text/plain');
+  if (charge.startsWith('brique:')) ajouter(charge.slice(7));
+};
+
+$('recherche').oninput = () => rendreBriques();
+$('vider').onclick = () => { etapes = []; identite = { titre: '', purpose: '', notFor: '' };
+                             $('msg').textContent = ''; rendreChaine(); };
+
+/* ── Le dépôt ─────────────────────────────────────────────────────────────── */
+
+$('envoyer').onclick = async () => {
+  const artefact = chaineCourante();
+  const msg = $('msg');
+  const bouton = $('envoyer');
+  bouton.disabled = true;
+  const libelle = bouton.textContent;
+  bouton.textContent = 'Envoi…';
+
+  try {
+    const repo = repoRegistre();
+    const chemin = `artifacts/pending/${artefact.id}.yaml`;
+    const tete = entete({
+      origine: 'composition', phrase: $('phrase').value.trim()
+        || `assemblage de ${artefact.steps.length} briques du registre`,
+      auteur: session.username, date: new Date().toISOString().slice(0, 10),
+      tours: 0, modele: '', fournisseur: '' });
+
+    await forge.putFile(repo, chemin, {
+      content: toBase64(tete + toYaml(artefact)),
+      message: `registre : composer ${artefact.title}\n\n`
+             + `Chaîne de ${artefact.steps.length} artefact(s) déjà validés, assemblée par `
+             + `${session.username} :\n`
+             + artefact.steps.map((e, i) => `  ${i + 1}. ${e.artefact}`).join('\n')
+             + '\nEn attente de validation humaine.',
+      branch: 'main'
+    });
+
+    msg.className = 'ok';
+    msg.textContent = `✔ Déposée pour validation — ${chemin}. Elle apparaîtra au catalogue `
+      + 'une fois acceptée dans l\'Admin.';
+  } catch (error) {
+    msg.className = 'err';
+    msg.textContent = `✕ ${error.message}`;
+  } finally {
+    bouton.textContent = libelle;
+    majVerdict();
+  }
+};
+
+charger().catch((error) => {
+  $('briques').append(el('div', { className: 'vide-toile', textContent: error.message }));
+  $('nbriques').textContent = '—';
+});

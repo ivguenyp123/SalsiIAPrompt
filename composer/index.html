@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Composer un agent — SalsiIAPrompt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../app/app.css">
+<style>
+  /*
+   * Deux colonnes, et c'est tout le geste : les briques à gauche, la chaîne à droite.
+   * On tire de l'une vers l'autre, on réordonne, on regarde le verdict.
+   *
+   * Aucun champ de prompt nulle part. C'est la promesse de l'écran, et elle doit se voir
+   * avant d'être lue : ici on n'écrit pas, on assemble.
+   */
+  main{max-width:1240px;margin:26px auto 70px;padding:0 20px}
+
+  h1{font-family:var(--fd);font-size:24px;margin:0 0 6px}
+  .chapo{color:var(--ts);font-size:13.5px;line-height:1.65;margin:0 0 20px;max-width:76ch}
+
+  /* ── La dictée de composition ── */
+  .dictee{background:var(--bg-card);border:1px solid rgba(251,191,36,.35);border-radius:16px;
+          padding:16px 18px;margin-bottom:20px}
+  .dictee label{display:block;font-size:11px;font-weight:800;text-transform:uppercase;
+                letter-spacing:.06em;color:#fbbf24;margin-bottom:8px}
+  .dictee .rangee{display:flex;gap:10px;flex-wrap:wrap}
+  .dictee input{flex:1;min-width:260px;font-size:14.5px;padding:11px 13px}
+  .dictee button{white-space:nowrap}
+  .dictee .aide{font-size:11.5px;color:var(--tm);margin:9px 0 0;line-height:1.55}
+
+  /* ── L'établi ── */
+  .etabli{display:grid;grid-template-columns:1fr;gap:18px;align-items:start}
+  @media(min-width:900px){.etabli{grid-template-columns:320px 1fr}}
+
+  .panneau{background:var(--bg-card);border:1px solid var(--line);border-radius:16px;padding:15px}
+  .panneau > h2{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;
+                color:var(--tm);margin:0 0 10px;display:flex;align-items:center;gap:8px}
+  .panneau > h2 .n{margin-left:auto;font-family:var(--fm);font-size:11px;color:var(--tm)}
+
+  #recherche{width:100%;font-size:12.5px;padding:8px 11px;margin-bottom:9px}
+  .briques{display:grid;gap:5px;max-height:560px;overflow:auto}
+  .brique{display:flex;gap:9px;align-items:flex-start;padding:9px 11px;border-radius:10px;
+          border:1px solid var(--line);background:rgba(0,0,0,.22);cursor:grab;user-select:none}
+  .brique:hover{border-color:rgba(167,139,250,.5);background:rgba(255,255,255,.05)}
+  .brique:active{cursor:grabbing}
+  .brique.tire{opacity:.4}
+  .brique b{display:block;font-size:12.5px;color:var(--tp);line-height:1.35}
+  .brique small{display:block;font-size:11px;color:var(--tm);line-height:1.5;margin-top:2px}
+  .brique .poignee{color:var(--tm);font-size:13px;line-height:1.2}
+  .brique .sp{flex:1}
+  .brique .plus{font-size:15px;color:var(--accent);line-height:1;opacity:0}
+  .brique:hover .plus{opacity:1}
+
+  /* ── La chaîne ── */
+  #toile{min-height:190px;display:grid;gap:9px;padding:4px;border-radius:12px;
+         border:1.5px dashed var(--line2);transition:.15s}
+  #toile.survol{border-color:#fbbf24;background:rgba(251,191,36,.07)}
+  .vide-toile{color:var(--tm);font-size:12.5px;line-height:1.7;padding:34px 20px;text-align:center}
+  .vide-toile b{display:block;color:var(--ts);font-size:13.5px;margin-bottom:5px}
+
+  .etape{border:1px solid var(--line);border-radius:12px;background:rgba(0,0,0,.24);
+         padding:12px 13px}
+  .etape.tire{opacity:.4}
+  .etape.ko{border-color:rgba(248,113,113,.5);background:rgba(248,113,113,.07)}
+  .etape-tete{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+  .etape-tete .rang{font-family:var(--fm);font-size:10.5px;color:#fbbf24;background:rgba(251,191,36,.14);
+                    border:1px solid rgba(251,191,36,.35);border-radius:6px;padding:2px 7px;white-space:nowrap}
+  .etape-tete b{font-size:13.5px;color:var(--tp)}
+  .etape-tete .sp{flex:1}
+  .etape-tete button{font-size:11px;padding:3px 8px}
+  .etape-tete .poignee{cursor:grab;color:var(--tm);font-size:14px}
+  .etape .purpose{margin:0 0 9px;font-size:11.5px;color:var(--tm);line-height:1.55}
+  .cablage{display:grid;gap:6px}
+  .fil{display:flex;align-items:center;gap:8px}
+  .fil label{font-family:var(--fm);font-size:11px;color:var(--ts);min-width:92px}
+  .fil input{flex:1;font-family:var(--fm);font-size:11.5px;padding:6px 9px}
+  .fil .flx{color:var(--tm);font-size:12px}
+
+  .liaison{text-align:center;color:var(--tm);font-size:14px;line-height:1;margin:-4px 0}
+
+  /* ── Le verdict ── */
+  .verdict{margin-top:16px;display:flex;align-items:flex-start;gap:11px;padding:13px 15px;
+           border-radius:12px;font-size:13px;line-height:1.6}
+  .verdict.ok{border:1px solid rgba(52,211,153,.45);background:rgba(52,211,153,.1);color:#6ee7b7}
+  .verdict.ko{border:1px solid rgba(248,113,113,.45);background:rgba(248,113,113,.1);color:#fca5a5}
+  .verdict .sp{flex:1}
+  .verdict ul{margin:7px 0 0;padding-left:18px;color:var(--ts)}
+  .verdict li{margin-bottom:4px;font-size:12px}
+  .verdict li code{font-family:var(--fm);font-size:11px;color:#fcd34d}
+
+  .acts{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-top:15px}
+  .acts .note{font-size:11.5px;color:var(--tm)}
+  #msg{margin-top:12px;font-size:12.5px;line-height:1.6}
+  #msg.ok{color:var(--ok)} #msg.err{color:var(--err)}
+
+  details.narration{margin-top:14px}
+  details.narration summary{cursor:pointer;font-size:12px;color:var(--tm)}
+  details.narration summary:hover{color:var(--tp)}
+  details.narration pre{margin:9px 0 0;background:rgba(0,0,0,.35);border:1px solid var(--line);
+    border-radius:10px;padding:13px;overflow:auto;font-size:11.5px;line-height:1.6;
+    color:var(--ts);white-space:pre-wrap}
+</style>
+</head>
+<body>
+
+<main>
+  <h1>Composer un agent</h1>
+  <p class="chapo">Assemble des agents <b>déjà validés</b> : tire une brique dans la chaîne,
+    branche ses entrées, réordonne. Aucun prompt n'est écrit ici — une chaîne hérite de la
+    validation de ses briques, et chaque étape est vérifiée avant de passer à la suivante.</p>
+
+  <div class="dictee">
+    <label for="phrase">…ou dis-le en une phrase</label>
+    <div class="rangee">
+      <input id="phrase" placeholder="je veux un agent qui mixe le rapport DORA et le rapport journalier">
+      <button id="composer" class="primary">✨ Composer</button>
+    </div>
+    <p class="aide">Un modèle choisit les briques et les branche. Il ne peut pas écrire de
+      prompt : sa seule sortie, ce sont des identifiants et du câblage.</p>
+  </div>
+
+  <div class="etabli">
+    <section class="panneau">
+      <h2>Briques validées <span class="n" id="nbriques">…</span></h2>
+      <input id="recherche" placeholder="chercher une brique…">
+      <div class="briques" id="briques"></div>
+    </section>
+
+    <section class="panneau">
+      <h2>La chaîne <span class="n" id="netapes">0 étape</span></h2>
+      <div id="toile"></div>
+      <div id="verdict"></div>
+
+      <div class="acts">
+        <button id="envoyer" class="primary" disabled>📮 Envoyer à la validation</button>
+        <button id="vider">Vider</button>
+        <span class="note" id="note"></span>
+      </div>
+      <div id="msg"></div>
+
+      <details class="narration" id="narration" hidden>
+        <summary>Voir le fichier tel qu'il sera déposé</summary>
+        <pre id="yaml"></pre>
+      </details>
+    </section>
+  </div>
+</main>
+
+<script type="module" src="./composer.js"></script>
+</body>
+</html>

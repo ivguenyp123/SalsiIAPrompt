@@ -10,6 +10,7 @@ const TABS = [
   // et pas un artefact. Le mettre après les écrans d'auteur reviendrait à le réserver à
   // ceux qui savent déjà que le registre existe.
   { id: 'demande', label: '✨ Demander', href: 'demande' },
+  { id: 'composer', label: '🔗 Composer', href: 'composer' },
   { id: 'catalogue', label: '🧰 Catalogue', href: 'catalogue' },
   { id: 'studio', label: '🛠️ Studio', href: 'studio' },
   { id: 'admin', label: '📊 Admin', href: 'admin' },
@@ -23,6 +24,7 @@ const TABS = [
  */
 export function mountShell({ active = '', session, base = '', onLogout }) {
   const href = { demande: `${base}demande/index.html`,
+                 composer: `${base}composer/index.html`,
                  catalogue: `${base}catalogue/index.html`, studio: `${base}studio/index.html`,
                  admin: `${base}admin/index.html`, maquette: `${base}maquette.html` };
 

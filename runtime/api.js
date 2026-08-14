@@ -29,7 +29,7 @@
 import { lancer, valeursDepuisContexte } from './lancer.js';
 import { chemin } from '../lib/entrees.js';
 import { cout } from './vertex.js';
-import { rediger as redigerArtefact } from './redacteur.js';
+import { rediger as redigerArtefact, composer as composerChaine } from './redacteur.js';
 import { knownScopes } from '../app/scopes.js';
 import { toYaml } from '../studio/to-yaml.js';
 
@@ -242,4 +242,75 @@ export async function rediger(requete = {}, deps = {}) {
   } };
 }
 
-export default { executer, etat, rediger, DOSSIERS, ID_VALIDE, PHRASE_MAX };
+/* ── La composition ───────────────────────────────────────────────────────── */
+
+/**
+ * Une phrase → une chaîne d'artefacts EXISTANTS.
+ *
+ * La différence avec `rediger` tient en une ligne et elle est structurante : ici le modèle
+ * ne peut pas écrire de prompt. Il choisit des briques du registre et les branche ; le
+ * spec, les variables et les critères sont recalculés depuis ces briques.
+ *
+ * `briques` vient du DISQUE, pas de la requête. Une page qui enverrait sa propre liste
+ * pourrait faire composer avec des artefacts qui n'existent pas — et l'héritage de
+ * validation, qui est toute la raison d'être des chaînes, deviendrait une fiction.
+ */
+export async function composer(requete = {}, deps = {}) {
+  const { registres = {}, models = [], creerVertex, lint, parse, tours, briques = [] } = deps;
+  const phrase = String(requete.phrase || '').trim();
+
+  if (phrase.length < 10) {
+    return { status: 400, corps: { erreur:
+      'Décris ce que tu veux en une phrase — au moins quelques mots. Sans ça, aucune '
+      + 'brique ne peut être choisie plutôt qu\'une autre.' } };
+  }
+  if (phrase.length > PHRASE_MAX) {
+    return { status: 400, corps: { erreur: `Phrase de ${phrase.length} caractères (maximum ${PHRASE_MAX}).` } };
+  }
+  if (briques.length === 0) {
+    return { status: 409, corps: { erreur:
+      'Aucun artefact validé au registre : il n\'y a rien à composer. Demande d\'abord '
+      + 'quelques agents, valide-les, et reviens assembler.' } };
+  }
+
+  const auteur = String(requete.auteur || '').slice(0, 64);
+  const scopes = knownScopes(registres.tools);
+  const scope = scopes.includes(requete.scope) ? requete.scope : '';
+
+  let moteur;
+  try { moteur = creerVertex(); }
+  catch (error) { return { status: 503, corps: { erreur: error.message } }; }
+
+  let r;
+  try {
+    r = await composerChaine({ phrase, auteur, scope },
+                             { moteur, registres, briques, lint, parse, scopes, tours,
+                               cout, models, serialiser: toYaml });
+  } catch (error) {
+    return { status: error.status && error.status >= 400 ? error.status : 502,
+             corps: { erreur: error.message } };
+  }
+
+  return { status: 200, corps: {
+    artefact: r.artefact,
+    yaml: r.rendu,
+    report: r.report,
+    abandon: r.abandon,
+    // `forfait` n'est pas une erreur : le registre n'avait pas de quoi répondre. L'écran
+    // propose alors d'écrire un agent neuf, ce qui est la bonne suite.
+    forfait: r.forfait,
+    tours: r.tours.map((t) => ({
+      tour: t.tour, illisible: t.illisible || '', forfait: Boolean(t.forfait),
+      erreurs: t.report ? t.report.errors : null,
+      avertissements: t.report ? t.report.warnings : null,
+      constats: t.report ? t.report.findings.map((f) => ({ code: f.code, severity: f.severity,
+                                                           message: f.message, path: f.path })) : []
+    })),
+    modele: moteur.modele('mid'),
+    fournisseur: moteur.fournisseur,
+    jetons: r.jetons,
+    cout: r.cout
+  } };
+}
+
+export default { executer, etat, rediger, composer, DOSSIERS, ID_VALIDE, PHRASE_MAX };

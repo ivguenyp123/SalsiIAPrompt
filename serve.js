@@ -26,7 +26,7 @@
  */
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, extname, resolve, normalize } from 'node:path';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -34,7 +34,7 @@ import { fileURLToPath } from 'node:url';
 import yaml from './lib/yaml.js';
 import { makeValidator } from './lib/schema.js';
 import { createMoteur } from './runtime/moteur.js';
-import { executer, etat, rediger, DOSSIERS } from './runtime/api.js';
+import { executer, etat, rediger, composer, DOSSIERS } from './runtime/api.js';
 import { lint } from './lint/index.js';
 import { chemin } from './lib/entrees.js';
 import { CHEMIN, carte } from './runtime/etat-derive.js';
@@ -73,6 +73,18 @@ function dependances() {
     // s'auto-évaluerait avec une copie assouplie ne prouverait rien.
     lint,
     parse: (texte) => yaml.parse(texte),
+    /*
+     * Les briques de composition : les artefacts VALIDÉS, lus sur le disque.
+     *
+     * `artifacts/` seulement — ce qui attend en revue n'est pas une brique. Composer avec
+     * un artefact non validé ferait hériter d'une validation qui n'a pas eu lieu, et
+     * c'est précisément l'héritage qui justifie qu'une chaîne se compose sans repasser
+     * par la file.
+     */
+    briques: readdirSync(join(ROOT, 'artifacts'))
+      .filter((n) => /\.ya?ml$/.test(n))
+      .map((n) => { try { return lire(`artifacts/${n}`); } catch { return null; } })
+      .filter(Boolean),
     // Ce que le banc d'essai a mesuré, s'il a tourné. Relu à chaque requête, comme les
     // registres : un passage qui vient de se terminer doit compter pour l'exécution
     // suivante, pas au prochain redémarrage.
@@ -127,6 +139,29 @@ createServer(async (req, res) => {
     if (url.pathname === '/api/etat') {
       const d = dependances();
       json(res, 200, etat({ creerVertex: d.creerVertex, models: d.models }));
+      return;
+    }
+
+    if (url.pathname === '/api/briques') {
+      const d = dependances();
+      // Ce que l'écran de composition a besoin de savoir de chaque brique — et rien de
+      // plus. Le `spec` reste au serveur : la page n'a pas à afficher les prompts.
+      json(res, 200, d.briques.map((a) => ({
+        id: a.id, kind: a.kind, title: a.title, purpose: a.intent?.purpose || '',
+        variables: (a.variables || []).map((v) => ({ name: v.name, source: v.source,
+                                                     required: v.required !== false })),
+        criteres: (a.criteria || []).length, scope: a.owner?.scope || ''
+      })));
+      return;
+    }
+
+    if (url.pathname === '/api/composer') {
+      if (req.method !== 'POST') { json(res, 405, { erreur: 'POST attendu.' }); return; }
+      let requete;
+      try { requete = await corps(req); }
+      catch (error) { json(res, 400, { erreur: error.message }); return; }
+      const { status, corps: sortie } = await composer(requete, dependances());
+      json(res, status, sortie);
       return;
     }
 
