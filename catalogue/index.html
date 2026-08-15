@@ -17,6 +17,37 @@
   .filters button{padding:6px 13px;font-size:12.5px;border-radius:999px}
   .filters button.on{color:#fff;background:rgba(124,92,252,.28);border-color:rgba(167,139,250,.6)}
 
+  /* ── Étiquettes : dérivées du registre, jamais tenues à côté ── */
+  .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;align-items:center}
+  .tags button{padding:4px 11px;font-size:11.5px;border-radius:999px;color:var(--tm);
+               font-family:var(--fm);font-weight:600}
+  .tags button:hover{color:var(--tp);border-color:rgba(167,139,250,.5)}
+  .tags button.on{color:#fff;background:rgba(52,211,153,.22);border-color:rgba(52,211,153,.55)}
+  .tags button .n{opacity:.55;margin-left:5px}
+  .tags .titre{font-size:11px;color:var(--tm);text-transform:uppercase;letter-spacing:.06em;
+               font-weight:700;margin-right:2px}
+  .tags .vider{color:var(--err);border-color:rgba(248,113,113,.4)}
+
+  .pourquoi{font-size:10.5px;color:var(--tm);font-style:italic;margin-top:6px}
+
+  /* ── Le tour : une bulle, un projecteur ── */
+  #tourVoile{position:fixed;inset:0;z-index:80;display:none;background:rgba(8,5,18,.55)}
+  #tourVoile.on{display:block}
+  #tourTrou{position:absolute;border-radius:12px;pointer-events:none;
+            box-shadow:0 0 0 3px rgba(251,191,36,.9),0 0 0 9999px rgba(8,5,18,.72);
+            transition:.18s}
+  #tourBulle{position:absolute;max-width:340px;background:#160f2b;border:1px solid rgba(251,191,36,.5);
+             border-radius:14px;padding:15px 17px;box-shadow:0 18px 44px rgba(0,0,0,.5)}
+  #tourBulle h4{margin:0 0 7px;font-size:14px;color:#fbbf24;font-family:var(--fd)}
+  #tourBulle p{margin:0;font-size:12.5px;line-height:1.65;color:var(--ts)}
+  #tourBulle .pied{display:flex;align-items:center;gap:8px;margin-top:13px}
+  #tourBulle .rang{font-family:var(--fm);font-size:11px;color:var(--tm)}
+  #tourBulle .sp{flex:1}
+  #tourBulle button{font-size:12px;padding:6px 12px}
+  .tour-btn{white-space:nowrap;color:#fbbf24;border-color:rgba(251,191,36,.45);
+            background:rgba(251,191,36,.12);font-weight:700}
+  .tour-btn:hover{background:rgba(251,191,36,.24)}
+
   .meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:22px 0 12px;
         font-size:12px;color:var(--tm)}
   .meta .sp{flex:1}
@@ -144,11 +175,13 @@
       <input id="q" type="text" placeholder="décris ton besoin en une phrase…" autocomplete="off">
     </div>
     <div class="filters" id="filters"></div>
+  <div class="tags" id="tags"></div>
   </div>
 
   <div class="meta">
     <span id="count">Chargement…</span>
     <span class="sp"></span>
+    <button id="tourStart" type="button" class="tour-btn">🧭 Visite guidée</button>
     <span id="source"></span>
   </div>
 
@@ -157,6 +190,20 @@
 </main>
 
 <div class="sheet" id="sheet"><div class="inner" id="sheetInner"></div></div>
+
+<div id="tourVoile">
+  <div id="tourTrou"></div>
+  <div id="tourBulle">
+    <h4 id="tourTitre"></h4>
+    <p id="tourTexte"></p>
+    <div class="pied">
+      <span class="rang" id="tourRang"></span>
+      <span class="sp"></span>
+      <button id="tourPasser" type="button">Passer</button>
+      <button id="tourSuivant" type="button" class="primary">Suivant</button>
+    </div>
+  </div>
+</div>
 
 <script type="module" src="./catalogue.js"></script>
 </body>

@@ -527,6 +527,7 @@ divergerait au premier correctif — précisément ce qu'on évite.
 | `lib/provenance.js` | l'en-tête qui dit qu'un modèle a écrit le fichier, et depuis quelle phrase |
 | `composer/` | l'établi : glisser-déposer des briques validées, ou une phrase |
 | `lib/chaine.js` · `runtime/chaine.js` | les chaînes : composer des briques validées, et les dérouler |
+| `lib/recherche.js` · `lib/tour.js` | la recherche classée du catalogue, et la visite guidée |
 | `lib/matiere.js` | d'où vient ce qu'un agent lit : fichier du dépôt, diff d'une PR, ou ta saisie |
 | `inventaire/hub-devops.yaml` · `lib/inventaire.js` | les 82 capacités demandables, tirées de la surface du hub |
 | `runtime/banc.js` · `runtime/banc-cli.js` | le banc d'essai : joue les cas d'or, dérive le niveau |
@@ -791,6 +792,44 @@ une erreur 501 explicite : un commit multi-fichiers y demande de reconstruire un
 à la main, du code non trivial pour une opération que personne n'exécutera sur cette
 forge. Mieux vaut une erreur qui dit la vérité qu'une implémentation à moitié. La
 **préparation**, elle, fonctionne partout — on peut voir le plan sans pouvoir l'écrire.
+
+### Le moteur de recherche, les étiquettes, la visite
+
+L'ancienne recherche collait tous les champs bout à bout et rendait les résultats **dans
+l'ordre du dossier**. À seize artefacts ça passe ; à cent trente, ça casse de trois façons :
+chercher « revue » remonte autant l'agent dont c'est le titre que celui dont le `not_for`
+dit « pas pour une revue » — et l'alphabet tranche ; chercher « secret » ne trouve pas
+`output.contains_secret`, qui est pourtant exactement ce qu'on veut ; et « revu » ne trouve
+rien, parce qu'on n'a pas fini de taper.
+
+`lib/recherche.js` **pondère et classe** :
+
+| champ | poids | pourquoi |
+|---|---|---|
+| titre | 10 | on cherche ce qu'une capacité **fait** |
+| étiquettes | 7 | comment elle est rangée |
+| ce à quoi ça sert | 5 | |
+| périmètre · identifiant | 4 · 3 | |
+| ce qu'il lit · ce qu'il vérifie | 2 | **tous** les artefacts déclarent `repo` — si un nom de variable pesait comme un titre, chercher « repo » remonterait le catalogue entier |
+| ses limites (`not_for`) | 1 | |
+
+Un mot exact vaut le double d'un préfixe : sinon **taper plus long dégraderait le
+classement**. Et chaque résultat dit *pourquoi* il est là — « trouvé par le titre » — parce
+qu'un classement inattendu ressemble à un bug, et qu'on cesse alors de faire confiance au
+champ, ce qui est pire qu'un mauvais ordre.
+
+Les **étiquettes** sont dérivées du registre avec leurs comptes, jamais tenues à côté :
+`qualite 3`, `dette 2`, … Elles se cumulent, chacune resserre.
+
+La **visite guidée** fait cinq étapes, une idée chacune — un tour de quinze se passe. Elle
+n'apprend pas à cliquer : elle dit ce que les mots **veulent dire**, à commencer par la
+pastille en pointillés. Une étape dont la cible est absente est sautée : le catalogue vide
+n'a pas de carte, et un tour qui pointerait le néant apprendrait à s'en méfier.
+
+*Bug attrapé à l'écran :* le projecteur mesurait la position **avant** que le défilement
+animé soit fini, et éclairait le paragraphe d'à côté. Défilement instantané, mesure à la
+frame suivante — et un test du parcours vérifie maintenant que le trou tombe bien sur la
+pastille.
 
 ## 🔗 Les chaînes — composer plutôt que réécrire
 

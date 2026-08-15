@@ -14,7 +14,9 @@ import { createForge } from '../app/forge.js';
 import { mountShell } from '../app/shell.js';
 import { lint, ERROR } from '../lint/index.js';
 import { prevol, SENSIBILITES } from '../preflight/index.js';
-import { SOURCES, sourceProbable, chercher, diffUnifie, resume, grosse } from '../lib/matiere.js';
+import { SOURCES, sourceProbable, chercher as chercherFichier, diffUnifie, resume, grosse } from '../lib/matiere.js';
+import { indexer, chercher, etiquettes, porteEtiquettes } from '../lib/recherche.js';
+import { ETAPES, VU, jouables, placer } from '../lib/tour.js';
 import { niveau, pastille } from '../lib/niveau.js';
 import { BUMPS } from '../runtime/livraison.js';
 import { preparer as preparerLivraison, executer as executerLivraison } from '../runtime/executer.js';
@@ -58,6 +60,7 @@ const ICONS = { agent: '🤖', prompt: '📚', chain: '🔗' };
 
 let items = [];
 let filter = 'tout';
+let tagsRetenus = [];    // cumulatifs : chaque étiquette resserre
 let ctx = null;        // registres + validateur, partagés avec le pré-vol
 let scopes = [];       // périmètres connus, dérivés du registre des outils
 
@@ -121,13 +124,18 @@ async function load() {
     try {
       const found = await forge.getFile(repo, file.path);
       const artifact = yaml.parse(found.content);
-      return { file, artifact, report: lint(artifact, { ...ctx, artifacts: [] }) };
+      // L'index est calculé UNE FOIS. Replier les accents de cent trente artefacts à
+      // chaque touche du clavier se sent.
+      return { file, artifact, index: indexer(artifact),
+               report: lint(artifact, { ...ctx, artifacts: [] }) };
     } catch (error) {
       return { file, artifact: null, error: error.message };
     }
   })));
 
+  renderTags();
   render();
+  proposerTour();
 }
 
 function showEmpty(title, detail) {
@@ -148,14 +156,14 @@ function fail(title, detail) {
 
 const fold = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
-/** Cherche dans ce qui décrit l'intention, pas dans le spec : on cherche un besoin. */
-function matches(entry, query) {
-  if (!query) return true;
-  const a = entry.artifact || {};
-  const haystack = fold([a.title, a.intent?.purpose, a.intent?.not_for, (a.tags || []).join(' '),
-                         a.owner?.scope, a.id].join(' '));
-  return fold(query).split(/\s+/).filter(Boolean).every((word) => haystack.includes(word));
-}
+/*
+ * La recherche est déléguée à `lib/recherche.js` : elle PONDÈRE et elle CLASSE.
+ *
+ * L'ancienne collait tous les champs bout à bout et rendait les résultats dans l'ordre du
+ * dossier. À seize artefacts ça passait ; à cent trente, chercher « revue » remonte autant
+ * l'agent DONT C'EST LE TITRE que celui dont le `not_for` dit « pas pour une revue », et
+ * l'alphabet tranche.
+ */
 
 const FILTERS = [
   { id: 'tout', label: 'Tout' },
@@ -175,31 +183,80 @@ function renderFilters() {
 }
 
 const passesFilter = (entry) =>
-  filter === 'tout' ? true
-  : filter === 'ko' ? (entry.report?.blocked || !entry.artifact)
-  : entry.artifact?.kind === filter;
+  (filter === 'tout' ? true
+   : filter === 'ko' ? (entry.report?.blocked || !entry.artifact)
+   : entry.artifact?.kind === filter)
+  && porteEtiquettes(entry.artifact, tagsRetenus);
+
+/*
+ * Le nuage d'étiquettes, DÉRIVÉ du registre.
+ *
+ * Jamais une liste tenue à côté : elle divergerait au premier artefact publié. Les
+ * comptes viennent de ce qui est réellement là, et les étiquettes qui rangent vraiment
+ * quelque chose passent devant celles qui n'ont servi qu'une fois.
+ */
+function renderTags() {
+  const host = $('tags');
+  host.textContent = '';
+  const tous = etiquettes(items.map((e) => e.artifact).filter(Boolean));
+  if (tous.length === 0) return;
+
+  host.append(el('span', { className: 'titre', textContent: 'Étiquettes' }));
+
+  for (const { tag, n } of tous) {
+    const on = tagsRetenus.includes(tag);
+    const b = el('button', { className: on ? 'on' : '' },
+      tag, el('span', { className: 'n', textContent: String(n) }));
+    b.onclick = () => {
+      tagsRetenus = on ? tagsRetenus.filter((t) => t !== tag) : [...tagsRetenus, tag];
+      renderTags();
+      render();
+    };
+    host.append(b);
+  }
+
+  if (tagsRetenus.length) {
+    const v = el('button', { className: 'vider', textContent: `✕ ${tagsRetenus.length} filtre(s)` });
+    v.onclick = () => { tagsRetenus = []; renderTags(); render(); };
+    host.append(v);
+  }
+}
 
 /* ── Rendu ────────────────────────────────────────────────────────────────── */
 
 function render() {
   const query = $('q').value.trim();
-  const shown = items.filter((e) => passesFilter(e) && matches(e, query));
+  const trouves = chercher(items, query, passesFilter);
 
-  $('count').textContent = shown.length === items.length
+  $('count').textContent = trouves.length === items.length
     ? `${items.length} capacité(s)`
-    : `${shown.length} sur ${items.length}`;
+    : `${trouves.length} sur ${items.length}`;
 
   const host = $('cards');
   host.textContent = '';
   host.style.display = '';
-  $('empty').style.display = shown.length ? 'none' : 'block';
+  $('empty').style.display = trouves.length ? 'none' : 'block';
 
-  if (shown.length === 0) {
-    showEmpty('Rien ne correspond.', 'Essaie d\'autres mots, ou retire les filtres.');
+  if (trouves.length === 0) {
+    showEmpty('Rien ne correspond.',
+      tagsRetenus.length
+        ? 'Les étiquettes retenues excluent peut-être ce que tu cherches — retire-les.'
+        : 'Essaie d\'autres mots : la recherche accepte les préfixes, mais tous les '
+          + 'fragments doivent correspondre.');
     return;
   }
 
-  for (const entry of shown) host.append(card(entry));
+  for (const { entree, pourquoi } of trouves) {
+    const n = card(entree);
+    /*
+     * Pourquoi ce résultat est là. Sans ça, un classement inattendu ressemble à un bug —
+     * et on cesse de faire confiance au champ, ce qui est bien pire qu'un mauvais ordre.
+     */
+    if (query && pourquoi.length) {
+      n.append(el('div', { className: 'pourquoi', textContent: `trouvé par ${pourquoi.join(', ')}` }));
+    }
+    host.append(n);
+  }
 }
 
 function card(entry) {
@@ -775,7 +832,7 @@ function champMatiere(variable) {
       vider();
       const q = recherche.value.trim();
       if (!q) { dire(`${chemins.length} fichier(s). Tape un fragment de chemin — « foo serv » trouve FooService.`); return; }
-      const r = chercher(chemins, q);
+      const r = chercherFichier(chemins, q);
       dire(r.total === 0 ? 'Aucun chemin ne correspond.'
         : `${r.total} résultat(s)${r.tronque ? ` — les ${r.chemins.length} premiers` : ''}.`);
       for (const c of r.chemins) {
@@ -1262,3 +1319,103 @@ $('q').oninput = render;
 
 renderFilters();
 await load();
+
+/* ── La visite guidée ─────────────────────────────────────────────────────────
+ *
+ * Cinq choses de cet écran ne se devinent pas, et toutes portent le sens du produit : une
+ * pastille en pointillés, un verdict recalculé à l'instant, des critères, des cas d'or,
+ * et deux boutons dont l'un écrit dans un dépôt. Celui qui les lit de travers croira que
+ * « officiel » veut dire « éprouvé » — la faute exacte que ce registre existe pour
+ * empêcher.
+ *
+ * Le tour n'apprend pas à cliquer : il dit ce que les mots VEULENT DIRE. D'où sa
+ * brièveté — cinq étapes, une idée chacune. Un tour de quinze étapes se passe, et celui
+ * qui l'a passé une fois ne le rouvre jamais.
+ */
+
+let tourEtapes = [];
+let tourIndex = 0;
+
+function tourPlacer() {
+  const etape = tourEtapes[tourIndex];
+  const cible = document.querySelector(etape.cible);
+  if (!cible) return tourSuivant();
+
+  /*
+   * Défiler d'abord, mesurer ENSUITE — et `instant`, pas `smooth`.
+   *
+   * Bug vu à l'écran : avec un défilement animé, `getBoundingClientRect()` rend la
+   * position d'AVANT, la page glisse sous le voile fixe, et le projecteur éclaire le
+   * paragraphe d'à côté. Un tour qui montre le mauvais élément est pire que pas de tour.
+   */
+  cible.scrollIntoView({ block: 'center', behavior: 'instant' });
+  requestAnimationFrame(() => dessiner(etape, cible));
+}
+
+function dessiner(etape, cible) {
+  const r = cible.getBoundingClientRect();
+  const trou = $('tourTrou');
+  const P = 6;
+  Object.assign(trou.style, {
+    left: `${r.left - P}px`, top: `${r.top - P}px`,
+    width: `${r.width + P * 2}px`, height: `${r.height + P * 2}px`
+  });
+
+  $('tourTitre').textContent = etape.titre;
+  $('tourTexte').textContent = etape.texte;
+  $('tourRang').textContent = `${tourIndex + 1} / ${tourEtapes.length}`;
+  $('tourSuivant').textContent = tourIndex === tourEtapes.length - 1 ? 'Terminer' : 'Suivant';
+
+  const bulle = $('tourBulle');
+  const b = bulle.getBoundingClientRect();
+  const pos = placer(
+    { gauche: r.left, droite: r.right, haut: r.top, bas: r.bottom, w: r.width, h: r.height },
+    { w: b.width || 340, h: b.height || 160 },
+    { w: innerWidth, h: innerHeight },
+    etape.bord);
+  bulle.style.left = `${pos.x}px`;
+  bulle.style.top = `${pos.y}px`;
+}
+
+function tourSuivant() {
+  tourIndex += 1;
+  if (tourIndex >= tourEtapes.length) return tourFermer();
+  tourPlacer();
+}
+
+function tourFermer() {
+  $('tourVoile').classList.remove('on');
+  // Un tour qui se rejoue à chaque visite est une publicité. Le bouton reste, lui.
+  try { localStorage.setItem(VU, '1'); } catch { /* stockage refusé : tant pis */ }
+}
+
+function tourOuvrir() {
+  // Une étape dont la cible est absente est SAUTÉE : le catalogue vide n'a pas de carte,
+  // et un tour qui pointerait le néant apprendrait à se méfier de lui.
+  tourEtapes = jouables(ETAPES, (sel) => Boolean(document.querySelector(sel)));
+  if (tourEtapes.length === 0) return;
+  tourIndex = 0;
+  $('tourVoile').classList.add('on');
+  requestAnimationFrame(tourPlacer);
+}
+
+/** À la première visite seulement — et jamais si l'écran n'a rien à montrer. */
+function proposerTour() {
+  let deja = '1';
+  try { deja = localStorage.getItem(VU); } catch { /* stockage refusé */ }
+  if (deja || items.length === 0) return;
+  setTimeout(tourOuvrir, 700);
+}
+
+$('tourStart').onclick = tourOuvrir;
+$('tourSuivant').onclick = tourSuivant;
+$('tourPasser').onclick = tourFermer;
+$('tourVoile').onclick = (e) => { if (e.target === $('tourVoile')) tourFermer(); };
+addEventListener('keydown', (e) => {
+  if (!$('tourVoile').classList.contains('on')) return;
+  if (e.key === 'Escape') tourFermer();
+  if (e.key === 'Enter' || e.key === 'ArrowRight') tourSuivant();
+});
+// Le projecteur suit la mise en page : redimensionner ne doit pas laisser le trou
+// éclairer le vide à côté de sa cible.
+addEventListener('resize', () => { if ($('tourVoile').classList.contains('on')) tourPlacer(); });
