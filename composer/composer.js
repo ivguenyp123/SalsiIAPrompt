@@ -33,6 +33,8 @@ import { toYaml } from '../studio/to-yaml.js';
 import { entete } from '../lib/provenance.js';
 import { prochainId, etapePour, variablesDeduites, criteresHerites,
          narrer, renvoisImpossibles } from '../lib/chaine.js';
+import { chemin as cheminMien, dossier as dossierMien, forker, etat as etatChaine,
+         ETATS } from '../lib/mien.js';
 import yaml from '../lib/yaml.js';
 
 const session = requireSession('../app/login.html');
@@ -59,6 +61,8 @@ let PAR_ID = new Map();
 let ctx = null;                   // registres + validateur, pour le lint
 let etapes = [];                  // la chaîne en construction
 let identite = { titre: '', purpose: '', notFor: '' };
+let idFige = '';                  // l'identifiant quand on reprend une chaîne existante
+let CHAINES = [];                 // les miennes + celles du registre
 
 /* ── Chargement ───────────────────────────────────────────────────────────── */
 
@@ -83,15 +87,120 @@ async function charger() {
   const fichiers = (await forge.listFiles(repo, 'artifacts'))
     .filter((f) => f.type === 'file' && /\.ya?ml$/.test(f.name));
 
-  BRIQUES = (await Promise.all(fichiers.map(async (f) => {
+  const publies = (await Promise.all(fichiers.map(async (f) => {
     try { return yaml.parse((await forge.getFile(repo, f.path)).content); }
     catch { return null; }
-  }))).filter((a) => a && a.id && a.kind !== 'chain');
+  }))).filter((a) => a && a.id);
 
+  /*
+   * Une chaîne n'est pas une brique. On PEUT en imbriquer une (L024 le permet en
+   * avertissant), mais la proposer dans la bibliothèque en ferait le cas ordinaire — et
+   * une chaîne de chaînes devient illisible en revue et imprévisible en coût.
+   */
+  BRIQUES = publies.filter((a) => a.kind !== 'chain');
   PAR_ID = new Map(BRIQUES.map((a) => [a.id, a]));
+
+  CHAINES = publies.filter((a) => a.kind === 'chain')
+    .map((a) => ({ artefact: a, proprietaire: a.owner?.person || '', publiee: true }));
+
   rendreBriques();
   rendreChaine();
+  await chargerMiennes(repo);
 }
+
+/*
+ * Les chaînes personnelles, lues dans `mes-chaines/<moi>/`.
+ *
+ * Le dossier n'existe pas tant qu'on n'a rien sauvé : `listFiles` rend alors une liste
+ * vide, pas une erreur. C'est le comportement voulu — un établi neuf n'est pas cassé.
+ */
+async function chargerMiennes(repo) {
+  try {
+    const fichiers = (await forge.listFiles(repo, dossierMien(session.username)))
+      .filter((f) => f.type === 'file' && /\.ya?ml$/.test(f.name));
+
+    const miennes = (await Promise.all(fichiers.map(async (f) => {
+      try {
+        const a = yaml.parse((await forge.getFile(repo, f.path)).content);
+        return a?.kind === 'chain'
+          ? { artefact: a, proprietaire: session.username, publiee: false, chemin: f.path }
+          : null;
+      } catch { return null; }
+    }))).filter(Boolean);
+
+    CHAINES = [...miennes, ...CHAINES];
+  } catch { /* dossier absent : rien à afficher, et c'est normal */ }
+  rendreChaines();
+}
+
+/* ── Mes chaînes, et celles des autres ────────────────────────────────────── */
+
+function rendreChaines() {
+  const zone = $('chaines');
+  zone.textContent = '';
+  $('nchaines').textContent = String(CHAINES.length);
+
+  if (CHAINES.length === 0) {
+    zone.append(el('div', { className: 'vide-toile', style: 'padding:16px 8px',
+      textContent: 'Rien encore. Assemble une chaîne et sauve-la : elle apparaîtra ici, '
+                 + 'pour toi seul, jusqu\'à ce que tu la partages.' }));
+    return;
+  }
+
+  for (const c of CHAINES) {
+    const e = etatChaine(c, session.username);
+    const mienne = e === 'privee' || e === 'partagee';
+
+    const n = el('button', { className: 'chaine', type: 'button',
+                             title: ETATS[e]?.aide || '' },
+      el('span', {}, el('b', { textContent: c.artefact.title || c.artefact.id }),
+                     el('small', { textContent: `${(c.artefact.steps || []).length} étape(s)`
+                                    + (mienne ? '' : ` · ${c.proprietaire || 'inconnu'}`) })),
+      el('span', { className: 'sp' }),
+      el('span', { className: `et ${e}`, textContent: ETATS[e]?.label || e }));
+
+    /*
+     * Ouvrir la mienne, FORKER celle d'un autre. Le fork ne dépose rien : il charge une
+     * copie à mon nom dans l'établi, et c'est moi qui sauve. Un fork qui écrirait tout
+     * seul dans le dépôt ferait grossir le registre à chaque clic de curiosité.
+     */
+    n.onclick = () => {
+      ouvrirChaine(c.artefact);
+      if (!mienne) forkerDepuis(c.artefact);
+      else dejaSauvee = true;
+    };
+    zone.append(n);
+  }
+}
+
+function ouvrirChaine(artefact) {
+  etapes = structuredClone(artefact.steps || []);
+  identite = { titre: artefact.title || '', purpose: artefact.intent?.purpose || '',
+               notFor: artefact.intent?.not_for || '' };
+  // On garde SON identifiant : rouvrir « ma chaîne » et la sauver doit écraser la même,
+  // pas en créer une seconde à chaque ouverture. `dejaSauvee` est à part — un fork a un
+  // identifiant figé et n'existe encore nulle part, et le message de commit doit le dire.
+  idFige = artefact.id || '';
+  dejaSauvee = false;
+  $('msg').className = '';
+  $('msg').textContent = '';
+  rendreChaine();
+}
+
+function forkerDepuis(artefact) {
+  const copie = forker(artefact, { qui: session.username, suffixe: session.username });
+  if (!copie) return;
+  ouvrirChaine(copie);
+  idFige = copie.id;
+  dejaSauvee = false;
+  origineFork = artefact.id;
+  $('msg').className = 'ok';
+  $('msg').textContent = `⑂ Forkée depuis « ${artefact.title || artefact.id} » — elle est à `
+    + 'toi, à ton nom. Modifie-la, puis sauve-la : rien n\'est encore écrit.';
+}
+
+let origineFork = '';
+let dejaSauvee = false;   // l'identifiant est figé DÈS le fork, l'existence non
 
 /* ── La bibliothèque ──────────────────────────────────────────────────────── */
 
@@ -156,7 +265,7 @@ function deplacer(de, vers) {
 /** L'artefact complet, tel qu'il serait déposé. Une seule source de vérité. */
 function chaineCourante() {
   const brut = {
-    id: identifiantDepuis(identite.titre),
+    id: idFige || identifiantDepuis(identite.titre),
     kind: 'chain',
     title: identite.titre || 'Chaîne sans nom',
     owner: { person: session.username, scope: perimetre() },
@@ -197,6 +306,7 @@ function rendreChaine() {
       'ou clique-la dans la liste. Deux briques bien branchées valent mieux que cinq qui '
       + 'se repassent le même texte.'));
     $('envoyer').disabled = true;
+    $('sauver').disabled = true;
     $('verdict').textContent = '';
     $('narration').hidden = true;
     $('note').textContent = '';
@@ -300,6 +410,7 @@ function majVerdict() {
 
   zone.append(bloc);
   $('envoyer').disabled = report.blocked;
+  $('sauver').disabled = report.blocked;
   $('narration').hidden = false;
   $('yaml').textContent = toYaml(artefact);
   $('note').textContent = report.blocked ? '' : `${artefact.id}.yaml`;
@@ -381,10 +492,68 @@ toile.ondrop = (e) => {
 
 $('recherche').oninput = () => rendreBriques();
 $('vider').onclick = () => { etapes = []; identite = { titre: '', purpose: '', notFor: '' };
+                             idFige = ''; origineFork = ''; dejaSauvee = false;
                              $('msg').textContent = ''; rendreChaine(); };
 
 /* ── Le dépôt ─────────────────────────────────────────────────────────────── */
 
+/*
+ * SAUVER — chez moi, tout de suite, sans passer par la validation.
+ *
+ * C'est la décision de gouvernance de cet écran, et elle mérite d'être dite : une chaîne
+ * n'apporte AUCUN texte neuf. Elle ordonne des artefacts qui ont chacun franchi la porte.
+ * Ce qu'un relecteur aurait à juger tient dans l'ordre et le câblage — et `L024`/`L025` le
+ * vérifient déjà, mécaniquement, à chaque frappe. Il n'y a rien à faire relire.
+ *
+ * Elle reste invisible au catalogue tant qu'elle n'est pas PARTAGÉE. Partager, lui, veut
+ * dire « engager le registre », et ça se valide.
+ */
+$('sauver').onclick = async () => {
+  const artefact = chaineCourante();
+  const msg = $('msg');
+  const bouton = $('sauver');
+  bouton.disabled = true;
+  const libelle = bouton.textContent;
+  bouton.textContent = 'Enregistrement…';
+
+  try {
+    const chemin = cheminMien(session.username, artefact.id);
+    const tete = entete({
+      origine: origineFork ? 'fork' : 'composition',
+      phrase: origineFork || `assemblage de ${artefact.steps.length} briques du registre`,
+      auteur: session.username, date: new Date().toISOString().slice(0, 10) });
+
+    await forge.putFile(repoRegistre(), chemin, {
+      content: toBase64(tete + toYaml(artefact)),
+      message: `mes chaines : ${dejaSauvee ? 'mettre a jour' : 'sauver'} ${artefact.title}\n\n`
+             + `Chaîne personnelle de ${session.username}, ${artefact.steps.length} étape(s).\n`
+             + 'Composée de briques déjà validées : rien de neuf n\'est écrit, rien à valider.',
+      branch: 'main'
+    });
+
+    idFige = artefact.id;
+    dejaSauvee = true;
+    msg.className = 'ok';
+    msg.textContent = `✔ Sauvée chez toi — ${chemin}. Elle n'apparaît qu'ici, et à toi seul, `
+      + 'tant que tu ne l\'as pas partagée.';
+    await chargerMiennes(repoRegistre());
+  } catch (error) {
+    msg.className = 'err';
+    msg.textContent = `✕ ${error.message}`;
+  } finally {
+    bouton.textContent = libelle;
+    majVerdict();
+  }
+};
+
+/*
+ * PARTAGER — là, ça passe par la validation.
+ *
+ * Le mot porte toute la charge : il ne veut pas dire « rendre visible », il veut dire
+ * « engager le registre ». Une chaîne partagée devient une promesse faite aux autres, et
+ * une promesse se relit. C'est pour ça que celui-ci passe par l'Admin et que « sauver »
+ * n'y passe pas.
+ */
 $('envoyer').onclick = async () => {
   const artefact = chaineCourante();
   const msg = $('msg');
@@ -397,7 +566,8 @@ $('envoyer').onclick = async () => {
     const repo = repoRegistre();
     const chemin = `artifacts/pending/${artefact.id}.yaml`;
     const tete = entete({
-      origine: 'composition', phrase: $('phrase').value.trim()
+      origine: origineFork ? 'fork' : 'composition',
+      phrase: origineFork || $('phrase').value.trim()
         || `assemblage de ${artefact.steps.length} briques du registre`,
       auteur: session.username, date: new Date().toISOString().slice(0, 10),
       tours: 0, modele: '', fournisseur: '' });

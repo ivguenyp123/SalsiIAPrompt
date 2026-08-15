@@ -81,6 +81,21 @@
 
   .liaison{text-align:center;color:var(--tm);font-size:14px;line-height:1;margin:-4px 0}
 
+  /* ── Mes chaînes, et celles des autres ── */
+  .chaines{display:grid;gap:5px;max-height:230px;overflow:auto}
+  .chaine{display:flex;gap:9px;align-items:flex-start;padding:9px 11px;border-radius:10px;
+          border:1px solid var(--line);background:rgba(0,0,0,.22);cursor:pointer;
+          text-align:left;width:100%;font:inherit;color:inherit}
+  .chaine:hover{border-color:rgba(251,191,36,.5);background:rgba(255,255,255,.05)}
+  .chaine b{display:block;font-size:12.5px;color:var(--tp);line-height:1.35}
+  .chaine small{display:block;font-size:11px;color:var(--tm);margin-top:2px}
+  .chaine .sp{flex:1}
+  .et{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;
+      border-radius:5px;padding:2px 6px;border:1px solid var(--line2);color:var(--tm);white-space:nowrap}
+  .et.privee{color:#fbbf24;border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.1)}
+  .et.partagee{color:var(--info);border-color:rgba(96,165,250,.45);background:rgba(96,165,250,.1)}
+  .et.du-registre{color:var(--ok);border-color:rgba(52,211,153,.45);background:rgba(52,211,153,.1)}
+
   /* ── Le verdict ── */
   .verdict{margin-top:16px;display:flex;align-items:flex-start;gap:11px;padding:13px 15px;
            border-radius:12px;font-size:13px;line-height:1.6}
@@ -127,6 +142,9 @@
       <h2>Briques validées <span class="n" id="nbriques">…</span></h2>
       <input id="recherche" placeholder="chercher une brique…">
       <div class="briques" id="briques"></div>
+
+      <h2 style="margin-top:16px">Chaînes <span class="n" id="nchaines">…</span></h2>
+      <div class="chaines" id="chaines"></div>
     </section>
 
     <section class="panneau">
@@ -135,7 +153,8 @@
       <div id="verdict"></div>
 
       <div class="acts">
-        <button id="envoyer" class="primary" disabled>📮 Envoyer à la validation</button>
+        <button id="sauver" disabled>💾 Sauver chez moi</button>
+        <button id="envoyer" class="primary" disabled>📮 Partager — envoyer en validation</button>
         <button id="vider">Vider</button>
         <span class="note" id="note"></span>
       </div>

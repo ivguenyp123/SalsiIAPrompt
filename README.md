@@ -527,6 +527,7 @@ divergerait au premier correctif — précisément ce qu'on évite.
 | `lib/provenance.js` | l'en-tête qui dit qu'un modèle a écrit le fichier, et depuis quelle phrase |
 | `composer/` | l'établi : glisser-déposer des briques validées, ou une phrase |
 | `lib/chaine.js` · `runtime/chaine.js` | les chaînes : composer des briques validées, et les dérouler |
+| `lib/mien.js` · `mes-chaines/` | sauver une chaîne chez soi, la partager, la forker |
 | `lib/recherche.js` · `lib/tour.js` | la recherche classée du catalogue, et la visite guidée |
 | `lib/matiere.js` | d'où vient ce qu'un agent lit : fichier du dépôt, diff d'une PR, ou ta saisie |
 | `inventaire/hub-devops.yaml` · `lib/inventaire.js` | les 82 capacités demandables, tirées de la surface du hub |
@@ -792,6 +793,44 @@ une erreur 501 explicite : un commit multi-fichiers y demande de reconstruire un
 à la main, du code non trivial pour une opération que personne n'exécutera sur cette
 forge. Mieux vaut une erreur qui dit la vérité qu'une implémentation à moitié. La
 **préparation**, elle, fonctionne partout — on peut voir le plan sans pouvoir l'écrire.
+
+### Sauver, partager, forker — et pourquoi sauver ne se valide pas
+
+Tout ce qui existe dans ce produit passe par la file de validation. Une chaîne
+personnelle, non — et ce n'est pas un raccourci.
+
+**Elle n'apporte aucun texte neuf.** Elle ordonne des artefacts qui ont chacun franchi la
+porte, avec leur intention, leurs outils autorisés et leur contrat. Ce qu'un relecteur
+aurait à juger tient dans l'ordre et le câblage, et `L024`/`L025` le vérifient déjà,
+mécaniquement, à chaque frappe. Il n'y a rien à faire relire.
+
+| geste | où | validation |
+|---|---|---|
+| 💾 **Sauver** | `mes-chaines/<toi>/<id>.yaml` | aucune — immédiat, invisible au catalogue |
+| 📮 **Partager** | `artifacts/pending/` | **oui** — ça engage le registre |
+| ⑂ **Forker** | charge une copie à ton nom dans l'établi | aucune — c'est toi qui sauves ensuite |
+
+Le mot « partager » porte toute la charge : il ne veut pas dire *rendre visible*, il veut
+dire **engager le registre**. Une chaîne partagée devient une promesse faite aux autres, et
+une promesse se relit.
+
+**Dans le dépôt, pas dans le navigateur.** `localStorage` serait plus simple et faux : une
+chaîne qu'on ne retrouve pas en changeant de poste n'est pas « la sienne », c'est un
+brouillon d'onglet. Et on ne peut forker que ce qui existe quelque part.
+
+Un fork change trois choses, aucune n'est cosmétique : l'**auteur** (le fork engage celui
+qui forke — garder l'original ferait porter à quelqu'un d'autre une chaîne qu'il découvrira
+le jour où elle casse), l'**identifiant** (sinon la copie écrase l'original), et le
+**niveau**, remis à `expérimental` — un fork n'a jamais été mesuré, même si son original
+l'avait été. Forker un *agent* est refusé : ça recopierait son prompt sous un autre nom,
+soit deux textes à corriger au lieu d'un — exactement ce que la composition évite.
+
+Et un fork **n'écrit rien** : il charge la copie dans l'établi. Un fork qui déposerait tout
+seul ferait grossir le registre à chaque clic de curiosité.
+
+Quatre états, et le troisième manquait au produit : `à moi` · `partagée` · `au registre` ·
+`à quelqu'un d'autre`. Confondre « la mienne » et « privée » ferait disparaître de mon
+établi ce que je viens de faire valider — c'est-à-dire mon meilleur travail.
 
 ### Le moteur de recherche, les étiquettes, la visite
 
