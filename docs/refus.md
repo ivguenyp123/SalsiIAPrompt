@@ -1,0 +1,295 @@
+# Quand ça refuse
+
+Tout refus de cette plateforme porte **un code** et **une phrase**. Jamais « une erreur
+est survenue », jamais « l'IA a estimé que ». Cette page dit ce que chaque code veut dire
+et ce qu'il faut faire.
+
+## Les deux moments, et pourquoi ils sont deux
+
+| | **La porte** (`L0xx`) | **Le pré-vol** (`P0xx`) |
+|---|---|---|
+| Quand | à l'écriture, et à chaque validation | juste avant chaque lancement |
+| Ce qu'elle voit | le fichier | le fichier **et** le dépôt visé, le modèle, l'état dérivé |
+| Question posée | « ce fichier est-il correct ? » | « ce lancement-ci est-il légitime ? » |
+
+Un agent parfaitement conforme peut être refusé au pré-vol : la porte ne sait pas sur quel
+dépôt vous allez tourner.
+
+## Les deux sévérités
+
+🔴 **bloquant** — ça ne passe pas. Il y a quelque chose à corriger.
+🟡 **avertissement** — ça passe, mais quelqu'un doit le lire. Souvent le validateur.
+
+Certaines règles sont **contextuelles** : la même règle bloque ou avertit selon ce qu'elle
+sait. Voir « refuser ce qu'on sait » en bas de page — c'est la clé de lecture.
+
+---
+
+## La porte — les 25 règles
+
+### Structure et propriété
+
+**`L001` 🔴 — Schéma valide et complet.**
+
+Le fichier ne respecte pas la forme attendue : un champ obligatoire manque, ou une valeur
+n'est pas du bon type. Le message dit lequel.
+
+→ *Le Studio signale la même chose à la frappe. Corrigez le champ nommé.*
+
+**`L013` 🔴 — Owner personne ET périmètre, réellement renseignés.**
+
+Un agent sans propriétaire identifiable est un agent que personne ne maintiendra.
+`equipe`, `à définir` ou une chaîne vide ne comptent pas.
+
+→ *Mettez un nom de personne et un périmètre réel.*
+
+**`L011` 🟡 — `intent.not_for` renseigné.**
+
+Vous n'avez pas dit quand *ne pas* utiliser cet agent. Le champ le plus utile de la fiche.
+
+→ *Écrivez une phrase. Ce n'est pas bloquant, mais un validateur vous le demandera.*
+
+### Variables
+
+**`L002` 🔴 — Toute `{{variable}}` du spec est déclarée.**
+
+La consigne utilise une variable qui n'existe nulle part. À l'exécution, elle partirait au
+modèle telle quelle, en toutes lettres.
+
+→ *Déclarez-la, ou retirez-la de la consigne.*
+
+**`L003` 🟡 — Toute variable déclarée est utilisée.**
+
+L'inverse : une variable déclarée que la consigne n'emploie jamais. Souvent un reste d'une
+version précédente.
+
+→ *Supprimez-la, ou servez-vous-en.*
+
+**`L021` 🔴 — Un spec qui déclare des entrées doit en utiliser au moins une.**
+
+Aucune des variables déclarées n'apparaît dans la consigne. L'agent réclame de la matière
+et ne la lit pas.
+
+→ *Insérez `{{votre_variable}}` là où la consigne doit lire la matière.*
+
+### Outils
+
+**`L004` 🔴 — Tout outil existe au registre, et l'artefact le décrit conformément.**
+
+Vous déclarez un outil inconnu, ou vous en décrivez un connu autrement que le registre.
+
+→ *Reprenez l'identifiant, le mode et l'exécuteur exactement comme au registre des outils.*
+
+**`L005` 🔴 — INVARIANT : `mode: write` ⟹ `executor: module`.**
+
+Un outil qui écrit ne peut pas être exécuté par le modèle. C'est l'invariant central du
+produit : **le LLM ne tient jamais la plume sur un système**. Il propose, un module
+déterministe applique.
+
+→ *Il n'y a pas de contournement. Passez l'exécuteur en `module`.*
+
+**`L006` 🔴 — L'outil est autorisé pour le périmètre de l'owner.**
+
+Cet outil n'est pas ouvert à l'équipe qui porte l'agent.
+
+→ *Retirez l'outil, ou faites élargir le périmètre au registre des outils.*
+
+### Sécurité
+
+**`L007` 🔴 — Aucun secret, URL ou identifiant de projet en dur.**
+
+La consigne contient quelque chose qui ressemble à une clé, un jeton, une URL interne ou
+un identifiant de projet.
+
+→ *Sortez-le en variable. Un secret dans un spec part au modèle à chaque exécution, et
+reste dans l'historique du dépôt pour toujours.*
+
+**`L012` 🟡 — Marqueurs d'injection dans le spec.**
+
+Des tournures du genre « ignore les instructions précédentes ». Parfois légitime, souvent
+un copier-coller malheureux.
+
+→ *Relisez le passage signalé.*
+
+### Le contrat
+
+**`L008` 🔴 — `criteria` non vide.**
+
+Aucun critère : rien ne sera vérifié sur la sortie, et on retombe sur du jugement.
+
+→ *Ajoutez au moins un critère vérifiable. `output.length lte 2500` est un plancher, pas
+une réponse.*
+
+**`L009` 🔴 — Chaque critère est assertable.**
+
+Un critère que le code ne sait pas évaluer est un critère décoratif.
+
+→ *Utilisez une cible connue du registre des cibles.*
+
+**`L017` 🔴/🟡 — Consistance des cas d'or.**
+
+Les cas de test se contredisent, ou l'un d'eux n'a pas de quoi être joué.
+
+→ *Le message dit lequel et en quoi.*
+
+**`L022` 🟡 — Un cas d'or dont l'attente viole un critère de l'artefact.**
+
+Votre cas de test attend un résultat que votre propre contrat refuse. L'un des deux a
+tort.
+
+→ *Alignez le cas sur le critère, ou desserrez le critère si c'est lui qui est faux.*
+
+**`L023` 🔴/🟡 — Un cas d'or joue sur une entrée qui existe.**
+
+Le cas fournit une valeur pour une variable non déclarée, ou en oublie une obligatoire.
+
+→ *Corrigez le contexte du cas.*
+
+### Cycle de vie
+
+**`L010` 🔴 — Nombre de cas d'or ≥ seuil du niveau visé.**
+
+0 pour *expérimental*, **3** pour *équipe*, **5** pour *officiel*.
+
+→ *Ajoutez des cas, ou visez plus bas. Viser bas et monter sur preuve est le chemin
+normal.*
+
+**`L014` 🟡 — Palier de modèle cohérent avec la taille de contexte.**
+
+Un palier `nano` pour une consigne de 3000 caractères est probablement sous-dimensionné ;
+un palier `large` pour trois lignes est probablement du gâchis.
+
+→ *Avertissement seulement : c'est le banc d'essai qui tranchera pour de bon.*
+
+**`L015` 🟡 — Similarité élevée avec un artefact existant.**
+
+Au-delà de 60 % de ressemblance avec un agent du registre. Le message dit lequel.
+
+→ *C'est un humain qui décide. Deux agents proches mais distincts, ça existe.*
+
+**`L016` 🔴/🟡 — Certification présente et non périmée.**
+
+Périmée → bloquant. Jamais certifié → avertissement, tant qu'aucun banc n'a tourné.
+
+→ *Passez l'agent au banc d'essai. Voir [Niveaux et certification](niveaux.md).*
+
+### Le texte de la consigne
+
+**`L018` 🔴 — Aucun reste de rédaction dans le spec.**
+
+`TODO`, `FIXME`, `TBD`, `lorem ipsum`, `[à compléter]`, `___`. Un agent inachevé qui part
+au modèle à chaque exécution, et que personne ne relira jamais.
+
+→ *Finissez la phrase.*
+
+**`L019` 🟡 — Pas de logique dans le spec.**
+
+Des `if`, des boucles, des accolades. Si votre consigne a besoin d'un algorithme, ce n'est
+pas un prompt qu'il vous faut.
+
+→ *Sortez la logique dans un outil, gardez l'intention dans la consigne.*
+
+**`L020` 🔴/🟡 — Taille du spec dans des bornes exploitables.**
+
+Trop court pour dire quoi que ce soit, ou trop long pour être relu par un humain.
+
+→ *Le message donne la taille et la borne.*
+
+### Les chaînes
+
+**`L024` 🔴 — Une chaîne enchaîne des artefacts qui existent.**
+
+Une étape désigne un agent absent du registre, ou s'appelle elle-même, ou deux étapes
+portent le même identifiant.
+
+→ *Le [Composer](composer.md) le signale en direct.*
+
+**`L025` 🔴/🟡 — Le câblage d'une chaîne est résoluble.**
+
+Une entrée obligatoire non branchée (🔴), ou une entrée branchée que l'agent ne connaît
+pas (🟡). Brancher une étape sur la sortie d'une étape **postérieure** est bloquant : au
+moment où elle tourne, celle-ci n'a rien produit.
+
+→ *Rebranchez, ou réordonnez.*
+
+---
+
+## Le pré-vol — les 7 contrôles
+
+Ils tournent **avant le premier jeton dépensé**. Refuser après aurait coûté le prix de
+l'appel *et* laissé partir votre matière au modèle.
+
+**`P001` 🔴 — L'artefact franchit-il ENCORE la porte ?**
+
+Les règles évoluent ; un agent validé il y a six mois peut ne plus être conforme. Sans ce
+contrôle, le registre garantirait la conformité au moment de la publication et plus jamais
+ensuite.
+
+→ *Rouvrez l'agent dans le Studio : il vous dira quelle règle a bougé.*
+
+**`P002` 🔴/🟡 — Sensibilité du dépôt sous le plafond déclaré.**
+
+Le contrôle qui ne peut exister qu'ici — la porte ne sait pas sur quel dépôt vous tournez.
+C'est aussi celui qui porte le risque : un agent autorisé sur de l'interne qui lit un
+dépôt confidentiel, c'est une fuite.
+Dépassement avéré → refus. Sensibilité **inconnue** → on vous demande de confirmer.
+
+→ *Choisissez un autre dépôt, ou faites relever le plafond de l'agent.*
+
+**`P003` 🔴 — Variables requises résolues.**
+
+Une entrée obligatoire n'a pas de valeur. Laisser passer coûterait un appel et rendrait
+une sortie construite sur `{{repo}}` non remplacé — donc une réponse qui a l'air d'une
+réponse.
+
+→ *Remplissez le champ signalé.*
+
+**`P004` 🔴 — Outils autorisés pour le périmètre du dépôt CIBLE.**
+
+À ne pas confondre avec `L006`. Ici c'est le périmètre du dépôt qu'on s'apprête à toucher :
+**le droit suit la cible, pas le porteur**. Un agent de Plateforme lancé sur un dépôt de
+Data n'emporte pas ses outils Plateforme avec lui.
+
+→ *Lancez-le sur un dépôt de son périmètre.*
+
+**`P005` 🔴/🟡 — Certification présente et valide.**
+
+Périmée, c'est un fait mesuré → refus. Jamais certifié, c'est autre chose : tant qu'aucun
+banc ne tourne, aucun agent ne peut l'être, et refuser là-dessus reviendrait à interdire la
+plateforme au nom d'un outil qui n'existe pas encore → on demande une confirmation.
+
+→ *Confirmez, ou passez l'agent au banc.*
+
+**`P006` 🔴/🟡 — Niveau suffisant pour la criticité.**
+
+Un agent *expérimental* n'a pas sa place en production. La sévérité suit **d'où vient le
+niveau**, pas sa valeur : niveau dérivé et insuffisant → refus, la mesure a été faite, elle
+dit non. Niveau seulement visé → avertissement, parce qu'une intention n'est pas un acquis.
+
+→ *Passez l'agent au banc pour transformer le visé en atteint.*
+
+**`P007` 🟡 — Écriture : confirmation humaine requise.**
+
+Cet agent écrit quelque part. Il ne part pas sans que vous le disiez.
+
+→ *Cochez la confirmation. Ce n'est pas une formalité : c'est le dernier point où un
+humain voit ce qui va être modifié.*
+
+---
+
+## La clé de lecture : refuser ce qu'on sait, demander ce qu'on ignore
+
+Vous verrez souvent un avertissement là où vous attendiez un refus. Ce n'est pas de la
+mollesse, c'est une règle explicite du produit :
+
+> **Un contrôle refuse ce qu'il SAIT. Il demande ce qu'il IGNORE.**
+
+Aujourd'hui, aucun dépôt n'est classé au référentiel et le banc n'a rien mesuré. Un
+contrôle qui refuserait l'inconnu refuserait donc **tout**, et la plateforme serait
+inutilisable au nom de sa propre rigueur.
+
+Ces contrôles sont **auto-resserrants** : le jour où le référentiel des dépôts répond,
+`P002` se remet à refuser. Le jour où le banc mesure un niveau, `P006` aussi. Sans qu'une
+ligne de code change, et sans que personne ait à se rappeler de durcir quoi que ce soit.
+
+Un avertissement d'aujourd'hui est donc un refus de demain. C'est le sens à lui donner.

@@ -14,6 +14,10 @@ const TABS = [
   { id: 'catalogue', label: '🧰 Catalogue', href: 'catalogue' },
   { id: 'studio', label: '🛠️ Studio', href: 'studio' },
   { id: 'admin', label: '📊 Admin', href: 'admin' },
+  // Le guide est en queue de barre, jamais en tête : on l'ouvre quand quelque chose
+  // coince, pas au démarrage. Mais il est DANS la barre, visible depuis tous les écrans —
+  // une aide qu'il faut chercher est une aide que personne ne lit.
+  { id: 'guide', label: '📖 Guide', href: 'guide' },
   { id: 'maquette', label: '✨ Maquette', href: 'maquette' }
 ];
 
@@ -26,7 +30,8 @@ export function mountShell({ active = '', session, base = '', onLogout }) {
   const href = { demande: `${base}demande/index.html`,
                  composer: `${base}composer/index.html`,
                  catalogue: `${base}catalogue/index.html`, studio: `${base}studio/index.html`,
-                 admin: `${base}admin/index.html`, maquette: `${base}maquette.html` };
+                 admin: `${base}admin/index.html`, guide: `${base}guide/index.html`,
+                 maquette: `${base}maquette.html` };
 
   const bar = document.createElement('div');
   bar.className = 'tabs';

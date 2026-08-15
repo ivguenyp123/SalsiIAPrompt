@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guide — SalsiIAPrompt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../app/app.css">
+<style>
+  /*
+   * Trois colonnes : les pages, le texte, le plan de la page.
+   *
+   * Le texte est la colonne large et il est bridé à 74 caractères. Une doc en pleine
+   * largeur d'écran ne se lit pas — on perd la ligne au retour, et on cesse de lire à la
+   * troisième. C'est la seule contrainte de mise en page qui compte vraiment ici.
+   */
+  main{max-width:1300px;margin:24px auto 90px;padding:0 20px;
+       display:grid;grid-template-columns:1fr;gap:26px;align-items:start}
+  @media(min-width:960px){main{grid-template-columns:236px minmax(0,1fr)}}
+  @media(min-width:1240px){main{grid-template-columns:236px minmax(0,1fr) 210px}}
+
+  /* ── Les pages ── */
+  .sommaire{position:sticky;top:16px}
+  .sommaire h2{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;
+               color:var(--tm);margin:0 0 10px}
+  .sommaire a{display:block;padding:9px 12px;border-radius:10px;text-decoration:none;
+              border:1px solid transparent;margin-bottom:3px}
+  .sommaire a:hover{background:rgba(255,255,255,.05)}
+  .sommaire a.on{background:rgba(124,92,252,.18);border-color:rgba(167,139,250,.5)}
+  .sommaire a b{display:block;font-size:13px;color:var(--tp);font-weight:700;line-height:1.35}
+  .sommaire a small{display:block;font-size:11px;color:var(--tm);line-height:1.5;margin-top:3px}
+  .sommaire a.on b{color:#fff}
+
+  /* ── Le plan de la page ── */
+  .plan{position:sticky;top:16px}
+  .plan h2{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;
+           color:var(--tm);margin:0 0 10px}
+  .plan a{display:block;font-size:11.5px;color:var(--tm);text-decoration:none;
+          padding:4px 0 4px 10px;border-left:2px solid var(--line);line-height:1.5}
+  .plan a:hover{color:var(--tp);border-left-color:var(--accent)}
+  .plan a.n3{padding-left:20px;font-size:11px}
+
+  /* ── Le texte ── */
+  article{background:var(--bg-card);border:1px solid var(--line);border-radius:18px;
+          padding:30px 34px;min-width:0}
+  article > *{max-width:74ch}
+  article h1{font-family:var(--fd);font-size:27px;margin:0 0 20px;line-height:1.2}
+  article h2{font-family:var(--fd);font-size:19px;margin:34px 0 12px;padding-top:18px;
+             border-top:1px solid var(--line);line-height:1.3}
+  article h1 + h2{border-top:0;padding-top:0;margin-top:22px}
+  article h3{font-size:15px;margin:24px 0 9px;color:var(--tp);line-height:1.35}
+  article p{font-size:14px;line-height:1.75;color:var(--ts);margin:0 0 14px}
+  article b{color:var(--tp);font-weight:700}
+  article i{color:var(--tp);font-style:italic}
+  article a{color:var(--accent2, #a78bfa);text-decoration:none;border-bottom:1px solid rgba(167,139,250,.4)}
+  article a:hover{border-bottom-color:currentColor}
+  article ul,article ol{margin:0 0 15px;padding-left:22px}
+  article li{font-size:14px;line-height:1.72;color:var(--ts);margin-bottom:7px}
+  article code{font-family:var(--fm);font-size:12.5px;color:#fcd34d;
+               background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.2);
+               border-radius:5px;padding:1px 5px}
+  article pre{background:rgba(0,0,0,.4);border:1px solid var(--line);border-radius:12px;
+              padding:15px 17px;overflow-x:auto;margin:0 0 16px;max-width:100%}
+  article pre code{background:none;border:0;padding:0;color:var(--ts);font-size:12.5px;
+                   line-height:1.7}
+  article blockquote{margin:0 0 16px;padding:13px 18px;border-left:3px solid var(--accent);
+                     background:rgba(124,92,252,.09);border-radius:0 10px 10px 0}
+  article blockquote p{margin:0;color:var(--tp);font-size:14px}
+  article blockquote p + p{margin-top:9px}
+  article hr{border:0;border-top:1px solid var(--line);margin:34px 0}
+  /* La manœuvre : ce qu'on cherche quand on arrive sur cette page après un refus. */
+  article p.manoeuvre{border-left:2px solid rgba(52,211,153,.5);padding:2px 0 2px 13px;
+                      color:#6ee7b7;margin-bottom:22px}
+  article p.manoeuvre i{color:#a7f3d0;font-style:normal}
+  article p.manoeuvre code{color:#6ee7b7;background:rgba(52,211,153,.1);
+                           border-color:rgba(52,211,153,.25)}
+  article p.manoeuvre a{color:#6ee7b7;border-bottom-color:rgba(110,231,183,.4)}
+  article table{border-collapse:collapse;margin:0 0 18px;font-size:13px;width:100%;
+                display:block;overflow-x:auto}
+  article th{text-align:left;font-size:10.5px;font-weight:800;text-transform:uppercase;
+             letter-spacing:.05em;color:var(--tm);padding:8px 13px 8px 0;
+             border-bottom:1px solid var(--line2);white-space:nowrap}
+  article td{padding:9px 13px 9px 0;border-bottom:1px solid var(--line);
+             color:var(--ts);line-height:1.65;vertical-align:top}
+  article tr:last-child td{border-bottom:0}
+
+  .charge{color:var(--tm);font-size:13px;padding:30px 0}
+  .rate{color:var(--err);font-size:13px;line-height:1.7}
+  .rate code{font-family:var(--fm);font-size:12px}
+</style>
+</head>
+<body>
+
+<main>
+  <nav class="sommaire">
+    <h2>Le guide</h2>
+    <div id="pages"></div>
+  </nav>
+
+  <article id="texte"><p class="charge">…</p></article>
+
+  <nav class="plan">
+    <h2>Sur cette page</h2>
+    <div id="plan"></div>
+  </nav>
+</main>
+
+<script type="module" src="./guide.js"></script>
+</body>
+</html>

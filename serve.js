@@ -34,7 +34,7 @@ import { fileURLToPath } from 'node:url';
 import yaml from './lib/yaml.js';
 import { makeValidator } from './lib/schema.js';
 import { createMoteur } from './runtime/moteur.js';
-import { executer, etat, rediger, composer, DOSSIERS } from './runtime/api.js';
+import { executer, etat, rediger, composer, coherence, DOSSIERS } from './runtime/api.js';
 import { lint } from './lint/index.js';
 import { chemin } from './lib/entrees.js';
 import { CHEMIN, carte } from './runtime/etat-derive.js';
@@ -121,6 +121,10 @@ const TYPES = {
   '.yaml': 'text/yaml; charset=utf-8',
   '.yml': 'text/yaml; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
+  // Le guide va chercher `docs/*.md` en clair et le met en forme lui-même. Sans ce type,
+  // le fichier descend en `application/octet-stream` et le navigateur propose de le
+  // télécharger au lieu de l'afficher.
+  '.md': 'text/markdown; charset=utf-8',
   '.svg': 'image/svg+xml'
 };
 
@@ -152,6 +156,16 @@ createServer(async (req, res) => {
                                                      required: v.required !== false })),
         criteres: (a.criteria || []).length, scope: a.owner?.scope || ''
       })));
+      return;
+    }
+
+    if (url.pathname === '/api/coherence') {
+      if (req.method !== 'POST') { json(res, 405, { erreur: 'POST attendu.' }); return; }
+      let requete;
+      try { requete = await corps(req); }
+      catch (error) { json(res, 400, { erreur: error.message }); return; }
+      const { status, corps: sortie } = await coherence(requete, dependances());
+      json(res, status, sortie);
       return;
     }
 

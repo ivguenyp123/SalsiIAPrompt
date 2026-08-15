@@ -422,3 +422,104 @@ steps:
     assert.equal(r.abandon, false);
   });
 });
+
+/* ── L'exécution d'une chaîne, par le point d'entrée ──────────────────────── */
+
+describe('POST /api/lancer sur une chaîne', async () => {
+  const { executer } = await import('../runtime/api.js');
+  const { entete } = await import('../lib/provenance.js');
+
+  const CHAINE = chaine([
+    { id: 'e1', artefact: 'expliquer-un-code', entrees: { repo: '{{repo}}', code: '{{code}}' } },
+    { id: 'e2', artefact: 'resumer-un-incident',
+      entrees: { repo: '{{repo}}', notes: 'Analyse :\n{{e1.sortie}}' } }
+  ]);
+
+  const fauxMoteur = (sorties) => {
+    const vus = []; let i = 0;
+    return { vus, fournisseur: 'papier', ou: '—', modele: () => 'papier',
+             generer: async ({ prompt }) => {
+               vus.push(prompt);
+               const texte = sorties[Math.min(i, sorties.length - 1)]; i += 1;
+               return { texte, modele: 'papier', tier: 'mid',
+                        jetons: { entree: 50, sortie: 20 }, motifArret: 'stop' };
+             } };
+  };
+
+  const deps = (moteur) => ({
+    registres, models: [], banque: registres.entrees, briques: BRIQUES,
+    charger: (id) => (id === CHAINE.id ? CHAINE : PAR_ID.get(id) || null),
+    lireEntree: () => '',
+    creerVertex: () => moteur
+  });
+
+  const REQUETE = { id: CHAINE.id, sensibilite: 'interne', criticite: 'test',
+                    valeurs: { repo: 'demo', code: 'int a;' } };
+  const BONNE = '## Résumé\nCourt et propre.';
+
+  test('déroule les étapes au lieu d\'envoyer la narration au modèle', async () => {
+    /*
+     * Le défaut que ce test verrouille : `lancer()` aurait rendu le `spec` de la chaîne —
+     * sa NARRATION — et l'aurait envoyé au modèle. Du français bien formé, qui passe tous
+     * les critères de forme, et complètement faux.
+     */
+    const m = fauxMoteur([BONNE, BONNE]);
+    const { status, corps } = await executer(REQUETE, deps(m));
+
+    assert.equal(status, 200);
+    assert.equal(corps.chaine, true);
+    assert.equal(m.vus.length, 2, 'deux appels, un par brique');
+    for (const prompt of m.vus) {
+      assert.ok(!prompt.includes('Cette chaîne enchaîne'),
+                'la narration ne part JAMAIS au modèle');
+    }
+    assert.ok(m.vus[0].includes('int a;'), 'la brique reçoit son propre prompt, rendu');
+    assert.deepEqual(corps.etapes.map((e) => e.etape), ['e1', 'e2']);
+    assert.equal(corps.sortie, BONNE);
+  });
+
+  test('la sortie d\'une étape devient l\'entrée de la suivante', async () => {
+    const m = fauxMoteur([BONNE, BONNE]);
+    await executer(REQUETE, deps(m));
+    assert.ok(m.vus[1].includes(BONNE), 'le pont a été fait dans le prompt de e2');
+  });
+
+  test('une étape qui viole son contrat arrête tout, et se nomme', async () => {
+    const m = fauxMoteur(['x'.repeat(9000), BONNE]);
+    const { status, corps } = await executer(REQUETE, deps(m));
+
+    assert.equal(status, 200);
+    assert.equal(corps.conforme, false);
+    assert.equal(corps.arretee.etape, 'e1');
+    assert.equal(m.vus.length, 1, 'la seconde étape n\'a pas été payée');
+    assert.equal(corps.sortie, null, 'une sortie partielle n\'est pas un résultat');
+    assert.equal(corps.etapes[0].conforme, false);
+    assert.ok(corps.etapes[0].postvol.violes.length > 0);
+  });
+
+  test('le pré-vol de CHAQUE brique tourne — une chaîne ne dilue rien', async () => {
+    /*
+     * Une chaîne ne déclare ni outil ni palier : ses briques les portent. Ne contrôler que
+     * la chaîne rendrait le pré-vol contournable en enveloppant n'importe quoi dedans.
+     */
+    const m = fauxMoteur([BONNE, BONNE]);
+    const { status, corps } = await executer(
+      { ...REQUETE, sensibilite: undefined, criticite: 'production' }, deps(m));
+
+    assert.equal(status, 409);
+    assert.equal(m.vus.length, 0, 'rien n\'est parti au modèle');
+    assert.ok(corps.constats.every((c) => c.etape), 'chaque constat nomme son étape');
+    assert.ok(corps.confirmationRequise);
+  });
+
+  test('une brique absente du registre arrête avant le premier appel', async () => {
+    const cassee = { ...CHAINE, id: 'cassee',
+                     steps: [{ id: 'e1', artefact: 'nexiste-pas', entrees: {} }] };
+    const m = fauxMoteur([BONNE]);
+    const { status, corps } = await executer({ ...REQUETE, id: 'cassee' },
+      { ...deps(m), charger: () => cassee });
+    assert.equal(status, 409);
+    assert.equal(m.vus.length, 0);
+    assert.match(corps.raison, /P000/);
+  });
+});

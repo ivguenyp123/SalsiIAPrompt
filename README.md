@@ -16,6 +16,28 @@ qui garde la porte d'entrée (moment 2, couche 1), et le Studio qui joue les mê
 seul fichier, données en dur. Elle s'ouvre par double-clic. Elle montre l'intention ;
 elle ne vérifie rien. C'est le code ci-dessous qui vérifie.
 
+## 📖 La doc utilisateur
+
+Ce README-ci s'adresse à qui construit la plateforme. Pour qui **s'en sert**, la doc est
+dans [`docs/`](docs/index.md), et surtout dans l'onglet **📖 Guide** de l'application —
+mêmes fichiers, rendus dans le produit, sans session requise.
+
+| | |
+|---|---|
+| [Par où commencer](docs/index.md) | les deux principes, et vers quelle page aller |
+| [Demander un agent](docs/demander.md) | vous avez un besoin, pas un artefact |
+| [Trouver et lancer](docs/catalogue.md) | recherche, étiquettes, fiche, exécution |
+| [Composer une chaîne](docs/composer.md) | assembler, sauver, partager, forker |
+| [Valider](docs/valider.md) | la file, ce qu'il faut regarder, l'aide à la relecture |
+| [Niveaux et certification](docs/niveaux.md) | visé contre atteint, le banc, les 90 jours |
+| [Quand ça refuse](docs/refus.md) | les 32 codes, un par un, avec la manœuvre |
+| [Les mots du produit](docs/mots.md) | le vocabulaire, en cinq minutes |
+
+Ces pages sont **tenues par des tests** (`test/doc.test.js`) : un code de refus ajouté
+sans son explication, un nombre qui ne correspond plus au code, un lien mort ou un écran
+non documenté font échouer la suite. Une doc ne casse pas, elle ment — alors on teste les
+endroits où elle recopie le code.
+
 ## Lancer
 
 **Rien à installer.** Aucune dépendance à l'exécution : ni `npm install`, ni réseau, ni

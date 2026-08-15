@@ -26,12 +26,16 @@
  * Module INJECTÉ de bout en bout — forge de Vertex, lecture de fichiers, registres.
  * C'est ce qui permet de le tester sans clé, sans réseau et sans serveur.
  */
-import { lancer, valeursDepuisContexte } from './lancer.js';
+import { lancer, valeursDepuisContexte, rendre, trous } from './lancer.js';
+import { derouler, depense as depenseChaine } from './chaine.js';
+import { prevol } from '../preflight/index.js';
+import { ERROR } from '../lint/index.js';
 import { chemin } from '../lib/entrees.js';
 import { cout } from './vertex.js';
 import { rediger as redigerArtefact, composer as composerChaine } from './redacteur.js';
 import { knownScopes } from '../app/scopes.js';
 import { toYaml } from '../studio/to-yaml.js';
+import { relire } from './coherence.js';
 
 /** Les dossiers où un artefact peut vivre. Aucun chemin ne vient de la requête. */
 export const DOSSIERS = ['artifacts', 'artifacts/pending', 'artifacts/retires'];
@@ -66,7 +70,8 @@ export function etat({ creerVertex, models = [] } = {}) {
  * @returns {{status, corps}}  status HTTP et corps JSON — le serveur ne décide rien
  */
 export async function executer(requete = {}, deps = {}) {
-  const { charger, banque, registres, models = [], creerVertex, lireEntree, derive = null } = deps;
+  const { charger, banque, registres, models = [], creerVertex, lireEntree,
+          derive = null, briques = [] } = deps;
   const id = String(requete.id || '');
 
   if (!ID_VALIDE.test(id)) {
@@ -118,6 +123,23 @@ export async function executer(requete = {}, deps = {}) {
     criticite: requete.criticite || 'test'
   };
 
+  /*
+   * ── UNE CHAÎNE NE SE LANCE PAS COMME UN AGENT ──────────────────────────────
+   *
+   * Défaut vu à la relecture, et il aurait été invisible : `lancer()` rend le `spec` et
+   * l'envoie au modèle. Sur une chaîne, le `spec` est la NARRATION de la séquence —
+   * « 1. Expliquer un code · 2. Résumer un incident ». L'envoyer au modèle aurait produit
+   * un texte plausible et faux, sans qu'aucun contrôle ne s'en aperçoive : la narration
+   * est du français bien formé, elle passe tous les critères de forme.
+   *
+   * Une chaîne se DÉROULE. Chaque étape joue son propre artefact, avec son propre prompt
+   * et son propre contrat, et celui qui viole le sien arrête tout.
+   */
+  if (artifact.kind === 'chain') {
+    return await deroulerChaine(artifact, { valeurs, contexte, vertex, models, briques,
+                                            assume: requete.assume === true, cas: joue });
+  }
+
   let r;
   try {
     // `assume` n'a pas de valeur par défaut permissive : c'est la case cochée par un
@@ -156,6 +178,119 @@ export async function executer(requete = {}, deps = {}) {
     postvol: r.postvol,
     confirmationRequise: r.prevol.confirmationRequise,
     raisons: r.prevol.raisons
+  } };
+}
+
+/* ── Dérouler une chaîne ──────────────────────────────────────────────────── */
+
+/**
+ * Le pré-vol de CHAQUE brique, avant la première.
+ *
+ * Une chaîne ne déclare ni outil ni palier : ce sont ses briques qui en portent. Ne
+ * contrôler que la chaîne laisserait donc passer, sans un mot, une étape qui invoque un
+ * outil interdit au périmètre — et le pré-vol deviendrait contournable en enveloppant
+ * n'importe quoi dans une chaîne.
+ *
+ * Une chaîne ne dilue pas les contrôles de ses briques : son risque est leur UNION.
+ */
+function prevolDesEtapes(artefact, parId, contexte) {
+  const constats = [];
+  for (const e of artefact.steps || []) {
+    const cible = parId.get(e.artefact);
+    if (!cible) {
+      constats.push({ code: 'P000', severity: ERROR, etape: e.id,
+                      message: `L'étape \`${e.id}\` désigne \`${e.artefact}\`, absent du registre.` });
+      continue;
+    }
+    /*
+     * Les valeurs passées à P003 sont les entrées CÂBLÉES, pas les valeurs de la chaîne.
+     *
+     * P003 demande « le prompt partirait-il avec un trou ? ». Sur l'étape 2, la réponse
+     * dépend de ce que l'étape 1 aura produit — donc elle n'existe pas encore, et lui
+     * passer les valeurs de la chaîne ferait refuser TOUTE chaîne de plus d'une étape.
+     *
+     * Ce que P003 protège est déjà couvert deux fois, mieux : `L025` refuse au lint une
+     * variable requise que rien ne câble, et `jouer()` refuse au départ un prompt resté
+     * troué. On lui dit donc ce qu'il peut savoir — « cette entrée est branchée » — et on
+     * laisse les six autres contrôles faire leur travail, qui est le vrai sujet ici :
+     * périmètre, outils, sensibilité, certification, niveau, écriture.
+     */
+    const cablees = Object.fromEntries(Object.keys(e.entrees || {}).map((k) => [k, '(câblée)']));
+    const r = prevol(cible, { ...contexte, valeurs: cablees,
+                              depot: { ...contexte.depot, scope: cible.owner?.scope } });
+    for (const c of r.constats) constats.push({ ...c, etape: e.id });
+  }
+  return { constats, bloque: constats.some((c) => c.severity === ERROR),
+           raisons: constats.filter((c) => c.confirme) };
+}
+
+async function deroulerChaine(artefact, { valeurs, contexte, vertex, models, briques,
+                                          assume, cas }) {
+  const parId = new Map(briques.map((a) => [a.id, a]));
+
+  const avant = prevolDesEtapes(artefact, parId, contexte);
+  if (avant.bloque) {
+    const codes = [...new Set(avant.constats.filter((c) => c.severity === ERROR)
+      .map((c) => `${c.etape}/${c.code}`))];
+    return { status: 409, corps: {
+      refuse: true, cas,
+      raison: `Pré-vol refusé sur ${codes.length} point(s) : ${codes.join(', ')}.`,
+      constats: avant.constats, confirmationRequise: avant.raisons.length > 0,
+      raisons: avant.raisons } };
+  }
+  if (avant.raisons.length && !assume) {
+    return { status: 409, corps: {
+      refuse: true, cas,
+      raison: `${avant.raisons.length} point(s) exigent une confirmation humaine : `
+            + `${[...new Set(avant.raisons.map((c) => c.code))].join(', ')}.`,
+      constats: avant.constats, confirmationRequise: true, raisons: avant.raisons } };
+  }
+
+  /*
+   * `jouer` est le SEUL endroit qui parle au modèle. Il rend le prompt de la brique — le
+   * sien, pas celui de la chaîne — et refuse de partir avec un trou, comme `lancer()`.
+   */
+  const jouer = async (cible, entrees) => {
+    const prompt = rendre(cible.spec, entrees);
+    const manquantes = trous(prompt);
+    if (manquantes.length) {
+      throw new Error(`prompt à trou sur \`${cible.id}\` : ${manquantes.join(', ')}`);
+    }
+    const rep = await vertex.generer({ prompt, tier: cible.model_tier || 'mid' });
+    return { sortie: rep.texte, jetons: rep.jetons, modele: rep.modele,
+             cout: cout(rep, models), motifArret: rep.motifArret };
+  };
+
+  let passage;
+  try {
+    passage = await derouler(artefact, { parId, jouer, valeurs });
+  } catch (error) {
+    return { status: error.status && error.status >= 400 ? error.status : 502,
+             corps: { erreur: error.message } };
+  }
+
+  const d = depenseChaine(passage.etapes);
+
+  return { status: 200, corps: {
+    refuse: false, cas, chaine: true,
+    sortie: passage.sortie,
+    conforme: passage.conforme,
+    arretee: passage.arretee,
+    raison: passage.raison,
+    /*
+     * Chaque étape avec SA sortie et SON verdict. C'est ce qui distingue une chaîne d'un
+     * tuyau : quand elle s'arrête, on sait quelle brique a lâché et sur quel critère,
+     * au lieu de constater un résultat aberrant au bout.
+     */
+    etapes: passage.etapes.map((e) => ({
+      etape: e.etape, artefact: e.artefact, titre: e.artefactTitre,
+      sortie: e.sortie, conforme: e.conforme, erreur: e.erreur || '',
+      postvol: e.postvol, jetons: e.jetons, modele: e.modele
+    })),
+    jetons: d.jetons,
+    cout: d.euros,
+    confirmationRequise: avant.raisons.length > 0,
+    raisons: avant.raisons
   } };
 }
 
@@ -313,4 +448,39 @@ export async function composer(requete = {}, deps = {}) {
   } };
 }
 
-export default { executer, etat, rediger, composer, DOSSIERS, ID_VALIDE, PHRASE_MAX };
+/* ── L'aide à la validation ───────────────────────────────────────────────── */
+
+/**
+ * Relire un artefact soumis, à la recherche de contradictions internes.
+ *
+ * L'artefact vient de la REQUÊTE et non du disque, et c'est le seul point d'entrée où
+ * c'est vrai : le relecteur regarde ce qui est en attente dans `artifacts/pending/`, que
+ * l'écran a chargé depuis la forge. Le serveur ne le connaît pas.
+ *
+ * Ce que ça n'est pas : une porte. Le verdict des 25 règles ne bouge pas d'un iota, et
+ * rien de ce qui sort d'ici ne peut faire ACCEPTER quelque chose — au pire ça ajoute du
+ * doute, ce qui est le seul sens acceptable pour un conseil de modèle dans un registre
+ * gouverné.
+ */
+export async function coherence(requete = {}, deps = {}) {
+  const { creerVertex } = deps;
+  const artefact = requete.artefact;
+
+  if (!artefact || typeof artefact !== 'object' || !artefact.spec) {
+    return { status: 400, corps: { erreur: 'Aucun artefact lisible à relire.' } };
+  }
+
+  let moteur;
+  try { moteur = creerVertex(); }
+  catch (error) { return { status: 503, corps: { erreur: error.message } }; }
+
+  try {
+    const r = await relire(artefact, { moteur });
+    return { status: 200, corps: { ...r, fournisseur: moteur.fournisseur } };
+  } catch (error) {
+    return { status: error.status && error.status >= 400 ? error.status : 502,
+             corps: { erreur: error.message } };
+  }
+}
+
+export default { executer, etat, rediger, composer, coherence, DOSSIERS, ID_VALIDE, PHRASE_MAX };

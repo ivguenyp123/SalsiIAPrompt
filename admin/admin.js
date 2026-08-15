@@ -335,13 +335,111 @@ function actions(entry, { lisible, ecrit }) {
   valider.onclick = () => decider(entry, 'valider');
   refuser.onclick = () => decider(entry, 'refuser');
 
-  box.append(valider, corriger, refuser, el('span', { className: 'sp' }));
+  /*
+   * ── L'AIDE À LA VALIDATION ──────────────────────────────────────────────────
+   *
+   * Les 25 règles vérifient la FORME. Elles ne peuvent pas dire que le spec ne fait pas ce
+   * que l'intention annonce — c'est écrit en tête du dépôt depuis le début, et jusqu'ici
+   * c'était au relecteur de le voir seul.
+   *
+   * Ce bouton demande à un modèle UNE chose : ce fichier se contredit-il lui-même ? Pas
+   * « est-il bon » — sans réponse, et un modèle à qui on le demande invente une note.
+   *
+   * Il n'est PAS une porte. Il n'active ni ne désactive « Valider » : au pire il ajoute du
+   * doute. S'il devenait ce qui autorise à valider, le jour où il se trompe c'est lui qui
+   * aurait validé — et personne ne saurait le dire.
+   */
+  const relire = el('button', { className: 'relire', textContent: '🔎 L\'IA relit' });
+  relire.disabled = !lisible;
+  relire.title = 'Cherche les contradictions internes de l\'artefact. Conseil, jamais verdict.';
+  relire.onclick = () => demanderCoherence(entry, relire, box);
+
+  box.append(valider, corriger, refuser, relire, el('span', { className: 'sp' }));
   if (ecrit) {
     box.append(el('span', { className: 'hint' },
       'Cet artefact écrit : la revue sécurité s\'impose avant validation.'));
   }
   box.append(el('code', { className: 'mono', style: 'color:var(--tm)', textContent: file.path }));
   return box;
+}
+
+/* ── L'aide à la validation ───────────────────────────────────────────────── */
+
+/**
+ * Demande une relecture de cohérence et l'affiche SOUS les actions.
+ *
+ * Ce qui est montré est fait de citations : deux extraits du fichier qui ne tiennent pas
+ * ensemble. Jamais un verdict. Un constat sans ses deux citations a déjà été jeté côté
+ * serveur — c'est ce qui empêche de tamponner sans lire : on ne tamponne pas deux extraits
+ * qu'on a sous les yeux.
+ */
+async function demanderCoherence(entry, bouton, box) {
+  const { artifact } = entry;
+  const ancien = box.parentElement.querySelector('.coherence');
+  if (ancien) ancien.remove();
+
+  bouton.disabled = true;
+  const libelle = bouton.textContent;
+  bouton.textContent = 'Lecture…';
+
+  const zone = el('div', { className: 'coherence' });
+  box.after(zone);
+
+  const dire = (classe, ...contenu) => {
+    zone.textContent = '';
+    zone.className = `coherence ${classe}`;
+    zone.append(...contenu);
+  };
+
+  try {
+    const r = await fetch('../api/coherence', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ artefact: artifact })
+    });
+    const corps = await r.json();
+    if (!r.ok) throw new Error(corps.erreur || `Le serveur a répondu ${r.status}.`);
+
+    if (corps.illisible) {
+      // « Rien de lisible » et « aucune contradiction » ne sont PAS la même chose.
+      // Les confondre ferait passer une panne pour un feu vert.
+      dire('flou', el('b', { textContent: '⚠ Réponse illisible' }),
+        el('small', { textContent: 'Le modèle n\'a rien rendu d\'exploitable. Ce n\'est pas '
+          + 'un feu vert : relance, ou relis toi-même.' }));
+      return;
+    }
+
+    if (corps.constats.length === 0) {
+      dire('ok', el('b', { textContent: '✔ Aucune contradiction interne trouvée' }),
+        el('small', { textContent:
+          'Le modèle n\'a rien vu qui se contredise. Ça ne dit RIEN de la qualité de '
+          + 'l\'agent, ni de son utilité — seulement que ses déclarations tiennent '
+          + 'ensemble. Le jugement reste le tien.'
+          + (corps.jetes.length ? ` (${corps.jetes.length} constat(s) écarté(s) : citations introuvables dans le fichier.)` : '') }));
+      return;
+    }
+
+    dire('ko', el('b', { textContent:
+      `🔎 ${corps.constats.length} contradiction(s) à vérifier — ce n'est pas un refus` }));
+
+    for (const c of corps.constats) {
+      zone.append(el('div', { className: 'contra' },
+        el('div', { className: 'ou', textContent: c.ou }),
+        el('blockquote', { textContent: c.cite_a }),
+        el('div', { className: 'contre', textContent: '…contre…' }),
+        el('blockquote', { textContent: c.cite_b }),
+        el('div', { className: 'pourquoi', textContent: c.pourquoi })));
+    }
+
+    zone.append(el('small', { textContent:
+      'Deux extraits du fichier, à confronter toi-même. Si tu leur donnes tort, ignore-les : '
+      + 'ce bouton ne décide de rien, et le verdict de la porte n\'a pas bougé.' }));
+  } catch (error) {
+    dire('flou', el('b', { textContent: '✕ Relecture impossible' }),
+      el('small', { textContent: error.message }));
+  } finally {
+    bouton.disabled = false;
+    bouton.textContent = libelle;
+  }
 }
 
 /* ── Décision ─────────────────────────────────────────────────────────────── */
