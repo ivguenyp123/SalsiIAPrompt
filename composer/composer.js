@@ -35,6 +35,9 @@ import { prochainId, etapePour, variablesDeduites, criteresHerites,
          narrer, renvoisImpossibles } from '../lib/chaine.js';
 import { chemin as cheminMien, dossier as dossierMien, forker, etat as etatChaine,
          ETATS } from '../lib/mien.js';
+import { aplatir, confronter, familles as famillesDe, filtrer } from '../lib/inventaire.js';
+import { morceauDepuisInventaire, morceauDepuisArtefact, consigneAssemblee,
+         assembler, cequilManque } from '../lib/assemblage.js';
 import yaml from '../lib/yaml.js';
 
 const session = requireSession('../app/login.html');
@@ -64,14 +67,36 @@ let identite = { titre: '', purpose: '', notFor: '' };
 let idFige = '';                  // l'identifiant quand on reprend une chaîne existante
 let CHAINES = [];                 // les miennes + celles du registre
 
+/*
+ * Le mode. Deux choses différentes, sur le même établi.
+ *
+ *   `agent`   prompt + prompt = UNE consigne, UN appel. Du texte NEUF, qui n'hérite de
+ *             rien et part en validation.
+ *   `chaine`  agent + agent = N appels. Aucun texte neuf, donc sauvable chez soi.
+ *
+ * `agent` est le mode par défaut, et c'est un choix : c'est celui dont la matière est
+ * complète dès le premier jour — les 130 besoins de la plateforme. Le mode chaîne, lui,
+ * ne vaut que quand le registre porte déjà des agents validés à enchaîner.
+ */
+let MODE = 'agent';
+let INVENTAIRE = [];              // les besoins de la plateforme, confrontés au registre
+let MORCEAUX = [];                // les prompts posés dans la consigne
+let famille = '';                 // le filtre de famille, en mode agent
+
+const enAgent = () => MODE === 'agent';
+
 /* ── Chargement ───────────────────────────────────────────────────────────── */
 
 async function charger() {
-  const [tools, targets, entrees, schema] = await Promise.all([
+  const [tools, targets, entrees, schema, inventaire] = await Promise.all([
     fetch('../registries/tools.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t).tools),
     fetch('../registries/targets.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t).targets),
     fetch('../entrees/index.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t)),
-    fetch('../schema/artifact.schema.json', FRAIS).then((r) => r.json())
+    fetch('../schema/artifact.schema.json', FRAIS).then((r) => r.json()),
+    // Les besoins de la plateforme. C'est LA matière du mode agent : un établi qui
+    // n'offrirait que les artefacts déjà validés serait vide le premier jour, et donc
+    // inutile le jour où il sert le plus.
+    fetch('../inventaire/hub-devops.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t))
   ]);
   ctx = { tools, targets, entrees, validateArtifact: makeValidator(schema) };
 
@@ -103,10 +128,71 @@ async function charger() {
   CHAINES = publies.filter((a) => a.kind === 'chain')
     .map((a) => ({ artefact: a, proprietaire: a.owner?.person || '', publiee: true }));
 
-  rendreBriques();
-  rendreChaine();
+  // L'état d'un besoin — « au registre » ou « à créer » — n'est écrit nulle part : il se
+  // confronte. Un inventaire qui mentirait sur ce qui existe ferait recomposer ce qui est
+  // déjà là.
+  INVENTAIRE = confronter(aplatir(inventaire), publies.map((a) => a.id));
+
+  basculer(MODE);
   await chargerMiennes(repo);
 }
+
+/* ── Le mode ──────────────────────────────────────────────────────────────── */
+
+/*
+ * Ce qui change entre les deux modes n'est pas cosmétique, et l'écran doit le dire au
+ * lieu de le laisser deviner : la matière, ce qu'on produit, et surtout ce qui est permis
+ * au bout. « Sauver chez moi » n'existe qu'en mode chaîne — un agent composé est du texte
+ * neuf, et il n'y a pas de raccourci pour du texte que personne n'a lu.
+ */
+function basculer(mode) {
+  MODE = mode === 'chaine' ? 'chaine' : 'agent';
+
+  for (const b of document.querySelectorAll('.mode')) {
+    b.classList.toggle('on', b.dataset.mode === MODE);
+  }
+
+  $('chapo').textContent = enAgent()
+    ? 'Prends des prompts à gauche, pose-les à droite : ils forment UNE consigne, jouée en '
+      + 'un seul appel. C\'est du texte neuf — il repasse par les 25 règles et par une '
+      + 'validation humaine, comme n\'importe quel prompt écrit à la main.'
+    : 'Assemble des agents déjà validés : tire une brique, branche ses entrées, réordonne. '
+      + 'Aucun prompt n\'est écrit ici — une chaîne hérite de la validation de ses briques, '
+      + 'et chaque étape est vérifiée avant de passer à la suivante.';
+
+  $('titreMatiere').firstChild.textContent = enAgent() ? 'Prompts ' : 'Briques validées ';
+  $('titreToile').firstChild.textContent = enAgent() ? 'La consigne ' : 'La chaîne ';
+  $('recherche').placeholder = enAgent() ? 'chercher un prompt…' : 'chercher une brique…';
+
+  // Les filtres ne survivent pas au changement de mode : ils portaient sur une autre
+  // matière. Garder « incident » en passant aux briques afficherait un établi presque
+  // vide, qu'on prendrait pour un registre presque vide.
+  $('recherche').value = '';
+  famille = '';
+
+  // La dictée compose une CHAÎNE — elle choisit des briques et les branche, elle
+  // n'écrit aucune consigne. La laisser en mode agent promettrait le contraire de ce
+  // qu'elle fait.
+  $('dictee').hidden = enAgent();
+
+  $('identite').hidden = !enAgent();
+  $('familles').hidden = !enAgent();
+  $('blocChaines').hidden = enAgent();
+  $('sauver').hidden = enAgent();
+  $('envoyer').textContent = enAgent()
+    ? '📮 Envoyer en validation' : '📮 Partager — envoyer en validation';
+
+  rendreMatiere();
+  rendreToile();
+}
+
+for (const b of document.querySelectorAll('.mode')) {
+  b.onclick = () => basculer(b.dataset.mode);
+}
+
+/* Les deux entrées de rendu, qui aiguillent. Le reste du fichier ne connaît qu'elles. */
+const rendreMatiere = () => (enAgent() ? rendrePrompts() : rendreBriques());
+const rendreToile = () => (enAgent() ? rendreAssemblage() : rendreChaine());
 
 /*
  * Les chaînes personnelles, lues dans `mes-chaines/<moi>/`.
@@ -184,7 +270,9 @@ function ouvrirChaine(artefact) {
   dejaSauvee = false;
   $('msg').className = '';
   $('msg').textContent = '';
-  rendreChaine();
+  // Ouvrir une chaîne bascule l'établi : on ne la relit pas dans un écran qui parle
+  // d'assemblage de prompts.
+  basculer('chaine');
 }
 
 function forkerDepuis(artefact) {
@@ -242,6 +330,185 @@ function rendreBriques() {
     n.onclick = () => ajouter(a.id);
     zone.append(n);
   }
+}
+
+/* ── La matière du mode agent ─────────────────────────────────────────────── */
+
+/*
+ * Deux gisements, et le premier est celui qui rend l'écran utile dès le départ :
+ *
+ *   les BESOINS de la plateforme   130 lignes, disponibles sans qu'aucun agent existe
+ *   les CONSIGNES déjà validées    le texte d'un artefact du registre, relu par un humain
+ *
+ * Le second est la meilleure matière, le premier est la seule qu'on ait en quantité. Les
+ * mélanger dans une seule liste, en disant d'où vient chacun, vaut mieux que deux
+ * colonnes dont l'une reste vide six mois.
+ */
+function sourcesPrompts() {
+  const depuisRegistre = BRIQUES
+    .map((a) => morceauDepuisArtefact(a))
+    .filter((m) => m && m.consigne);
+
+  // Un besoin déjà réalisé au registre est écarté : sa version validée est juste
+  // au-dessus, et proposer les deux ferait choisir le brouillon.
+  const dejaFaits = new Set(depuisRegistre.map((m) => m.ref));
+  const depuisInventaire = INVENTAIRE
+    .filter((p) => !dejaFaits.has(p.id))
+    .map((p) => ({ ...morceauDepuisInventaire(p), famille: p.famille, module: p.module }));
+
+  return [...depuisRegistre, ...depuisInventaire];
+}
+
+function rendrePrompts() {
+  const zone = $('briques');
+  zone.textContent = '';
+
+  const tous = sourcesPrompts();
+  const q = $('recherche').value;
+
+  /*
+   * Les familles de l'inventaire. `familles()` rend des OBJETS — clé, titre, icône et
+   * comptes — et pas des chaînes : le bouton affiche le titre lisible, le filtre compare
+   * la clé.
+   */
+  const boite = $('familles');
+  boite.textContent = '';
+  const tout = el('button', { textContent: 'toutes', className: famille ? '' : 'on' });
+  tout.onclick = () => { famille = ''; rendrePrompts(); };
+  boite.append(tout);
+
+  for (const f of famillesDe(INVENTAIRE)) {
+    const b = el('button', { textContent: `${f.icone || ''} ${f.titre || f.cle}`.trim(),
+                             className: famille === f.cle ? 'on' : '',
+                             title: `${f.total} capacité(s)` });
+    b.onclick = () => { famille = f.cle; rendrePrompts(); };
+    boite.append(b);
+  }
+
+  const vus = tous.filter((m) => {
+    if (famille && m.famille !== famille) return false;
+    if (!q.trim()) return true;
+    return filtrer([{ titre: m.titre, besoin: m.consigne, module: m.module || '',
+                      entrees: m.entrees }], { q }).length > 0;
+  });
+
+  $('nbriques').textContent = `${vus.length}${vus.length !== tous.length ? ` / ${tous.length}` : ''}`;
+
+  if (vus.length === 0) {
+    zone.append(el('div', { className: 'vide-toile', textContent: 'Aucun prompt ne correspond.' }));
+    return;
+  }
+
+  for (const m of vus) {
+    const n = el('div', { className: 'brique', draggable: true },
+      el('span', { className: 'poignee', textContent: '⠿' }),
+      el('span', {}, el('b', { textContent: m.titre }),
+                     el('small', { textContent: m.consigne })),
+      el('span', { className: 'sp' }),
+      el('span', { className: `src ${m.origine === 'registre' ? 'registre' : ''}`,
+                   textContent: m.origine === 'registre' ? 'validé' : (m.module || 'plateforme'),
+                   title: m.origine === 'registre'
+                     ? 'La consigne d\'un agent validé. Elle a été relue — mais l\'assemblage, lui, ne l\'a pas été.'
+                     : 'Un besoin de la plateforme. Personne ne l\'a encore écrit ni relu.' }));
+
+    n.ondragstart = (e) => {
+      n.classList.add('tire');
+      e.dataTransfer.setData('text/plain', `prompt:${m.ref}`);
+      e.dataTransfer.effectAllowed = 'copy';
+    };
+    n.ondragend = () => n.classList.remove('tire');
+    n.onclick = () => poser(m.ref);
+    zone.append(n);
+  }
+}
+
+/** Poser un prompt dans la consigne. Le même deux fois est permis — parfois c'est voulu. */
+function poser(ref, position = MORCEAUX.length) {
+  const m = sourcesPrompts().find((x) => x.ref === ref);
+  if (!m) return;
+  MORCEAUX.splice(position, 0, structuredClone(m));
+  if (!identite.titre && MORCEAUX.length === 1) $('idTitre').value = '';
+  rendreToile();
+}
+
+/* ── La consigne assemblée ────────────────────────────────────────────────── */
+
+function agentCourant() {
+  return assembler(MORCEAUX, {
+    titre: identite.titre,
+    purpose: identite.purpose,
+    notFor: identite.notFor,
+    auteur: session.username,
+    scope: perimetre()
+  });
+}
+
+function rendreAssemblage() {
+  const toile = $('toile');
+  toile.textContent = '';
+  $('netapes').textContent = `${MORCEAUX.length} prompt${MORCEAUX.length > 1 ? 's' : ''}`;
+
+  if (MORCEAUX.length === 0) {
+    toile.append(el('div', { className: 'vide-toile' },
+      el('b', { textContent: 'Tire un prompt ici' }),
+      'ou clique-le dans la liste. Ils formeront une seule consigne, jouée en un appel.'));
+  }
+
+  MORCEAUX.forEach((m, i) => {
+    const carte = el('div', { className: 'morceau', draggable: true });
+
+    const monter = el('button', { textContent: '↑', title: 'monter', disabled: i === 0 });
+    const descendre = el('button', { textContent: '↓', title: 'descendre',
+                                     disabled: i === MORCEAUX.length - 1 });
+    const retirer = el('button', { textContent: '✕', title: 'retirer' });
+    monter.onclick = () => deplacerMorceau(i, i - 1);
+    descendre.onclick = () => deplacerMorceau(i, i + 1);
+    retirer.onclick = () => { MORCEAUX.splice(i, 1); rendreToile(); };
+
+    carte.append(el('div', { className: 'morceau-tete' },
+      el('span', { className: 'poignee', textContent: '⠿' }),
+      el('span', { className: 'rang', textContent: String(i + 1) }),
+      el('b', { textContent: m.titre }),
+      el('span', { className: 'sp' }), monter, descendre, retirer));
+
+    /*
+     * La consigne de chaque morceau est ÉDITABLE, et c'est assumé.
+     *
+     * Un besoin de l'inventaire est une phrase de catalogue, pas une instruction ciselée.
+     * La figer produirait des agents tous approximatifs de la même façon. Comme le tout
+     * repasse de toute manière par la porte et par un relecteur, laisser l'auteur écrire
+     * ne coûte aucune garantie — c'est déjà le régime de tout prompt neuf.
+     */
+    const zone = el('textarea', { value: m.consigne });
+    zone.oninput = () => { m.consigne = zone.value; majVerdict(); };
+    carte.append(zone);
+
+    if (m.entrees.length) {
+      carte.append(el('div', { className: 'ent' },
+        ...m.entrees.map((e) => el('code', { textContent: `{{${e}}}` }))));
+    }
+
+    carte.ondragstart = (e) => {
+      carte.classList.add('tire');
+      e.dataTransfer.setData('text/plain', `morceau:${i}`);
+      e.dataTransfer.effectAllowed = 'move';
+    };
+    carte.ondragend = () => carte.classList.remove('tire');
+    toile.append(carte);
+  });
+
+  majVerdict();
+}
+
+function deplacerMorceau(de, vers) {
+  if (vers < 0 || vers >= MORCEAUX.length) return;
+  const [m] = MORCEAUX.splice(de, 1);
+  MORCEAUX.splice(vers, 0, m);
+  rendreToile();
+}
+
+for (const [id, cle] of [['idTitre', 'titre'], ['idPurpose', 'purpose'], ['idNotFor', 'notFor']]) {
+  $(id).oninput = () => { identite[cle] = $(id).value; majVerdict(); };
 }
 
 /* ── La chaîne ────────────────────────────────────────────────────────────── */
@@ -386,7 +653,22 @@ function rendreChaine() {
 /* ── Le verdict, à chaque geste ───────────────────────────────────────────── */
 
 function majVerdict() {
-  const artefact = chaineCourante();
+  /*
+   * Ce qui manque, dit AVANT les règles et dans les mots de l'auteur.
+   *
+   * `L008 : criteria non vide` n'aide personne qui n'a pas encore compris ce qu'est un
+   * critère. Les deux messages coexistent : celui-ci guide, celui des règles fait foi.
+   */
+  const boite = $('manque');
+  boite.textContent = '';
+  const manques = enAgent() ? cequilManque(MORCEAUX, { ...identite, scope: perimetre() }) : [];
+  if (manques.length) {
+    boite.append(el('div', { className: 'manque' },
+      el('b', { textContent: 'Il manque encore :' }),
+      el('ul', {}, ...manques.map((m) => el('li', { textContent: m })))));
+  }
+
+  const artefact = enAgent() ? agentCourant() : chaineCourante();
   // `artifacts: BRIQUES` — sans elles, L024 et L025 se taisent et une chaîne cassée
   // passerait pour conforme. C'est le même linter qu'en CI, avec son référentiel.
   const report = lint(artefact, { ...ctx, artifacts: BRIQUES });
@@ -394,6 +676,24 @@ function majVerdict() {
   const zone = $('verdict');
   zone.textContent = '';
   const erreurs = report.findings.filter((f) => f.severity === ERROR);
+
+  /*
+   * Tant que l'essentiel manque, les règles se taisent.
+   *
+   * Un établi vide produit six `L001` — « au moins 3 caractères (0 fourni) » — qui sont
+   * tous vrais et tous inutiles : l'encadré au-dessus vient de dire la même chose en
+   * français. Crier du L0xx à quelqu'un qui n'a encore rien posé apprend à ne plus lire
+   * les constats, et c'est le seul endroit du produit où ils doivent être lus.
+   *
+   * Dès que les bases sont là, les règles reprennent la parole et font foi.
+   */
+  if (manques.length) {
+    $('envoyer').disabled = true;
+    $('sauver').disabled = true;
+    $('narration').hidden = true;
+    $('note').textContent = '';
+    return;
+  }
 
   const bloc = el('div', { className: `verdict ${report.blocked ? 'ko' : 'ok'}` },
     el('span', { textContent: report.blocked ? '✕' : '✔' }),
@@ -406,7 +706,12 @@ function majVerdict() {
             el('code', { textContent: f.code }), ' ', f.message)))
         : el('div', { style: 'color:var(--tm);font-size:12px;margin-top:4px' },
             `${artefact.variables.length} entrée(s) · ${artefact.criteria.length} critère(s) `
-            + 'hérité(s) de la dernière étape')));
+            + (enAgent()
+              // Le mot compte : « proposés » et non « hérités ». Un assemblage n'hérite
+              // d'aucun contrat — ceux-ci se déduisent de ce que les morceaux déclarent
+              // produire, et le relecteur devra dire s'ils suffisent.
+              ? 'proposé(s) — un assemblage n\'hérite d\'aucun contrat'
+              : 'hérité(s) de la dernière étape'))));
 
   zone.append(bloc);
   $('envoyer').disabled = report.blocked;
@@ -463,7 +768,9 @@ $('composer').onclick = async () => {
       purpose: corps.artefact.intent?.purpose || '',
       notFor: corps.artefact.intent?.not_for || ''
     };
-    rendreChaine();
+    // La dictée compose une CHAÎNE : elle choisit des briques et les branche. Rendre son
+    // résultat dans l'établi d'assemblage afficherait une consigne vide.
+    basculer('chaine');
 
     const tours = corps.tours.length;
     msg.className = 'ok';
@@ -488,12 +795,21 @@ toile.ondrop = (e) => {
   toile.classList.remove('survol');
   const charge = e.dataTransfer.getData('text/plain');
   if (charge.startsWith('brique:')) ajouter(charge.slice(7));
+  else if (charge.startsWith('prompt:')) poser(charge.slice(7));
+  // Réordonner en tirant : le morceau lâché sur la toile va en fin de consigne.
+  else if (charge.startsWith('morceau:')) deplacerMorceau(Number(charge.slice(8)),
+                                                          MORCEAUX.length - 1);
 };
 
-$('recherche').oninput = () => rendreBriques();
-$('vider').onclick = () => { etapes = []; identite = { titre: '', purpose: '', notFor: '' };
-                             idFige = ''; origineFork = ''; dejaSauvee = false;
-                             $('msg').textContent = ''; rendreChaine(); };
+$('recherche').oninput = () => rendreMatiere();
+$('vider').onclick = () => {
+  etapes = []; MORCEAUX = [];
+  identite = { titre: '', purpose: '', notFor: '' };
+  for (const id of ['idTitre', 'idPurpose', 'idNotFor']) $(id).value = '';
+  idFige = ''; origineFork = ''; dejaSauvee = false;
+  $('msg').textContent = '';
+  rendreToile();
+};
 
 /* ── Le dépôt ─────────────────────────────────────────────────────────────── */
 
@@ -555,7 +871,7 @@ $('sauver').onclick = async () => {
  * n'y passe pas.
  */
 $('envoyer').onclick = async () => {
-  const artefact = chaineCourante();
+  const artefact = enAgent() ? agentCourant() : chaineCourante();
   const msg = $('msg');
   const bouton = $('envoyer');
   bouton.disabled = true;
@@ -565,26 +881,44 @@ $('envoyer').onclick = async () => {
   try {
     const repo = repoRegistre();
     const chemin = `artifacts/pending/${artefact.id}.yaml`;
-    const tete = entete({
-      origine: origineFork ? 'fork' : 'composition',
-      phrase: origineFork || $('phrase').value.trim()
-        || `assemblage de ${artefact.steps.length} briques du registre`,
-      auteur: session.username, date: new Date().toISOString().slice(0, 10),
-      tours: 0, modele: '', fournisseur: '' });
+
+    /*
+     * La provenance dit d'où vient le fichier, et elle compte plus ici qu'ailleurs : un
+     * relecteur doit savoir que cette consigne est un ASSEMBLAGE, et de quels morceaux.
+     * Sans ça il relit un prompt neuf sans savoir qu'il peut aller vérifier les sources.
+     */
+    const tete = enAgent()
+      ? entete({ origine: 'composition',
+                 phrase: `assemblage de ${MORCEAUX.length} prompt(s) : `
+                       + MORCEAUX.map((m) => m.ref).join(', '),
+                 auteur: session.username, date: new Date().toISOString().slice(0, 10),
+                 tours: 0, modele: '', fournisseur: '' })
+      : entete({ origine: origineFork ? 'fork' : 'composition',
+                 phrase: origineFork || $('phrase').value.trim()
+                   || `assemblage de ${artefact.steps.length} briques du registre`,
+                 auteur: session.username, date: new Date().toISOString().slice(0, 10),
+                 tours: 0, modele: '', fournisseur: '' });
+
+    const message = enAgent()
+      ? `registre : composer l'agent ${artefact.title}\n\n`
+        + `Consigne assemblée par ${session.username} à partir de ${MORCEAUX.length} prompt(s) :\n`
+        + MORCEAUX.map((m, i) => `  ${i + 1}. ${m.ref} (${m.origine})`).join('\n')
+        + '\n\nUn assemblage n\'hérite d\'aucune validation : le tout n\'est pas la somme,\n'
+        + 'et personne n\'a lu le tout. En attente de validation humaine.'
+      : `registre : composer ${artefact.title}\n\n`
+        + `Chaîne de ${artefact.steps.length} artefact(s) déjà validés, assemblée par `
+        + `${session.username} :\n`
+        + artefact.steps.map((e, i) => `  ${i + 1}. ${e.artefact}`).join('\n')
+        + '\nEn attente de validation humaine.';
 
     await forge.putFile(repo, chemin, {
-      content: toBase64(tete + toYaml(artefact)),
-      message: `registre : composer ${artefact.title}\n\n`
-             + `Chaîne de ${artefact.steps.length} artefact(s) déjà validés, assemblée par `
-             + `${session.username} :\n`
-             + artefact.steps.map((e, i) => `  ${i + 1}. ${e.artefact}`).join('\n')
-             + '\nEn attente de validation humaine.',
-      branch: 'main'
+      content: toBase64(tete + toYaml(artefact)), message, branch: 'main'
     });
 
     msg.className = 'ok';
-    msg.textContent = `✔ Déposée pour validation — ${chemin}. Elle apparaîtra au catalogue `
-      + 'une fois acceptée dans l\'Admin.';
+    msg.textContent = `✔ Déposé pour validation — ${chemin}. ${enAgent()
+      ? 'Un relecteur doit l\'accepter avant que quiconque puisse s\'en servir.'
+      : 'Elle apparaîtra au catalogue une fois acceptée dans l\'Admin.'}`;
   } catch (error) {
     msg.className = 'err';
     msg.textContent = `✕ ${error.message}`;

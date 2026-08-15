@@ -28,9 +28,9 @@ part en validation.
 **Vous cherchez ce qui existe déjà.** → [Trouver et lancer un agent](catalogue.md)
 Le catalogue, sa recherche, ses étiquettes, et comment lancer un agent sur votre dépôt.
 
-**Vous voulez enchaîner plusieurs agents.** → [Composer une chaîne](composer.md)
-Prendre deux ou trois agents validés et les faire se passer le résultat. Sans écrire un
-seul prompt.
+**Vous voulez fabriquer un agent, ou en enchaîner plusieurs.** → [Composer](composer.md)
+Deux choses différentes sur le même écran : assembler des **prompts** en un seul agent,
+ou enchaîner des **agents** déjà validés. La page dit laquelle vous voulez.
 
 **Vous validez ce que les équipes soumettent.** → [Valider](valider.md)
 La file d'attente, ce qu'il faut regarder, et le bouton qui demande à un modèle de

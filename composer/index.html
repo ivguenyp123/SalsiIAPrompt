@@ -31,6 +31,60 @@
   .dictee button{white-space:nowrap}
   .dictee .aide{font-size:11.5px;color:var(--tm);margin:9px 0 0;line-height:1.55}
 
+  /* ── Les deux modes ── */
+  .modes{display:grid;grid-template-columns:1fr;gap:10px;margin:0 0 18px}
+  @media(min-width:760px){.modes{grid-template-columns:1fr 1fr}}
+  .mode{text-align:left;padding:13px 15px;border-radius:14px;border:1px solid var(--line);
+        background:rgba(0,0,0,.22);cursor:pointer;font:inherit;color:inherit;display:block}
+  .mode:hover{border-color:rgba(167,139,250,.5);background:rgba(255,255,255,.04)}
+  .mode.on{border-color:rgba(167,139,250,.75);background:rgba(124,92,252,.16)}
+  .mode b{display:block;font-size:14px;color:var(--tp);margin-bottom:3px}
+  .mode small{display:block;font-size:11.5px;color:var(--tm);line-height:1.55}
+  .mode small b{display:inline;font-size:inherit;color:var(--ts)}
+
+  /* ── L'identité d'un agent composé ──
+     Elle n'existe qu'en mode agent, et c'est délibéré : une chaîne dérive la sienne de
+     ses étapes, un agent neuf doit la porter — quelqu'un va le relire. */
+  .identite{display:grid;gap:9px;margin-bottom:13px;padding-bottom:13px;
+            border-bottom:1px solid var(--line)}
+  .identite label{display:block;font-size:10.5px;font-weight:800;text-transform:uppercase;
+                  letter-spacing:.05em;color:var(--tm);margin-bottom:4px}
+  .identite input,.identite textarea{width:100%;font-size:13px;padding:8px 11px}
+  .identite textarea{min-height:52px;resize:vertical;line-height:1.55}
+
+  /* Ce qui manque, dit en langage d'auteur avant que les règles le disent en L0xx. */
+  .manque{margin:0 0 12px;padding:10px 13px;border-radius:10px;font-size:12px;line-height:1.6;
+          border:1px solid rgba(251,191,36,.35);background:rgba(251,191,36,.08);color:#fcd34d}
+  .manque ul{margin:5px 0 0;padding-left:17px}
+
+  /* ── La matière, en mode agent ── */
+  .fam{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+  .fam button{font-size:11px;padding:4px 9px;border-radius:999px;color:var(--tm);font-weight:600}
+  .fam button.on{color:#fff;background:rgba(124,92,252,.28);border-color:rgba(167,139,250,.6)}
+  .brique .src{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;
+               border-radius:4px;padding:1px 5px;border:1px solid var(--line2);color:var(--tm);
+               white-space:nowrap;align-self:flex-start;margin-top:2px}
+  .brique .src.registre{color:var(--ok);border-color:rgba(52,211,153,.45)}
+
+  /* ── Un morceau posé dans la consigne ── */
+  .morceau{border:1px solid var(--line);border-radius:12px;background:rgba(0,0,0,.24);
+           padding:11px 13px}
+  .morceau.tire{opacity:.4}
+  .morceau-tete{display:flex;align-items:center;gap:9px;margin-bottom:7px}
+  .morceau-tete .rang{font-family:var(--fm);font-size:10.5px;color:#a78bfa;
+                      background:rgba(124,92,252,.16);border:1px solid rgba(167,139,250,.4);
+                      border-radius:6px;padding:2px 7px}
+  .morceau-tete b{font-size:13px;color:var(--tp)}
+  .morceau-tete .sp{flex:1}
+  .morceau-tete button{font-size:11px;padding:3px 8px}
+  .morceau-tete .poignee{cursor:grab;color:var(--tm);font-size:14px}
+  .morceau textarea{width:100%;font-size:12.5px;line-height:1.6;padding:8px 10px;
+                    min-height:52px;resize:vertical}
+  .morceau .ent{margin-top:6px;display:flex;flex-wrap:wrap;gap:5px}
+  .morceau .ent code{font-family:var(--fm);font-size:10.5px;color:#fcd34d;
+                     background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.2);
+                     border-radius:5px;padding:1px 6px}
+
   /* ── L'établi ── */
   .etabli{display:grid;grid-template-columns:1fr;gap:18px;align-items:start}
   @media(min-width:900px){.etabli{grid-template-columns:320px 1fr}}
@@ -122,12 +176,29 @@
 <body>
 
 <main>
-  <h1>Composer un agent</h1>
-  <p class="chapo">Assemble des agents <b>déjà validés</b> : tire une brique dans la chaîne,
-    branche ses entrées, réordonne. Aucun prompt n'est écrit ici — une chaîne hérite de la
-    validation de ses briques, et chaque étape est vérifiée avant de passer à la suivante.</p>
+  <h1>Composer</h1>
 
-  <div class="dictee">
+  <!--
+    Deux modes, et ils ne produisent PAS la même chose. Les afficher côte à côte est un
+    choix : c'est la seule façon de rendre la différence visible au moment où elle se
+    décide, plutôt que dans une doc que personne n'ouvrira.
+  -->
+  <div class="modes" id="modes">
+    <button class="mode" data-mode="agent">
+      <b>🧩 Un agent</b>
+      <small>prompt + prompt = <b>une</b> consigne, <b>un</b> appel. Du texte neuf : ça part
+        en validation.</small>
+    </button>
+    <button class="mode" data-mode="chaine">
+      <b>🔗 Une chaîne</b>
+      <small>agent + agent = <b>N</b> appels, vérifiés entre chaque. Aucun texte neuf : elle
+        hérite de la validation de ses briques.</small>
+    </button>
+  </div>
+
+  <p class="chapo" id="chapo"></p>
+
+  <div class="dictee" id="dictee">
     <label for="phrase">…ou dis-le en une phrase</label>
     <div class="rangee">
       <input id="phrase" placeholder="je veux un agent qui mixe le rapport DORA et le rapport journalier">
@@ -139,16 +210,36 @@
 
   <div class="etabli">
     <section class="panneau">
-      <h2>Briques validées <span class="n" id="nbriques">…</span></h2>
-      <input id="recherche" placeholder="chercher une brique…">
+      <h2 id="titreMatiere">Briques validées <span class="n" id="nbriques">…</span></h2>
+      <input id="recherche" placeholder="chercher…">
+      <div class="fam" id="familles" hidden></div>
       <div class="briques" id="briques"></div>
 
-      <h2 style="margin-top:16px">Chaînes <span class="n" id="nchaines">…</span></h2>
-      <div class="chaines" id="chaines"></div>
+      <div id="blocChaines">
+        <h2 style="margin-top:16px">Chaînes <span class="n" id="nchaines">…</span></h2>
+        <div class="chaines" id="chaines"></div>
+      </div>
     </section>
 
     <section class="panneau">
-      <h2>La chaîne <span class="n" id="netapes">0 étape</span></h2>
+      <h2 id="titreToile">La chaîne <span class="n" id="netapes">0 étape</span></h2>
+
+      <div class="identite" id="identite" hidden>
+        <div>
+          <label for="idTitre">Titre</label>
+          <input id="idTitre" placeholder="Relire un diff et en rendre un rapport">
+        </div>
+        <div>
+          <label for="idPurpose">À quoi il sert</label>
+          <textarea id="idPurpose" placeholder="Lire un diff et signaler les ruptures de compatibilité."></textarea>
+        </div>
+        <div>
+          <label for="idNotFor">Quand ne PAS l'utiliser</label>
+          <textarea id="idNotFor" placeholder="Ne pas utiliser pour appliquer un correctif ni pour juger du style."></textarea>
+        </div>
+      </div>
+
+      <div id="manque"></div>
       <div id="toile"></div>
       <div id="verdict"></div>
 
