@@ -105,6 +105,29 @@ describe('l\'assemblage de la consigne', () => {
   test('rien ne donne rien', () => {
     assert.equal(consigneAssemblee([]), '');
   });
+
+  test('la matière déclarée est BRANCHÉE dans le texte', () => {
+    /*
+     * Le défaut trouvé à l'usage : les entrées se déduisaient de ce que les morceaux
+     * déclarent lire, mais n'apparaissaient nulle part dans la consigne. `L021` refusait,
+     * à juste titre — un agent qui réclame une matière qu'il ne lit jamais « ne peut pas
+     * faire ce qu'il annonce ».
+     */
+    const s = consigneAssemblee([{ consigne: 'Explique les métriques', entrees: ['chiffres_dora'] }]);
+    assert.ok(s.includes('{{chiffres_dora}}'), s);
+  });
+
+  test('une variable DÉJÀ dans le texte n\'est pas répétée en bas', () => {
+    // La consigne d'un agent validé porte ses propres `{{...}}`. Les relister ferait
+    // croire à deux matières différentes.
+    const s = consigneAssemblee([{ consigne: 'Analyse {{code}} du dépôt', entrees: ['code'] }]);
+    assert.equal((s.match(/\{\{code\}\}/g) || []).length, 1, s);
+    assert.ok(!s.includes('Matière fournie'), s);
+  });
+
+  test('sans entrée déclarée, aucun bloc de matière', () => {
+    assert.equal(consigneAssemblee([{ consigne: 'Fais ceci', entrees: [] }]), 'Fais ceci');
+  });
 });
 
 /* ── Les variables ────────────────────────────────────────────────────────── */
@@ -243,6 +266,39 @@ describe('l\'assemblage passe par la porte comme n\'importe quel prompt', () => 
     assert.deepEqual(bloquants.map((f) => f.code), [], JSON.stringify(bloquants, null, 2));
   });
 
+  test('le cas réel : deux prompts DORA, identité remplie, porte OUVERTE', () => {
+    /*
+     * Reproduit exactement ce qui a échoué à l'usage. Deux besoins de l'inventaire qui
+     * déclarent tous deux `chiffres_dora`, montés dans l'établi. Ça rendait :
+     *
+     *   L001  au moins 10 caractères (0 fourni)  — `not_for` vide, écrit quand même
+     *   L021  déclare chiffres_dora et n'en interpole aucune
+     *
+     * Les deux étaient justes, et incompréhensibles à l'écran.
+     */
+    const morceaux = [
+      morceauDepuisInventaire({ id: 'expliquer-les-quatre-metriques-dora',
+        titre: 'Expliquer les 4 métriques DORA',
+        besoin: 'un agent qui explique les 4 métriques DORA d\'une équipe à quelqu\'un qui ne les connaît pas',
+        entrees: ['chiffres_dora'], sortie: 'texte' }),
+      morceauDepuisInventaire({ id: 'rediger-le-commentaire-dora-du-comite',
+        titre: 'Rédiger le commentaire DORA du comité',
+        besoin: 'un agent qui rédige en cinq lignes le commentaire DORA pour le comité mensuel',
+        entrees: ['chiffres_dora'], sortie: 'texte' })
+    ];
+    const a = assembler(morceaux, {
+      titre: 'Lire les métriques et commenter', auteur: 'moi', scope: 'Plateforme',
+      purpose: 'Expliquer les métriques DORA d\'une équipe et rédiger le commentaire du comité.',
+      notFor: 'Ne pas utiliser pour décider d\'une remédiation ni pour juger une personne.'
+    });
+
+    assert.ok(a.spec.includes('{{chiffres_dora}}'), 'la matière doit être branchée');
+    assert.equal(a.variables.length, 1, 'une seule variable : l\'union, pas la somme');
+
+    const bloquants = lint(a, CTX).findings.filter((f) => f.severity === ERROR);
+    assert.deepEqual(bloquants.map((f) => f.code), [], JSON.stringify(bloquants, null, 2));
+  });
+
   test('un assemblage vide est REFUSÉ, comme il se doit', () => {
     // Rien ici ne doit ouvrir un chemin plus court que le Studio.
     const a = assembler([], { titre: '', auteur: '', scope: '' });
@@ -257,12 +313,56 @@ describe('ce qui manque', () => {
     // Devant un écran vide, « L008 : criteria non vide » n'aide personne qui n'a pas
     // encore compris ce qu'est un critère.
     const m = cequilManque([], {});
-    assert.equal(m.length, 4);
+    assert.equal(m.length, 5);
     assert.ok(m.every((x) => /[a-z]/.test(x) && !/^L\d/.test(x)));
+  });
+
+  test('réclame « quand ne PAS l\'utiliser »', () => {
+    /*
+     * Le champ oublié à l'usage. Le schéma en exige dix caractères ; sans ce message,
+     * l'auteur recevait un `L001 : au moins 10 caractères (0 fourni)` qui ne nomme même
+     * pas le champ concerné.
+     */
+    const m = cequilManque([{ consigne: 'x' }],
+                           { titre: 'T', purpose: 'Un but assez long', scope: 'Plateforme' });
+    assert.equal(m.length, 1);
+    assert.match(m[0], /ne PAS l'utiliser/);
+  });
+
+  test('applique les seuils du schéma, pas « non vide »', () => {
+    // « ok » est non vide et refusé par le schéma. Dire « c'est rempli » puis se faire
+    // refuser est le pire des deux mondes.
+    const m = cequilManque([{ consigne: 'x' }],
+                           { titre: 'T', purpose: 'ok', notFor: 'ok', scope: 'P' });
+    assert.equal(m.length, 2);
   });
 
   test('se tait quand tout est là', () => {
     assert.deepEqual(cequilManque([{ consigne: 'x' }],
-                                  { titre: 'T', purpose: 'P', scope: 'Plateforme' }), []);
+                                  { titre: 'T', purpose: 'Un but assez long',
+                                    notFor: 'Une limite assez longue', scope: 'Plateforme' }), []);
+  });
+});
+
+/* ── Ce que l'assemblage n'écrit pas ──────────────────────────────────────── */
+
+describe('les champs facultatifs vides', () => {
+  test('`not_for` absent plutôt que vide', () => {
+    /*
+     * Le schéma exige dix caractères sur `intent.not_for`. Émettre une chaîne vide
+     * produit un `L001` illisible ; omettre le champ laisse `L011` dire, lui,
+     * exactement quoi remplir.
+     */
+    const a = assembler([{ consigne: 'Fais x', entrees: [] }],
+                        { titre: 'T', purpose: 'Un but assez long', notFor: '   ' });
+    assert.ok(!('not_for' in a.intent), JSON.stringify(a.intent));
+    assert.equal(a.intent.purpose, 'Un but assez long');
+  });
+
+  test('`not_for` écrit quand il est rempli', () => {
+    const a = assembler([{ consigne: 'Fais x', entrees: [] }],
+                        { titre: 'T', purpose: 'Un but assez long',
+                          notFor: 'Ne pas utiliser pour ceci.' });
+    assert.equal(a.intent.not_for, 'Ne pas utiliser pour ceci.');
   });
 });
