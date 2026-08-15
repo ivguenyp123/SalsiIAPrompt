@@ -232,9 +232,16 @@ ensuite.
 Le contrôle qui ne peut exister qu'ici — la porte ne sait pas sur quel dépôt vous tournez.
 C'est aussi celui qui porte le risque : un agent autorisé sur de l'interne qui lit un
 dépôt confidentiel, c'est une fuite.
+
+La sensibilité vient du **référentiel des dépôts** (`registries/repos.yaml`) quand il
+connaît le dépôt : les champs sont alors figés à l'écran, et le contrôle refuse sur cette
+base. Quand il ne le connaît pas, elle se saisit à la main — et le contrôle demande au
+lieu de refuser, parce qu'il ne peut pas opposer une valeur qu'on lui a soufflée.
+
 Dépassement avéré → refus. Sensibilité **inconnue** → on vous demande de confirmer.
 
-→ *Choisissez un autre dépôt, ou faites relever le plafond de l'agent.*
+→ *Choisissez un autre dépôt, faites relever le plafond de l'agent, ou faites classer le
+dépôt au référentiel.*
 
 **`P003` 🔴 — Variables requises résolues.**
 
@@ -291,5 +298,10 @@ inutilisable au nom de sa propre rigueur.
 Ces contrôles sont **auto-resserrants** : le jour où le référentiel des dépôts répond,
 `P002` se remet à refuser. Le jour où le banc mesure un niveau, `P006` aussi. Sans qu'une
 ligne de code change, et sans que personne ait à se rappeler de durcir quoi que ce soit.
+
+Le référentiel des dépôts existe désormais — `registries/repos.yaml` — et il est **livré
+vide**. Le remplir n'est pas une décision de code : une classification inventée servirait
+ici à *autoriser* des lectures. Chaque ligne qu'on y ajoute resserre `P002` sur ce
+dépôt-là, immédiatement, sans rien changer d'autre.
 
 Un avertissement d'aujourd'hui est donc un refus de demain. C'est le sens à lui donner.

@@ -1,0 +1,48 @@
+# Référentiel des dépôts — qui appartient à qui, et jusqu'où ça se lit.
+#
+# CE QUE CE FICHIER DÉBLOQUE
+# `P002` refuse qu'un agent autorisé sur de l'interne lise un dépôt confidentiel : c'est
+# le contrôle qui porte le risque de fuite. `P004` vérifie que les outils d'un agent sont
+# autorisés pour le périmètre du dépôt VISÉ — le droit suit la cible, pas le porteur.
+#
+# Les deux comparent ce que `ctx.depot` porte. Tant que ce fichier est vide, ce contenu
+# vient de la saisie du lanceur : le contrôle demande à la personne contrôlée de se
+# déclarer conforme, et refuse honnêtement ce qu'on lui dit. Une ligne ajoutée ici fait
+# passer ce dépôt de « déclaré » à « classé » — non modifiable à l'écran, et le refus
+# devient un vrai refus.
+#
+# AUTO-RESSERRANT, COMME LE RESTE
+# Aucun code ne change quand ce fichier se remplit. Le jour où un dépôt y entre, `P002`
+# se remet à refuser sur son cas. Rien à se rappeler de durcir.
+#
+# POURQUOI IL EST LIVRÉ VIDE
+# Classer les dépôts n'est pas une décision de code, et une classification inventée
+# servirait ici à AUTORISER des lectures. Les exemples ci-dessous sont en commentaire :
+# ils montrent le format, ils n'affirment rien.
+#
+# LE FORMAT
+#   depot         `groupe/depot`, ou `groupe/*` pour couvrir un groupe entier.
+#                 C'est le seul joker admis — une expression régulière dans un
+#                 référentiel de sécurité est une porte dérobée qu'on n'ose plus relire.
+#                 L'entrée exacte l'emporte toujours sur le joker, et le joker le plus
+#                 long sur le plus court : classer un groupe puis en extraire un dépôt
+#                 est le cas normal.
+#   scope         le périmètre propriétaire — mêmes valeurs que `owner.scope`.
+#   sensibilite   public | interne | confidentiel | secret
+#   note          libre, pour dire QUI a classé et QUAND. Personne ne la lit, tout le
+#                 monde la cherchera le jour où un classement surprend.
+#
+# EXEMPLES — décommenter et remplacer par de vraies entrées :
+#
+# repos:
+#   - depot: mon-groupe/*
+#     scope: Plateforme
+#     sensibilite: interne
+#     note: "classement par défaut du groupe — R. Dupont, 2026-01"
+#
+#   - depot: mon-groupe/socle-paiement
+#     scope: Paiement
+#     sensibilite: confidentiel
+#     note: "exception au groupe : porte des clés de rapprochement"
+
+repos: []

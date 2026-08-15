@@ -21,6 +21,7 @@ import { niveau, pastille } from '../lib/niveau.js';
 import { BUMPS } from '../runtime/livraison.js';
 import { preparer as preparerLivraison, executer as executerLivraison } from '../runtime/executer.js';
 import { knownScopes, guessScope } from '../app/scopes.js';
+import { contexteDepot } from '../lib/repos.js';
 import { makeValidator } from '../lib/schema.js';
 import yaml from '../lib/yaml.js';
 import { carte } from '../runtime/etat-derive.js';
@@ -95,14 +96,18 @@ async function load() {
   $('source').textContent = `lu dans ${repo} · artifacts/`;
   
 
-  const [tools, targets, entrees, schema, derive] = await Promise.all([
+  const [tools, targets, entrees, schema, derive, repos] = await Promise.all([
     fetch('../registries/tools.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t).tools),
     fetch('../registries/targets.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t).targets),
     fetch('../entrees/index.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t)),
     fetch('../schema/artifact.schema.json', FRAIS).then((r) => r.json()),
-    etatDerive()
+    etatDerive(),
+    // Le référentiel des dépôts. Absent ou vide, tout se comporte comme avant : la
+    // sensibilité reste saisie à la main, et P002 demande au lieu de refuser.
+    fetch('../registries/repos.yaml', FRAIS).then((r) => r.text())
+      .then((t) => yaml.parse(t).repos || []).catch(() => [])
   ]);
-  ctx = { tools, targets, entrees, derive, validateArtifact: makeValidator(schema) };
+  ctx = { tools, targets, entrees, derive, repos, validateArtifact: makeValidator(schema) };
   scopes = knownScopes(tools);
 
   let files;
@@ -473,10 +478,39 @@ function ouvrirPrevol(entry) {
     champ('Sensibilité du dépôt', sensibilite),
     champ('Criticité de l\'exécution', criticite)));
 
-  form.append(el('p', { className: 'note', textContent:
-    'La sensibilité et le périmètre se saisissent ici parce qu\'aucun référentiel n\'est '
-    + 'branché. En production ils viendraient du référentiel des dépôts, pas d\'une liste '
-    + 'déroulante — ce qui rend le contrôle opposable au lieu d\'être déclaratif.' }));
+  const note = el('p', { className: 'note' });
+  form.append(note);
+
+  /*
+   * Le référentiel des dépôts, ou son absence.
+   *
+   * Tant qu'il ne connaît pas ce dépôt, on garde ce qu'on avait : deux listes déroulantes
+   * et un contrôle qui croit sur parole. Dès qu'il le connaît, les champs se ferment —
+   * c'est la seule chose qui sépare un référentiel d'un pré-remplissage. Laisser
+   * l'utilisateur corriger un classement à la baisse rendrait `P002` décoratif tout en
+   * lui donnant l'air de vérifier.
+   */
+  function appliquerReferentiel() {
+    const su = contexteDepot(depot.valeur(), ctx.repos || [],
+                             { scope: scope.value, sensibilite: sensibilite.value });
+    const classe = su.provenance === 'referentiel';
+
+    if (classe) {
+      if (su.sensibilite) sensibilite.value = su.sensibilite;
+      if (su.scope && [...scope.options].some((o) => o.value === su.scope)) scope.value = su.scope;
+    }
+    sensibilite.disabled = classe;
+    scope.disabled = classe && !!su.scope;
+
+    note.textContent = classe
+      ? `Classé au référentiel des dépôts (${su.par}) : non modifiable ici, et le pré-vol `
+        + 'refuse sur cette base au lieu de demander confirmation.'
+      : 'Ce dépôt n\'est pas au référentiel (`registries/repos.yaml`) : la sensibilité et le '
+        + 'périmètre se saisissent, et le pré-vol DEMANDE au lieu de refuser. Une ligne '
+        + 'ajoutée au référentiel resserre le contrôle sur ce dépôt, sans toucher au code.';
+    note.className = `note${classe ? ' classe' : ''}`;
+    return su;
+  }
 
   // Une saisie par variable déclarée : c'est ce que P003 va vérifier.
   const valeurs = {};
@@ -500,10 +534,11 @@ function ouvrirPrevol(entry) {
   form.append(verdict, conf, liste);
 
   function run() {
+    // Le référentiel d'abord : c'est LUI qui décide ce que le pré-vol compare, pas les
+    // listes déroulantes. Elles ne servent que là où il ne sait pas.
     const rapport = prevol(artifact, {
       registres: { ...ctx, artifacts: [] },
-      depot: { path: depot.valeur(), scope: scope.value || undefined,
-               sensibilite: sensibilite.value || undefined },
+      depot: appliquerReferentiel(),
       valeurs,
       criticite: criticite.value
     });

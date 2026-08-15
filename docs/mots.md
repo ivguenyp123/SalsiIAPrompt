@@ -84,8 +84,13 @@ Il sert deux fois, et ce n'est pas la même question :
 
 ## Sensibilité
 
-Le classement d'un dépôt — public, interne, confidentiel. Un agent déclare la sensibilité
-**maximale** qu'il a le droit de lire ; `P002` compare au dépôt visé.
+Le classement d'un dépôt — `public`, `interne`, `confidentiel`, `secret`. Un agent déclare
+la sensibilité **maximale** qu'il a le droit de lire ; `P002` compare au dépôt visé.
+
+Elle vient du **référentiel des dépôts** (`registries/repos.yaml`) quand il connaît le
+dépôt — auquel cas elle n'est plus modifiable à l'écran. Sinon elle se saisit, et le
+contrôle demande confirmation plutôt que de refuser : il ne peut pas opposer une valeur
+que la personne contrôlée lui a fournie.
 
 ## Outil, mode, exécuteur
 
