@@ -3,89 +3,165 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SalsiIAPrompt — registre</title>
+<title>SalsiIAPrompt</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./app.css">
 <style>
-  main{max-width:1020px;margin:34px auto 60px;padding:0 20px}
-  .lead{color:var(--ts);font-size:14px;margin:8px 0 0;line-height:1.65;max-width:66ch}
-  .lead b{color:var(--tp)}
-  h1{font-size:24px}
-  .repo{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-  .repo select{min-width:300px;width:auto}
+  /*
+   * L'ACCUEIL PART DE L'INTENTION, PAS DE LA STRUCTURE.
+   *
+   * Il présentait le produit : un titre de registre, un paragraphe de gouvernance, un
+   * formulaire à deux dépôts, puis des cartes décrivant LES ÉCRANS de l'application.
+   * Quelqu'un qui arrive avec un travail à faire devait comprendre l'architecture avant
+   * de savoir où cliquer.
+   *
+   * Ici : une question — « qu'est-ce que tu veux faire ? » — et des réponses à la première
+   * personne. Le vocabulaire du dépôt (artefact, périmètre, porte, registre) n'apparaît
+   * nulle part ; il vit dans le Guide, pour qui veut comprendre le fonctionnement.
+   *
+   * ET LE RÉGLAGE S'EFFACE QUAND IL EST FAIT. Choisir ses dépôts est nécessaire une fois ;
+   * en faire la première chose qu'on voit à chaque visite fait payer à tout le monde le
+   * prix d'un réglage initial.
+   */
+  main{max-width:1080px;margin:30px auto 80px;padding:0 22px}
+
+  /* ── Le bandeau de contexte : où l'on travaille, en un coup d'œil ── */
+  .contexte{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:32px}
+  .puce{display:inline-flex;align-items:center;gap:8px;padding:7px 13px;border-radius:999px;
+        border:1px solid var(--line2);background:rgba(0,0,0,.25);color:var(--ts);
+        font-size:13px;font-weight:600}
+  .puce b{color:var(--tp);font-weight:700}
+  .contexte button{font-size:12px;padding:6px 12px;border-radius:999px}
+
+  /* ── L'accroche ── */
+  h1{font-family:var(--fd);font-size:38px;line-height:1.12;margin:0 0 10px;letter-spacing:-.02em}
+  @media(max-width:640px){h1{font-size:29px}}
+  .sous{color:var(--ts);font-size:15px;line-height:1.65;margin:0 0 30px;max-width:60ch}
+
+  /* ── Les intentions ── */
+  .intentions{display:grid;gap:13px;grid-template-columns:1fr}
+  @media(min-width:720px){.intentions{grid-template-columns:1fr 1fr}}
+
+  .intention{display:flex;gap:15px;align-items:flex-start;padding:19px 21px;border-radius:17px;
+             border:1px solid var(--line);background:var(--bg-card);text-decoration:none;
+             color:inherit;transition:transform .14s ease, border-color .14s ease, background .14s ease}
+  .intention:hover{transform:translateY(-2px);border-color:rgba(167,139,250,.55);
+                   background:var(--bg-card-h)}
+  .intention .ic{font-size:26px;line-height:1;flex:none;margin-top:1px}
+  .intention b{display:block;font-family:var(--fd);font-size:17px;color:var(--tp);
+               line-height:1.3;margin-bottom:5px}
+  .intention .quoi{display:block;font-size:13px;color:var(--ts);line-height:1.6}
+
+  /* La principale est plus large et porte le dégradé : un écran a UNE action dominante. */
+  .intention.forte{border-color:rgba(167,139,250,.5);
+                   background:linear-gradient(135deg,rgba(124,92,252,.22),rgba(45,212,191,.10))}
+  @media(min-width:720px){.intention.forte{grid-column:1 / -1}}
+  .intention.forte b{font-size:19px}
+
+  /* ── Le réglage, replié quand il est fait ── */
+  .reglage{margin-top:34px;border:1px solid var(--line);border-radius:16px;
+           background:var(--bg-card);padding:18px 21px}
+  .reglage.aFaire{border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.06)}
+  .reglage > h2{font-family:var(--fd);font-size:16px;margin:0 0 4px;color:var(--tp)}
+  .reglage > p{font-size:13px;color:var(--ts);line-height:1.6;margin:0 0 15px;max-width:64ch}
+  .reglage label{display:block;font-size:11px;font-weight:800;text-transform:uppercase;
+                 letter-spacing:.05em;color:var(--tm);margin:0 0 6px}
+  .duo{display:grid;gap:15px}
+  @media(min-width:660px){.duo{grid-template-columns:1fr 1fr}}
+  .duo select{width:100%}
+  .duo .note{font-size:11.5px;color:var(--tm);line-height:1.55;margin-top:6px}
+
+  /* ── Le pied : pour qui veut comprendre ── */
+  .pied{margin-top:38px;padding-top:20px;border-top:1px solid var(--line);
+        display:flex;gap:20px;flex-wrap:wrap;font-size:13px}
+  .pied a{color:var(--tm);text-decoration:none}
+  .pied a:hover{color:var(--tp)}
 </style>
 </head>
 <body>
 
 <main>
-  <h1>Registre de capacités IA</h1>
-  <p class="lead">Une capacité entre par une <b>porte contrôlée</b>, monte en maturité <b>sur preuve</b>,
-    et sort quand elle se dégrade.<br>
-    Le déterministe décide et bloque ; le LLM produit et conseille ; l'humain tranche.</p>
+  <div class="contexte" id="contexte" hidden>
+    <span class="puce">📦 <b id="nomTravail">—</b></span>
+    <button id="changer">Changer de projet</button>
+  </div>
 
-  <h2 class="section">Dépôts</h2>
-  <div class="card">
-    <label for="registry">Dépôt du registre</label>
-    <div class="repo">
-      <select id="registry"><option>Chargement…</option></select>
-      <span class="hint">Là où les artefacts sont commités. C'est le dépôt gouverné.</span>
+  <h1>Qu'est-ce que tu veux faire ?</h1>
+  <p class="sous">Des agents IA prêts à l'emploi, relus par quelqu'un avant d'être proposés
+    aux autres. Choisis par où tu entres — tu pourras changer d'avis à tout moment.</p>
+
+  <div class="intentions">
+    <a class="intention forte" href="../catalogue/index.html">
+      <span class="ic">🧰</span>
+      <span>
+        <b>Je cherche un agent qui fait déjà le travail</b>
+        <span class="quoi">Expliquer un code, résumer un incident, relire un changement,
+          préparer une livraison… Cherche, ouvre, lance-le sur ton projet.</span>
+      </span>
+    </a>
+
+    <a class="intention" href="../demande/index.html">
+      <span class="ic">✨</span>
+      <span>
+        <b>Il me faut quelque chose qui n'existe pas</b>
+        <span class="quoi">Dis-le en une phrase, comme à un collègue. L'agent est écrit
+          pour toi, puis quelqu'un le relit.</span>
+      </span>
+    </a>
+
+    <a class="intention" href="../composer/index.html">
+      <span class="ic">🧩</span>
+      <span>
+        <b>Je veux le fabriquer moi-même</b>
+        <span class="quoi">Prends des morceaux tout prêts, assemble-les. Garde-le pour toi,
+          ou propose-le aux autres.</span>
+      </span>
+    </a>
+
+    <a class="intention" href="../admin/index.html">
+      <span class="ic">✅</span>
+      <span>
+        <b>Je dois relire ce qu'on m'a proposé</b>
+        <span class="quoi">Ce que les équipes envoient attend ta décision. Personne d'autre
+          ne le voit avant que tu l'aies accepté.</span>
+      </span>
+    </a>
+
+    <a class="intention" href="../studio/index.html">
+      <span class="ic">🛠️</span>
+      <span>
+        <b>J'écris un agent en détail</b>
+        <span class="quoi">L'établi complet, pour qui veut tout régler à la main. Les
+          vérifications tournent pendant que tu écris.</span>
+      </span>
+    </a>
+  </div>
+
+  <section class="reglage" id="reglage">
+    <h2>Où tu travailles</h2>
+    <p id="pourquoi">Deux choix à faire une fois : le projet sur lequel tes agents vont
+      travailler, et l'endroit où ils sont rangés.</p>
+
+    <div class="duo">
+      <div>
+        <label for="projects">Ton projet</label>
+        <select id="projects"><option>Chargement…</option></select>
+        <div class="note" id="noteTravail">Ce sur quoi les agents vont porter.</div>
+      </div>
+      <div>
+        <label for="registry">Où les agents sont rangés</label>
+        <select id="registry"><option>Chargement…</option></select>
+        <div class="note">L'endroit partagé où ils sont relus et conservés. Le même pour
+          toute l'équipe.</div>
+      </div>
     </div>
+  </section>
 
-    <label for="projects">Dépôt de travail</label>
-    <div class="repo">
-      <select id="projects"><option>Chargement…</option></select>
-      <span class="hint" id="repoHint">Ce sur quoi les agents portent. Sert à déduire le périmètre.</span>
-    </div>
-
-    <p class="hint" style="margin-top:16px">Deux dépôts distincts, et c'est volontaire : sur celui du
-      registre, branches protégées et règles d'approbation <em>sont</em> la gouvernance. Un auteur qui
-      soumet un agent n'a aucune raison d'écrire dans le dépôt qu'il analyse.</p>
-  </div>
-
-  <h2 class="section">Demander</h2>
-  <div class="grid">
-    <a class="tile" href="../demande/index.html">
-      <h3>✨ Demander un agent</h3>
-      <p>« Je voudrais un agent pour vérifier mes branches mortes. » Une phrase, et l'agent
-        complet est écrit, jugé par les 25 règles, puis déposé en validation. Aucun vocabulaire
-        de registre à connaître.</p>
-    </a>
-    <a class="tile" href="../composer/index.html">
-      <h3>🔗 Composer un agent</h3>
-      <p>Assembler des agents <b>déjà validés</b> en une chaîne, au glisser-déposer ou en une
-        phrase. Aucun prompt n'est écrit : une chaîne hérite de la validation de ses briques,
-        et chaque étape est vérifiée avant de passer à la suivante.</p>
-    </a>
-  </div>
-
-  <h2 class="section">Écrire &amp; gouverner</h2>
-  <div class="grid">
-    <a class="tile" href="../studio/index.html">
-      <h3>🛠️ Studio</h3>
-      <p>Écrire un agent ou un prompt. Les 25 règles s'exécutent à la frappe : la porte se ferme
-        avant la soumission, pas après. Puis soumettre à validation.</p>
-    </a>
-    <a class="tile" href="../catalogue/index.html">
-      <h3>🧰 Catalogue</h3>
-      <p>Ce qui a été <b>validé</b>, lu dans le dépôt. Cherche par intention, ouvre une fiche,
-        et vois si l'artefact franchit encore la porte aujourd'hui.</p>
-    </a>
-    <a class="tile" href="../admin/index.html">
-      <h3>📊 Admin</h3>
-      <p>La file de validation. Ce qui a franchi la porte automatique attend ici une décision
-        humaine — rien n'apparaît au catalogue avant.</p>
-    </a>
-  </div>
-
-  <h2 class="section">Voir l'intention</h2>
-  <div class="grid">
-    <a class="tile" href="../maquette.html">
-      <h3>✨ Maquette</h3>
-      <p>Catalogue, Studio et Admin en un seul fichier, avec la visite guidée. Elle montre où
-        l'on va — elle ne vérifie rien et n'écrit nulle part.</p>
-    </a>
+  <div class="pied">
+    <a href="../guide/index.html">📖 Comment ça marche</a>
+    <a href="../maquette.html">✨ La maquette d'origine</a>
   </div>
 </main>
 
@@ -97,24 +173,54 @@ import { mountShell } from './shell.js';
 const session = requireSession('./login.html');
 if (session) {
   const $ = (id) => document.getElementById(id);
-
   mountShell({ session, base: '../', onLogout: () => { clear(); location.replace('./login.html'); } });
 
-  // Les dépôts choisis sont une préférence d'affichage côté navigateur, pas une donnée
-  // gouvernée : rien ici n'a valeur d'autorisation.
-  const KEYS = {
-    registry: 'salsi_ia_registry_repo',
-    work: 'salsi_ia_project',
-    workPath: 'salsi_ia_project_path'
+  // Une préférence d'affichage côté navigateur, pas une donnée gouvernée : rien ici n'a
+  // valeur d'autorisation.
+  const KEYS = { registry: 'salsi_ia_registry_repo', work: 'salsi_ia_project',
+                 workPath: 'salsi_ia_project_path' };
+
+  /*
+   * Le réglage ne s'impose qu'une fois.
+   *
+   * Tant qu'il manque quelque chose, la section est ouverte et signalée. Dès que les deux
+   * sont choisis, elle se replie derrière une pastille discrète : ce qui est réglé ne doit
+   * plus occuper le haut de l'écran.
+   */
+  function majContexte() {
+    const travail = localStorage.getItem(KEYS.workPath) || '';
+    const registre = localStorage.getItem(KEYS.registry) || '';
+    const complet = Boolean(travail && registre);
+
+    $('contexte').hidden = !complet;
+    $('reglage').hidden = complet;
+    $('reglage').classList.toggle('aFaire', !complet);
+    $('nomTravail').textContent = travail;
+    $('pourquoi').textContent = complet
+      ? 'Tu peux changer à tout moment — rien n\'est perdu.'
+      : 'Deux choix à faire une fois : le projet sur lequel tes agents vont travailler, '
+        + 'et l\'endroit où ils sont rangés.';
+  }
+
+  $('changer').onclick = () => {
+    $('reglage').hidden = false;
+    $('reglage').scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
   const fill = (select, repos, storageKey, onPick) => {
     select.textContent = '';
-    if (repos.length === 0) { select.append(new Option('Aucun dépôt accessible avec ce jeton', '')); return; }
-    select.append(new Option('— choisir un dépôt —', ''));
+    if (repos.length === 0) {
+      select.append(new Option('Aucun projet accessible avec ta connexion', ''));
+      return;
+    }
+    select.append(new Option('— choisir —', ''));
     for (const r of repos) select.append(new Option(r.path, r.id));
     select.value = localStorage.getItem(storageKey) || '';
-    select.onchange = () => { localStorage.setItem(storageKey, select.value); onPick?.(select); };
+    select.onchange = () => {
+      localStorage.setItem(storageKey, select.value);
+      onPick?.(select);
+      majContexte();
+    };
   };
 
   try {
@@ -122,14 +228,19 @@ if (session) {
     fill($('registry'), repos, KEYS.registry);
     fill($('projects'), repos, KEYS.work, (sel) => {
       localStorage.setItem(KEYS.workPath, sel.selectedOptions[0]?.textContent || '');
-      $('repoHint').textContent = sel.value ? 'Dépôt retenu — le périmètre en sera déduit.' : 'Aucun dépôt sélectionné.';
+      $('noteTravail').textContent = sel.value
+        ? 'Retenu. Les agents porteront là-dessus par défaut.'
+        : 'Ce sur quoi les agents vont porter.';
     });
   } catch (error) {
     for (const id of ['registry', 'projects']) {
-      $(id).textContent = ''; $(id).append(new Option('Dépôts illisibles', ''));
+      $(id).textContent = '';
+      $(id).append(new Option('Liste indisponible', ''));
     }
-    $('repoHint').textContent = error.message;
+    $('noteTravail').textContent = error.message;
   }
+
+  majContexte();
 }
 </script>
 </body>

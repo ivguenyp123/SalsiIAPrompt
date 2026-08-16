@@ -1,6 +1,6 @@
 # Composer
 
-**Où** : onglet **🔗 Composer**.
+**Où** : onglet **🧩 Fabriquer**.
 
 L'écran fait **deux choses différentes**, et les confondre est l'erreur la plus coûteuse
 du produit. Choisissez d'abord laquelle.
@@ -80,7 +80,7 @@ chez soi n'engage personne — et quatre choses rendent ça tenable :
 - il est **invisible au catalogue des autres** : personne ne peut le prendre en croyant
   qu'il a été relu.
 
-Vous le retrouvez dans **🧰 Catalogue**, filtre **💾 Les miens**, avec un badge — et vous
+Vous le retrouvez dans **🧰 Les agents**, filtre **💾 Les miens**, avec un badge — et vous
 le lancez comme n'importe quel autre.
 
 **Et il ne peut pas servir de brique.** Une chaîne exige que chaque étape existe *au

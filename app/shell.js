@@ -10,10 +10,10 @@ const TABS = [
   // et pas un artefact. Le mettre après les écrans d'auteur reviendrait à le réserver à
   // ceux qui savent déjà que le registre existe.
   { id: 'demande', label: '✨ Demander', href: 'demande' },
-  { id: 'composer', label: '🔗 Composer', href: 'composer' },
-  { id: 'catalogue', label: '🧰 Catalogue', href: 'catalogue' },
+  { id: 'composer', label: '🧩 Fabriquer', href: 'composer' },
+  { id: 'catalogue', label: '🧰 Les agents', href: 'catalogue' },
   { id: 'studio', label: '🛠️ Studio', href: 'studio' },
-  { id: 'admin', label: '📊 Admin', href: 'admin' },
+  { id: 'admin', label: '✅ À relire', href: 'admin' },
   // Le guide est en queue de barre, jamais en tête : on l'ouvre quand quelque chose
   // coince, pas au démarrage. Mais il est DANS la barre, visible depuis tous les écrans —
   // une aide qu'il faut chercher est une aide que personne ne lit.
@@ -39,7 +39,7 @@ export function mountShell({ active = '', session, base = '', onLogout }) {
   const brand = document.createElement('a');
   brand.className = 'brand';
   brand.href = `${base}app/index.html`;
-  brand.innerHTML = '🧂 SalsiIAPrompt<small>registre de capacités IA</small>';
+  brand.innerHTML = '🧂 SalsiIAPrompt<small>des agents IA, relus avant d\'être partagés</small>';
   bar.append(brand);
 
   for (const tab of TABS) {

@@ -1,6 +1,6 @@
 # Trouver et lancer un agent
 
-**Où** : onglet **🧰 Catalogue**.
+**Où** : onglet **🧰 Les agents**.
 
 Le catalogue montre les agents **validés** — plus **les vôtres**. Ce qui attend une
 décision est dans l'Admin ; ce qui a été retiré n'y est plus.

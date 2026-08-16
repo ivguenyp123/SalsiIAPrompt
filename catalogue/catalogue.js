@@ -23,6 +23,7 @@ import { preparer as preparerLivraison, executer as executerLivraison } from '..
 import { knownScopes, guessScope } from '../app/scopes.js';
 import { contexteDepot } from '../lib/repos.js';
 import { dossier as dossierMien } from '../lib/mien.js';
+import { champDepot, estUnDepot } from '../app/depots.js';
 import { makeValidator } from '../lib/schema.js';
 import yaml from '../lib/yaml.js';
 import { carte } from '../runtime/etat-derive.js';
@@ -1070,6 +1071,33 @@ function ouvrirExecution(entry) {
   const saisies = {};
   const grille = el('div', { className: 'champs' });
   for (const v of artifact.variables || []) {
+    /*
+     * Une variable qui désigne un DÉPÔT reçoit la liste, jamais un champ vide.
+     *
+     * Demander d'écrire `groupe/sous-groupe/projet` quand la connexion connaît déjà la
+     * liste, c'est demander de retenir par cœur ce que la machine a sous la main. Et une
+     * faute de frappe ne rend pas une erreur : elle rend un agent qui tourne sur le
+     * mauvais dépôt, ou qui échoue plus tard sans dire pourquoi.
+     */
+    if (estUnDepot(v)) {
+      const picker = champDepot({ forge });
+      grille.append(champ(`{{${v.name}}}`, picker.noeud));
+      picker.remplir();
+
+      // Le formulaire lit `.value` et pilote `.disabled` sur ce qu'il trouve ici. Avec
+      // « un autre dépôt », c'est la saisie libre qui porte la valeur : on expose donc le
+      // lecteur du champ plutôt qu'un élément précis.
+      saisies[v.name] = {
+        get value() { return picker.valeur(); },
+        set value(_) { /* la liste décide */ },
+        set disabled(x) {
+          for (const n of picker.noeud.querySelectorAll('select, input')) n.disabled = x;
+        },
+        set placeholder(_) { /* la liste porte son propre libellé */ }
+      };
+      continue;
+    }
+
     if (v.source === 'repo') {
       const input = el('input', { placeholder: 'issu du dépôt' });
       saisies[v.name] = input;
