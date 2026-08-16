@@ -1,37 +1,104 @@
 # Le contrat de sortie de « Daily Report », EXTRAIT de la plateforme.
 #
-# Source : `js/daily-report.js`, la grille de KPI (~ligne 1783). Les six mêmes chiffres,
-# dans le même ordre, avec la moyenne par jour que la plateforme affiche sous chacun.
+# ── D'OÙ VIENT CHAQUE MORCEAU ────────────────────────────────────────────────
 #
-# `taux_succes` est un POURCENTAGE et n'a pas de moyenne journalière — la plateforme n'en
-# calcule pas, et en inventer une ferait afficher un chiffre que personne ne peut vérifier.
+# Tout est lu dans `js/daily-report.js`, fonction `buildStandaloneHTML()` :
+#   · le Health Score et sa formule → ~lignes 1576-1589
+#   · la grille de KPI             → ~ligne 1783
+#   · la fenêtre                   → `generateStandaloneReport()` (~ligne 1474)
+#
+# ── CE QUE LA PREMIÈRE LECTURE AVAIT MANQUÉ ──────────────────────────────────
+#
+# Le HEALTH SCORE. C'est le chiffre en tête du résumé, celui qu'on lit avant tous les
+# autres, et il n'était pas au contrat : un agent le remplaçait donc par sa propre
+# appréciation. Sa formule n'a rien d'une moyenne — c'est une note de 100 dont on RETIRE
+# des points pour des défauts nommés. La reproduire suppose de savoir lesquels.
+#
+# ── LE HEALTH SCORE MÉLANGE DEUX PÉRIMÈTRES, ET IL FAUT LE SAVOIR ────────────
+#
+# Deux de ses quatre pénalités portent sur la fenêtre — le taux de succès des pipelines.
+# Les deux autres portent sur l'ÉTAT ACTUEL du dépôt, hors fenêtre : les branches
+# dormantes depuis plus de 90 jours, et les MR ouvertes depuis plus de 7 jours. Un rapport
+# « de la semaine » peut donc perdre 25 points pour une dette qui n'a rien à voir avec la
+# semaine écoulée. Ce n'est pas un défaut à corriger ici : c'est le calcul de la
+# plateforme, et le reproduire suppose de ne pas le « nettoyer » au passage.
 
 module: Daily Report
 source: js/daily-report.js
 format: json
 
+fenetre: >-
+  7 jours (« Semaine ») ou 30 jours (« Mois »), au choix. La période commence au premier
+  instant du premier jour et finit au dernier instant d'aujourd'hui — les deux bornes sont
+  incluses, donc « 7 jours » compte bien 7 journées entières.
+
+perimetre: >-
+  Les pipelines, MR mergées, MR refusées, tags, déploiements et commits sont pris SUR LA
+  FENÊTRE. Les branches et les MR encore ouvertes sont prises telles qu'elles sont
+  AUJOURD'HUI, sans filtre de date : elles ne servent qu'aux pénalités du Health Score.
+
 champs:
+  - cle: health_score
+    libelle: Health Score
+    unite: "/100"
+    seuils: "Bonne santé ≥ 80 · À surveiller ≥ 50 · Critique en dessous"
+    methode: >-
+      On part de 100 et on RETIRE, sans jamais rien ajouter : 20 points si le taux de
+      succès est sous 80 %, puis 15 de plus s'il est aussi sous 60 % (les deux se cumulent,
+      donc 35 au total sous 60 %) ; 15 points si plus de 20 branches n'ont pas bougé depuis
+      plus de 90 jours ; 10 points si plus de 5 MR sont ouvertes depuis plus de 7 jours. Le
+      résultat est ramené entre 0 et 100.
+
   - cle: mrs_merged
     libelle: MRs mergées
     unite: nombre
-    note: "moyenne par jour affichée sous le total"
+    methode: "le nombre de MR mergées sur la fenêtre, et sa moyenne par jour à UNE décimale."
+
   - cle: pipelines
     libelle: Pipelines
     unite: nombre
-    note: "moyenne par jour affichée sous le total"
+    methode: "tous les pipelines de la fenêtre, quel que soit leur statut, et la moyenne par jour."
+
   - cle: echecs
     libelle: Échecs
     unite: nombre
-    note: "moyenne par jour affichée sous le total"
+    methode: >-
+      les pipelines dont le statut est `failed`. Les pipelines annulés ne comptent NI
+      comme succès NI comme échecs : ils existent, et n'entrent dans aucun des deux.
+
   - cle: deploiements
     libelle: Déploiements
     unite: nombre
-    note: "moyenne par jour affichée sous le total"
+    methode: "les déploiements de la fenêtre, et la moyenne par jour."
+
   - cle: taux_succes
     libelle: Taux succès
     unite: "%"
-    note: "pipelines réussis sur pipelines lancés — aucune moyenne journalière"
+    methode: >-
+      pipelines en succès divisés par le TOTAL des pipelines — annulés compris au
+      dénominateur — en pourcentage arrondi à l'entier. Aucune moyenne par jour : la
+      plateforme n'en calcule pas sous ce chiffre, et en inventer une afficherait un
+      nombre que personne ne peut vérifier.
+
   - cle: commits
     libelle: Commits
     unite: nombre
-    note: "moyenne par jour affichée sous le total"
+    methode: "les commits de la fenêtre, et la moyenne par jour."
+
+regles:
+  - titre: La moyenne par jour se calcule sur la fenêtre entière
+    effet: >-
+      Total divisé par le nombre de jours demandés, à une décimale — et non par le nombre
+      de jours où il s'est passé quelque chose. Un dépôt actif deux jours sur sept affiche
+      une moyenne basse, et c'est l'information recherchée.
+
+  - titre: Le Health Score ne récompense rien
+    effet: >-
+      Il ne monte jamais au-dessus de 100 : il n'y a que des retraits. Un dépôt sans aucun
+      défaut détecté vaut exactement 100, pas davantage.
+
+absence: >-
+  Sans aucun pipeline sur la fenêtre, le taux de succès vaut 0 — c'est ce que la plateforme
+  écrit, et il faut le reproduire. Conséquence à ne pas adoucir : ce 0 franchit les deux
+  bornes du Health Score, qui perd donc 35 points. Une semaine sans aucun pipeline est
+  notée comme une semaine où tout a échoué. Le rapport se lit avec ça en tête.

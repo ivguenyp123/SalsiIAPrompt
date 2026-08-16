@@ -1,13 +1,45 @@
 # Le contrat de sortie de « Bus Factor », EXTRAIT de la plateforme.
 #
-# Source : `js/bus-factor.js` (~lignes 320-342). Le score est la MÉDIANE PONDÉRÉE des
-# facteurs de chaque zone, plafonnée à 5 et arrondie à une décimale — pas une moyenne.
-# La distinction compte : un module critique noyé dans neuf modules sains ne doit pas
-# disparaître dans la moyenne, et c'est écrit dans le code.
+# ── D'OÙ VIENT CHAQUE MORCEAU ────────────────────────────────────────────────
+#
+# Tout est lu dans `js/bus-factor.js` :
+#   · l'échantillon                  → `COMMIT_SAMPLE_SIZE` (ligne 23) et `analyzeCommits()`
+#   · le découpage en zones          → `analyzeCommits()`, groupement à deux niveaux
+#   · le facteur d'une zone          → `calculateBusFactors()`
+#   · le score global                → `weightedMedian()` puis `renderGlobalScore()`
+#   · le filtre des zones affichées  → `renderRiskZones()`
+#
+# ── LES TROIS DÉCISIONS QUI CHANGENT LE CHIFFRE ──────────────────────────────
+#
+# MÉDIANE PONDÉRÉE, PAS MOYENNE. Le code explique pourquoi, et l'exemple est le sien : un
+# projet avec un module critique (facteur 1) et neuf modules sains (facteur 5) donnait
+# 4.6/5 en moyenne — « RISQUE FAIBLE » — alors que le module critique pouvait être le cœur
+# du projet. Pondérée par les commits, la médiane dit 1 dès que la moitié de l'activité
+# tombe sur des zones fragiles. Un agent qui ferait la moyenne rendrait exactement le
+# chiffre rassurant que la plateforme a cessé de rendre.
+#
+# LES 200 DERNIERS COMMITS, PAS L'HISTORIQUE. Choix assumé dans le code : on mesure le bus
+# factor d'AUJOURD'HUI — qui sait quoi maintenant — et non qui a écrit quoi depuis
+# l'origine. Sur un projet de cinq ans avec du turnover, l'historique complet serait plus
+# trompeur que les semaines récentes.
+#
+# LE SEUIL DES 80 %. Le facteur d'une zone est le nombre de personnes qu'il faut pour
+# couvrir 80 % de ses commits. Ni 100 % — une longue traîne de contributeurs occasionnels
+# gonflerait tous les facteurs — ni 50 %.
 
 module: Bus Factor
 source: js/bus-factor.js
 format: json
+
+fenetre: >-
+  les 200 commits les plus récents, et non une durée. La plateforme mesure qui sait quoi
+  MAINTENANT ; l'historique complet dirait qui savait quoi autrefois.
+
+perimetre: >-
+  Une « zone » est un répertoire pris à DEUX niveaux de profondeur — `src/components`,
+  `frontend/lib` — un fichier à la racine formant sa propre zone. Le découpage est
+  arbitraire et le code le dit : sur un dépôt très plat ou très profond, il peut être
+  inadapté.
 
 niveaux: ["RISQUE CRITIQUE", "RISQUE MOYEN", "RISQUE FAIBLE"]
 
@@ -15,9 +47,50 @@ champs:
   - cle: score
     libelle: Bus factor global
     unite: personnes
-    note: "médiane pondérée des zones, plafonnée à 5, une décimale"
     seuils: "RISQUE CRITIQUE < 2 · RISQUE MOYEN < 3 · RISQUE FAIBLE au-delà"
+    methode: >-
+      MÉDIANE PONDÉRÉE des facteurs de zone, jamais moyenne — chaque zone pesant son
+      nombre de commits. On trie les zones par facteur croissant, on cumule les poids, et
+      la valeur retenue est celle qui fait franchir la moitié du poids total. Le résultat
+      est plafonné à 5 et arrondi à une décimale.
+
   - cle: zones
     libelle: Zones à risque
     unite: liste
-    note: "chaque zone porte son `factor` et son nombre de commits"
+    forme: >-
+      une liste d'objets `{ "zone": "<chemin>", "facteur": <nombre>, "commits": <nombre>,
+      "contributeurs": [ { "nom": "<nom>", "part": <pourcentage> } ] }`
+    methode: >-
+      Le facteur d'une zone est le nombre de personnes nécessaires pour couvrir 80 % de
+      ses commits : on trie ses contributeurs du plus actif au moins actif, on cumule
+      leurs parts arrondies, et on compte combien il en a fallu pour atteindre 80. Ne sont
+      listées que les zones d'AU MOINS 5 COMMITS, triées de la plus fragile à la plus
+      solide, les 10 premières, avec au plus 3 contributeurs chacune.
+
+regles:
+  - titre: Une zone de moins de 5 commits n'est pas une alerte
+    effet: >-
+      Elle est écartée de la liste. Un fichier touché une fois par une seule personne
+      donnerait un facteur de 1 sans qu'aucune connaissance soit réellement en jeu.
+
+  - titre: Les compteurs portent sur TOUTES les zones, la liste non
+    effet: >-
+      « critiques » compte les zones de facteur 1, « à surveiller » celles de facteur 2,
+      « saines » celles de facteur 3 ou plus — sur l'ensemble des zones, y compris celles
+      trop petites pour être listées. Les deux ne portent donc pas sur le même ensemble,
+      et c'est voulu.
+
+  - titre: Une part de 70 % ou plus signale une personne dominante
+    effet: >-
+      La plateforme la marque visuellement, et c'est le sens même du rapport : ce n'est
+      pas le nombre de contributeurs qui compte, c'est la concentration.
+
+  - titre: Aucun commit
+    effet: >-
+      Le rapport ne rend pas un score de 0 : il dit que le projet semble vide. Zéro
+      personne se lirait comme un bus factor catastrophique alors qu'il n'y a rien à
+      mesurer.
+
+absence: >-
+  Une zone sans contributeur exploitable est écartée plutôt que rendue à zéro, et un dépôt
+  sans commit ne donne pas de score du tout — pas un score nul.

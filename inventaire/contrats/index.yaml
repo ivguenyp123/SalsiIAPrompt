@@ -14,6 +14,45 @@
 # clés, les unités et les seuils s'y trouvent, ou ils ne s'y trouvent pas. Rien ne doit
 # être comblé de mémoire — un seuil approximatif ferait diverger deux rapports censés être
 # le même, et personne ne saurait lequel croire.
+#
+# ── UNE FORME NE SUFFIT PAS : IL FAUT LE CALCUL ──────────────────────────────
+#
+# Les cinq contrats ont d'abord été extraits en FORME seule — clés, unités, seuils. À
+# l'usage, ça ne reproduit pas : ça ressemble. Deux exemples tirés de ces cinq modules :
+#
+#   · `avgReviewTime` d'« Auto Retro » est une MOYENNE ; le lead time de « DORA Insights »
+#     est une MÉDIANE. Même sujet, même unité, deux chiffres qui ne se comparent pas.
+#   · Le bus factor global est une MÉDIANE PONDÉRÉE. Le code raconte pourquoi : en moyenne,
+#     un module critique noyé dans neuf sains donnait 4.6/5 et « RISQUE FAIBLE ».
+#
+# Chaque contrat porte donc, en plus de sa forme : le CALCUL de chaque champ, la FENÊTRE
+# d'observation, le PÉRIMÈTRE, et les RÈGLES qui priment sur le calcul. `test/contrats.js`
+# refuse un champ sans calcul déclaré.
+#
+# ── LES DÉSACCORDS DE LA PLATEFORME NE SE CORRIGENT PAS ICI ──────────────────
+#
+# La lecture des cinq modules a mis au jour des divergences réelles entre eux. Le registre
+# ne les arbitre pas : chaque contrat porte la convention de SON module, parce qu'un
+# contrat sert à reproduire un rapport, pas à réformer la plateforme. Elles sont consignées
+# pour être tranchées par quelqu'un qui en a la charge.
+#
+#   L'ABSENCE. « DORA Insights » écrit `N/A` quand il n'a pas pu mesurer, et refuse même de
+#   décerner « Elite » sans MTTR. « Auto Retro » et « Daily Report » écrivent `0`. Sur
+#   « Daily Report », la conséquence n'est pas anodine : une semaine SANS AUCUN pipeline
+#   donne un taux de succès de 0 %, qui franchit les deux bornes du Health Score et lui
+#   coûte 35 points. Une semaine calme est notée comme une semaine catastrophique.
+#
+#   LES MÉTRIQUES MANQUANTES. « DORA Insights » les RETIRE de sa moyenne puis plafonne le
+#   score. « DevOps Assessment » garde l'axe à 0 dans la moyenne des huit. Deux réponses
+#   opposées à la même question.
+#
+#   UN AXE MESURÉ SANS RÉPONSE AU QUESTIONNAIRE, dans « DevOps Assessment », voit son score
+#   divisé par deux : la moyenne déclaré/mesuré se fait avec un déclaré traité comme nul.
+#   Un rapport produit sans remplir le quiz n'est donc pas comparable à un rapport complet.
+#
+#   LE NOM DES ENVIRONNEMENTS. « Auto Retro » classe un déploiement d'après le nom : « prod »
+#   en PROD, « uat »/« staging » en UAT, TOUT LE RESTE en DEV. Le code signale lui-même que
+#   sur un workflow « recette / preprod / integration / homolog », tout retombe en DEV.
 
 contrats:
   - auto-retro.yaml

@@ -79,6 +79,44 @@ describe('les contrats extraits', () => {
     assert.deepEqual([...MANIFESTE].sort(), surDisque);
   });
 
+  test('chaque contrat porte le CALCUL de chacun de ses champs', () => {
+    /*
+     * La leçon des quatre contrats suivants. Le premier n'avait que des clés, des unités
+     * et des seuils — une forme. Un agent bâti dessus rendait bien `avgReviewTime`, et le
+     * calculait en MÉDIANE là où « Auto Retro » prend une MOYENNE. Même clé, même unité,
+     * autre chiffre : le rapport ressemblait sans reproduire.
+     *
+     * Un champ sans calcul déclaré rend donc le contrat incomplet, quel que soit le module.
+     */
+    for (const c of CONTRATS) {
+      for (const ch of c.champs) {
+        assert.ok(ch.methode, `${c.module} : « ${ch.cle} » sans calcul déclaré`);
+      }
+    }
+  });
+
+  test('chaque contrat dit sur QUOI il observe', () => {
+    // Le même dépôt sur 7 jours ou sur 30 ne rend pas le même chiffre, et « les 200
+    // derniers commits » n'est pas une durée du tout.
+    for (const c of CONTRATS) {
+      assert.ok(c.fenetre, `${c.module} : aucune fenêtre d'observation`);
+      assert.ok(c.perimetre, `${c.module} : aucun périmètre`);
+    }
+  });
+
+  test('le calcul arrive INTACT jusqu\'à la consigne, pour les cinq', () => {
+    // Un contrat riche qui se dilue en chemin ne vaut pas mieux qu'un contrat pauvre.
+    for (const c of CONTRATS) {
+      const texte = consigneDeSortie(c);
+      for (const ch of c.champs) {
+        assert.ok(texte.includes(ch.methode.slice(0, 40)),
+          `${c.module} : le calcul de « ${ch.cle} » n'arrive pas jusqu'à la consigne`);
+      }
+      assert.ok(texte.includes(c.fenetre.slice(0, 30)), `${c.module} : fenêtre perdue`);
+      assert.ok(texte.includes(c.perimetre.slice(0, 30)), `${c.module} : périmètre perdu`);
+    }
+  });
+
   test('chaque contrat vise un module QUI EXISTE à l\'inventaire', () => {
     // Un contrat pour un module inconnu ne servira jamais : c'est du code mort qui a
     // l'air d'une garantie.
@@ -153,6 +191,110 @@ describe('DORA Insights', () => {
   test('« N/A » est une valeur admise — l\'absence de mesure se dit', () => {
     // Écrire 0 à la place mentirait sur une mesure qui n'a pas eu lieu.
     assert.ok(dora.niveaux.includes('N/A'));
+  });
+});
+
+/* ── Les quatre autres rapports ───────────────────────────────────────────── */
+
+describe('Bus Factor', () => {
+  const bf = INDEX.get('Bus Factor');
+  const texte = consigneDeSortie(bf);
+
+  test('exige la MÉDIANE PONDÉRÉE, la seule chose qui change le verdict', () => {
+    /*
+     * Le code de la plateforme donne lui-même le contre-exemple : un module critique
+     * (facteur 1) et neuf modules sains (facteur 5) donnaient 4.6/5 en moyenne — « RISQUE
+     * FAIBLE » — alors que le module critique pouvait être le cœur du projet. Un agent qui
+     * ferait la moyenne rendrait précisément le chiffre rassurant qu'elle a cessé de rendre.
+     */
+    assert.match(texte, /MÉDIANE PONDÉRÉE/);
+    assert.match(texte, /jamais moyenne/);
+  });
+
+  test('un champ à forme libre échappe au moule `{ valeur, niveau }`', () => {
+    // `zones` est une liste d'objets. Lui imposer la clôture obligerait le modèle à
+    // emballer une liste dans un « niveau » qui n'existe pas.
+    assert.ok(bf.champs.find((c) => c.cle === 'zones').forme);
+    assert.match(texte, /forme   :/);
+    assert.match(texte, /suivent la leur/);
+  });
+});
+
+describe('Daily Report', () => {
+  const dr = INDEX.get('Daily Report');
+  const texte = consigneDeSortie(dr);
+
+  test('porte le Health Score, le chiffre de tête que la forme seule perdait', () => {
+    // Il ouvre le résumé. Absent du contrat, un agent le remplaçait par sa propre
+    // appréciation — un nombre sur 100 qui ressemblait à une mesure sans en être une.
+    assert.ok(dr.champs.some((c) => c.cle === 'health_score'));
+    assert.match(texte, /On part de 100 et on RETIRE/);
+  });
+
+  test('ne réclame AUCUN niveau — la plateforme ne classe pas ces chiffres', () => {
+    /*
+     * Généralisation abusive tirée du premier contrat : la clôture exigeait partout
+     * `{ valeur, niveau }`. Ici la plateforme n'en calcule aucun, et le réclamer revient à
+     * demander au modèle d'inventer un classement.
+     */
+    assert.ok(!dr.niveaux);
+    assert.match(texte, /un nombre nu, sans enrobage/);
+    assert.ok(!/"niveau": "<niveau>"/.test(texte));
+  });
+});
+
+describe('DevOps Assessment', () => {
+  const da = INDEX.get('DevOps Assessment');
+  const texte = consigneDeSortie(da);
+
+  test('rend un axe en TROIS chiffres — déclaré, mesuré, final', () => {
+    /*
+     * Ce que la première lecture avait perdu, et c'est tout le module : l'écart entre ce
+     * que l'équipe déclare et ce que le dépôt montre. Réduire un axe à son score final
+     * efface exactement ce que le rapport sert à voir.
+     */
+    for (const cle of ['delivery', 'quality', 'stability']) {
+      assert.match(da.champs.find((c) => c.cle === cle).forme, /declaratif.*mesure.*final/);
+    }
+    assert.match(texte, /déclaré et le mesuré/);
+  });
+
+  test('distingue l\'axe purement déclaré de l\'axe purement mesuré', () => {
+    // Culture : 10 questions, aucune métrique. Sécurité : 5 métriques, aucune question.
+    // Les confondre ferait passer une déclaration pour une mesure.
+    assert.match(da.champs.find((c) => c.cle === 'culture').forme, /"mesure": null/);
+    assert.match(da.champs.find((c) => c.cle === 'security').forme, /"declaratif": null/);
+  });
+
+  test('les niveaux ont leurs NOMS, pas seulement des numéros', () => {
+    assert.deepEqual(da.niveaux,
+      ['Initial', 'En Progrès', 'Formalisé', 'Sous Contrôle', 'Optimisé']);
+  });
+
+  test('ne parle pas de « niveau de chaque champ » quand huit n\'en ont pas', () => {
+    assert.match(texte, /des champs qui en portent un/);
+  });
+});
+
+describe('deux modules, deux façons de dire l\'absence', () => {
+  test('« Auto Retro » écrit 0 là où « DORA Insights » écrit N/A — et on ne lisse pas', () => {
+    /*
+     * Un désaccord RÉEL entre deux modules du même hub. La tentation est de l'harmoniser
+     * ici, puisque la règle du registre est « jamais zéro » : ce serait faire diverger
+     * l'agent du rapport qu'il reproduit, c'est-à-dire manquer le but.
+     *
+     * Le contrat porte donc la convention de SON module, et le désaccord est consigné
+     * plutôt que corrigé en douce.
+     */
+    const retro = consigneDeSortie(INDEX.get('Auto Retro'));
+    const dora = consigneDeSortie(INDEX.get('DORA Insights'));
+    assert.match(retro, /`pipelineSuccess` vaut 0/);
+    assert.match(dora, /jamais zéro/);
+  });
+
+  test('sans convention déclarée, c\'est la règle du registre qui tient', () => {
+    const nu = consigneDeSortie({ champs: [{ cle: 'a', libelle: 'A' }] });
+    assert.match(nu, /jamais zéro/);
   });
 });
 

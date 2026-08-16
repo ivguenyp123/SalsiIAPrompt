@@ -1,47 +1,158 @@
 # Le contrat de sortie de « DevOps Assessment », EXTRAIT de la plateforme.
 #
-# Source : `js/maturity.js` — `CATEGORIES` (~ligne 668) pour les huit axes et leurs
-# identifiants, le calcul du score global (~ligne 1417) pour l'échelle.
+# ── D'OÙ VIENT CHAQUE MORCEAU ────────────────────────────────────────────────
 #
-# Deux natures d'axe, et la plateforme les distingue :
-#   `declaratif`  ce que l'équipe déclare (Culture)
-#   `data_only`   ce qui se mesure sans rien demander (Sécurité)
-# Les confondre ferait passer une déclaration pour une mesure.
+# Tout est lu dans `js/maturity.js` :
+#   · les huit axes et leur nature → `CATEGORIES` (~ligne 668)
+#   · le score déclaré d'un axe    → `declScoreForCat()` (~ligne 1390)
+#   · le score mesuré d'un axe     → `dataScoreForCat()` (~ligne 1399)
+#   · la combinaison et le global  → `renderReport()` (~ligne 1410)
+#   · les noms des niveaux         → `LEVELS` (~ligne 727)
+#   · l'écart déclaré/mesuré       → la grille de confrontation, même fonction
+#
+# ── CE QUE LA PREMIÈRE LECTURE AVAIT MANQUÉ, ET C'EST L'ESSENTIEL ────────────
+#
+# Un axe n'est pas UN chiffre. Il en porte trois : ce que l'ÉQUIPE DÉCLARE, ce que le
+# dépôt MESURE, et leur combinaison. Le rapport montre les trois côte à côte, et son
+# intérêt principal est justement l'ÉCART entre les deux premiers — une équipe qui se note
+# 90 sur un axe mesuré à 40 apprend quelque chose que ni l'un ni l'autre chiffre ne dit
+# seul.
+#
+# Réduire un axe à son score final effaçait précisément ce que le module sert à voir. Un
+# agent rendait alors huit nombres et perdait la confrontation.
+#
+# Les NIVEAUX ont aussi des noms — Initial, En Progrès, Formalisé, Sous Contrôle, Optimisé
+# — et pas seulement des numéros de 0 à 4.
+#
+# ── DEUX AXES NE SE CALCULENT PAS COMME LES SIX AUTRES ───────────────────────
+#
+# Culture porte 10 questions et AUCUNE métrique : rien dans le dépôt ne mesure la sécurité
+# psychologique ou la qualité des rituels. Son score est donc entièrement déclaratif.
+#
+# Sécurité porte 5 questions qui ne sont JAMAIS posées : elles se lisent dans les réglages
+# de la forge. Son score est entièrement mesuré, et ce que l'équipe déclarerait est ignoré.
+#
+# Les confondre ferait passer une déclaration pour une mesure — l'erreur que le registre
+# refuse partout ailleurs, et que la plateforme évitait déjà ici.
 
 module: DevOps Assessment
 source: js/maturity.js
 format: json
 
-niveaux: ["0", "1", "2", "3", "4"]
+fenetre: >-
+  l'état du dépôt au moment de l'évaluation, croisé avec les réponses de l'équipe au
+  questionnaire. Ce n'est pas une période glissante : le rapport est daté, il n'est pas
+  « des 30 derniers jours ».
+
+perimetre: >-
+  Huit axes, jamais un de plus ni un de moins, et toujours dans cet ordre. Un axe sans
+  réponse ni mesure vaut 0 et pèse quand même dans le score global : il n'est pas retiré
+  de la moyenne, contrairement à ce que fait « DORA Insights » avec ses métriques
+  manquantes.
+
+niveaux: ["Initial", "En Progrès", "Formalisé", "Sous Contrôle", "Optimisé"]
 
 champs:
   - cle: score_global
     libelle: Score global
     unite: "/100"
-    seuils: "niveau 4 ≥ 80 · 3 ≥ 60 · 2 ≥ 40 · 1 ≥ 20 · 0 en dessous"
+    seuils: >-
+      Optimisé (4) ≥ 80 · Sous Contrôle (3) ≥ 60 · Formalisé (2) ≥ 40 · En Progrès (1) ≥ 20
+      · Initial (0) en dessous
+    methode: >-
+      MOYENNE SIMPLE des huit scores finaux, arrondie à l'entier. Les huit axes pèsent le
+      même poids : la Sécurité ne compte ni plus ni moins que la Culture.
+
   - cle: culture
     libelle: Culture & Organisation
     unite: "/100"
-    note: "axe déclaratif — ce que l'équipe dit, pas ce qu'on mesure"
+    forme: '{ "declaratif": <0-100>, "mesure": null, "final": <0-100> }'
+    methode: >-
+      Axe ENTIÈREMENT DÉCLARATIF : ses 10 questions n'ont aucune métrique associée. Le
+      score déclaré est la moyenne des réponses (de 1 à 5), ramenée sur 100. `mesure` vaut
+      null, et le score final est le score déclaré.
+
   - cle: delivery
     libelle: Delivery
     unite: "/100"
+    forme: '{ "declaratif": <0-100>, "mesure": <0-100>, "final": <0-100> }'
+    methode: "5 questions, 5 métriques. Voir la règle de combinaison."
+
   - cle: quality
     libelle: Qualité Code
     unite: "/100"
+    forme: '{ "declaratif": <0-100>, "mesure": <0-100>, "final": <0-100> }'
+    methode: "5 questions, 5 métriques."
+
   - cle: stability
     libelle: Stabilité
     unite: "/100"
+    forme: '{ "declaratif": <0-100>, "mesure": <0-100>, "final": <0-100> }'
+    methode: "4 questions, 4 métriques."
+
   - cle: hygiene
     libelle: Hygiène Repo
     unite: "/100"
+    forme: '{ "declaratif": <0-100>, "mesure": <0-100>, "final": <0-100> }'
+    methode: "5 questions, 5 métriques."
+
   - cle: resilience
     libelle: Résilience
     unite: "/100"
+    forme: '{ "declaratif": <0-100>, "mesure": <0-100>, "final": <0-100> }'
+    methode: "4 questions, 4 métriques."
+
   - cle: practices
     libelle: Pratiques
     unite: "/100"
+    forme: '{ "declaratif": <0-100>, "mesure": <0-100>, "final": <0-100> }'
+    methode: "5 questions, 5 métriques."
+
   - cle: security
     libelle: Sécurité
     unite: "/100"
-    note: "axe mesuré seulement — aucune question posée à l'équipe"
+    forme: '{ "declaratif": null, "mesure": <0-100>, "final": <0-100> }'
+    methode: >-
+      Axe ENTIÈREMENT MESURÉ : ses 5 points — branche protégée, force push interdit, auteur
+      qui ne s'approuve pas, contributeur qui n'approuve pas ses commits, approbations
+      invalidées après un push — se lisent dans les réglages de la forge et ne sont jamais
+      demandés à l'équipe. `declaratif` vaut null, et le score final est le score mesuré.
+
+regles:
+  - titre: Comment se combinent le déclaré et le mesuré
+    effet: >-
+      Sur un axe ordinaire, le score final est la MOYENNE des deux, arrondie — la
+      plateforme ne privilégie ni la parole de l'équipe ni le dépôt. Faute de mesure, le
+      déclaré tient seul. Sur Sécurité, seul le mesuré compte. Sur Culture, seul le
+      déclaré existe.
+
+  - titre: L'écart entre déclaré et mesuré est un résultat, pas un détail
+    effet: >-
+      Moins de 5 points d'écart, la plateforme dit « aligné » ; jusqu'à 20, elle affiche
+      l'écart signé ; au-delà, elle le signale comme important. Un axe déclaré très
+      au-dessus de sa mesure est l'information la plus utile du rapport, et elle disparaît
+      si on ne rend que le score final.
+
+  - titre: La Sécurité se juge en conformité, pas en écart
+    effet: >-
+      N'ayant pas de déclaré, elle se lit sur son seul chiffre mesuré : « conforme » à
+      partir de 80, « partiel » à partir de 50, « non conforme » en dessous.
+
+  - titre: Un axe sans réponse ni mesure vaut 0
+    effet: >-
+      Et il entre quand même dans la moyenne des huit. Ce zéro-là n'est pas une mesure
+      basse, c'est une absence — le score global s'en trouve tiré vers le bas sans que rien
+      ne le signale, et c'est une limite à connaître du rapport.
+
+  - titre: Un axe MESURÉ mais NON RÉPONDU voit son score divisé par deux
+    effet: >-
+      La moyenne des deux se fait alors avec un déclaré traité comme nul : un axe mesuré à
+      40 sans réponse au questionnaire vaut 20, pas 40. C'est le comportement de la
+      plateforme, à reproduire tel quel — et la raison pour laquelle un rapport produit
+      sans remplir le questionnaire n'est pas comparable à un rapport complet.
+
+absence: >-
+  Un axe sans donnée mesurée porte `"mesure": null` et non zéro — la distinction est le
+  cœur du module. En revanche son score FINAL retombe à 0 quand ni réponse ni mesure
+  n'existent, et ce 0-là entre dans la moyenne : c'est le calcul de la plateforme, à
+  reproduire tel quel.

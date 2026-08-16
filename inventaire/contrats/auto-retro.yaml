@@ -1,45 +1,123 @@
 # Le contrat de sortie de « Auto Retro », EXTRAIT de la plateforme.
 #
-# Source : `js/autoretro.js`. Les clés viennent de l'objet rendu par `computeStats()`
-# (~ligne 356) — c'est la forme exacte, pas une lecture de l'affichage.
+# ── D'OÙ VIENT CHAQUE MORCEAU ────────────────────────────────────────────────
 #
-# Les seuils viennent des classes de carte (~lignes 283-284) : elles colorent en vert,
-# orange ou rouge selon des bornes écrites dans le code.
+# Tout est lu dans `js/autoretro.js` :
+#   · les clés et les calculs   → `calculateStats()` (~ligne 345), l'objet rendu tel quel
+#   · la fenêtre                → `retroData.period` (~ligne 180), `selectedDays` = 21 par défaut
+#   · les seuils                → les classes de carte de `showResults()` (~lignes 283-284)
+#   · le classement des envs    → la boucle de classification (~lignes 236-241)
+#
+# La première version de ce contrat citait `computeStats()`. La fonction s'appelle
+# `calculateStats()` — `computeStats` n'existe pas. Une source fausse est pire qu'une
+# source absente : elle envoie vérifier au mauvais endroit.
+#
+# ── UNE MOYENNE, LÀ OÙ DORA PREND UNE MÉDIANE ────────────────────────────────
+#
+# `avgReviewTime` est une MOYENNE arithmétique. Le lead time de « DORA Insights » est une
+# MÉDIANE. Ce sont deux durées de review dans la même plateforme, calculées différemment,
+# et elles ne se comparent pas. Le contrat ne tranche pas ce désaccord — il dit lequel
+# s'applique ici, pour qu'un agent ne prenne pas l'autre par réflexe.
+#
+# ── ET UN ZÉRO, LÀ OÙ DORA ÉCRIT « N/A » ─────────────────────────────────────
+#
+# Quand aucun pipeline n'a tourné, `pipelineSuccess` vaut 0 — un taux de succès de 0 %
+# affiché en rouge, alors que rien n'a échoué. « DORA Insights » écrirait `N/A`. C'est un
+# vrai désaccord entre deux modules du hub, consigné dans `index.yaml`. Le contrat
+# reproduit le module qu'il vient de lire, sans le corriger au passage : harmoniser ici
+# ferait diverger l'agent du rapport qu'il est censé rendre.
 
 module: Auto Retro
 source: js/autoretro.js
 format: json
 
+fenetre: >-
+  la période choisie à l'écran, 21 jours par défaut — la longueur d'un sprint. Tous les
+  chiffres portent sur cette même fenêtre, y compris les déploiements.
+
+perimetre: >-
+  Les déploiements sont classés d'après le NOM de l'environnement : celui qui contient
+  « prod » va en PROD, celui qui contient « uat » ou « staging » en UAT, et TOUT LE RESTE
+  en DEV. Le code signale lui-même la limite : sur un workflow nommé « recette »,
+  « preprod », « integration » ou « homolog », tout retombe en DEV. Le chiffre DEV se lit
+  donc comme « le reste », pas comme « l'environnement de développement ».
+
 champs:
   - cle: mergedMRs
     libelle: MRs mergées
     unite: nombre
+    methode: "les merge requests dont l'état est `merged` sur la fenêtre."
+
   - cle: pipelineSuccess
     libelle: Pipelines OK
     unite: "%"
     seuils: "bon > 80 · à surveiller > 60 · mauvais en dessous"
+    methode: >-
+      pipelines en succès divisés par le TOTAL des pipelines, en pourcentage arrondi à
+      l'entier. Sans aucun pipeline, la plateforme écrit 0 — voir les règles.
+
   - cle: avgReviewTime
     libelle: Review Time
     unite: h
     seuils: "bon < 24 · à surveiller < 48 · mauvais au-delà"
+    methode: >-
+      MOYENNE arithmétique — et non médiane — des durées création → merge des MR mergées,
+      en heures, arrondie à l'entier. Les durées nulles, négatives ou supérieures à 720 h
+      (30 jours) sont écartées.
+
   - cle: totalCommits
     libelle: Commits
     unite: nombre
+    methode: "les commits de la fenêtre, sans déduplication ni filtre d'auteur."
+
   - cle: activeContributors
     libelle: Contributeurs
     unite: nombre
+    methode: >-
+      les personnes distinctes qui ont commité OU signé une MR mergée sur la fenêtre. Un
+      auteur de MR sans commit compte donc, et c'est voulu — relire est contribuer.
+
   - cle: closedIssues
     libelle: Issues fermées
     unite: nombre
+    methode: "les issues dont l'état est `closed`."
+
   - cle: openedIssues
     libelle: Issues ouvertes
     unite: nombre
+    methode: "les issues dont l'état est `opened`."
+
   - cle: deployedToDev
     libelle: Déployé DEV
     unite: nombre
+    methode: >-
+      les déploiements de la fenêtre vers un environnement qui n'est NI prod NI uat/staging
+      — c'est-à-dire tout le reste, y compris recette et préprod.
+
   - cle: deployedToUat
     libelle: Déployé UAT
     unite: nombre
+    methode: "les déploiements vers un environnement dont le nom contient « uat » ou « staging »."
+
   - cle: deployedToProd
     libelle: Déployé PROD
     unite: nombre
+    methode: "les déploiements vers un environnement dont le nom contient « prod »."
+
+regles:
+  - titre: Points de friction
+    effet: >-
+      La plateforme n'en signale qu'à partir de bornes fixes : plus de 5 pipelines en
+      échec, un review time au-delà de 48 h, ou plus d'issues ouvertes que fermées. En
+      dessous, elle écrit « Aucun problème majeur » plutôt que de dramatiser un chiffre.
+
+  - titre: Ce qui a bien marché
+    effet: >-
+      Symétriquement, et aux mêmes bornes : au moins une MR mergée, 80 % de pipelines OK
+      ou mieux, un review time de 24 h ou moins, au moins un déploiement en production.
+
+absence: >-
+  Sans aucun pipeline, `pipelineSuccess` vaut 0 — c'est ce que la plateforme écrit, et il
+  faut le reproduire, mais il se lit « aucun pipeline », jamais « tout a échoué ». Même
+  chose pour `avgReviewTime` sans MR mergée exploitable. C'est la convention de CE module,
+  contraire à celle de « DORA Insights », qui écrit `N/A`.
