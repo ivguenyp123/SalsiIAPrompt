@@ -116,7 +116,7 @@ async function load() {
     $('count').textContent = '';
     return showEmpty('Aucun dépôt de registre choisi.', 'Retourne à l\'accueil pour en sélectionner un.');
   }
-  $('source').textContent = `${repo} · ${PENDING}/`;
+  $('source').textContent = repo;
 
     
   if (!ctx) {
@@ -228,51 +228,57 @@ function row(entry) {
       el('p', { className: 'purpose', style: 'margin:0', textContent: artifact.intent.not_for })));
   }
 
-  // ── Paramètres ──
+  /*
+   * Les libellés disent CE QUE LE CHAMP VEUT DIRE, pas comment il s'appelle dans le
+   * fichier. « Owner » et « palier de modèle » sont des noms de propriété ; celui qui
+   * relit une soumission a besoin de savoir QUI EN RÉPOND et CE QUE ÇA A LE DROIT DE
+   * LIRE. Le nom technique reste dans le fichier, que la fiche montre plus bas.
+   */
   const dl = el('dl', { className: 'kv' });
   for (const [k, v] of [
-    ['Identifiant', artifact.id],
-    ['Type', artifact.kind || 'agent'],
-    ['Owner', `${artifact.owner?.person || '—'} · ${artifact.owner?.scope || '—'}`],
-    ['Niveau', niveau(artifact, ctx?.derive).texte],
-    ['Palier de modèle', artifact.model_tier || '— (non précisé)'],
-    ['Sensibilité maximale', artifact.classification?.max_repo_sensitivity || '— (non précisée)'],
+    ['Son nom court', artifact.id],
+    ['Ce que c\'est', artifact.kind === 'chain' ? 'une suite d\'agents' : 'un agent'],
+    ['Qui en répond', `${artifact.owner?.person || '—'} · équipe ${artifact.owner?.scope || '—'}`],
+    ['Maturité', niveau(artifact, ctx?.derive).texte],
+    ['Puissance du modèle', artifact.model_tier || '— (non précisée)'],
+    ['Ce qu\'il a le droit de lire',
+      artifact.classification?.max_repo_sensitivity || '— (non précisé)'],
     ['Étiquettes', (artifact.tags || []).join(', ') || '—']
   ]) { dl.append(el('dt', { textContent: k }), el('dd', { textContent: v })); }
-  node.append(bloc('Paramètres', dl));
+  node.append(bloc('En bref', dl));
 
   // ── Variables ──
   const vars = artifact.variables || [];
-  node.append(bloc(`Variables (${vars.length})`, vars.length
+  node.append(bloc(`Ce qu'il lui faut pour travailler (${vars.length})`, vars.length
     ? chips(vars.map((v) => el('span', { className: 'chip' },
         el('code', { textContent: `{{${v.name}}}` }),
         ` ${SOURCES[v.source] || v.source}${v.required === false ? ' · facultative' : ''}`)))
-    : el('p', { className: 'vide', textContent: 'Aucune — le prompt ne reçoit rien du contexte.' })));
+    : el('p', { className: 'vide', textContent: 'Rien : il travaille sans qu\'on lui fournisse quoi que ce soit.' })));
 
   // ── Outils : c'est là que se joue le risque, donc mode et exécutant en évidence ──
   const tools = artifact.tools || [];
-  node.append(bloc(`Outils (${tools.length})`, tools.length
+  node.append(bloc(`Ce qu'il a le droit de faire (${tools.length})`, tools.length
     ? chips(tools.map((t) => el('span', { className: 'chip' },
         el('code', { textContent: t.id }),
         el('span', { className: `pill ${t.mode}`, textContent: t.mode }),
         el('span', { className: 'pill', textContent: `exécuté par ${t.executor}` }))))
-    : el('p', { className: 'vide', textContent: 'Aucun — l\'artefact ne fait que produire du texte.' })));
+    : el('p', { className: 'vide', textContent: 'Rien d\'autre que produire du texte. Il ne touche à aucun système.' })));
 
   // ── Critères : le contrat vérifié à chaque exécution ──
   const crit = artifact.criteria || [];
-  node.append(bloc(`Critères vérifiés à chaque exécution (${crit.length})`, crit.length
+  node.append(bloc(`Ce qui sera vérifié sur sa réponse, à chaque fois (${crit.length})`, crit.length
     ? (() => { const ul = el('ul', { className: 'plain' });
         for (const c of crit) ul.append(el('li', {},
           el('code', { textContent: c.target }), ` ${c.op} `, el('b', { textContent: String(c.value) })));
         return ul; })()
-    : el('p', { className: 'vide', textContent: 'Aucun — rien ne sera vérifié au post-vol.' })));
+    : el('p', { className: 'vide', textContent: 'Rien. Sa réponse ne sera confrontée à aucune exigence.' })));
 
   // ── Cas d'or ──
   // Le compte seul ne dit rien : cinq cas creux atteignent le seuil de L010 aussi bien
   // que cinq vrais. Le relecteur doit voir CE QUE chaque cas assertit pour juger si le
   // niveau visé est mérité, pas seulement combien il y en a.
   const gold = artifact.golden_cases || [];
-  node.append(bloc(`Cas d'or (${gold.length})`, gold.length
+  node.append(bloc(`Exemples de référence (${gold.length})`, gold.length
     ? (() => { const ul = el('ul', { className: 'plain' });
         for (const g of gold) {
           const attentes = Object.entries(g.expect || {});
@@ -511,7 +517,7 @@ async function chargerParc() {
     $('pempty').textContent = 'Aucun dépôt de registre choisi.';
     return;
   }
-  $('psource').textContent = `${repo} · ${DOSSIERS.map(([, d]) => `${d}/`).join(' · ')}`;
+  $('psource').textContent = repo;
 
   // `type === 'file'` écarte de lui-même les sous-dossiers : chaque dossier ne rend que
   // ce qui lui appartient, et un artefact ne peut donc pas être compté deux fois.
@@ -592,7 +598,7 @@ function renderParc() {
 
   const montres = filtrer(pvue.entrees, pvue);
   $('pcount').textContent = montres.length === pvue.entrees.length
-    ? `${pvue.entrees.length} artefact(s) au parc`
+    ? `${pvue.entrees.length} agent(s) en service`
     : `${montres.length} sur ${pvue.entrees.length}`;
 
   const host = $('parc');
@@ -775,7 +781,7 @@ async function chargerJournal() {
     $('jempty').textContent = 'Aucun dépôt de registre choisi.';
     return;
   }
-  $('jsource').textContent = `historique de ${repo} · artifacts/`;
+  $('jsource').textContent = `historique de ${repo}`;
 
   let commits;
   try {

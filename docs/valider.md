@@ -3,7 +3,7 @@
 **Pour qui** : vous relisez ce que les équipes déposent, et vous décidez si ça devient
 visible de tous.
 
-**Où** : onglet **✅ À relire**, écran **À valider**.
+**Où** : onglet **✅ À relire**, écran **À relire**.
 
 ## Ce que vous décidez, et ce que vous ne décidez pas
 

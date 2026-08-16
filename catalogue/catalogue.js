@@ -95,7 +95,7 @@ async function load() {
     return fail('Aucun dépôt de registre choisi.',
                 'Retourne à l\'accueil pour en sélectionner un — c\'est là que vivent les artefacts.');
   }
-  $('source').textContent = `lu dans ${repo} · artifacts/`;
+  $('source').textContent = `lus dans ${repo}`;
   
 
   const [tools, targets, entrees, schema, derive, repos] = await Promise.all([

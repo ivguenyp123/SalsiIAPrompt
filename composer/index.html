@@ -186,13 +186,13 @@
   <div class="modes" id="modes">
     <button class="mode" data-mode="agent">
       <b>🧩 Un agent</b>
-      <small>prompt + prompt = <b>une</b> consigne, <b>un</b> appel. Du texte neuf : ça part
-        en validation.</small>
+      <small>Tu assembles des morceaux d'instructions. Ça donne <b>un</b> agent, qui
+        travaille en une fois.</small>
     </button>
     <button class="mode" data-mode="chaine">
-      <b>🔗 Une chaîne</b>
-      <small>agent + agent = <b>N</b> appels, vérifiés entre chaque. Aucun texte neuf : elle
-        hérite de la validation de ses briques.</small>
+      <b>🔗 Une suite d'agents</b>
+      <small>Tu mets bout à bout des agents qui existent déjà. Chacun passe la main au
+        suivant, et on contrôle entre les deux.</small>
     </button>
   </div>
 
@@ -204,8 +204,8 @@
       <input id="phrase" placeholder="je veux un agent qui mixe le rapport DORA et le rapport journalier">
       <button id="composer" class="primary">✨ Composer</button>
     </div>
-    <p class="aide">Un modèle choisit les briques et les branche. Il ne peut pas écrire de
-      prompt : sa seule sortie, ce sont des identifiants et du câblage.</p>
+    <p class="aide">L'IA choisit les agents et les relie. Elle ne peut écrire aucune
+      instruction : elle ne fait que désigner ce qui existe déjà.</p>
   </div>
 
   <div class="etabli">
@@ -216,7 +216,7 @@
       <div class="briques" id="briques"></div>
 
       <div id="blocChaines">
-        <h2 style="margin-top:16px">Chaînes <span class="n" id="nchaines">…</span></h2>
+        <h2 style="margin-top:16px">Les suites <span class="n" id="nchaines">…</span></h2>
         <div class="chaines" id="chaines"></div>
       </div>
 
@@ -239,7 +239,7 @@
           <textarea id="idPurpose" placeholder="Lire un diff et signaler les ruptures de compatibilité."></textarea>
         </div>
         <div>
-          <label for="idNotFor">Quand ne PAS l'utiliser</label>
+          <label for="idNotFor">Quand il ne faut PAS s'en servir</label>
           <textarea id="idNotFor" placeholder="Ne pas utiliser pour appliquer un correctif ni pour juger du style."></textarea>
         </div>
       </div>
@@ -257,7 +257,7 @@
       <div id="msg"></div>
 
       <details class="narration" id="narration" hidden>
-        <summary>Voir le fichier tel qu'il sera déposé</summary>
+        <summary>Voir la fiche complète, telle qu'elle sera enregistrée</summary>
         <pre id="yaml"></pre>
       </details>
     </section>

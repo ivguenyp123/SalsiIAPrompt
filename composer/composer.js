@@ -154,16 +154,16 @@ function basculer(mode) {
   }
 
   $('chapo').textContent = enAgent()
-    ? 'Prends des prompts à gauche, pose-les à droite : ils forment UNE consigne, jouée en '
-      + 'un seul appel. C\'est du texte neuf — il repasse par les 25 règles et par une '
-      + 'validation humaine, comme n\'importe quel prompt écrit à la main.'
-    : 'Assemble des agents déjà validés : tire une brique, branche ses entrées, réordonne. '
-      + 'Aucun prompt n\'est écrit ici — une chaîne hérite de la validation de ses briques, '
-      + 'et chaque étape est vérifiée avant de passer à la suivante.';
+    ? 'Prends des morceaux à gauche, pose-les à droite : ils forment les instructions d\'un '
+      + 'seul agent. Garde-le pour toi, ou propose-le aux autres — dans ce cas quelqu\'un '
+      + 'le relira, comme pour tout agent écrit à la main.'
+    : 'Mets bout à bout des agents déjà relus : le résultat de l\'un nourrit le suivant. '
+      + 'Tu n\'écris aucune instruction ici, tu choisis l\'ordre — et chaque étape est '
+      + 'contrôlée avant de passer à la suivante.';
 
-  $('titreMatiere').firstChild.textContent = enAgent() ? 'Prompts ' : 'Briques validées ';
-  $('titreToile').firstChild.textContent = enAgent() ? 'La consigne ' : 'La chaîne ';
-  $('recherche').placeholder = enAgent() ? 'chercher un prompt…' : 'chercher une brique…';
+  $('titreMatiere').firstChild.textContent = enAgent() ? 'Les morceaux ' : 'Agents disponibles ';
+  $('titreToile').firstChild.textContent = enAgent() ? 'Ton agent ' : 'La suite ';
+  $('recherche').placeholder = enAgent() ? 'chercher un morceau…' : 'chercher un agent…';
 
   // Les filtres ne survivent pas au changement de mode : ils portaient sur une autre
   // matière. Garder « incident » en passant aux briques afficherait un établi presque
@@ -264,8 +264,8 @@ function rendreMiens() {
 
   if (MIENS.length === 0) {
     zone.append(el('div', { className: 'vide-toile', style: 'padding:16px 8px',
-      textContent: 'Rien encore. Assemble un agent et sauve-le : il apparaîtra ici, pour '
-                 + 'toi seul, et se lancera depuis le Catalogue.' }));
+      textContent: 'Rien encore. Monte un agent et garde-le : il apparaîtra ici, pour toi '
+                 + 'seul, et se lancera depuis « Les agents ».' }));
     return;
   }
 
@@ -317,8 +317,8 @@ function rendreChaines() {
 
   if (CHAINES.length === 0) {
     zone.append(el('div', { className: 'vide-toile', style: 'padding:16px 8px',
-      textContent: 'Rien encore. Assemble une chaîne et sauve-la : elle apparaîtra ici, '
-                 + 'pour toi seul, jusqu\'à ce que tu la partages.' }));
+      textContent: 'Rien encore. Monte une suite et garde-la : elle apparaîtra ici, pour toi '
+                 + 'seul, jusqu\'à ce que tu la proposes aux autres.' }));
     return;
   }
 
@@ -396,7 +396,7 @@ function rendreBriques() {
   $('nbriques').textContent = `${vues.length}${vues.length !== BRIQUES.length ? ` / ${BRIQUES.length}` : ''}`;
 
   if (vues.length === 0) {
-    zone.append(el('div', { className: 'vide-toile', textContent: 'Aucune brique ne correspond.' }));
+    zone.append(el('div', { className: 'vide-toile', textContent: 'Aucun agent ne correspond.' }));
     return;
   }
 
@@ -484,7 +484,7 @@ function rendrePrompts() {
   $('nbriques').textContent = `${vus.length}${vus.length !== tous.length ? ` / ${tous.length}` : ''}`;
 
   if (vus.length === 0) {
-    zone.append(el('div', { className: 'vide-toile', textContent: 'Aucun prompt ne correspond.' }));
+    zone.append(el('div', { className: 'vide-toile', textContent: 'Aucun morceau ne correspond.' }));
     return;
   }
 
@@ -539,8 +539,8 @@ function rendreAssemblage() {
 
   if (MORCEAUX.length === 0) {
     toile.append(el('div', { className: 'vide-toile' },
-      el('b', { textContent: 'Tire un prompt ici' }),
-      'ou clique-le dans la liste. Ils formeront une seule consigne, jouée en un appel.'));
+      el('b', { textContent: 'Dépose un morceau ici' }),
+      'ou clique-le dans la liste. Ils formeront les instructions d\'un seul agent.'));
   }
 
   MORCEAUX.forEach((m, i) => {
@@ -658,9 +658,9 @@ function rendreChaine() {
 
   if (etapes.length === 0) {
     toile.append(el('div', { className: 'vide-toile' },
-      el('b', { textContent: 'Tire une brique ici' }),
-      'ou clique-la dans la liste. Deux briques bien branchées valent mieux que cinq qui '
-      + 'se repassent le même texte.'));
+      el('b', { textContent: 'Dépose un agent ici' }),
+      'ou clique-le dans la liste. Deux agents bien reliés valent mieux que cinq qui se '
+      + 'repassent le même texte.'));
     $('envoyer').disabled = true;
     $('sauver').disabled = true;
     $('verdict').textContent = '';
@@ -788,8 +788,8 @@ function majVerdict() {
     el('span', { textContent: report.blocked ? '✕' : '✔' }),
     el('span', {},
       el('b', { textContent: report.blocked
-        ? `La porte est fermée — ${erreurs.length} erreur(s)`
-        : 'La porte est franchie' }),
+        ? `${erreurs.length} chose(s) à corriger`
+        : 'Tout est en ordre' }),
       report.blocked
         ? el('ul', {}, ...erreurs.map((f) => el('li', {},
             el('code', { textContent: f.code }), ' ', f.message)))
@@ -799,8 +799,8 @@ function majVerdict() {
               // Le mot compte : « proposés » et non « hérités ». Un assemblage n'hérite
               // d'aucun contrat — ceux-ci se déduisent de ce que les morceaux déclarent
               // produire, et le relecteur devra dire s'ils suffisent.
-              ? 'proposé(s) — un assemblage n\'hérite d\'aucun contrat'
-              : 'hérité(s) de la dernière étape'))));
+              ? 'à vérifier sur sa réponse — à toi de dire s\'ils suffisent'
+              : 'repris de la dernière étape'))));
 
   zone.append(bloc);
   $('envoyer').disabled = report.blocked;

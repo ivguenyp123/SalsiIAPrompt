@@ -185,16 +185,16 @@ function fiche(artefact, corps) {
   }
 
   // Le prompt, en clair. C'est ce qu'on demande vraiment.
-  f.append(el('h4', { textContent: 'Le prompt qui sera envoyé au modèle' }));
+  f.append(el('h4', { textContent: 'Les instructions qu\'il suivra' }));
   f.append(el('pre', { textContent: artefact.spec || '' }));
 
-  f.append(el('h4', { textContent: 'Ce qui sera vérifié à chaque exécution' }));
+  f.append(el('h4', { textContent: 'Ce qu\'on vérifiera sur sa réponse, à chaque fois' }));
   const puces = el('div', { className: 'compte' });
   for (const c of artefact.criteria || []) {
     puces.append(el('span', { className: 'chip', textContent: `${c.target} ${c.op} ${JSON.stringify(c.value)}` }));
   }
   f.append(puces.children.length ? puces
-    : el('p', { className: 'purpose', style: 'margin:0', textContent: 'Aucun critère.' }));
+    : el('p', { className: 'purpose', style: 'margin:0', textContent: 'Rien ne sera vérifié sur sa réponse.' }));
 
   const gc = (artefact.golden_cases || []).length;
   const vars = (artefact.variables || []).length;
@@ -213,7 +213,7 @@ function fiche(artefact, corps) {
   f.append(det);
 
   f.append(el('div', { className: 'avert' },
-    el('b', { textContent: 'Le registre l\'a jugé sur sa FORME, pas sur son résultat.' }),
+    el('b', { textContent: 'Les contrôles ont jugé sa FORME, pas ce qu\'il produit.' }),
     el('small', { textContent:
       'Les 25 règles vérifient qu\'il est complet, que ses outils existent et que son '
       + 'contrat est vérifiable. Aucun de ses cas de test n\'a été joué : ce qu\'il fait '

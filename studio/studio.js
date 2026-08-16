@@ -1197,7 +1197,7 @@ function renderListe() {
     (!q || plie(`${e.titre} ${e.id} ${e.purpose} ${e.scope}`).includes(q)));
 
   $('lcount').textContent = vue.entrees.length === 0 ? ''
-    : montrees.length === vue.entrees.length ? `${vue.entrees.length} artefact(s)`
+    : montrees.length === vue.entrees.length ? `${vue.entrees.length} agent(s)`
     : `${montrees.length} sur ${vue.entrees.length}`;
 
   const host = $('llist');
@@ -1206,7 +1206,7 @@ function renderListe() {
 
   if (montrees.length === 0) {
     return vue.entrees.length === 0
-      ? vide('Rien dans le registre.', 'Écris un premier artefact avec « ＋ Nouvel artefact ».')
+      ? vide('Rien pour l\'instant.', 'Écris ton premier agent avec « ＋ Nouvel agent ».')
       : vide('Rien ne correspond.', vue.mien ? 'Décoche « seulement les miens » pour voir ceux des autres.'
                                              : 'Essaie d\'autres mots, ou change de statut.');
   }
