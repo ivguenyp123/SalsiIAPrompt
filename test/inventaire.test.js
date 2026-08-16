@@ -92,23 +92,42 @@ describe('l\'état d\'une entrée', () => {
     assert.deepEqual(Object.keys(ETATS).sort(), ['a-creer', 'au-registre']);
   });
 
-  test('tout artefact PUBLIÉ figure à l\'inventaire', () => {
+  test('tout artefact publié vient de l\'inventaire OU dit d\'où il vient', () => {
     /*
-     * Le sens inverse, et il compte autant : un agent validé qui n'apparaît nulle part au
-     * catalogue est invisible pour qui cherche ce qui est possible — il se fera
-     * redemander, et la file de validation recevra un doublon.
+     * Ce test exigeait que TOUT artefact publié figure à l'inventaire. C'était juste tant
+     * que le registre n'était semé que depuis lui — et faux dès qu'on se sert du produit :
+     * demander un agent en une phrase, ou en composer un, produit légitimement une
+     * capacité que l'inventaire ne prévoyait pas. Un test qui échoue à chaque validation
+     * d'un agent original punit l'usage normal.
+     *
+     * L'invariant qui tient, lui, c'est la TRAÇABILITÉ : rien n'atteint le registre sans
+     * qu'on puisse dire d'où ça vient. Soit c'est une capacité connue de la plateforme,
+     * soit le fichier porte son en-tête de provenance — qui l'a demandé, quand, et avec
+     * quelle phrase.
+     *
+     * L'inventaire reste ce qu'il a toujours prétendu être : ce qu'on PEUT demander, une
+     * amorce de l'étendue possible — pas la liste de tout ce qui existe. Et le doublon,
+     * qui était l'inquiétude d'origine, est l'affaire de `L015`, pas la sienne.
      */
     const ids = new Set(TOUS.map((p) => p.id));
-    const absents = AU_REGISTRE.filter((id) => !ids.has(id));
-    assert.deepEqual(absents, [],
-      `ces artefacts publiés manquent à l'inventaire :\n  ${absents.join('\n  ')}`);
+    const orphelins = AU_REGISTRE
+      .filter((id) => !ids.has(id))
+      .filter((id) => !/^#\s*salsi-provenance:/
+        .test(readFileSync(join(ROOT, 'artifacts', `${id}.yaml`), 'utf8')));
+
+    assert.deepEqual(orphelins, [],
+      'ces artefacts publiés ne sont ni à l\'inventaire ni porteurs d\'une provenance :\n'
+      + `  ${orphelins.join('\n  ')}`);
   });
 
   test('les entrées « au registre » correspondent à de vrais fichiers', () => {
+    // Le sens qui compte : l'inventaire ne doit pas annoncer « déjà fait » pour quelque
+    // chose qui n'existe pas. L'inverse — un fichier hors inventaire — est devenu normal
+    // depuis qu'on peut demander et composer.
     const vus = confronter(TOUS, AU_REGISTRE);
-    const faits = vus.filter((p) => p.etat === 'au-registre');
-    assert.equal(faits.length, AU_REGISTRE.length);
-    for (const p of faits) assert.ok(AU_REGISTRE.includes(p.id));
+    for (const p of vus.filter((x) => x.etat === 'au-registre')) {
+      assert.ok(AU_REGISTRE.includes(p.id), `${p.id} annoncé au registre et introuvable`);
+    }
   });
 });
 
@@ -153,10 +172,20 @@ describe('chercher dans le catalogue', () => {
 
 describe('les compteurs', () => {
   test('disent ce qui existe sur ce qui est possible', () => {
+    /*
+     * `faits` compte les capacités de L'INVENTAIRE déjà au registre — pas les artefacts
+     * du registre. Les deux nombres ont divergé le jour où l'on a pu demander et composer
+     * des agents que l'inventaire ne prévoyait pas, et c'est correct : le compteur annonce
+     * « x sur 130 possibles », pas « x fichiers ».
+     */
     const c = compter(confronter(TOUS, AU_REGISTRE));
+    const ids = new Set(TOUS.map((p) => p.id));
+    const attendus = AU_REGISTRE.filter((id) => ids.has(id)).length;
+
     assert.equal(c.total, TOUS.length);
-    assert.equal(c.faits, AU_REGISTRE.length);
-    assert.equal(c.restants, TOUS.length - AU_REGISTRE.length);
+    assert.equal(c.faits, attendus);
+    assert.equal(c.restants, TOUS.length - attendus);
+    assert.ok(c.faits <= AU_REGISTRE.length, 'jamais plus de faits que de fichiers');
   });
 
   test('chaque famille compte ses faits et son total', () => {

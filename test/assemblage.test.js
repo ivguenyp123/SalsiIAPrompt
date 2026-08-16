@@ -220,7 +220,13 @@ describe('l\'artefact assemblé', () => {
      * naître un agent « officiel » dont pas un cas d'or n'a été joué.
      */
     assert.equal(fait().target_level, 'experimental');
-    assert.deepEqual(fait().golden_cases, []);
+    /*
+     * Et AUCUN `golden_cases`, pas même une liste vide. Elle ne dit rien de plus que son
+     * absence, et elle ne survit pas à un aller-retour par le Studio : la reprise laisse
+     * tomber les champs vides, donc republier l'agent perdait la clé et faisait diverger
+     * le fichier. Attrapé sur un agent réellement composé et validé.
+     */
+    assert.ok(!('golden_cases' in fait()), 'pas de liste vide écrite');
   });
 
   test('n\'apporte AUCUNE certification', () => {

@@ -32,4 +32,3 @@ spec: |-
 
     Matière fournie :
     - chiffres_dora : {{chiffres_dora}}
-golden_cases: []
