@@ -1,0 +1,35 @@
+# salsi-provenance: composition
+# besoin: assemblage de 1 prompt(s) : proposer-les-jobs-de-ci-d-un-nouveau-projet
+# demande-par: ivguenyp123
+# le: 2026-08-16
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+
+id: rrrr
+kind: prompt
+title: rrrr
+owner:
+  person: ivguenyp123
+  scope: Data
+intent:
+  purpose: rrrrrerererer
+  not_for: ererererer
+model_tier: mid
+target_level: experimental
+variables:
+  - name: stack
+    source: repo
+    required: true
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: exists
+    value: true
+spec: |-
+    Propose les jobs de CI minimaux d'un projet qui démarre, sans sur-outiller
+
+    Matière fournie :
+    - stack : {{stack}}
