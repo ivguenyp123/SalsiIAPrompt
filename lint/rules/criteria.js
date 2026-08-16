@@ -286,3 +286,58 @@ export function L023(artifact, ctx) {
 
   return out;
 }
+
+/**
+ * L026 — Un contrat ne doit pas exiger deux formes incompatibles. 🔴
+ *
+ * ── D'OÙ VIENT CETTE RÈGLE ───────────────────────────────────────────────────
+ *
+ * D'un agent réel, écrit par le modèle sur demande, validé par un humain, et qui ne
+ * pouvait PAS passer : il exigeait `output.is_valid_json eq true` ET quatre
+ * `output.sections contains …`.
+ *
+ * Or `output.sections` extrait des titres MARKDOWN. Sur du JSON elle rend toujours une
+ * liste vide. Le contrat échouait donc quoi que le modèle réponde — et rien, ni à la
+ * porte ni à la relecture, ne pouvait le dire : chaque critère était valide isolément,
+ * c'est leur RENCONTRE qui était impossible.
+ *
+ * C'est exactement le motif que le relecteur IA sert à repérer, transformé en code : la
+ * contradiction a été vue une fois, elle ne sera plus jamais vue.
+ *
+ * ── CE QU'ELLE NE FAIT PAS ───────────────────────────────────────────────────
+ *
+ * Elle ne juge pas si un contrat est BON. Elle refuse deux exigences dont on sait, par
+ * construction des résolveurs, qu'aucune sortie ne peut les satisfaire ensemble.
+ */
+const INCOMPATIBLES = [
+  {
+    quand: (c) => c.target === 'output.is_valid_json' && c.op === 'eq' && c.value === true,
+    avec: (c) => c.target === 'output.sections',
+    dire: 'Une sortie JSON n\'a pas de titres Markdown : `output.sections` y rendra toujours '
+        + 'une liste vide, et le contrat échouera quelle que soit la réponse. '
+        + 'Pour exiger des clés JSON, utiliser `output.json_keys`.'
+  },
+  {
+    quand: (c) => c.target === 'output.is_valid_json' && c.op === 'eq' && c.value === true,
+    avec: (c) => c.target === 'output.matches_convention',
+    dire: 'Un message de commit conventionnel n\'est pas du JSON : les deux exigences '
+        + 'ne peuvent pas être vraies en même temps.'
+  }
+];
+
+export function L026(artifact) {
+  const crit = artifact?.criteria;
+  if (!Array.isArray(crit)) return [];
+  const out = [];
+
+  for (const regle of INCOMPATIBLES) {
+    if (!crit.some(regle.quand)) continue;
+    crit.forEach((c, i) => {
+      if (!regle.avec(c)) return;
+      out.push(finding('L026', ERROR,
+        `Contrat impossible : \`${c.target}\` avec \`output.is_valid_json\`. ${regle.dire}`,
+        `criteria[${i}].target`));
+    });
+  }
+  return out;
+}

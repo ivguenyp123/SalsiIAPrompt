@@ -84,12 +84,21 @@ targets:
     description: Un secret a été détecté dans le contenu GÉNÉRÉ — un LLM peut recracher un secret lu dans le dépôt.
     resolver: modules/targets/output-secret-scan
 
+  # Des titres MARKDOWN (`## Titre`), pas des clés JSON. La distinction a coûté un agent
+  # dont le contrat ne pouvait jamais passer — voir `output.json_keys` juste en dessous.
   - target: output.sections
     class: form
     type: array
     ops: [contains, exists]
-    description: Sections présentes dans la sortie structurée (ex. Résumé, Risques, Étapes).
+    description: "Titres Markdown de la sortie (ex. Résumé, Risques, Étapes). Pour du JSON, voir output.json_keys."
     resolver: modules/targets/output-sections
+
+  - target: output.json_keys
+    class: form
+    type: array
+    ops: [contains, exists]
+    description: "Clés de premier niveau d'une sortie JSON (ex. resume, risques, etapes)."
+    resolver: modules/targets/output-json-keys
 
   - target: output.length
     class: form

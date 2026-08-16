@@ -50,19 +50,19 @@ criteria:
   - target: output.is_valid_json
     op: eq
     value: true
-  - target: output.sections
+  - target: output.json_keys
     op: contains
     value:
       - deployment_frequency
-  - target: output.sections
+  - target: output.json_keys
     op: contains
     value:
       - lead_time
-  - target: output.sections
+  - target: output.json_keys
     op: contains
     value:
       - change_failure_rate
-  - target: output.sections
+  - target: output.json_keys
     op: contains
     value:
       - time_to_restore

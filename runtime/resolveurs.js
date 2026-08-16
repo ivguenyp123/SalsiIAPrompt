@@ -107,6 +107,31 @@ export const RESOLVEURS = {
 
   'output.sections': (sortie) => sections(sortie),
 
+  /*
+   * Les CLÉS d'une sortie JSON — la cible qui manquait.
+   *
+   * Un agent qui rend du JSON veut garantir que certaines clés y sont. Il n'avait pour
+   * ça que `output.sections`, qui extrait des titres MARKDOWN : sur du JSON elle rend
+   * toujours une liste vide, et le contrat échouait quoi que le modèle réponde.
+   *
+   * Trouvé à l'usage, sur un agent d'export de rapport DORA : il exigeait
+   * `output.is_valid_json` ET quatre `output.sections` — deux exigences qu'aucune réponse
+   * ne peut satisfaire ensemble.
+   *
+   * Les clés du PREMIER niveau seulement. Descendre récursivement mêlerait `metriques` et
+   * `valeur`, et un contrat ne saurait plus de quoi il parle.
+   */
+  'output.json_keys': (sortie) => {
+    const nu = String(sortie).trim().replace(/^```(?:json)?\s*|\s*```$/g, '');
+    try {
+      const v = JSON.parse(nu);
+      if (Array.isArray(v)) return [];          // un tableau n'a pas de clés nommées
+      return v && typeof v === 'object' ? Object.keys(v) : [];
+    } catch {
+      return [];
+    }
+  },
+
   'output.matches_convention': (sortie) => {
     const premiere = String(sortie).trim().split('\n')[0] || '';
     return CONVENTION.test(premiere.trim());

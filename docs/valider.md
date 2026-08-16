@@ -8,7 +8,7 @@ visible de tous.
 ## Ce que vous décidez, et ce que vous ne décidez pas
 
 Vous ne décidez **pas** la conformité. Elle est déjà tranchée : ce qui arrive devant vous
-a franchi 25 règles automatiques. Un artefact qui viole une règle bloquante n'est jamais
+a franchi 26 règles automatiques. Un artefact qui viole une règle bloquante n'est jamais
 arrivé jusqu'à cet écran.
 
 Vous décidez ce qu'aucune règle ne sait décider :

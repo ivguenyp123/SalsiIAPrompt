@@ -25,7 +25,7 @@ sait. Voir « refuser ce qu'on sait » en bas de page — c'est la clé de lectu
 
 ---
 
-## La porte — les 25 règles
+## La porte — les 26 règles
 
 ### Structure et propriété
 
@@ -131,6 +131,18 @@ Un critère que le code ne sait pas évaluer est un critère décoratif.
 Les cas de test se contredisent, ou l'un d'eux n'a pas de quoi être joué.
 
 → *Le message dit lequel et en quoi.*
+
+**`L026` 🔴 — Un contrat ne doit pas exiger deux formes incompatibles.**
+
+Votre agent demande une sortie **JSON** et, en même temps, des **titres Markdown**
+(`output.sections`) ou un **message de commit conventionnel**. Aucune réponse ne peut
+satisfaire les deux : le contrat échouerait quoi que le modèle réponde.
+
+Chaque critère est valide isolément — c'est leur rencontre qui est impossible, et c'est
+pour ça que rien ne l'attrapait avant.
+
+→ *Pour exiger des clés dans une sortie JSON, utilisez `output.json_keys` et non
+`output.sections`.*
 
 **`L022` 🟡 — Un cas d'or dont l'attente viole un critère de l'artefact.**
 

@@ -14,7 +14,7 @@ import { ERROR, WARN, isBlocked } from './core.js';
 import { L001, L011, L013 } from './rules/structure.js';
 import { L002, L003, L021 } from './rules/variables.js';
 import { L004, L005, L006 } from './rules/tools.js';
-import { L008, L009, L017, L022, L023 } from './rules/criteria.js';
+import { L008, L009, L017, L022, L023, L026 } from './rules/criteria.js';
 import { L007, L012 } from './rules/safety.js';
 import { L010, L014, L015, L016 } from './rules/lifecycle.js';
 import { L024, L025 } from './rules/chaine.js';
@@ -48,7 +48,8 @@ export const RULES = [
   { code: 'L022', fn: L022, severity: WARN,  title: 'Cas d\'or cohérent avec les critères' },
   { code: 'L023', fn: L023, severity: ERROR, title: 'Cas d\'or joué sur une entrée qui existe' },
   { code: 'L024', fn: L024, severity: ERROR, title: 'Une chaîne enchaîne des artefacts qui existent' },
-  { code: 'L025', fn: L025, severity: ERROR, title: 'Le câblage d\'une chaîne est résoluble' }
+  { code: 'L025', fn: L025, severity: ERROR, title: 'Le câblage d\'une chaîne est résoluble' },
+  { code: 'L026', fn: L026, severity: ERROR, title: 'Contrat sans exigences incompatibles' }
 ];
 
 /**
