@@ -74,3 +74,21 @@ vit le fichier **est** son état :
 | `mes-chaines/<vous>/` | votre chaîne personnelle, que personne d'autre ne voit |
 
 Déplacer le fichier, c'est changer l'état. Rien d'autre à faire.
+
+## La bande « le plus utile pour toi maintenant »
+
+Sur l'accueil, une bande apparaît **quand il s'est passé quelque chose sur ton projet** :
+ta CI a échoué, des changements attendent ton avis, ton dépôt s'est chargé de branches.
+
+Trois choses à savoir :
+
+- **elle vient d'un fait, pas d'une IA.** Chaque proposition est la conséquence mécanique
+  de quelque chose qu'on a lu chez ta forge. La bande dit lequel, avec sa date, et un lien
+  pour aller le voir. Tu peux la contester — c'est fait pour ;
+- **s'il ne s'est rien passé, elle n'existe pas.** Pas de « pour toi » de remplissage. Une
+  bande qui s'affiche toujours devient un décor qu'on cesse de lire ;
+- **elle ne t'oblige à rien.** C'est un raccourci, pas une consigne.
+
+Un exemple de ce qu'elle ne fait pas : elle compte les branches de ton dépôt, elle ne dit
+jamais qu'elles sont *mortes*. Le savoir demanderait de les mesurer une par une — c'est le
+travail de l'agent, pas celui de la bande. Elle pose la question, il y répond.

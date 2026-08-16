@@ -40,6 +40,32 @@
   @media(max-width:640px){h1{font-size:29px}}
   .sous{color:var(--ts);font-size:15px;line-height:1.65;margin:0 0 30px;max-width:60ch}
 
+  /* ── La bande contextuelle ──
+     Elle porte le dégradé le plus fort de l'écran : quand elle est là, c'est qu'un fait
+     s'est produit, et c'est la chose la plus utile du moment. Quand elle n'est pas là,
+     la carte principale reprend ce rôle. */
+  .reco{border:1px solid rgba(251,191,36,.45);border-radius:18px;padding:20px 22px;
+        margin-bottom:20px;
+        background:linear-gradient(135deg,rgba(251,191,36,.14),rgba(124,92,252,.12))}
+  .reco .quand{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;
+               color:#fbbf24;margin-bottom:7px;display:flex;align-items:center;gap:8px;
+               flex-wrap:wrap}
+  .reco h2{font-family:var(--fd);font-size:21px;line-height:1.25;margin:0 0 8px;color:var(--tp)}
+  @media(max-width:640px){.reco h2{font-size:18px}}
+  .reco .pourquoi{font-size:12.5px;color:var(--ts);line-height:1.6;margin:0 0 15px;max-width:66ch}
+  .reco .actes{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .reco .actes a.go{background:linear-gradient(135deg,#7c5cfc,#2dd4bf);color:#fff;
+                    font-weight:700;font-size:14px;padding:10px 18px;border-radius:11px;
+                    text-decoration:none;border:0}
+  .reco .actes a.go:hover{filter:brightness(1.08)}
+  .reco .actes a.voir{font-size:12.5px;color:var(--ts);text-decoration:none;
+                      border-bottom:1px solid rgba(184,174,216,.35)}
+  .reco .actes a.voir:hover{color:var(--tp)}
+  .reco .autres{margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.1);
+                display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px}
+  .reco .autres a{color:var(--tm);text-decoration:none}
+  .reco .autres a:hover{color:var(--tp)}
+
   /* ── Les intentions ── */
   .intentions{display:grid;gap:13px;grid-template-columns:1fr}
   @media(min-width:720px){.intentions{grid-template-columns:1fr 1fr}}
@@ -91,6 +117,12 @@
   <h1>Qu'est-ce que tu veux faire ?</h1>
   <p class="sous">Des agents IA prêts à l'emploi, relus par quelqu'un avant d'être proposés
     aux autres. Choisis par où tu entres — tu pourras changer d'avis à tout moment.</p>
+
+  <!--
+    La bande contextuelle n'existe QUE s'il y a un fait. Pas de « pour toi » de
+    remplissage : le jour où elle apparaît, elle veut dire quelque chose.
+  -->
+  <section class="reco" id="reco" hidden></section>
 
   <div class="intentions">
     <a class="intention forte" href="../catalogue/index.html">
@@ -169,16 +201,20 @@
 import { requireSession, clear } from './session.js';
 import { createForge } from './forge.js';
 import { mountShell } from './shell.js';
+import { observer } from './signaux.js';
+import { recommander } from '../lib/reco.js';
+import yaml from '../lib/yaml.js';
+
+const $ = (id) => document.getElementById(id);
+
+// Une préférence d'affichage côté navigateur, pas une donnée gouvernée : rien ici n'a
+// valeur d'autorisation.
+const KEYS = { registry: 'salsi_ia_registry_repo', work: 'salsi_ia_project',
+               workPath: 'salsi_ia_project_path' };
 
 const session = requireSession('./login.html');
 if (session) {
-  const $ = (id) => document.getElementById(id);
   mountShell({ session, base: '../', onLogout: () => { clear(); location.replace('./login.html'); } });
-
-  // Une préférence d'affichage côté navigateur, pas une donnée gouvernée : rien ici n'a
-  // valeur d'autorisation.
-  const KEYS = { registry: 'salsi_ia_registry_repo', work: 'salsi_ia_project',
-                 workPath: 'salsi_ia_project_path' };
 
   /*
    * Le réglage ne s'impose qu'une fois.
@@ -241,6 +277,88 @@ if (session) {
   }
 
   majContexte();
+  proposer().catch(() => { /* confort : jamais bloquant, jamais bruyant */ });
+}
+
+/*
+ * LA RECOMMANDATION CONTEXTUELLE.
+ *
+ * Elle part de faits LUS chez la forge — une CI cassée, des changements en attente — et
+ * les croise avec ce que le registre contient vraiment. Aucun modèle n'intervient : la
+ * proposition est une conséquence mécanique, et l'écran montre le fait dont elle vient.
+ * C'est ce qui la rend contestable, donc utilisable.
+ *
+ * Si rien n'a été observé, la bande n'existe pas. On n'affiche pas un « pour toi » de
+ * remplissage : une bande qui s'affiche toujours devient un décor qu'on cesse de lire.
+ */
+async function proposer() {
+  const travail = localStorage.getItem(KEYS.workPath) || '';
+  const registre = localStorage.getItem(KEYS.registry) || '';
+  if (!travail || !registre) return;
+
+  const forge = createForge(session);
+
+  const [signaux, agents] = await Promise.all([
+    observer({ forge, repo: travail, moi: session.username }),
+    lireAgents(forge, registre)
+  ]);
+
+  const recos = recommander(signaux, agents, { maintenant: Date.now() });
+  if (recos.length === 0) return;
+
+  const [premiere, ...suite] = recos;
+  const box = $('reco');
+  box.textContent = '';
+
+  const el = (tag, attrs = {}, ...kids) => {
+    const n = Object.assign(document.createElement(tag), attrs);
+    for (const k of kids) if (k) n.append(k);
+    return n;
+  };
+
+  box.append(
+    el('div', { className: 'quand' }, '⚡ le plus utile pour toi maintenant',
+       premiere.quand ? el('span', { style: 'opacity:.75;font-weight:600',
+                                     textContent: `· ${premiere.quand}` }) : null),
+    el('h2', { textContent: `${premiere.titre} — ${premiere.verbe} avec « ${premiere.agent.title || premiere.agent.id} »` }),
+    el('p', { className: 'pourquoi',
+              textContent: `${premiere.pourquoi} Calculé à partir de ton projet, pas deviné `
+                         + 'par une IA : tu peux l\'ignorer.' })
+  );
+
+  const actes = el('div', { className: 'actes' },
+    el('a', { className: 'go', href: `../catalogue/index.html?agent=${encodeURIComponent(premiere.agent.id)}`,
+              textContent: `▶ ${premiere.verbe}` }));
+  if (premiere.signal.url) {
+    actes.append(el('a', { className: 'voir', href: premiere.signal.url, target: '_blank',
+                           rel: 'noopener', textContent: 'voir ce qui s\'est passé ↗' }));
+  }
+  box.append(actes);
+
+  if (suite.length) {
+    const autres = el('div', { className: 'autres' });
+    for (const r of suite.slice(0, 3)) {
+      autres.append(el('a', { href: `../catalogue/index.html?agent=${encodeURIComponent(r.agent.id)}`,
+                              textContent: `${r.titre} → ${r.verbe}` }));
+    }
+    box.append(autres);
+  }
+
+  box.hidden = false;
+}
+
+/** Ce que le registre contient vraiment. Sans lui, on ne recommande rien. */
+async function lireAgents(forge, registre) {
+  try {
+    const fichiers = (await forge.listFiles(registre, 'artifacts'))
+      .filter((f) => f.type === 'file' && /\.ya?ml$/.test(f.name));
+    return (await Promise.all(fichiers.map(async (f) => {
+      try { return yaml.parse((await forge.getFile(registre, f.path)).content); }
+      catch { return null; }
+    }))).filter((a) => a && a.id);
+  } catch {
+    return [];
+  }
 }
 </script>
 </body>

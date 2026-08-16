@@ -65,6 +65,23 @@ export function fromBase64(b64) {
 }
 
 /** Traduit un code HTTP en phrase actionnable. Un « 403 » n'aide personne. */
+/*
+ * Le statut d'une exécution CI, réduit à ce dont on a besoin.
+ *
+ * GitLab et GitHub emploient des vocabulaires différents pour la même chose — `failed` /
+ * `failure`, `running` / `in_progress`. Tout ce qui n'est ni un échec ni un succès franc
+ * est rangé dans `en-cours` : un signal ambigu ne doit pas se faire passer pour un fait.
+ */
+const ECHECS = new Set(['failed', 'failure', 'canceled', 'cancelled', 'timed_out']);
+const SUCCES = new Set(['success', 'passed']);
+
+export function statutCI(brut) {
+  const s = String(brut || '').toLowerCase();
+  if (ECHECS.has(s)) return 'echec';
+  if (SUCCES.has(s)) return 'succes';
+  return 'en-cours';
+}
+
 function explain(status, { host, scopeHint }) {
   if (status === 401) return 'Jeton refusé : invalide, révoqué ou expiré.';
   if (status === 403) return `Jeton valide mais accès refusé : il manque le droit ${scopeHint}.`;
@@ -193,6 +210,25 @@ function gitlab(session, fetchImpl) {
     projectInfo: async (repo) => {
       const p = await call(`/projects/${encodeURIComponent(repo)}`);
       return { defaultBranch: p.default_branch, path: p.path_with_namespace, visibility: p.visibility };
+    },
+
+    /*
+     * Les dernières exécutions de la CI, dans une forme commune aux deux forges.
+     *
+     * Le signal le plus utile qu'un dépôt puisse donner : « ça vient de casser ». Il sert
+     * à la recommandation, qui doit partir d'un FAIT observé plutôt que d'une devinette.
+     *
+     * `statut` est normalisé sur trois valeurs, parce que GitLab dit `failed` et GitHub
+     * `failure` : un appelant qui devrait connaître les deux vocabulaires finirait par
+     * n'en gérer qu'un, et le signal se perdrait sur l'autre forge sans que rien le dise.
+     */
+    listRuns: async (repo, { perPage = 20 } = {}) => {
+      const list = await call(`/projects/${encodeURIComponent(repo)}/pipelines`,
+                              { params: { per_page: perPage, order_by: 'updated_at' } });
+      return list.map((p) => ({
+        id: p.id, statut: statutCI(p.status), branche: p.ref || '',
+        quand: p.updated_at || p.created_at || '', url: p.web_url || ''
+      }));
     },
 
     listBranches: async (repo) => {
@@ -362,6 +398,20 @@ function github(session, fetchImpl) {
       const r = await call(`/repos/${repo}`);
       return { defaultBranch: r.default_branch, path: r.full_name,
                visibility: r.private ? 'private' : 'public' };
+    },
+
+    /*
+     * Même forme que côté GitLab. `/actions/runs` demande la permission Actions du jeton :
+     * sans elle l'appel échoue en 403, et c'est à l'appelant de traiter l'absence de
+     * signal comme une absence — pas comme une panne.
+     */
+    listRuns: async (repo, { perPage = 20 } = {}) => {
+      const r = await call(`/repos/${repo}/actions/runs`, { params: { per_page: perPage } });
+      return (r.workflow_runs || []).map((w) => ({
+        id: w.id, statut: statutCI(w.status === 'completed' ? w.conclusion : w.status),
+        branche: w.head_branch || '', quand: w.updated_at || w.created_at || '',
+        url: w.html_url || ''
+      }));
     },
 
     listBranches: async (repo) => {

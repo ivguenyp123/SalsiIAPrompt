@@ -155,6 +155,24 @@ async function load() {
 
   renderTags();
   render();
+
+  /*
+   * Un lien direct vers une fiche : `?agent=<id>`.
+   *
+   * C'est ce que la recommandation de l'accueil envoie. Sans lui, « ▶ Comprendre
+   * pourquoi » déposerait dans un catalogue de cent trente lignes, à charge de retrouver
+   * soi-même l'agent qu'on venait de nous désigner — une promesse suivie d'une corvée.
+   */
+  const vise = new URLSearchParams(location.search).get('agent');
+  if (vise) {
+    const trouve = items.find((e) => e.artifact?.id === vise);
+    if (trouve) { openSheet(trouve); return; }
+    // Identifiant inconnu : on ne se tait pas. La reco pointait quelque chose, et sa
+    // disparition doit s'expliquer plutôt que ressembler à un clic sans effet.
+    $('q').value = vise;
+    render();
+  }
+
   proposerTour();
 }
 
