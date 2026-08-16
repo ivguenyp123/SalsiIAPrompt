@@ -1,0 +1,47 @@
+# Le contrat de sortie de « DevOps Assessment », EXTRAIT de la plateforme.
+#
+# Source : `js/maturity.js` — `CATEGORIES` (~ligne 668) pour les huit axes et leurs
+# identifiants, le calcul du score global (~ligne 1417) pour l'échelle.
+#
+# Deux natures d'axe, et la plateforme les distingue :
+#   `declaratif`  ce que l'équipe déclare (Culture)
+#   `data_only`   ce qui se mesure sans rien demander (Sécurité)
+# Les confondre ferait passer une déclaration pour une mesure.
+
+module: DevOps Assessment
+source: js/maturity.js
+format: json
+
+niveaux: ["0", "1", "2", "3", "4"]
+
+champs:
+  - cle: score_global
+    libelle: Score global
+    unite: "/100"
+    seuils: "niveau 4 ≥ 80 · 3 ≥ 60 · 2 ≥ 40 · 1 ≥ 20 · 0 en dessous"
+  - cle: culture
+    libelle: Culture & Organisation
+    unite: "/100"
+    note: "axe déclaratif — ce que l'équipe dit, pas ce qu'on mesure"
+  - cle: delivery
+    libelle: Delivery
+    unite: "/100"
+  - cle: quality
+    libelle: Qualité Code
+    unite: "/100"
+  - cle: stability
+    libelle: Stabilité
+    unite: "/100"
+  - cle: hygiene
+    libelle: Hygiène Repo
+    unite: "/100"
+  - cle: resilience
+    libelle: Résilience
+    unite: "/100"
+  - cle: practices
+    libelle: Pratiques
+    unite: "/100"
+  - cle: security
+    libelle: Sécurité
+    unite: "/100"
+    note: "axe mesuré seulement — aucune question posée à l'équipe"

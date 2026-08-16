@@ -1,0 +1,37 @@
+# Le contrat de sortie de « Daily Report », EXTRAIT de la plateforme.
+#
+# Source : `js/daily-report.js`, la grille de KPI (~ligne 1783). Les six mêmes chiffres,
+# dans le même ordre, avec la moyenne par jour que la plateforme affiche sous chacun.
+#
+# `taux_succes` est un POURCENTAGE et n'a pas de moyenne journalière — la plateforme n'en
+# calcule pas, et en inventer une ferait afficher un chiffre que personne ne peut vérifier.
+
+module: Daily Report
+source: js/daily-report.js
+format: json
+
+champs:
+  - cle: mrs_merged
+    libelle: MRs mergées
+    unite: nombre
+    note: "moyenne par jour affichée sous le total"
+  - cle: pipelines
+    libelle: Pipelines
+    unite: nombre
+    note: "moyenne par jour affichée sous le total"
+  - cle: echecs
+    libelle: Échecs
+    unite: nombre
+    note: "moyenne par jour affichée sous le total"
+  - cle: deploiements
+    libelle: Déploiements
+    unite: nombre
+    note: "moyenne par jour affichée sous le total"
+  - cle: taux_succes
+    libelle: Taux succès
+    unite: "%"
+    note: "pipelines réussis sur pipelines lancés — aucune moyenne journalière"
+  - cle: commits
+    libelle: Commits
+    unite: nombre
+    note: "moyenne par jour affichée sous le total"

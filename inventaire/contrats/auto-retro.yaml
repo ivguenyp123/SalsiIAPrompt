@@ -1,0 +1,45 @@
+# Le contrat de sortie de « Auto Retro », EXTRAIT de la plateforme.
+#
+# Source : `js/autoretro.js`. Les clés viennent de l'objet rendu par `computeStats()`
+# (~ligne 356) — c'est la forme exacte, pas une lecture de l'affichage.
+#
+# Les seuils viennent des classes de carte (~lignes 283-284) : elles colorent en vert,
+# orange ou rouge selon des bornes écrites dans le code.
+
+module: Auto Retro
+source: js/autoretro.js
+format: json
+
+champs:
+  - cle: mergedMRs
+    libelle: MRs mergées
+    unite: nombre
+  - cle: pipelineSuccess
+    libelle: Pipelines OK
+    unite: "%"
+    seuils: "bon > 80 · à surveiller > 60 · mauvais en dessous"
+  - cle: avgReviewTime
+    libelle: Review Time
+    unite: h
+    seuils: "bon < 24 · à surveiller < 48 · mauvais au-delà"
+  - cle: totalCommits
+    libelle: Commits
+    unite: nombre
+  - cle: activeContributors
+    libelle: Contributeurs
+    unite: nombre
+  - cle: closedIssues
+    libelle: Issues fermées
+    unite: nombre
+  - cle: openedIssues
+    libelle: Issues ouvertes
+    unite: nombre
+  - cle: deployedToDev
+    libelle: Déployé DEV
+    unite: nombre
+  - cle: deployedToUat
+    libelle: Déployé UAT
+    unite: nombre
+  - cle: deployedToProd
+    libelle: Déployé PROD
+    unite: nombre

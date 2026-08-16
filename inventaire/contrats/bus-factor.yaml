@@ -1,0 +1,23 @@
+# Le contrat de sortie de « Bus Factor », EXTRAIT de la plateforme.
+#
+# Source : `js/bus-factor.js` (~lignes 320-342). Le score est la MÉDIANE PONDÉRÉE des
+# facteurs de chaque zone, plafonnée à 5 et arrondie à une décimale — pas une moyenne.
+# La distinction compte : un module critique noyé dans neuf modules sains ne doit pas
+# disparaître dans la moyenne, et c'est écrit dans le code.
+
+module: Bus Factor
+source: js/bus-factor.js
+format: json
+
+niveaux: ["RISQUE CRITIQUE", "RISQUE MOYEN", "RISQUE FAIBLE"]
+
+champs:
+  - cle: score
+    libelle: Bus factor global
+    unite: personnes
+    note: "médiane pondérée des zones, plafonnée à 5, une décimale"
+    seuils: "RISQUE CRITIQUE < 2 · RISQUE MOYEN < 3 · RISQUE FAIBLE au-delà"
+  - cle: zones
+    libelle: Zones à risque
+    unite: liste
+    note: "chaque zone porte son `factor` et son nombre de commits"

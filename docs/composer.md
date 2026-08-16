@@ -247,6 +247,6 @@ Le contrat est **extrait du code du module**, jamais rédigé de mémoire. Un se
 approximatif ferait diverger deux rapports censés être le même, et personne ne saurait
 lequel croire. Chaque contrat dit de quel fichier il vient.
 
-**Aujourd'hui, un seul module est extrait — DORA Insights.** Pour les autres, l'agent
+**Aujourd’hui, cinq modules sont extraits** — DORA Insights, Daily Report, Auto Retro, Bus Factor et DevOps Assessment. Pour les autres, l'agent
 traite le bon sujet sans reproduire le rapport : c'est une aide, pas un remplacement. La
 distinction est dite plutôt que masquée.
