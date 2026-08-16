@@ -39,6 +39,7 @@ import { executer, etat, rediger, composer, coherence, DOSSIERS } from './runtim
 import { lint } from './lint/index.js';
 import { chemin } from './lib/entrees.js';
 import { CHEMIN, carte } from './runtime/etat-derive.js';
+import { createForge } from './app/forge.js';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 
@@ -62,15 +63,62 @@ const ROOT = dirname(fileURLToPath(import.meta.url));
  * n'importe quelle page ouverte pourrait faire exécuter n'importe quelle consigne avec la
  * clé du serveur.
  *
- * On lit donc le registre à la SOURCE : `git show origin/<branche>:<chemin>`. Ce qui
- * s'exécute reste ce qui est commité — donc ce qu'un humain a validé. Rien n'est écrit,
- * la copie de travail n'est pas touchée, et aucun secret nouveau n'est nécessaire.
+ * On lit donc le registre À LA SOURCE. Ce qui s'exécute reste ce qui est commité — donc
+ * ce qu'un humain a validé. Reste à savoir COMMENT on l'atteint, et la réponse n'est pas
+ * la même en développement et en production.
  */
+/*
+ * ── DEUX FAÇONS DE LIRE LE REGISTRE, ET UNE SEULE EST CELLE DE LA PRODUCTION ─
+ *
+ * En PRODUCTION, le back n'est pas un clone git : il lit le registre CHEZ LA FORGE, avec
+ * sa propre identité en lecture seule. C'est la seule façon dont un service lit un dépôt
+ * qu'il ne possède pas, et c'est ce que `SALSI_REGISTRE_REPO` active.
+ *
+ *   SALSI_REGISTRE_REPO    `groupe/depot` du registre
+ *   SALSI_REGISTRE_TOKEN   un jeton LECTURE SEULE sur ce seul dépôt
+ *   SALSI_REGISTRE_FORGE   l'URL de la forge (défaut https://github.com)
+ *
+ * Configuré, il fait AUTORITÉ : le disque est ignoré. Une image de production construite
+ * depuis le dépôt embarquerait des artefacts figés au jour du build, et exécuterait donc
+ * une version périmée de ce qu'un humain a validé depuis. Le registre décide, pas la copie
+ * qui a voyagé avec le binaire.
+ *
+ * Non configuré, on est en DÉVELOPPEMENT : le disque d'abord (c'est ce qu'on édite), puis
+ * le clone git (c'est ce qui vient d'être validé depuis l'écran).
+ */
+const REGISTRE = {
+  repo: process.env.SALSI_REGISTRE_REPO || '',
+  token: process.env.SALSI_REGISTRE_TOKEN || '',
+  forge: process.env.SALSI_REGISTRE_FORGE || 'https://github.com'
+};
+
 const BRANCHE = process.env.SALSI_BRANCHE || 'main';
 const FETCH_MIN_MS = 15_000;      // ne pas interroger la forge à chaque requête
 let dernierFetch = 0;
 
-function depuisLeRegistre(id, dossiers) {
+/** Le client de forge du SERVEUR — jamais celui de l'utilisateur. */
+let clientRegistre = null;
+function forgeDuRegistre() {
+  if (!REGISTRE.repo || !REGISTRE.token) return null;
+  clientRegistre ||= createForge({ gitlabUrl: REGISTRE.forge, token: REGISTRE.token });
+  return clientRegistre;
+}
+
+/** Le registre, lu chez la forge. Rend le texte du fichier, ou `null`. */
+async function depuisLaForge(id, dossiers) {
+  const forge = forgeDuRegistre();
+  if (!forge) return null;
+
+  for (const d of dossiers) {
+    try {
+      const f = await forge.getFile(REGISTRE.repo, `${d}/${id}.yaml`, BRANCHE);
+      if (f?.content) return f.content;
+    } catch { /* ce dossier ne l'a pas, ou la forge refuse : on essaie le suivant */ }
+  }
+  return null;
+}
+
+function depuisLeClone(id, dossiers) {
   // L'identifiant est déjà validé en amont ; on le revérifie parce qu'il entre ici dans
   // une commande.
   if (!/^[a-z][a-z0-9-]*$/.test(String(id || ''))) return null;
@@ -95,6 +143,7 @@ function depuisLeRegistre(id, dossiers) {
   }
   return null;
 }
+
 const PORT = Number(process.env.PORT || 8080);
 
 /* ── Ce que la route d'exécution a besoin de connaître ────────────────────────
@@ -118,13 +167,20 @@ function dependances() {
     banque: registres.entrees,
     // L'identifiant vient de la requête : il ne sert qu'à choisir un fichier dans une
     // liste de dossiers connus, jamais à composer un chemin.
-    charger: (id, dossiers) => {
+    charger: async (id, dossiers) => {
+      // Le registre configuré fait autorité, et le disque n'est même pas consulté :
+      // deux sources pour la même chose, c'est le défaut qu'on vient de corriger.
+      if (forgeDuRegistre()) {
+        const texte = await depuisLaForge(id, dossiers);
+        return texte ? yaml.parse(texte) : null;
+      }
+
       const rel = dossiers.map((d) => `${d}/${id}.yaml`).find((r) => existsSync(join(ROOT, r)));
       if (rel) return lire(rel);
 
       // Absent du disque : peut-être vient-il d'être validé depuis l'écran. On regarde
-      // le registre lui-même avant de dire qu'il n'existe pas.
-      const distant = depuisLeRegistre(id, dossiers);
+      // le clone avant de dire qu'il n'existe pas.
+      const distant = depuisLeClone(id, dossiers);
       return distant ? yaml.parse(distant) : null;
     },
     lireEntree: (e) => readFileSync(join(ROOT, chemin(e)), 'utf8'),

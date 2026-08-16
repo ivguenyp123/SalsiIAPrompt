@@ -78,7 +78,15 @@ export async function executer(requete = {}, deps = {}) {
     return { status: 400, corps: { erreur: `Identifiant d'artefact invalide : \`${id}\`.` } };
   }
 
-  const artifact = charger(id, DOSSIERS);
+  /*
+   * `await`, alors que le chargement était synchrone.
+   *
+   * Un serveur de développement lit un fichier ; un vrai back lit le registre chez la
+   * forge, ce qui est asynchrone. Attendre une valeur qui n'en est pas une ne coûte rien,
+   * et c'est ce qui permet aux deux de fournir le MÊME `charger` sans que ce module ait
+   * à savoir lequel il a.
+   */
+  const artifact = await charger(id, DOSSIERS);
   if (!artifact) {
     return { status: 404, corps: { erreur: `Artefact \`${id}\` introuvable au registre.` } };
   }
