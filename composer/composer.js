@@ -38,6 +38,7 @@ import { chemin as cheminMien, dossier as dossierMien, forker, etat as etatChain
 import { aplatir, confronter, familles as famillesDe, filtrer } from '../lib/inventaire.js';
 import { morceauDepuisInventaire, morceauDepuisArtefact, consigneAssemblee,
          assembler, cequilManque } from '../lib/assemblage.js';
+import { indexer as indexerContrats, contratDe, provenance } from '../lib/contrats.js';
 import yaml from '../lib/yaml.js';
 
 const session = requireSession('../app/login.html');
@@ -82,6 +83,7 @@ let MODE = 'agent';
 let INVENTAIRE = [];              // les besoins de la plateforme, confrontés au registre
 let MORCEAUX = [];                // les prompts posés dans la consigne
 let MIENS = [];                   // mes agents composés, sauvés chez moi
+let CONTRATS = new Map();         // la forme réelle des rapports de la plateforme
 let famille = '';                 // le filtre de famille, en mode agent
 
 const enAgent = () => MODE === 'agent';
@@ -89,7 +91,7 @@ const enAgent = () => MODE === 'agent';
 /* ── Chargement ───────────────────────────────────────────────────────────── */
 
 async function charger() {
-  const [tools, targets, entrees, schema, inventaire] = await Promise.all([
+  const [tools, targets, entrees, schema, inventaire, contrats] = await Promise.all([
     fetch('../registries/tools.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t).tools),
     fetch('../registries/targets.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t).targets),
     fetch('../entrees/index.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t)),
@@ -97,7 +99,23 @@ async function charger() {
     // Les besoins de la plateforme. C'est LA matière du mode agent : un établi qui
     // n'offrirait que les artefacts déjà validés serait vide le premier jour, et donc
     // inutile le jour où il sert le plus.
-    fetch('../inventaire/hub-devops.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t))
+    fetch('../inventaire/hub-devops.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t)),
+    /*
+     * Les contrats de sortie — la forme RÉELLE des rapports de la plateforme.
+     *
+     * Sans eux, un agent tiré d'un module invente son vocabulaire : il rendait
+     * `deployment_frequency: "élevée"` là où la plateforme calcule `df: 4.2 /sem → High`.
+     * Une imitation qu'on ne peut ni comparer ni rejouer.
+     *
+     * Le manifeste est déclaré : un navigateur ne sait pas lister un dossier.
+     */
+    fetch('../inventaire/contrats/index.yaml', FRAIS)
+      .then((r) => (r.ok ? r.text() : 'contrats: []'))
+      .then((t) => Promise.all((yaml.parse(t).contrats || []).map((n) =>
+        fetch(`../inventaire/contrats/${n}`, FRAIS).then((r) => r.text())
+          .then((x) => yaml.parse(x)).catch(() => null))))
+      .then((l) => l.filter(Boolean))
+      .catch(() => [])
   ]);
   ctx = { tools, targets, entrees, validateArtifact: makeValidator(schema) };
 
@@ -133,6 +151,7 @@ async function charger() {
   // confronte. Un inventaire qui mentirait sur ce qui existe ferait recomposer ce qui est
   // déjà là.
   INVENTAIRE = confronter(aplatir(inventaire), publies.map((a) => a.id));
+  CONTRATS = indexerContrats(contrats);
 
   basculer(MODE);
   await chargerMiennes(repo);
@@ -443,7 +462,8 @@ function sourcesPrompts() {
   const dejaFaits = new Set(depuisRegistre.map((m) => m.ref));
   const depuisInventaire = INVENTAIRE
     .filter((p) => !dejaFaits.has(p.id))
-    .map((p) => ({ ...morceauDepuisInventaire(p), famille: p.famille, module: p.module }));
+    .map((p) => ({ ...morceauDepuisInventaire(p, { contrat: contratDe(p, CONTRATS) }),
+                   famille: p.famille, module: p.module }));
 
   return [...depuisRegistre, ...depuisInventaire];
 }

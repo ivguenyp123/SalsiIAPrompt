@@ -1,0 +1,19 @@
+# Les contrats de sortie extraits de la plateforme.
+#
+# Un navigateur ne sait pas lister un dossier : ce manifeste est la seule liste écrite à
+# la main du dossier, et `test/contrats.test.js` échoue si elle ne correspond plus aux
+# fichiers présents. La désynchronisation devient un test rouge, pas un contrat muet.
+#
+# ── CE QUI RESTE À FAIRE, ET C'EST L'ESSENTIEL ───────────────────────────────
+#
+# Un seul module est extrait. Les 26 autres n'ont pas encore de contrat, donc les agents
+# qu'on en tire traitent le bon sujet SANS reproduire le rapport — ils aident, ils ne
+# remplacent pas. C'est dit à l'écran plutôt que masqué.
+#
+# Extraire un contrat n'est pas une écriture : c'est une LECTURE du code du module. Les
+# clés, les unités et les seuils s'y trouvent, ou ils ne s'y trouvent pas. Rien ne doit
+# être comblé de mémoire — un seuil approximatif ferait diverger deux rapports censés être
+# le même, et personne ne saurait lequel croire.
+
+contrats:
+  - dora-insights.yaml

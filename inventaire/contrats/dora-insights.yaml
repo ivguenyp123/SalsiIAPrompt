@@ -1,0 +1,57 @@
+# Le contrat de sortie de « DORA Insights », EXTRAIT de la plateforme.
+#
+# ── POURQUOI CE FICHIER EXISTE ───────────────────────────────────────────────
+#
+# L'inventaire disait, pour chaque capacité, un BESOIN (« un agent qui explique les 4
+# métriques DORA ») et une nature de sortie (« texte »). C'est assez pour proposer une
+# capacité ; c'est très insuffisant pour la REPRODUIRE.
+#
+# Un agent bâti sur le seul besoin invente son vocabulaire. Vu à l'usage : il rendait
+# `deployment_frequency` / `lead_time` / `change_failure_rate` / `time_to_restore` avec
+# des valeurs « élevée / faible / moyenne » — aucune unité, aucun seuil, et rien qui
+# ressemble à ce que la plateforme affiche. Une imitation plausible, donc inutilisable :
+# on ne peut ni comparer deux rapports, ni rejouer, ni contester un chiffre.
+#
+# ── EXTRAIT, JAMAIS INVENTÉ ──────────────────────────────────────────────────
+#
+# Tout ce qui suit vient de `js/dora-workspace.js` du hub :
+#   · les clés et libellés    → `seriesDef`
+#   · les unités              → `seriesDef[].unit`
+#   · les seuils et niveaux   → `doraLevel()`
+#
+# Ce qui n'est pas dans le code de la plateforme n'est pas ici. Un seuil approximatif
+# serait pire qu'un seuil absent : il ferait diverger deux rapports censés être le même,
+# et personne ne saurait lequel croire.
+
+module: DORA Insights
+source: js/dora-workspace.js
+format: json
+
+# `N/A` est une VALEUR, pas une absence : la plateforme l'affiche quand elle n'a pas de
+# quoi calculer. Un agent qui écrirait « 0 » à la place mentirait sur une mesure.
+niveaux: [Elite, High, Medium, Low, "N/A"]
+
+champs:
+  - cle: df
+    libelle: Deploy Frequency
+    unite: /sem
+    mieux: haut
+    seuils: "Elite ≥ 7 · High ≥ 1 · Medium ≥ 0.25 · Low en dessous"
+
+  - cle: lt
+    libelle: Lead Time
+    unite: h
+    mieux: bas
+    seuils: "Elite ≤ 1 · High ≤ 24 · Medium ≤ 168 · Low au-delà"
+
+  - cle: cfr
+    libelle: Change Failure Rate
+    unite: "%"
+    mieux: bas
+    seuils: "Elite ≤ 5 · High ≤ 10 · Medium ≤ 15 · Low au-delà"
+
+  - cle: mttr
+    libelle: MTTR
+    unite: h
+    mieux: bas
+    seuils: "Elite ≤ 1 · High ≤ 24 · Medium ≤ 168 · Low au-delà"

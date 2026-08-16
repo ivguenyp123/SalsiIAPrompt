@@ -224,3 +224,29 @@ niveaux d'imbrication, plus personne ne sait ce qui tourne vraiment.
 
 **Il n'y a ni condition ni boucle.** Une chaîne est une suite. Si votre besoin demande
 un « si », c'est un agent qu'il faut, pas une chaîne — [demandez-le](demander.md).
+
+## Reproduire le rapport de la plateforme
+
+Certaines capacités viennent d'un **module du hub DevOps** qui produit déjà un rapport.
+Pour celles-là, l'agent ne doit pas « traiter le sujet » — il doit rendre **le même
+rapport** : mêmes champs, mêmes unités, mêmes seuils.
+
+Sans ça, un agent tiré du module DORA rend `deployment_frequency: "élevée"` quand la
+plateforme calcule `df: 4.2 /sem → High`. Deux vocabulaires, deux échelles, aucun seuil
+commun : impossible de comparer deux rapports, de rejouer, ou de contester un chiffre.
+Une imitation plausible, et donc inutilisable.
+
+Quand le **contrat** du module a été extrait, l'écran s'en sert tout seul :
+
+- la consigne exige les **clés exactes** (`df`, `lt`, `cfr`, `mttr`) avec leurs unités et
+  leurs seuils (`Elite ≥ 7`, `High ≥ 1`…) ;
+- les critères vérifient **ces mêmes clés** — ils ne sont plus proposés, ils sont déduits ;
+- « pas de mesure » s'écrit `N/A`, **jamais zéro**, qui se lirait comme un chiffre.
+
+Le contrat est **extrait du code du module**, jamais rédigé de mémoire. Un seuil
+approximatif ferait diverger deux rapports censés être le même, et personne ne saurait
+lequel croire. Chaque contrat dit de quel fichier il vient.
+
+**Aujourd'hui, un seul module est extrait — DORA Insights.** Pour les autres, l'agent
+traite le bon sujet sans reproduire le rapport : c'est une aide, pas un remplacement. La
+distinction est dite plutôt que masquée.
