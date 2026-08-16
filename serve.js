@@ -27,6 +27,7 @@
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { join, extname, resolve, normalize } from 'node:path';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -40,6 +41,60 @@ import { chemin } from './lib/entrees.js';
 import { CHEMIN, carte } from './runtime/etat-derive.js';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
+
+/* ── Lire le registre, et pas seulement la copie qui traîne ───────────────── */
+
+/*
+ * LE DÉFAUT QUE CECI CORRIGE, ET POURQUOI IL ÉTAIT INVISIBLE.
+ *
+ * Le catalogue lit les agents CHEZ LA FORGE, avec le jeton du navigateur. L'exécution,
+ * elle, les lisait sur le DISQUE du serveur. Deux sources pour la même chose — et rien ne
+ * le disait.
+ *
+ * Conséquence : tout agent créé depuis l'écran partait chez la forge, s'affichait au
+ * catalogue, et se faisait répondre « introuvable au registre » au moment de le lancer.
+ * Chaque agent créé, sans exception. Le message était exact et incompréhensible.
+ *
+ * ── POURQUOI PAS LAISSER LE NAVIGATEUR ENVOYER LE FICHIER ────────────────────
+ *
+ * Ce serait plus simple, et ce serait la fin de la gouvernance : `artifacts/` veut dire
+ * « quelqu'un l'a relu ». Un contenu fourni par l'appelant n'a plus cette preuve, et
+ * n'importe quelle page ouverte pourrait faire exécuter n'importe quelle consigne avec la
+ * clé du serveur.
+ *
+ * On lit donc le registre à la SOURCE : `git show origin/<branche>:<chemin>`. Ce qui
+ * s'exécute reste ce qui est commité — donc ce qu'un humain a validé. Rien n'est écrit,
+ * la copie de travail n'est pas touchée, et aucun secret nouveau n'est nécessaire.
+ */
+const BRANCHE = process.env.SALSI_BRANCHE || 'main';
+const FETCH_MIN_MS = 15_000;      // ne pas interroger la forge à chaque requête
+let dernierFetch = 0;
+
+function depuisLeRegistre(id, dossiers) {
+  // L'identifiant est déjà validé en amont ; on le revérifie parce qu'il entre ici dans
+  // une commande.
+  if (!/^[a-z][a-z0-9-]*$/.test(String(id || ''))) return null;
+
+  try {
+    if (Date.now() - dernierFetch > FETCH_MIN_MS) {
+      execFileSync('git', ['fetch', '--quiet', 'origin', BRANCHE],
+                   { cwd: ROOT, stdio: 'ignore', timeout: 10_000 });
+      dernierFetch = Date.now();
+    }
+  } catch {
+    // Pas de réseau, pas de dépôt distant : on continue avec ce qu'on a déjà cherché.
+  }
+
+  for (const d of dossiers) {
+    try {
+      return execFileSync('git', ['show', `origin/${BRANCHE}:${d}/${id}.yaml`],
+                          { cwd: ROOT, encoding: 'utf8', timeout: 10_000 });
+    } catch {
+      // Ce dossier ne l'a pas — on essaie le suivant.
+    }
+  }
+  return null;
+}
 const PORT = Number(process.env.PORT || 8080);
 
 /* ── Ce que la route d'exécution a besoin de connaître ────────────────────────
@@ -65,7 +120,12 @@ function dependances() {
     // liste de dossiers connus, jamais à composer un chemin.
     charger: (id, dossiers) => {
       const rel = dossiers.map((d) => `${d}/${id}.yaml`).find((r) => existsSync(join(ROOT, r)));
-      return rel ? lire(rel) : null;
+      if (rel) return lire(rel);
+
+      // Absent du disque : peut-être vient-il d'être validé depuis l'écran. On regarde
+      // le registre lui-même avant de dire qu'il n'existe pas.
+      const distant = depuisLeRegistre(id, dossiers);
+      return distant ? yaml.parse(distant) : null;
     },
     lireEntree: (e) => readFileSync(join(ROOT, chemin(e)), 'utf8'),
     // Le linter et le lecteur YAML, injectés : c'est par eux que la dictée fait juger
