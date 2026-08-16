@@ -73,6 +73,11 @@ familles:
             besoin: "un agent qui dit ce qu'il faudrait changer pour passer au palier DORA supérieur"
             entrees: [chiffres_dora, historique_pipelines]
             sortie: liste
+          - id: reproduire-le-rapport-dora
+            titre: Reproduire le rapport DORA
+            besoin: "un agent qui reproduit le rapport DORA de la plateforme : le score global et les quatre métriques, avec les calculs, la fenêtre et les seuils du hub"
+            entrees: [chiffres_dora, historique_pipelines]
+            sortie: json
       - module: DevOps Assessment
         prompts:
           - id: rediger-le-plan-d-accompagnement
@@ -100,6 +105,11 @@ familles:
             besoin: "un agent qui prépare les questions à poser en entretien d'évaluation de maturité DevOps"
             entrees: [scores_maturite]
             sortie: liste
+          - id: reproduire-le-score-de-maturite
+            titre: Reproduire le score de maturité
+            besoin: "un agent qui reproduit le score de maturité DevOps de la plateforme : ses huit axes, son niveau, et ce qui relève du déclaratif"
+            entrees: [scores_maturite]
+            sortie: json
       - module: Bus Factor
         prompts:
           - id: expliquer-un-bus-factor-de-un
@@ -122,6 +132,11 @@ familles:
             besoin: "un agent qui dit ce qui devient fragile dans un dépôt si telle personne s'en va"
             entrees: [repartition_contributions]
             sortie: texte
+          - id: reproduire-le-calcul-du-bus-factor
+            titre: Reproduire le calcul du bus factor
+            besoin: "un agent qui reproduit le bus factor de la plateforme, avec la même pondération et les mêmes paliers de risque"
+            entrees: [repartition_contributions]
+            sortie: json
       - module: Daily Report
         prompts:
           - id: rediger-le-standup-du-jour
@@ -149,6 +164,11 @@ familles:
             besoin: "un agent qui rédige le point de la semaine à partir de l'activité des sept derniers jours"
             entrees: [activite_du_jour]
             sortie: texte
+          - id: reproduire-le-rapport-du-jour
+            titre: Reproduire le rapport du jour
+            besoin: "un agent qui reproduit le rapport quotidien de la plateforme, avec les mêmes indicateurs et les mêmes moyennes par jour"
+            entrees: [activite_du_jour]
+            sortie: json
       - module: Générateur de rapport
         prompts:
           - id: rediger-la-synthese-executive-d-un-rapport
@@ -557,6 +577,11 @@ familles:
             besoin: "un agent qui prépare l'ordre du jour d'une rétro à partir des faits du sprint"
             entrees: [activite_sprint]
             sortie: liste
+          - id: reproduire-les-chiffres-de-la-retro
+            titre: Reproduire les chiffres de la rétro
+            besoin: "un agent qui reproduit les chiffres de rétrospective de la plateforme, avec les mêmes clés et les mêmes seuils de couleur"
+            entrees: [activite_sprint]
+            sortie: json
       - module: Smart Estimate
         prompts:
           - id: estimer-une-fonctionnalite

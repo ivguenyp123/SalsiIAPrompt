@@ -520,6 +520,21 @@ function rendrePrompts() {
                      ? 'La consigne d\'un agent validé. Elle a été relue — mais l\'assemblage, lui, ne l\'a pas été.'
                      : 'Un besoin de la plateforme. Personne ne l\'a encore écrit ni relu.' }));
 
+    /*
+     * Le morceau qui REPRODUIT, plutôt que celui qui aide.
+     *
+     * Deux morceaux du même module se ressemblent dans la liste et ne font pas le même
+     * métier : l'un explique les métriques DORA à quelqu'un qui les découvre, l'autre rend
+     * le rapport de la plateforme — mêmes clés, mêmes calculs, mêmes seuils. Sans marque on
+     * choisit à l'aveugle et on découvre l'écart une fois l'agent lancé. La provenance est
+     * en info-bulle : elle dit quel fichier du hub a été lu, parce qu'un seuil sans source
+     * ne vaut rien.
+     */
+    if (m.contrat?.champs?.length) {
+      n.append(el('span', { className: 'src contrat', textContent: 'reproduit',
+                            title: provenance(m.contrat) }));
+    }
+
     n.ondragstart = (e) => {
       n.classList.add('tire');
       e.dataTransfer.setData('text/plain', `prompt:${m.ref}`);

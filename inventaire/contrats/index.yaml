@@ -41,12 +41,33 @@ contrats:
 #   Pipeline Generator   js/pipeline-generator.js   un fichier de CI
 #   Release Notes        js/releasenotes.js         un texte de notes
 #
-# À RATTACHER — un contrat existe, mais je ne sais pas à quelle capacité de l'inventaire
-# il correspond. Le déclarer au hasard ferait porter à une capacité une forme qui n'est
-# pas la sienne.
-#   js/insights.js       un score DORA agrégé, classes elite/high/medium/low, avec une
-#                        PÉNALITÉ MTTR : score plafonné à 75 et « Elite » interdit quand
-#                        le MTTR manque. Les modules « Comparaisons », « Cohérence »,
-#                        « Restitutions », « Incidents » et « Livraison » de l'inventaire
-#                        n'ont pas de fichier évident — il faut trancher avec quelqu'un
-#                        qui connaît le hub avant d'écrire quoi que ce soit.
+# ── LA QUESTION OUVERTE A ÉTÉ TRANCHÉE, ET J'AVAIS LU LE MAUVAIS FICHIER ─────
+#
+# `js/insights.js` n'était pas « à rattacher » : c'EST le module « DORA Insights ». La
+# table `MODULE_URLS` de `js/hub.js` (~ligne 204) le dit — 'DORA Insights' →
+# 'insights.html' → `js/insights.js`. Le contrat lisait `js/dora-workspace.js`, qui est
+# la page « DORA Tribu », absente du catalogue du hub.
+#
+# DEUX SEUILS DE LEAD TIME COEXISTENT DANS LA PLATEFORME, et c'est la lecture qui l'a
+# révélé. Trois fichiers, trois commentaires qui se renvoient l'un à l'autre :
+#
+#   js/insights.js        lt : Elite ≤ 24 h, High ≤ 168 h, Medium ≤ 720 h
+#                         « seuils DORA Accelerate 2024 alignés sur hub.html »
+#   js/hub.js             lt : Elite ≤ 1 h,  High ≤ 24 h,  Medium ≤ 168 h
+#                         « aligné insights.js »
+#   js/dora-workspace.js  lt : Elite ≤ 1 h,  High ≤ 24 h,  Medium ≤ 168 h
+#
+# Chacun se dit aligné sur l'autre, et ils ne le sont pas. Un même dépôt peut donc être
+# « Elite » sur une page et « High » sur la suivante. Le désaccord appartient à la
+# plateforme : le registre ne le tranche pas, il porte les seuils de la page qu'il
+# reproduit — celle qui s'appelle « DORA Insights ».
+#
+# CE QUI N'EST À L'INVENTAIRE D'AUCUNE CAPACITÉ, et n'a donc pas de contrat à porter :
+#   js/dora-workspace.js  « DORA Tribu » — un tableau de bord multi-dépôts, hors
+#                         `MODULE_URLS`. Rien à extraire tant qu'aucune capacité ne le
+#                         demande.
+#
+# RESTENT SANS FICHIER ÉVIDENT — les capacités « Comparaisons », « Cohérence »,
+# « Restitutions », « Incidents » et « Livraison ». Elles n'ont pas d'entrée dans
+# `MODULE_URLS` : ce sont probablement des capacités décrites avant d'être construites.
+# Rien à extraire d'un module qui n'existe pas encore.

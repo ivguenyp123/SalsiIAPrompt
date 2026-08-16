@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 
 import yaml from '../lib/yaml.js';
 import { indexer, contratDe, sansContrat, consigneDeSortie, criteresDuContrat,
-         provenance } from '../lib/contrats.js';
+         reglesLisibles, provenance } from '../lib/contrats.js';
 import { aplatir } from '../lib/inventaire.js';
 import { morceauDepuisInventaire, assembler } from '../lib/assemblage.js';
 import { lint, ERROR } from '../lint/index.js';
@@ -94,9 +94,20 @@ describe('les contrats extraits', () => {
 describe('DORA Insights', () => {
   const dora = INDEX.get('DORA Insights');
 
-  test('porte les QUATRE clés de la plateforme, et pas celles qu\'un modèle invente', () => {
+  test('vient de la page QUI PORTE CE NOM au hub', () => {
+    /*
+     * Le contrat a d'abord lu `js/dora-workspace.js` — la page « DORA Tribu », absente
+     * du catalogue. `MODULE_URLS` dans `js/hub.js` donne la vraie correspondance :
+     * 'DORA Insights' → 'insights.html' → `js/insights.js`. Les deux pages ne s'accordent
+     * pas sur le Lead Time, donc se tromper de fichier changeait des seuils publiés.
+     */
+    assert.equal(dora.source, 'js/insights.js');
+  });
+
+  test('porte le score global ET les quatre métriques, dans l\'ordre du rapport', () => {
     assert.ok(dora, 'contrat DORA attendu');
-    assert.deepEqual(dora.champs.map((c) => c.cle), ['df', 'lt', 'cfr', 'mttr']);
+    assert.deepEqual(dora.champs.map((c) => c.cle),
+      ['score_global', 'df', 'lt', 'cfr', 'mttr']);
   });
 
   test('porte les unités et les seuils, pas seulement les noms', () => {
@@ -106,6 +117,37 @@ describe('DORA Insights', () => {
       assert.ok(c.unite, `${c.cle} sans unité`);
       assert.match(c.seuils, /Elite/, `${c.cle} sans seuils`);
     }
+  });
+
+  test('porte le CALCUL de chaque champ, pas seulement sa forme', () => {
+    /*
+     * Une forme sans calcul donne un rapport qui RESSEMBLE. « Lead time » sans « médiane »
+     * laisse le modèle prendre la moyenne : deux chiffres défendables, aucun comparable.
+     */
+    for (const c of dora.champs) {
+      assert.ok(c.methode, `${c.cle} : aucun calcul déclaré`);
+    }
+    assert.match(dora.champs.find((c) => c.cle === 'lt').methode, /MÉDIANE/);
+  });
+
+  test('dit sur QUOI il observe — fenêtre et périmètre', () => {
+    // Le même dépôt sur 7 jours ou sur 90 ne rend pas le même chiffre.
+    assert.match(dora.fenetre, /30 jours/);
+    assert.match(dora.perimetre, /main/);
+  });
+
+  test('porte la PÉNALITÉ TTRS — le refus de conclure sans mesure', () => {
+    /*
+     * C'est la règle qui compte le plus, et elle n'est pas dans la forme : la plateforme
+     * plafonne le score à 75 et interdit « Elite » quand le TTRS n'a pas pu être mesuré.
+     * Exactement la loi du registre — on n'affiche pas comme un fait ce qu'on n'a pas
+     * mesuré — écrite dans `renderGlobalScore()` bien avant nous.
+     */
+    const regles = reglesLisibles(dora);
+    const penalite = regles.find((r) => /TTRS/.test(r));
+    assert.ok(penalite, 'la pénalité TTRS doit être déclarée');
+    assert.match(penalite, /75/);
+    assert.match(penalite, /Elite/);
   });
 
   test('« N/A » est une valeur admise — l\'absence de mesure se dit', () => {
@@ -120,7 +162,7 @@ describe('la consigne de sortie', () => {
   const texte = consigneDeSortie(INDEX.get('DORA Insights'));
 
   test('nomme les clés EXACTES', () => {
-    for (const cle of ['df', 'lt', 'cfr', 'mttr']) {
+    for (const cle of ['score_global', 'df', 'lt', 'cfr', 'mttr']) {
       assert.ok(texte.includes(`"${cle}"`), `la consigne doit exiger "${cle}"`);
     }
   });
@@ -128,6 +170,37 @@ describe('la consigne de sortie', () => {
   test('transporte les seuils jusqu\'au modèle', () => {
     assert.match(texte, /Elite ≥ 7/);
     assert.match(texte, /Elite ≤ 5/);
+  });
+
+  test('transporte les CALCULS, pas seulement les seuils', () => {
+    // Sans « médiane » ni « dédupliqués par commit », le modèle refait son propre calcul
+    // et rend un chiffre qui a l'air juste sans être le même.
+    assert.match(texte, /MÉDIANE/);
+    assert.match(texte, /DÉDUPLIQUÉS PAR COMMIT/);
+  });
+
+  test('transporte la fenêtre et le périmètre', () => {
+    assert.match(texte, /30 jours/);
+    assert.match(texte, /branches de production/);
+  });
+
+  test('transporte les règles, APRÈS les champs qu\'elles plafonnent', () => {
+    /*
+     * Un plafond qui se lit avant le calcul qu'il plafonne ne veut rien dire. L'ordre
+     * n'est pas cosmétique : c'est ce qui rend la consigne applicable en une lecture.
+     */
+    assert.match(texte, /PRIMENT sur le calcul/);
+    assert.match(texte, /TTRS manquant/);
+    assert.ok(texte.indexOf('TTRS manquant') > texte.indexOf('"mttr"'),
+      'les règles doivent venir après les champs');
+  });
+
+  test('un contrat sans règles n\'invente pas de bloc de règles', () => {
+    // Une section « ces règles priment » vide dirait qu'on a cherché et rien trouvé.
+    // On n'a pas cherché : le module n'en avait pas.
+    const nu = consigneDeSortie({ champs: [{ cle: 'a', libelle: 'A' }] });
+    assert.ok(!/PRIMENT sur le calcul/.test(nu));
+    assert.ok(!/Fenêtre d'observation/.test(nu));
   });
 
   test('interdit d\'écrire zéro à la place d\'une mesure absente', () => {
@@ -148,7 +221,7 @@ describe('les critères déduits', () => {
 
   test('vérifient les VRAIES clés, plus des clés devinées', () => {
     const keys = crit.find((c) => c.target === 'output.json_keys');
-    assert.deepEqual(keys.value, ['df', 'lt', 'cfr', 'mttr']);
+    assert.deepEqual(keys.value, ['score_global', 'df', 'lt', 'cfr', 'mttr']);
   });
 
   test('emploient `output.json_keys` et JAMAIS `output.sections`', () => {
@@ -181,14 +254,37 @@ describe('l\'absence de contrat', () => {
     assert.equal(contratDe(sans, INDEX), null);
   });
 
-  test('une capacité AVEC contrat le trouve par son module', () => {
-    const avec = INVENTAIRE.find((p) => p.module === 'DORA Insights');
-    assert.ok(avec, 'une capacité DORA attendue à l\'inventaire');
+  test('une capacité qui REPRODUIT le rapport trouve son contrat', () => {
+    const avec = INVENTAIRE.find((p) => p.id === 'reproduire-le-rapport-dora');
+    assert.ok(avec, 'la capacité de reproduction attendue à l\'inventaire');
     assert.equal(contratDe(avec, INDEX).module, 'DORA Insights');
   });
 
+  test('le MÊME module, une capacité qui ne reproduit pas : aucun contrat', () => {
+    /*
+     * Le défaut que la liaison par module cachait. « DORA Insights » porte six capacités
+     * et une seule rend le rapport ; les cinq autres expliquent, diagnostiquent, rédigent.
+     * Leur imposer le JSON du rapport donnait un agent qui passait ses critères en faisant
+     * le mauvais métier — un contrôle qui dit oui à côté de la plaque est pire que pas de
+     * contrôle. La nature de sortie DÉCLARÉE par l'auteur tranche : `texte` et `json`
+     * n'ont rien à se dire.
+     */
+    const expliquer = INVENTAIRE.find((p) => p.id === 'expliquer-les-quatre-metriques-dora');
+    assert.equal(expliquer.module, 'DORA Insights');
+    assert.equal(expliquer.sortie, 'texte');
+    assert.equal(contratDe(expliquer, INDEX), null);
+  });
+
+  test('chaque contrat extrait a AU MOINS une capacité qui le porte', () => {
+    // Un contrat que plus aucune capacité ne réclame est du code mort déguisé en garantie.
+    for (const c of CONTRATS) {
+      const porteurs = INVENTAIRE.filter((p) => contratDe(p, INDEX) === c);
+      assert.ok(porteurs.length, `« ${c.module} » : contrat extrait, aucune capacité ne le porte`);
+    }
+  });
+
   test('la provenance se dit, ou ne se dit pas du tout', () => {
-    assert.match(provenance(INDEX.get('DORA Insights')), /dora-workspace\.js/);
+    assert.match(provenance(INDEX.get('DORA Insights')), /insights\.js/);
     assert.equal(provenance(null), '');
   });
 });
@@ -196,7 +292,7 @@ describe('l\'absence de contrat', () => {
 /* ── Le contrat arrive jusqu'à l'agent assemblé ───────────────────────────── */
 
 describe('un agent assemblé depuis une capacité à contrat', () => {
-  const capacite = INVENTAIRE.find((p) => p.module === 'DORA Insights');
+  const capacite = INVENTAIRE.find((p) => p.id === 'reproduire-le-rapport-dora');
   const morceau = morceauDepuisInventaire(capacite, { contrat: INDEX.get('DORA Insights') });
   const agent = assembler([morceau], {
     titre: 'Rapport DORA', auteur: 'moi', scope: 'Plateforme',
@@ -216,7 +312,7 @@ describe('un agent assemblé depuis une capacité à contrat', () => {
 
   test('ses critères vérifient ces mêmes clés', () => {
     const keys = agent.criteria.find((c) => c.target === 'output.json_keys');
-    assert.deepEqual(keys.value, ['df', 'lt', 'cfr', 'mttr']);
+    assert.deepEqual(keys.value, ['score_global', 'df', 'lt', 'cfr', 'mttr']);
   });
 
   test('AUCUN critère `output.sections` — L026 refuserait l\'artefact', () => {

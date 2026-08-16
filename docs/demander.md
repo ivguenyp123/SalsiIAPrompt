@@ -16,7 +16,7 @@ Vous choisissez votre **périmètre** (l'équipe pour laquelle l'agent est écri
 envoyez. C'est tout.
 
 Si vous manquez d'inspiration, le catalogue des besoins juste en dessous liste tout ce
-que la plateforme DevOps sait déjà faire — 130 capacités, rangées par famille. Cliquer
+que la plateforme DevOps sait déjà faire — 135 capacités, rangées par famille. Cliquer
 sur une ligne remplit le champ à votre place.
 
 ## Ce qui se passe ensuite

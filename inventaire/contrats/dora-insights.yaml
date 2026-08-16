@@ -1,57 +1,129 @@
 # Le contrat de sortie de « DORA Insights », EXTRAIT de la plateforme.
 #
-# ── POURQUOI CE FICHIER EXISTE ───────────────────────────────────────────────
+# ── LA SOURCE A ÉTÉ CORRIGÉE ─────────────────────────────────────────────────
 #
-# L'inventaire disait, pour chaque capacité, un BESOIN (« un agent qui explique les 4
-# métriques DORA ») et une nature de sortie (« texte »). C'est assez pour proposer une
-# capacité ; c'est très insuffisant pour la REPRODUIRE.
+# Ce contrat lisait `js/dora-workspace.js`. C'était le mauvais fichier : cette page
+# s'appelle « DORA Tribu » et ne figure pas au catalogue du hub. Le module « DORA
+# Insights » de l'inventaire, c'est `insights.html` → `js/insights.js` — la table
+# `MODULE_URLS` de `js/hub.js` (~ligne 204) le dit noir sur blanc.
 #
-# Un agent bâti sur le seul besoin invente son vocabulaire. Vu à l'usage : il rendait
-# `deployment_frequency` / `lead_time` / `change_failure_rate` / `time_to_restore` avec
-# des valeurs « élevée / faible / moyenne » — aucune unité, aucun seuil, et rien qui
-# ressemble à ce que la plateforme affiche. Une imitation plausible, donc inutilisable :
-# on ne peut ni comparer deux rapports, ni rejouer, ni contester un chiffre.
+# La différence n'est pas cosmétique. Les deux pages ne s'accordent pas sur le Lead
+# Time : « DORA Tribu » place Elite à ≤ 1 h, « DORA Insights » à ≤ 24 h. Le contrat
+# porte désormais les seuils de la page qu'il prétend reproduire, et la divergence est
+# consignée dans `index.yaml` — elle appartient à la plateforme, pas au registre.
+#
+# ── CE QU'UN CONTRAT DE FORME NE SUFFIT PAS À DIRE ───────────────────────────
+#
+# Des clés, des unités et des seuils font un rapport qui RESSEMBLE. Ils ne font pas le
+# même rapport : deux personnes qui calculent « le lead time » sans se dire médiane ou
+# moyenne obtiennent deux chiffres, tous deux défendables, et aucun comparable.
+#
+# D'où le `calcul` de chaque champ, la `fenetre`, le `perimetre` et les `regles` : c'est
+# la part qui transforme une imitation en reproduction.
+#
+# ── LES RÈGLES SONT LE CŒUR ──────────────────────────────────────────────────
+#
+# La plateforme REFUSE de décerner « Elite » quand le TTRS n'a pas pu être mesuré, et
+# plafonne le score à 75. C'est la même loi que celle du registre — on n'affiche pas
+# comme un fait ce qu'on n'a pas mesuré — écrite dans le code du hub bien avant.
+#
+# Un agent la respecte parce qu'on la lui dit ; la plateforme la respecte parce qu'elle
+# est en dur. Ce n'est pas la même garantie, et il ne faut pas prétendre le contraire :
+# les critères vérifient la FORME de la sortie, la règle est portée par la consigne, et
+# c'est l'humain qui valide.
 #
 # ── EXTRAIT, JAMAIS INVENTÉ ──────────────────────────────────────────────────
 #
-# Tout ce qui suit vient de `js/dora-workspace.js` du hub :
-#   · les clés et libellés    → `seriesDef`
-#   · les unités              → `seriesDef[].unit`
-#   · les seuils et niveaux   → `doraLevel()`
-#
-# Ce qui n'est pas dans le code de la plateforme n'est pas ici. Un seuil approximatif
-# serait pire qu'un seuil absent : il ferait diverger deux rapports censés être le même,
-# et personne ne saurait lequel croire.
+# Tout ce qui suit vient de `js/insights.js` :
+#   · les clés, les unités          → `computeDORA()` (~ligne 179) et les cartes rendues
+#   · les seuils par métrique       → `doraLevel()` (~ligne 364)
+#   · le calcul de chaque métrique  → `computeDORA()`
+#   · le score global et ses règles → `renderGlobalScore()` (~ligne 521)
+#   · les libellés du rapport       → `exportReport()` (~ligne 973)
 
 module: DORA Insights
-source: js/dora-workspace.js
+source: js/insights.js
 format: json
+
+fenetre: 30 jours glissants
+
+perimetre: >-
+  Le CFR et le TTRS ne comptent QUE les pipelines des branches de production — `main`,
+  `master`, et la branche par défaut du dépôt si elle diffère. Il en faut au moins 5 sur
+  la fenêtre : en dessous, la métrique vaut N/A et surtout pas une estimation.
 
 # `N/A` est une VALEUR, pas une absence : la plateforme l'affiche quand elle n'a pas de
 # quoi calculer. Un agent qui écrirait « 0 » à la place mentirait sur une mesure.
 niveaux: [Elite, High, Medium, Low, "N/A"]
 
 champs:
+  - cle: score_global
+    libelle: Score global DORA
+    unite: /100
+    mieux: haut
+    seuils: "Elite ≥ 85 · High ≥ 60 · Medium ≥ 35 · Low en dessous"
+    methode: >-
+      Moyenne des SEULES métriques disponibles, chacune convertie en points selon son
+      niveau — Elite 100, High 70, Medium 40, Low 15 — puis arrondie à l'entier. Une
+      métrique N/A n'entre pas dans la moyenne : elle déclenche une règle de plafond.
+
   - cle: df
     libelle: Deploy Frequency
     unite: /sem
     mieux: haut
     seuils: "Elite ≥ 7 · High ≥ 1 · Medium ≥ 0.25 · Low en dessous"
+    methode: >-
+      Pipelines en succès sur la fenêtre, DÉDUPLIQUÉS PAR COMMIT — un commit qui
+      déclenche trois pipelines compte pour un — divisés par 30 puis multipliés par 7.
 
   - cle: lt
-    libelle: Lead Time
+    libelle: Lead Time for Changes
     unite: h
     mieux: bas
-    seuils: "Elite ≤ 1 · High ≤ 24 · Medium ≤ 168 · Low au-delà"
+    seuils: "Elite ≤ 24 · High ≤ 168 · Medium ≤ 720 · Low au-delà"
+    methode: >-
+      MÉDIANE, jamais moyenne, des durées premier commit → merge des MR mergées sur la
+      fenêtre, en heures. Les durées nulles, négatives ou supérieures à 8760 h (un an)
+      sont écartées : ce sont des erreurs de données, pas des livraisons lentes.
 
   - cle: cfr
     libelle: Change Failure Rate
     unite: "%"
     mieux: bas
     seuils: "Elite ≤ 5 · High ≤ 10 · Medium ≤ 15 · Low au-delà"
+    methode: >-
+      Trois fenêtres pondérées, puis leur moyenne pondérée : 5 jours pèse 50 %, 10 jours
+      30 %, 30 jours 20 %. À l'intérieur de chaque fenêtre les jours les plus récents
+      comptent double. Une fenêtre trop maigre — moins de 3 pipelines à 10 jours, moins
+      de 2 à 5 jours — est omise et son poids retiré du total, pas remplacé par zéro.
 
   - cle: mttr
-    libelle: MTTR
+    libelle: Time to Restore Service
     unite: h
     mieux: bas
     seuils: "Elite ≤ 1 · High ≤ 24 · Medium ≤ 168 · Low au-delà"
+    methode: >-
+      MÉDIANE des durées échec → succès suivant sur la même branche de production. Une
+      SÉRIE d'échecs consécutifs est UN SEUL incident : le chronomètre part du premier
+      échec, pas de chacun, sinon la médiane est tirée vers le bas. Un incident non
+      résolu au bout de 7 jours est écarté du calcul.
+
+regles:
+  - titre: TTRS manquant
+    effet: >-
+      Le score est plafonné à 75 et « Elite » devient impossible : il est rétrogradé en
+      « High ». La plateforme l'annonce — « Score plafonné à High : les données MTTR sont
+      insuffisantes pour évaluer la résilience. » Quand le score n'atteignait pas Elite,
+      elle avertit quand même : « Score potentiellement surévalué : données MTTR
+      manquantes. »
+
+  - titre: Deux métriques manquantes ou plus
+    effet: >-
+      Le score est plafonné à 50 — donc « Medium » au mieux — et la plateforme le dit :
+      « N métriques manquantes sur 4 — score limité. »
+
+  - titre: Aucune métrique disponible
+    effet: >-
+      Le score ne vaut pas 0 : il vaut `{ "valeur": null, "niveau": "N/A" }` — c'est le
+      « — · Score indisponible » que la plateforme affiche. Écrire zéro le ferait lire
+      comme une mesure qui a bien eu lieu et qui serait mauvaise.
