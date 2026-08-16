@@ -11,7 +11,7 @@ du produit. Choisissez d'abord laquelle.
 | Ce que ça produit | **une** consigne, **un** appel | **N** appels, à la suite |
 | Matière disponible | les 130 besoins de la plateforme, plus les consignes validées | les agents du registre |
 | Contrat | à poser sur la sortie finale | celui de chaque brique, vérifié entre les étapes |
-| Au bout | **toujours** la file de validation | sauver chez soi, ou partager |
+| Au bout | sauver chez soi, ou partager | sauver chez soi, ou partager |
 | Clé modèle | **aucune** pour composer | une, pour l'exécuter |
 
 ## La règle pour choisir
@@ -59,6 +59,40 @@ qu'il est censé faire avant de juger si la consigne le fait.
 Tant qu'ils manquent, l'écran vous le dit **en français** — les règles ne prennent la
 parole qu'ensuite, quand il y a quelque chose à juger.
 
+## Pour vous seul, ou pour tout le monde
+
+Deux boutons, et la différence est la seule chose importante de cette page.
+
+### 💾 Sauver chez moi
+
+Immédiat. L'agent va dans `mes-agents/<vous>/`, personne d'autre ne le voit, aucune
+validation n'est demandée.
+
+**Ce qui déclenche une validation n'est pas d'écrire, c'est d'engager les autres.** Sauver
+chez soi n'engage personne — et quatre choses rendent ça tenable :
+
+- un agent assemblé **ne déclare aucun outil**. Il lit ce que vous lui donnez, il rend du
+  texte. Il ne peut écrire nulle part ;
+- **les 25 règles ont déjà tourné** : le bouton ne s'active pas avant que la porte soit
+  franchie ;
+- **le pré-vol tourne quand même** à chaque lancement, où que vive le fichier — `P002` sur
+  la sensibilité du dépôt, `P003` sur les entrées, `P007` sur l'écriture ;
+- il est **invisible au catalogue des autres** : personne ne peut le prendre en croyant
+  qu'il a été relu.
+
+Vous le retrouvez dans **🧰 Catalogue**, filtre **💾 Les miens**, avec un badge — et vous
+le lancez comme n'importe quel autre.
+
+**Et il ne peut pas servir de brique.** Une chaîne exige que chaque étape existe *au
+registre* (`L024`) ; `mes-agents/` n'y est pas. Sans ça on composerait en privé, quelqu'un
+l'enchaînerait, et la chaîne « hériterait de la validation de ses briques » alors que
+personne n'a rien relu.
+
+### 📮 Partager — envoyer en validation
+
+Là, ça change de nature : votre agent devient une promesse faite aux autres, et une
+promesse se relit. Il part dans la file de l'Admin.
+
 ## Ce qui n'est PAS hérité, et pourquoi
 
 C'est le point à comprendre, et il tient en une phrase :
@@ -68,10 +102,10 @@ C'est le point à comprendre, et il tient en une phrase :
 
 Concrètement :
 
-- **aucune validation ne passe.** L'assemblage repasse par les 25 règles *et* par une
-  validation humaine, comme n'importe quel prompt écrit à la main. Il n'y a pas de
-  raccourci pour du texte que personne n'a lu — ce serait la faille par laquelle
-  n'importe quoi entrerait au registre, en l'assemblant à partir de morceaux bénis ;
+- **rien n'est hérité au partage.** Un agent partagé repasse par les 25 règles *et* par
+  une validation humaine, comme n'importe quel prompt écrit à la main. Pas de raccourci
+  pour du texte que personne n'a lu — ce serait la faille par laquelle n'importe quoi
+  entrerait au registre, en l'assemblant à partir de morceaux bénis ;
 - **les critères ne se composent pas.** Ceux de l'agent A portent sur *la sortie de A*,
   qui n'existe plus : il n'y a qu'une sortie finale. L'écran en **propose** — jamais plus
   que ce qu'on a le droit d'affirmer : « aucun secret en sortie », qui vaut pour tout

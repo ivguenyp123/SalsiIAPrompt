@@ -81,6 +81,7 @@ let CHAINES = [];                 // les miennes + celles du registre
 let MODE = 'agent';
 let INVENTAIRE = [];              // les besoins de la plateforme, confrontés au registre
 let MORCEAUX = [];                // les prompts posés dans la consigne
+let MIENS = [];                   // mes agents composés, sauvés chez moi
 let famille = '';                 // le filtre de famille, en mode agent
 
 const enAgent = () => MODE === 'agent';
@@ -178,9 +179,21 @@ function basculer(mode) {
   $('identite').hidden = !enAgent();
   $('familles').hidden = !enAgent();
   $('blocChaines').hidden = enAgent();
-  $('sauver').hidden = enAgent();
-  $('envoyer').textContent = enAgent()
-    ? '📮 Envoyer en validation' : '📮 Partager — envoyer en validation';
+  $('blocMiens').hidden = !enAgent();
+
+  /*
+   * « Sauver chez moi » vaut pour LES DEUX, et c'est une correction.
+   *
+   * J'avais justifié la validation d'un assemblage par « c'est du texte neuf ». Mauvais
+   * critère : sinon écrire un prompt dans un carnet demanderait une validation. Ce qui la
+   * déclenche, c'est d'ENGAGER LES AUTRES — et sauver chez soi n'engage personne.
+   *
+   * Ce qui rend le privé tenable ici : un agent assemblé ne déclare AUCUN outil, la porte
+   * a déjà été franchie avant que le bouton s'active, le pré-vol tourne quand même à
+   * chaque lancement, et rien de tout ça n'apparaît au catalogue.
+   */
+  $('sauver').hidden = false;
+  $('envoyer').textContent = '📮 Partager — envoyer en validation';
 
   rendreMatiere();
   rendreToile();
@@ -201,22 +214,98 @@ const rendreToile = () => (enAgent() ? rendreAssemblage() : rendreChaine());
  * vide, pas une erreur. C'est le comportement voulu — un établi neuf n'est pas cassé.
  */
 async function chargerMiennes(repo) {
-  try {
-    const fichiers = (await forge.listFiles(repo, dossierMien(session.username)))
-      .filter((f) => f.type === 'file' && /\.ya?ml$/.test(f.name));
+  CHAINES = CHAINES.filter((c) => c.publiee);      // on ne garde que celles du registre
+  MIENS = [];
 
-    const miennes = (await Promise.all(fichiers.map(async (f) => {
-      try {
-        const a = yaml.parse((await forge.getFile(repo, f.path)).content);
-        return a?.kind === 'chain'
-          ? { artefact: a, proprietaire: session.username, publiee: false, chemin: f.path }
-          : null;
-      } catch { return null; }
-    }))).filter(Boolean);
+  // Les deux dossiers, en parallèle. Un type par racine : ils ne se gouvernent pas
+  // pareil, et les ranger ensemble ferait perdre la distinction au premier listing.
+  await Promise.all([['chain', CHAINES], ['prompt', null]].map(async ([kind]) => {
+    try {
+      const dossier = dossierMien(session.username, kind);
+      const fichiers = (await forge.listFiles(repo, dossier))
+        .filter((f) => f.type === 'file' && /\.ya?ml$/.test(f.name));
 
-    CHAINES = [...miennes, ...CHAINES];
-  } catch { /* dossier absent : rien à afficher, et c'est normal */ }
+      const lus = (await Promise.all(fichiers.map(async (f) => {
+        try {
+          const a = yaml.parse((await forge.getFile(repo, f.path)).content);
+          if (!a?.id) return null;
+          // Le dossier annonce un type ; si le fichier en porte un autre, on ne devine
+          // pas — on l'écarte plutôt que de l'ouvrir dans le mauvais établi.
+          const attendu = kind === 'chain' ? 'chain' : 'prompt';
+          if ((a.kind || 'prompt') !== attendu) return null;
+          return { artefact: a, proprietaire: session.username, publiee: false, chemin: f.path };
+        } catch { return null; }
+      }))).filter(Boolean);
+
+      if (kind === 'chain') CHAINES = [...lus, ...CHAINES];
+      else MIENS = lus;
+    } catch { /* dossier absent : rien à afficher, et c'est normal */ }
+  }));
+
   rendreChaines();
+  rendreMiens();
+}
+
+/* ── Mes agents ───────────────────────────────────────────────────────────── */
+
+/*
+ * Les agents composés que j'ai sauvés chez moi.
+ *
+ * Ils ne sont PAS au catalogue et ne peuvent pas servir de brique : `L024` exige qu'une
+ * étape de chaîne existe au registre, et `mes-agents/` n'y est pas. C'est ce qui empêche
+ * la blanchisserie — composer en privé, faire enchaîner par quelqu'un d'autre, et laisser
+ * la chaîne « hériter » d'une validation qui n'a jamais eu lieu.
+ */
+function rendreMiens() {
+  const zone = $('miens');
+  if (!zone) return;
+  zone.textContent = '';
+  $('nmiens').textContent = String(MIENS.length);
+
+  if (MIENS.length === 0) {
+    zone.append(el('div', { className: 'vide-toile', style: 'padding:16px 8px',
+      textContent: 'Rien encore. Assemble un agent et sauve-le : il apparaîtra ici, pour '
+                 + 'toi seul, et se lancera depuis le Catalogue.' }));
+    return;
+  }
+
+  for (const m of MIENS) {
+    const n = el('button', { className: 'chaine', type: 'button',
+      title: ETATS.privee.aide },
+      el('span', {}, el('b', { textContent: m.artefact.title || m.artefact.id }),
+                     el('small', { textContent: m.artefact.intent?.purpose || '' })),
+      el('span', { className: 'sp' }),
+      el('span', { className: 'et privee', textContent: ETATS.privee.label }));
+    n.onclick = () => ouvrirMien(m.artefact);
+    zone.append(n);
+  }
+}
+
+/*
+ * Rouvrir un agent à moi.
+ *
+ * On ne sait PAS reconstituer les morceaux : le fichier ne porte que la consigne finale,
+ * pas la liste de ce qui l'a produite. La rouvrir comme un morceau unique est honnête —
+ * c'est exactement ce qu'elle est devenue, et l'auteur peut la retravailler telle quelle.
+ */
+function ouvrirMien(artefact) {
+  MORCEAUX = [{ ref: artefact.id, origine: 'registre',
+                titre: artefact.title || artefact.id,
+                consigne: String(artefact.spec || '').trim(),
+                entrees: (artefact.variables || []).map((v) => v.name),
+                sortie: 'texte' }];
+  identite = { titre: artefact.title || '',
+               purpose: artefact.intent?.purpose || '',
+               notFor: artefact.intent?.not_for || '' };
+  idFige = artefact.id || '';
+  dejaSauvee = true;
+  $('msg').className = '';
+  $('msg').textContent = '';
+  basculer('agent');
+  for (const [id, cle] of [['idTitre', 'titre'], ['idPurpose', 'purpose'], ['idNotFor', 'notFor']]) {
+    $(id).value = identite[cle];
+  }
+  majVerdict();
 }
 
 /* ── Mes chaînes, et celles des autres ────────────────────────────────────── */
@@ -825,7 +914,7 @@ $('vider').onclick = () => {
  * dire « engager le registre », et ça se valide.
  */
 $('sauver').onclick = async () => {
-  const artefact = chaineCourante();
+  const artefact = enAgent() ? agentCourant() : chaineCourante();
   const msg = $('msg');
   const bouton = $('sauver');
   bouton.disabled = true;
@@ -833,25 +922,44 @@ $('sauver').onclick = async () => {
   bouton.textContent = 'Enregistrement…';
 
   try {
-    const chemin = cheminMien(session.username, artefact.id);
+    const chemin = cheminMien(session.username, artefact.id, artefact.kind);
+    const quoi = enAgent()
+      ? `assemblage de ${MORCEAUX.length} prompt(s)`
+      : `assemblage de ${artefact.steps.length} briques du registre`;
+
     const tete = entete({
       origine: origineFork ? 'fork' : 'composition',
-      phrase: origineFork || `assemblage de ${artefact.steps.length} briques du registre`,
+      phrase: origineFork || quoi,
       auteur: session.username, date: new Date().toISOString().slice(0, 10) });
+
+    /*
+     * Le message de commit dit POURQUOI ça ne passe pas par la validation, et les deux
+     * raisons ne sont pas les mêmes. Un `git log` doit suffire à comprendre la règle sans
+     * rouvrir le produit.
+     */
+    const pourquoi = enAgent()
+      ? 'Agent personnel : il n\'apparait pas au catalogue et ne peut pas servir de brique\n'
+        + 'de chaine (L024 exige le registre). Rien n\'engage personne d\'autre, donc rien\n'
+        + 'n\'est a valider. Le pre-vol tourne quand meme a chaque lancement.'
+      : 'Composee de briques deja validees : rien de neuf n\'est ecrit, rien a valider.';
 
     await forge.putFile(repoRegistre(), chemin, {
       content: toBase64(tete + toYaml(artefact)),
-      message: `mes chaines : ${dejaSauvee ? 'mettre a jour' : 'sauver'} ${artefact.title}\n\n`
-             + `Chaîne personnelle de ${session.username}, ${artefact.steps.length} étape(s).\n`
-             + 'Composée de briques déjà validées : rien de neuf n\'est écrit, rien à valider.',
+      message: `${enAgent() ? 'mes agents' : 'mes chaines'} : `
+             + `${dejaSauvee ? 'mettre a jour' : 'sauver'} ${artefact.title}\n\n`
+             + `${enAgent() ? `Agent personnel de ${session.username}, ${MORCEAUX.length} prompt(s).`
+                            : `Chaîne personnelle de ${session.username}, ${artefact.steps.length} étape(s).`}\n`
+             + pourquoi,
       branch: 'main'
     });
 
     idFige = artefact.id;
     dejaSauvee = true;
     msg.className = 'ok';
-    msg.textContent = `✔ Sauvée chez toi — ${chemin}. Elle n'apparaît qu'ici, et à toi seul, `
-      + 'tant que tu ne l\'as pas partagée.';
+    msg.textContent = `✔ Sauvé chez toi — ${chemin}. ${enAgent()
+      ? 'Il n\'apparaît qu\'ici et au Catalogue, section « les miens » — pour toi seul, '
+        + 'tant que tu ne l\'as pas partagé.'
+      : 'Elle n\'apparaît qu\'ici, et à toi seul, tant que tu ne l\'as pas partagée.'}`;
     await chargerMiennes(repoRegistre());
   } catch (error) {
     msg.className = 'err';

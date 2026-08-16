@@ -2,9 +2,18 @@
 
 **Où** : onglet **🧰 Catalogue**.
 
-Le catalogue ne montre que des agents **validés**. Ce qui attend une décision est dans
-l'Admin ; ce qui a été retiré n'y est plus. Si vous le voyez ici, quelqu'un l'a laissé
-passer et en répond.
+Le catalogue montre les agents **validés** — plus **les vôtres**. Ce qui attend une
+décision est dans l'Admin ; ce qui a été retiré n'y est plus.
+
+Deux provenances, et elles ne se valent pas :
+
+- **sans badge** : validé. Quelqu'un l'a relu et en répond ;
+- **badge 💾 à moi** : sauvé par vous dans `mes-agents/` ou `mes-chaines/`. **Personne ne
+  l'a relu**, et personne d'autre ne le voit. Le filtre **💾 Les miens** ne montre que
+  ceux-là.
+
+Les vôtres se lancent exactement comme les autres — mêmes contrôles, même pré-vol, même
+évaluation du contrat. Être à vous ne donne aucun privilège.
 
 ## Trouver
 

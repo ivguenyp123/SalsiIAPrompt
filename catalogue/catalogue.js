@@ -22,6 +22,7 @@ import { BUMPS } from '../runtime/livraison.js';
 import { preparer as preparerLivraison, executer as executerLivraison } from '../runtime/executer.js';
 import { knownScopes, guessScope } from '../app/scopes.js';
 import { contexteDepot } from '../lib/repos.js';
+import { dossier as dossierMien } from '../lib/mien.js';
 import { makeValidator } from '../lib/schema.js';
 import yaml from '../lib/yaml.js';
 import { carte } from '../runtime/etat-derive.js';
@@ -138,9 +139,53 @@ async function load() {
     }
   })));
 
+  /*
+   * LES MIENS — ce que j'ai sauvé chez moi, lu dans `mes-agents/` et `mes-chaines/`.
+   *
+   * Sans ça, « sauver chez moi » produisait un fichier qu'on pouvait rouvrir et jamais
+   * lancer : le Catalogue ne lisait que `artifacts/`. Un agent qu'on ne peut pas lancer
+   * n'est pas un agent, c'est un brouillon.
+   *
+   * Ils sont MÉLANGÉS aux autres, pas rangés à part, et portent un badge. Une section
+   * séparée les ferait oublier — or ce sont ceux qu'on utilise le plus souvent. Le badge
+   * et le filtre « les miens » suffisent à ne jamais les confondre avec du validé.
+   */
+  items = [...items, ...await chargerMiens(repo)];
+
   renderTags();
   render();
   proposerTour();
+}
+
+/**
+ * Mes artefacts personnels, prêts à être lancés comme les autres.
+ *
+ * Le lint tourne dessus exactement comme sur le reste : le fichier a beau être à moi, il
+ * n'a aucun privilège. Et le pré-vol tournera au lancement, où qu'il vive.
+ */
+async function chargerMiens(repo) {
+  const qui = session.username;
+  const dossiers = [dossierMien(qui, 'prompt'), dossierMien(qui, 'chain')];
+
+  const lots = await Promise.all(dossiers.map(async (dossier) => {
+    try {
+      const fichiers = (await forge.listFiles(repo, dossier))
+        .filter((f) => f.type === 'file' && /\.ya?ml$/.test(f.name));
+
+      return (await Promise.all(fichiers.map(async (file) => {
+        try {
+          const artifact = yaml.parse((await forge.getFile(repo, file.path)).content);
+          if (!artifact?.id) return null;
+          return { file, artifact, index: indexer(artifact), personnel: true,
+                   report: lint(artifact, { ...ctx, artifacts: [] }) };
+        } catch { return null; }
+      }))).filter(Boolean);
+    } catch {
+      return [];   // dossier absent : normal tant qu'on n'a rien sauvé
+    }
+  }));
+
+  return lots.flat();
 }
 
 function showEmpty(title, detail) {
@@ -174,6 +219,10 @@ const FILTERS = [
   { id: 'tout', label: 'Tout' },
   { id: 'agent', label: '🤖 Agents' },
   { id: 'prompt', label: '📚 Prompts' },
+  // « Les miens » n'est pas un type mais une PROVENANCE, et c'est pour ça qu'il mérite
+  // sa place ici : un agent sauvé chez soi n'a été relu par personne, et on doit pouvoir
+  // ne regarder que ceux-là — ou les écarter.
+  { id: 'miens', label: '💾 Les miens' },
   { id: 'ko', label: '⚠ Non conformes' }
 ];
 
@@ -190,6 +239,7 @@ function renderFilters() {
 const passesFilter = (entry) =>
   (filter === 'tout' ? true
    : filter === 'ko' ? (entry.report?.blocked || !entry.artifact)
+   : filter === 'miens' ? entry.personnel === true
    : entry.artifact?.kind === filter)
   && porteEtiquettes(entry.artifact, tagsRetenus);
 
@@ -265,7 +315,7 @@ function render() {
 }
 
 function card(entry) {
-  const { artifact, report, file, error } = entry;
+  const { artifact, report, file, error, personnel } = entry;
 
   if (!artifact) {
     return el('button', { className: 'item' },
@@ -273,12 +323,25 @@ function card(entry) {
       el('p', { textContent: `Fichier illisible : ${error}` }));
   }
 
-  const node = el('button', { className: 'item' },
+  const node = el('button', { className: `item${personnel ? ' mien' : ''}` },
     el('h3', {}, `${ICONS[artifact.kind] || '📄'} `, artifact.title || artifact.id),
     el('p', { textContent: artifact.intent?.purpose || '—' })
   );
 
   const foot = el('div', { className: 'foot' });
+
+  /*
+   * Le badge « à moi », en TÊTE de pied de carte.
+   *
+   * Il doit se lire avant le niveau, parce qu'il change ce que le niveau veut dire :
+   * personne n'a relu cet agent. Le mettre en fin de ligne, après les étiquettes, le
+   * ferait passer pour un détail de rangement.
+   */
+  if (personnel) {
+    foot.append(el('span', { className: 'pill mien', textContent: '💾 à moi',
+      title: 'Sauvé chez toi. Personne ne l\'a relu, il n\'apparaît chez personne d\'autre, '
+           + 'et il ne peut pas servir de brique à une chaîne partagée.' }));
+  }
   /*
    * La pastille de niveau porte sa PROVENANCE.
    *
