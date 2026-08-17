@@ -16,6 +16,7 @@ import { lint, ERROR } from '../lint/index.js';
 import { prevol, SENSIBILITES } from '../preflight/index.js';
 import { SOURCES, sourceProbable, chercher as chercherFichier, diffUnifie, resume, grosse } from '../lib/matiere.js';
 import { rendre as rendreMd, ressembleADuMarkdown, lienSur } from '../lib/md.js';
+import { rapportHtml, nomFichier } from '../lib/rapport.js';
 import { sait as saitCalculer, zonesDepuisArbre, repartitionContributions,
          resumeCourt, FENETRE, MAX_ZONES_INTERROGEES } from '../lib/signaux-matiere.js';
 import { indexer, chercher, etiquettes, porteEtiquettes } from '../lib/recherche.js';
@@ -1451,6 +1452,58 @@ function ouvrirExecution(entry) {
     return boite;
   }
 
+  /*
+   * « Exporter le rapport » — la boucle qui se ferme.
+   *
+   * Une réponse qui ne vit que dans un onglet ne sert qu'une fois. Le hub DevOps le
+   * faisait déjà pour ses modules (`exportReport()` dans `js/insights.js`) : un fichier
+   * HTML autonome qu'on télécharge, qu'on envoie, qu'on ressort en comité. Un agent
+   * n'avait pas de raison d'en être privé.
+   *
+   * Le fichier emporte aussi ce qui rend la réponse discutable : le dépôt, la date,
+   * l'agent et sa version, le modèle, les critères et leur verdict, et LA MATIÈRE — les
+   * chiffres calculés, en annexe, séparés du commentaire. Sans eux, le rapport serait une
+   * opinion joliment mise en page.
+   */
+  function boutonExport(corps) {
+    const b = el('button', { className: 'export', type: 'button', textContent: '⬇ Exporter le rapport',
+      title: 'Un fichier HTML autonome : le rapport, sa provenance, ses contrôles et les '
+           + 'chiffres qui l\'ont nourri.' });
+
+    b.onclick = () => {
+      const maintenant = new Date();
+      const html = rapportHtml({
+        titre: artifact.title || artifact.id,
+        agent: artifact.id,
+        version: artifact.version || '',
+        auteur: artifact.owner?.person || '',
+        perimetre: artifact.owner?.scope || '',
+        depot: depotCalc ? depotCalc.valeur() : '',
+        quand: maintenant.toLocaleString('fr-FR',
+          { dateStyle: 'long', timeStyle: 'short' }),
+        modele: corps.modele || '',
+        sortie: corps.sortie || '',
+        // La matière telle qu'elle est PARTIE, relue sur le champ lui-même : c'est elle
+        // que le modèle a eue sous les yeux, pas ce qu'on croit lui avoir donné.
+        matiere: calcules.map((c) => c.controle.value).filter(Boolean).join('\n\n'),
+        postvol: corps.postvol || null,
+        jetons: corps.jetons || null
+      });
+
+      const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+      const a = el('a', { href: url, download: nomFichier({
+        agent: artifact.id, depot: depotCalc ? depotCalc.valeur() : '',
+        date: maintenant.toISOString() }) });
+      document.body.append(a);
+      a.click();
+      a.remove();
+      // Libérée après coup : révoquer trop tôt annule le téléchargement en cours.
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    };
+
+    return b;
+  }
+
   function rendreResultat(corps, status) {
     conf.hidden = true;
     zone.textContent = '';
@@ -1489,7 +1542,11 @@ function ouvrirExecution(entry) {
       return;
     }
 
-    zone.append(el('h4', { textContent: `Sortie — ${corps.modele}${corps.cas ? ` · ${corps.cas}` : ''}` }));
+    const tete = el('div', { className: 'sortie-tete' },
+      el('h4', { textContent: `Sortie — ${corps.modele}${corps.cas ? ` · ${corps.cas}` : ''}` }),
+      el('span', { className: 'sp' }),
+      boutonExport(corps));
+    zone.append(tete);
     zone.append(sortieLisible(corps.sortie));
 
     /*
