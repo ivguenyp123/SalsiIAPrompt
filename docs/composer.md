@@ -9,7 +9,7 @@ du produit. Choisissez d'abord laquelle.
 |---|---|---|
 | Ce qu'on assemble | des **prompts** | des **agents déjà validés** |
 | Ce que ça produit | **une** consigne, **un** appel | **N** appels, à la suite |
-| Matière disponible | les 135 besoins de la plateforme, plus les consignes validées | les agents du registre |
+| Matière disponible | les 130 besoins de la plateforme, plus les consignes validées | les agents du registre |
 | Contrat | à poser sur la sortie finale | celui de chaque brique, vérifié entre les étapes |
 | Au bout | sauver chez soi, ou partager | sauver chez soi, ou partager |
 | Clé modèle | **aucune** pour composer | une, pour l'exécuter |
@@ -38,7 +38,7 @@ seule consigne** jouée en un appel.
 
 La matière vient de deux endroits, et l'écran dit toujours lequel :
 
-- **les 135 besoins de la plateforme** — tout ce que le hub DevOps sait faire, rangé par
+- **les 130 besoins de la plateforme** — tout ce que le hub DevOps sait faire, rangé par
   famille. Disponible dès le premier jour, avant qu'aucun agent n'existe ;
 - **les consignes déjà validées** — le texte d'un agent du registre, marqué `validé`.
   C'est la meilleure matière : un humain l'a relue.
@@ -47,27 +47,31 @@ Chaque morceau reste **modifiable** une fois posé. Un besoin de catalogue est u
 pas une instruction ciselée — et comme le tout repasse de toute façon par la porte et par
 un relecteur, vous écrire ne coûte aucune garantie.
 
-## Aider, ou reproduire
+## Les contrats extraits — ce qu'ils sont devenus
 
-Certains morceaux portent la marque `reproduit`. Elle ne dit pas qu'ils sont meilleurs :
-elle dit qu'ils font **un autre métier**.
+Il a existé une marque `reproduit` sur certains morceaux : ils promettaient de rendre le
+**rapport** du module dont ils venaient — clés exactes, seuils, mode de calcul.
 
-Un morceau ordinaire traite le bon **sujet**. « Expliquer les 4 métriques DORA » parle
-bien de DORA, et rédige son explication à sa façon.
+**C'était une erreur, et elle a été retirée.** Un modèle sans données invente des données.
+On lui a vu écrire `"élevée"` là où la plateforme calcule un chiffre — et la porte avait
+répondu « contrat satisfait ». Un contrôle qui dit oui à une invention est pire que pas de
+contrôle.
 
-Un morceau `reproduit` rend le **rapport** du module dont il vient : ses clés exactes, ses
-unités, ses seuils, son mode de calcul et ses règles — lus dans le code du hub, jamais
-récrits de mémoire. Survolez la marque, elle nomme le fichier lu. C'est ce qui permet de
-comparer deux rapports, de rejouer, et de contester un chiffre.
+Le partage juste :
 
-Un exemple de ce que la marque transporte, et qu'un morceau ordinaire perd : la plateforme
-**refuse** de conclure « Elite » quand le temps de rétablissement n'a pas pu être mesuré,
-et plafonne alors le score à 75. La règle figure dans le rapport parce qu'elle est dans le
-code — pas parce qu'elle sonnait bien.
+| | Qui le fait |
+|---|---|
+| **Calculer** un score, une répartition, un âge | du **code**, dans la plateforme |
+| **Expliquer**, comparer, conseiller | un **agent** |
 
-Une nuance à connaître. La plateforme applique cette règle **en dur** ; l'agent, parce
-qu'on la lui **dit**. Ce n'est pas la même garantie : les critères vérifient la forme de
-la sortie, la règle tient à la consigne, et c'est un humain qui valide.
+Ce qui a été extrait du hub — les seuils, les méthodes, les règles — sert désormais de
+**cahier des charges aux calculs**, pas de consigne aux modèles. Le bus factor en est
+sorti : sa médiane pondérée, son plafond à 5 et son seuil des 80 % viennent tous du
+contrat lu dans `js/bus-factor.js`.
+
+Concrètement, pour vous : quand un agent a besoin d'un chiffre du dépôt, **il ne vous le
+demande plus** — la plateforme le calcule et vous le montre avant de partir. Voir
+[Trouver et lancer](catalogue.md).
 
 ## Ce qu'il faut poser vous-même
 

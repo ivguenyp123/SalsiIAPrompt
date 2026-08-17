@@ -54,6 +54,23 @@
 #   en PROD, « uat »/« staging » en UAT, TOUT LE RESTE en DEV. Le code signale lui-même que
 #   sur un workflow « recette / preprod / integration / homolog », tout retombe en DEV.
 
+# ── CE QUE CES CONTRATS SONT DEVENUS, ET POURQUOI ───────────────────────────
+#
+# Ils ont d'abord servi à faire REPRODUIRE un rapport par un modèle : cinq capacités
+# « reproduire… » les portaient, et leur consigne demandait au modèle de calculer.
+#
+# C'était l'erreur. Un modèle sans données invente des données — on l'a vu écrire
+# « élevée » là où la plateforme calcule un chiffre, et la porte a répondu « contrat
+# satisfait ». Les cinq capacités ont été retirées de l'inventaire.
+#
+# CE QU'ILS SONT MAINTENANT : le cahier des charges des CALCULS déterministes.
+# `bus-factor.yaml` a servi à écrire `lib/signaux-matiere.js` — médiane pondérée, plafond
+# à 5, seuil des 80 %, zones d'au moins 5 commits. `test/contrats.test.js` confronte les
+# deux : si le calcul dérive du contrat, il rougit.
+#
+# Le prochain calculateur — `chiffres_dora`, `activite_sprint` — se lira ici avant de
+# s'écrire. C'est à ça qu'ils servent, et ils n'ont plus rien à faire dans une consigne.
+
 contrats:
   - auto-retro.yaml
   - bus-factor.yaml

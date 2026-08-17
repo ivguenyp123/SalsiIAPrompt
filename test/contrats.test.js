@@ -21,6 +21,8 @@ import { aplatir } from '../lib/inventaire.js';
 import { morceauDepuisInventaire, assembler } from '../lib/assemblage.js';
 import { lint, ERROR } from '../lint/index.js';
 import { RESOLVABLES } from '../runtime/resolveurs.js';
+import { niveauDeRisque, medianePonderee, MINI_COMMITS_ZONE, MAX_ZONES,
+         MAX_CONTRIBUTEURS } from '../lib/signaux-matiere.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const DOSSIER = join(ROOT, 'inventaire/contrats');
@@ -396,33 +398,26 @@ describe('l\'absence de contrat', () => {
     assert.equal(contratDe(sans, INDEX), null);
   });
 
-  test('une capacité qui REPRODUIT le rapport trouve son contrat', () => {
-    const avec = INVENTAIRE.find((p) => p.id === 'reproduire-le-rapport-dora');
-    assert.ok(avec, 'la capacité de reproduction attendue à l\'inventaire');
-    assert.equal(contratDe(avec, INDEX).module, 'DORA Insights');
-  });
-
-  test('le MÊME module, une capacité qui ne reproduit pas : aucun contrat', () => {
+  test('aucun contrat ne s\'impose plus à une capacité, et c\'est le but', () => {
     /*
-     * Le défaut que la liaison par module cachait. « DORA Insights » porte six capacités
-     * et une seule rend le rapport ; les cinq autres expliquent, diagnostiquent, rédigent.
-     * Leur imposer le JSON du rapport donnait un agent qui passait ses critères en faisant
-     * le mauvais métier — un contrôle qui dit oui à côté de la plaque est pire que pas de
-     * contrôle. La nature de sortie DÉCLARÉE par l'auteur tranche : `texte` et `json`
-     * n'ont rien à se dire.
+     * ── LE CONTRAT A CHANGÉ DE RÔLE ──────────────────────────────────────────
+     *
+     * Il a d'abord servi à faire REPRODUIRE un rapport par un modèle. C'était l'erreur :
+     * un modèle sans données invente des données, et la porte disait « contrat satisfait »
+     * sur `"élevée"`. Les cinq capacités « reproduire… » qui portaient ces contrats ont été
+     * retirées de l'inventaire.
+     *
+     * Ce que les contrats sont vraiment : le CAHIER DES CHARGES des calculs déterministes.
+     * `bus-factor.yaml` a servi à écrire `lib/signaux-matiere.js` — médiane pondérée,
+     * plafond à 5, seuil des 80 %. C'est de la spécification, pas de la consigne.
+     *
+     * Aucune capacité ne déclare plus `sortie: json` sur ces modules : rien ne se lie, et
+     * c'est exactement ce qu'on veut. Le jour où quelqu'un en recréerait une, ce test
+     * rougirait — et ce serait la bonne alerte.
      */
-    const expliquer = INVENTAIRE.find((p) => p.id === 'expliquer-les-quatre-metriques-dora');
-    assert.equal(expliquer.module, 'DORA Insights');
-    assert.equal(expliquer.sortie, 'texte');
-    assert.equal(contratDe(expliquer, INDEX), null);
-  });
-
-  test('chaque contrat extrait a AU MOINS une capacité qui le porte', () => {
-    // Un contrat que plus aucune capacité ne réclame est du code mort déguisé en garantie.
-    for (const c of CONTRATS) {
-      const porteurs = INVENTAIRE.filter((p) => contratDe(p, INDEX) === c);
-      assert.ok(porteurs.length, `« ${c.module} » : contrat extrait, aucune capacité ne le porte`);
-    }
+    const lies = INVENTAIRE.filter((p) => contratDe(p, INDEX));
+    assert.deepEqual(lies.map((p) => p.id), [],
+      'une capacité se lie encore à un contrat de sortie : est-ce voulu ?');
   });
 
   test('la provenance se dit, ou ne se dit pas du tout', () => {
@@ -431,55 +426,39 @@ describe('l\'absence de contrat', () => {
   });
 });
 
-/* ── Le contrat arrive jusqu'à l'agent assemblé ───────────────────────────── */
+/* ── Le contrat comme CAHIER DES CHARGES d'un calcul ──────────────────────── */
 
-describe('un agent assemblé depuis une capacité à contrat', () => {
-  const capacite = INVENTAIRE.find((p) => p.id === 'reproduire-le-rapport-dora');
-  const morceau = morceauDepuisInventaire(capacite, { contrat: INDEX.get('DORA Insights') });
-  const agent = assembler([morceau], {
-    titre: 'Rapport DORA', auteur: 'moi', scope: 'Plateforme',
-    purpose: 'Reproduire le rapport DORA de la plateforme.',
-    notFor: 'Ne pas utiliser pour arbitrer une évaluation individuelle.'
+describe('le contrat « Bus Factor » et le calcul qui en est sorti', () => {
+  /*
+   * La confrontation qui compte désormais. `lib/signaux-matiere.js` a été écrit D'APRÈS
+   * ce contrat : si l'un des deux bouge sans l'autre, le calcul cesse de reproduire ce
+   * qu'on a lu dans le hub — sans que rien ne le signale.
+   */
+  const bf = INDEX.get('Bus Factor');
+  const texte = JSON.stringify(bf);
+
+  test('les paliers de risque du contrat sont ceux du calcul', () => {
+    assert.match(texte, /RISQUE CRITIQUE < 2/);
+    assert.equal(niveauDeRisque(1.9), 'RISQUE CRITIQUE');
+    assert.equal(niveauDeRisque(2), 'RISQUE MOYEN');
+    assert.equal(niveauDeRisque(3), 'RISQUE FAIBLE');
   });
 
-  test('sa consigne exige les clés de la PLATEFORME', () => {
-    for (const cle of ['df', 'lt', 'cfr', 'mttr']) {
-      assert.ok(agent.spec.includes(`"${cle}"`), `la consigne doit exiger "${cle}"`);
-    }
+  test('le seuil des 5 commits par zone est le même des deux côtés', () => {
+    assert.match(texte, /AU MOINS 5 COMMITS/);
+    assert.equal(MINI_COMMITS_ZONE, 5);
   });
 
-  test('sa consigne porte les seuils, pas seulement les noms', () => {
-    assert.match(agent.spec, /Elite ≥ 7/);
+  test('les 10 zones et les 3 contributeurs affichés sont ceux du contrat', () => {
+    assert.match(texte, /les 10 premières/);
+    assert.match(texte, /au plus 3 contributeurs/);
+    assert.equal(MAX_ZONES, 10);
+    assert.equal(MAX_CONTRIBUTEURS, 3);
   });
 
-  test('ses critères vérifient ces mêmes clés', () => {
-    const keys = agent.criteria.find((c) => c.target === 'output.json_keys');
-    assert.deepEqual(keys.value, ['score_global', 'df', 'lt', 'cfr', 'mttr']);
-  });
-
-  test('AUCUN critère `output.sections` — L026 refuserait l\'artefact', () => {
-    /*
-     * Le contrat impose du JSON. `CRITERE_PAR_SORTIE` pense en Markdown pour `liste` :
-     * les laisser cohabiter reproduirait exactement le contrat impossible qui a rendu le
-     * premier agent DORA inexécutable.
-     */
-    assert.ok(!agent.criteria.some((c) => c.target === 'output.sections'));
-  });
-
-  test('il franchit la porte', () => {
-    const ctx = {
-      tools: yaml.load(readFileSync(join(ROOT, 'registries/tools.yaml'), 'utf8')).tools,
-      targets: yaml.load(readFileSync(join(ROOT, 'registries/targets.yaml'), 'utf8')).targets
-    };
-    const bloquants = lint(agent, ctx).findings.filter((f) => f.severity === ERROR);
-    assert.deepEqual(bloquants.map((f) => f.code), [], JSON.stringify(bloquants, null, 2));
-  });
-
-  test('sans contrat, on retombe sur le besoin — et ça se voit', () => {
-    // Une aide, pas une reproduction. Le dire est plus honnête que de faire semblant.
-    const nu = assembler([morceauDepuisInventaire(capacite)], {
-      titre: 'T', purpose: 'Un but assez long', notFor: 'Une limite assez longue' });
-    assert.ok(!nu.spec.includes('"df"'));
-    assert.ok(!nu.criteria.some((c) => c.target === 'output.json_keys'));
+  test('la médiane est PONDÉRÉE dans le contrat comme dans le code', () => {
+    assert.match(texte, /MÉDIANE PONDÉRÉE/);
+    // Le contre-exemple du hub : la moyenne dirait 4,6 et « RISQUE FAIBLE ».
+    assert.equal(medianePonderee([{ valeur: 1, poids: 500 }, { valeur: 5, poids: 100 }]), 1);
   });
 });
