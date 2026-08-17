@@ -1,0 +1,80 @@
+# salsi-provenance: demande
+# besoin: un agnet qui caldule mon bus factor et me donne des solutions
+# demande-par: ivguenyp123
+# le: 2026-08-17
+# tours-de-correction: 2
+# modele: deepseek-chat via deepseek
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+
+id: bus-factor-analyseur
+kind: agent
+title: Analyseur de bus factor avec recommandations
+owner:
+  person: ivguenyp123
+  scope: Data
+intent:
+  purpose: Calculer le bus factor du dépôt à partir de l'historique des contributions et proposer des actions concrètes pour réduire la dépendance aux contributeurs clés.
+  not_for: Ne pas utiliser pour évaluer la performance individuelle des développeurs ni pour prendre des décisions RH.
+spec: |-
+    Analyse la répartition des contributions dans le dépôt à partir de l'historique des commits et de l'inventaire des fichiers.
+    Calcule le bus factor, c'est-à-dire le nombre minimal de contributeurs dont le départ bloquerait le projet.
+    Identifie les zones de code critiques : les fichiers ou modules dont la majorité des modifications récentes provient d'un seul contributeur.
+    Pour chaque zone critique, propose des solutions concrètes : revue de code croisée, binômage, documentation, transfert de connaissance, ou répartition des tâches.
+    Classe les recommandations par priorité, en commençant par les zones les plus risquées.
+    Présente le résultat sous forme de sections claires : bus factor global, zones critiques, recommandations priorisées.
+    Utilise les données de répartition_contributions et d'historique_commits pour fonder ton analyse.
+    Termine par une synthèse en une phrase.
+    Les données de répartition des contributions sont fournies dans {{repartition_contributions}} et l'historique des commits dans {{historique_commits}}.
+variables:
+  - name: repartition_contributions
+    source: signal
+    required: true
+    description: Répartition des contributions par contributeur et par fichier, calculée automatiquement par la plateforme.
+  - name: historique_commits
+    source: repo
+    required: true
+    description: Historique des commits du dépôt, utilisé pour identifier les auteurs et les fichiers modifiés.
+tools:
+  - id: read_repo_metadata
+    mode: read
+    executor: llm
+criteria:
+  - target: output.sections
+    op: contains
+    value:
+      - recommandations
+  - target: output.length
+    op: gte
+    value: 200
+golden_cases:
+  - id: gc-01-bus-factor-eleve
+    context:
+      repartition_contributions: "contributeur_a: 60%, contributeur_b: 30%, contributeur_c: 10%"
+      historique_commits: 100 commits, 3 auteurs
+    expect:
+      output.sections:
+        - recommandations
+    runs: 5
+    pass_at_least: 4
+  - id: gc-02-bus-factor-faible
+    context:
+      repartition_contributions: "contributeur_a: 90%, contributeur_b: 5%, contributeur_c: 5%"
+      historique_commits: 50 commits, 3 auteurs
+    expect:
+      output.sections:
+        - recommandations
+    runs: 5
+    pass_at_least: 4
+  - id: gc-03-bus-factor-moyen
+    context:
+      repartition_contributions: "contributeur_a: 40%, contributeur_b: 35%, contributeur_c: 25%"
+      historique_commits: 80 commits, 3 auteurs
+    expect:
+      output.sections:
+        - recommandations
+    runs: 5
+    pass_at_least: 4
+target_level: team
+model_tier: mid
