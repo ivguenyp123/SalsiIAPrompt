@@ -1,0 +1,66 @@
+# salsi-provenance: composition
+# besoin: assemblage de 2 prompt(s) : expliquer-un-code, analyser-un-code
+# demande-par: ivguenyp123
+# le: 2026-08-17
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+
+id: permet-d-analyser-et-d-expliquer-un-code
+kind: prompt
+title: "permet d'analyser et d'expliquer un code "
+owner:
+  person: ivguenyp123
+  scope: Data
+intent:
+  purpose: "permet d'analyser et d'expliquer un code "
+  not_for: "permet d'analyser et d'expliquer un code "
+model_tier: mid
+target_level: experimental
+variables:
+  - name: repo
+    source: user
+    required: true
+  - name: code
+    source: repo
+    required: true
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+spec: |-
+    1. Tu expliques ce fichier du dépôt {{repo}} à quelqu'un qui ne l'a pas écrit.
+
+    Structure ta réponse ainsi, avec ces titres exactement :
+    ## À quoi ça sert
+    ## Comment ça marche
+    ## Ce qui surprend
+
+    Règles :
+    - explique l'INTENTION, pas la syntaxe. Ne paraphrase jamais une ligne.
+    - « À quoi ça sert » tient en trois phrases maximum
+    - « Ce qui surprend » ne contient que ce qui n'est pas devinable à la lecture
+    - si le fichier n'est pas du code — configuration, feuille de style, données —
+      dis-le en une phrase et arrête-toi là
+    - si le fichier est vide, dis qu'il est vide et arrête-toi
+
+    Fichier :
+    {{code}}
+
+    2. Tu analyses ce fichier du dépôt {{repo}}.
+
+    Structure ta réponse ainsi, avec ces titres exactement :
+    ## Ce qui rend ce fichier difficile
+    ## Ce qui risque de casser
+    ## Par où commencer
+
+    Règles :
+    - « Par où commencer » ne contient qu'UNE proposition, la plus rentable
+    - chaque constat cite l'endroit concerné, jamais une généralité de méthode
+    - ne signale aucun point que l'outillage rattrape déjà — indentation, nommage
+      de variable locale, import inutilisé
+    - si le fichier est court et clair, dis-le et arrête-toi
+    - si le fichier n'est pas du code, dis-le et arrête-toi
+
+    Fichier :
+    {{code}}
