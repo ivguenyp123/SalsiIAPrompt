@@ -30,6 +30,18 @@
 const TABS = [
   { id: 'composer', label: '🧩 Fabriquer', href: 'composer' },
   { id: 'catalogue', label: '🧰 Les agents', href: 'catalogue' },
+  /*
+   * « Mes agents » — le même écran, ouvert sur le filtre « les miens ».
+   *
+   * Ce qu'on sauve chez soi depuis Fabriquer vivait dans `mes-agents/<moi>/`, le Catalogue
+   * savait déjà le lire et le lancer, et RIEN ne passait par l'Admin. Mais il fallait le
+   * savoir : la seule porte était une pastille au milieu des filtres, que personne
+   * n'ouvre. Un agent qu'on ne retrouve pas est un agent qu'on ne relance pas.
+   *
+   * Un onglet, pas un second catalogue. Dupliquer l'écran aurait fait diverger le
+   * lancement, l'export et le pré-vol au premier correctif.
+   */
+  { id: 'miens', label: '💾 Mes agents', href: 'miens' },
   { id: 'studio', label: '🛠️ Studio', href: 'studio' },
   /*
    * « Admin », et pas « À relire ».
@@ -60,7 +72,9 @@ const TABS = [
 export function mountShell({ active = '', session, base = '', onLogout }) {
   const href = { demande: `${base}demande/index.html`,
                  composer: `${base}composer/index.html`,
-                 catalogue: `${base}catalogue/index.html`, studio: `${base}studio/index.html`,
+                 catalogue: `${base}catalogue/index.html`,
+                 miens: `${base}catalogue/index.html?filtre=miens`,
+                 studio: `${base}studio/index.html`,
                  admin: `${base}admin/index.html`, guide: `${base}guide/index.html`,
                  maquette: `${base}maquette.html` };
 

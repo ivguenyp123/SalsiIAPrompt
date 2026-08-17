@@ -15,6 +15,33 @@ Deux provenances, et elles ne se valent pas :
 Les vôtres se lancent exactement comme les autres — mêmes contrôles, même pré-vol, même
 évaluation du contrat. Être à vous ne donne aucun privilège.
 
+## 💾 Mes agents — lancer ce que vous avez monté
+
+**Où** : onglet **💾 Mes agents**.
+
+C'est **le même écran**, ouvert sur le filtre « les miens ». Pas un second catalogue : un
+catalogue dupliqué aurait divergé du premier au premier correctif, et il aurait fallu
+corriger le lancement, l'export et le pré-vol à deux endroits.
+
+Ce qu'on y trouve : ce que vous avez assemblé dans **🧩 Fabriquer** puis enregistré avec
+**💾 Sauver chez moi**. Le fichier part dans `mes-agents/<vous>/`.
+
+**Rien ne passe par l'Admin, et c'est délibéré.** Ce qui déclenche une validation, ce n'est
+pas d'écrire du texte neuf — sinon noter un prompt dans un carnet demanderait une revue.
+C'est **d'engager les autres**. Sauver chez vous n'engage personne :
+
+- l'agent n'apparaît **pas au catalogue** des autres ;
+- il ne peut **pas servir de brique** à une suite — `L024` exige le registre ;
+- il ne déclare **aucun outil** ;
+- il a franchi **les 27 règles** avant que le bouton s'active ;
+- et **le pré-vol tourne quand même** à chaque lancement.
+
+Le jour où vous voulez qu'il serve aux autres, le bouton **📮 Partager** l'envoie en
+validation. Là, quelqu'un le relit — parce que là, il engage.
+
+Depuis Fabriquer, le lien **▶ Le lancer** apparaît juste après l'enregistrement et ouvre
+directement sa fiche : pas besoin de venir le chercher dans une liste.
+
 ## Trouver
 
 ### La recherche

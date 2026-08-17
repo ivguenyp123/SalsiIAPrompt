@@ -63,8 +63,21 @@ const el = (tag, attrs = {}, ...kids) => {
   return n;
 };
 
-mountShell({ active: 'catalogue', session, base: '../',
+// L'onglet allumé suit le filtre d'ouverture : arriver par « 💾 Mes agents » et voir
+// « 🧰 Les agents » en surbrillance ferait douter d'avoir cliqué au bon endroit.
+const enMiens = new URLSearchParams(location.search).get('filtre') === 'miens';
+
+mountShell({ active: enMiens ? 'miens' : 'catalogue', session, base: '../',
              onLogout: () => { clear(); location.replace('../app/login.html'); } });
+
+if (enMiens) {
+  document.getElementById('titre').textContent = 'Mes agents';
+  document.getElementById('chapo').innerHTML =
+    'Ce que tu as monté <b>pour toi</b> dans Fabriquer. Tu les lances d\'ici, directement — '
+    + 'rien ne passe par l\'Admin, parce que rien n\'engage personne d\'autre. '
+    + 'Personne ne les voit, et ils ne peuvent pas servir de brique à une suite. '
+    + 'Le pré-vol tourne quand même à chaque lancement.';
+}
 
 const forge = createForge(session);
 const repo = localStorage.getItem('salsi_ia_registry_repo');
@@ -72,7 +85,20 @@ const repo = localStorage.getItem('salsi_ia_registry_repo');
 const ICONS = { agent: '🤖', prompt: '📚', chain: '🔗' };
 
 let items = [];
-let filter = 'tout';
+/*
+ * Le filtre d'ouverture, et il peut venir de l'URL.
+ *
+ * `?filtre=miens` ouvre le Catalogue sur MES agents — c'est ce que l'onglet « 💾 Mes
+ * agents » de la barre appelle. Pas un second écran : le même, ouvert au bon endroit.
+ * Un catalogue dupliqué aurait divergé du premier au premier correctif, et il aurait
+ * fallu corriger le lancement, l'export et le pré-vol à deux endroits.
+ *
+ * Une valeur inconnue retombe sur « Tout » plutôt que de vider l'écran : un lien mal
+ * recopié doit montrer le catalogue, pas une page blanche.
+ */
+const FILTRES_CONNUS = new Set(['tout', 'agent', 'prompt', 'miens', 'ko']);
+const filtreDemande = new URLSearchParams(location.search).get('filtre') || '';
+let filter = FILTRES_CONNUS.has(filtreDemande) ? filtreDemande : 'tout';
 let tagsRetenus = [];    // cumulatifs : chaque étiquette resserre
 let ctx = null;        // registres + validateur, partagés avec le pré-vol
 let scopes = [];       // périmètres connus, dérivés du registre des outils

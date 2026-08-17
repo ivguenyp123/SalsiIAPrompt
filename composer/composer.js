@@ -1081,9 +1081,23 @@ $('sauver').onclick = async () => {
     dejaSauvee = true;
     msg.className = 'ok';
     msg.textContent = `✔ Sauvé chez toi — ${chemin}. ${enAgent()
-      ? 'Il n\'apparaît qu\'ici et au Catalogue, section « les miens » — pour toi seul, '
-        + 'tant que tu ne l\'as pas partagé.'
+      ? 'Il est à toi seul, tant que tu ne l\'as pas partagé — rien ne passe par l\'Admin.'
       : 'Elle n\'apparaît qu\'ici, et à toi seul, tant que tu ne l\'as pas partagée.'}`;
+
+    /*
+     * LE LIEN QUI MANQUAIT.
+     *
+     * Le message disait « au Catalogue, section les miens » et s'arrêtait là. Sauver puis
+     * devoir aller chercher son propre agent dans une liste, c'est une promesse suivie
+     * d'une corvée — et c'est ce qui donnait l'impression qu'il fallait passer par
+     * l'Admin. On y va d'un clic, sur la fiche du bon agent.
+     */
+    if (enAgent()) {
+      msg.append(' ');
+      msg.append(el('a', { className: 'lancer',
+                           href: `../catalogue/index.html?agent=${encodeURIComponent(artefact.id)}`,
+                           textContent: '▶ Le lancer' }));
+    }
     await chargerMiennes(repoRegistre());
   } catch (error) {
     msg.className = 'err';

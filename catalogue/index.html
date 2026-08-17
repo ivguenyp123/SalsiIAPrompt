@@ -231,10 +231,18 @@
 <body>
 
 <main>
-  <h1>Les agents</h1>
-  <p class="chapo">Tout ce que tu peux lancer sur ton projet. Chacun a été <b>relu par
-    quelqu'un</b> avant d'arriver ici — sauf les tiens, marqués <b>💾 à moi</b>, que
-    personne d'autre ne voit.</p>
+  <!--
+    Le titre et le chapô sont RÉÉCRITS quand on arrive par « 💾 Mes agents ».
+
+    C'est le même écran, ouvert sur le filtre « les miens » — dupliquer le catalogue aurait
+    fait diverger le lancement, l'export et le pré-vol au premier correctif. Mais un écran
+    qui s'annonce « chacun a été relu par quelqu'un » alors qu'il ne montre que les vôtres,
+    que personne n'a relus, dit exactement le contraire de la vérité.
+  -->
+  <h1 id="titre">Les agents</h1>
+  <p class="chapo" id="chapo">Tout ce que tu peux lancer sur ton projet. Chacun a été
+    <b>relu par quelqu'un</b> avant d'arriver ici — sauf les tiens, marqués
+    <b>💾 à moi</b>, que personne d'autre ne voit.</p>
 
   <div class="card">
     <div class="search">
