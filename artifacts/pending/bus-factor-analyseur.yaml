@@ -1,0 +1,133 @@
+# salsi-provenance: demande
+# besoin: fait moi un agent qui calcule mon bus factor et me propose des améliorations
+# demande-par: ivguenyp123
+# le: 2026-08-17
+# tours-de-correction: 3
+# modele: deepseek-chat via deepseek
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+
+id: bus-factor-analyseur
+kind: agent
+title: Analyseur de bus factor et recommandations
+owner:
+  person: ivguenyp123
+  scope: Data
+intent:
+  purpose: Calculer le bus factor d'un dépôt et proposer des améliorations concrètes pour réduire la dépendance à des contributeurs uniques.
+  not_for: Ne pas utiliser pour évaluer la performance individuelle des développeurs ou pour prendre des décisions de gestion des ressources humaines.
+spec: |-
+    Analyse le dépôt dont les métadonnées sont fournies via la variable `{{repo_metadata}}`.
+    Calcule le bus factor en identifiant les zones de code critiques (fichiers les plus modifiés, modules centraux) et en estimant le nombre de contributeurs capables de les maintenir.
+    Croise ces zones avec les informations de la variable `{{contribution_data}}` pour détecter les fichiers où un seul contributeur réalise plus de 80% des modifications.
+    Produis un rapport structuré contenant les sections suivantes :
+    - `score_global` : une note de 0 à 10 indiquant la santé globale du bus factor (10 = très résilient, 0 = très fragile).
+    - `zones_critiques` : la liste des fichiers ou modules à risque, avec le nombre de contributeurs actifs pour chacun.
+    - `recommandations` : une liste d'améliorations concrètes, classées par priorité, pour réduire le risque (exemples : revue de code croisée, documentation, binômes, tests de mutation).
+    - `actions_immediates` : les trois actions à mettre en place dès cette semaine.
+    Base tes recommandations sur les données réelles fournies, pas sur des généralités.
+    Sois précis et chiffré dans ton analyse.
+variables:
+  - name: repo_metadata
+    source: signal
+    required: true
+    description: Métadonnées du dépôt (stack, langage, branche par défaut, fichiers de configuration).
+  - name: contribution_data
+    source: user
+    required: true
+    description: Données de contribution par fichier (auteur, nombre de commits, période).
+tools:
+  - id: read_repo_metadata
+    mode: read
+    executor: llm
+criteria:
+  - target: output.json_keys
+    op: contains
+    value:
+      - score_global
+  - target: output.json_keys
+    op: contains
+    value:
+      - zones_critiques
+  - target: output.json_keys
+    op: contains
+    value:
+      - recommandations
+  - target: output.json_keys
+    op: contains
+    value:
+      - actions_immediates
+  - target: output.is_valid_json
+    op: eq
+    value: true
+golden_cases:
+  - id: gc-01-depot-sain
+    context:
+      repo_metadata:
+        langage: Python
+        stack: Django
+        branche_defaut: main
+      contribution_data:
+        core.py:
+          alice: 50
+          bob: 30
+          carol: 20
+        utils.py:
+          alice: 10
+          bob: 90
+    expect:
+      output.json_keys:
+        - score_global
+        - zones_critiques
+        - recommandations
+        - actions_immediates
+      output.is_valid_json: true
+    runs: 5
+    pass_at_least: 4
+  - id: gc-02-depot-fragile
+    context:
+      repo_metadata:
+        langage: JavaScript
+        stack: Node.js
+        branche_defaut: master
+      contribution_data:
+        index.js:
+          dave: 100
+        lib/parser.js:
+          dave: 95
+          erin: 5
+    expect:
+      output.json_keys:
+        - score_global
+        - zones_critiques
+        - recommandations
+        - actions_immediates
+      output.is_valid_json: true
+    runs: 5
+    pass_at_least: 4
+  - id: gc-03-depot-moyen
+    context:
+      repo_metadata:
+        langage: Go
+        stack: microservices
+        branche_defaut: trunk
+      contribution_data:
+        service_a/main.go:
+          frank: 60
+          grace: 40
+        service_b/handler.go:
+          frank: 80
+          grace: 10
+          henry: 10
+    expect:
+      output.json_keys:
+        - score_global
+        - zones_critiques
+        - recommandations
+        - actions_immediates
+      output.is_valid_json: true
+    runs: 5
+    pass_at_least: 4
+target_level: team
+model_tier: mid
