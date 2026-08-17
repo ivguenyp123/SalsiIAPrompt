@@ -280,6 +280,7 @@
   .iss.succes{color:#6ee7b7} .iss.contrat{color:#fcd34d} .iss.coupe{color:#f9a8d4}
   .iss.refus{color:var(--tm)} .iss.erreur{color:#fca5a5}
   .coupe-note{margin:10px 2px 0;font-size:11.5px;color:var(--tm)}
+  .note-bas{margin:9px 2px 0;font-size:11.5px;color:var(--tm);line-height:1.55}
 
   .empty{padding:34px;text-align:center;color:var(--tm);border:1px dashed var(--line2);border-radius:16px}
   .empty b{color:var(--tp);display:block;margin-bottom:6px;font-family:var(--fd);font-size:15px}
@@ -380,11 +381,17 @@
   <!-- Vue 4 : ce que la plateforme a réellement exécuté -->
   <section id="vue-executions" hidden>
     <h2>Exécutions</h2>
-    <p class="hint" style="margin:8px 0 20px;font-size:13.5px">Ce que la plateforme a
-      réellement lancé : combien de jetons, quand, sur quoi, et avec quel résultat. Rien n'est
-      saisi — chaque lancement s'inscrit tout seul. <strong>Le journal garde les chiffres et
-      les verdicts, jamais les prompts ni les réponses :</strong> un prompt porte la matière
-      qu'on lui a donnée à lire, et ce n'est pas ici que ça se stocke.</p>
+    <!--
+      UNE LIGNE, ET LES CHIFFRES.
+
+      Il y en avait quatre : ce que l'écran montre, ce qu'il n'enregistre pas, et pourquoi.
+      Tout était vrai et tout était au mauvais endroit — on ouvre cet onglet pour voir des
+      nombres, pas pour lire une note d'intention. Ce qui justifie une décision appartient
+      au code ; ce qui doit rassurer un auditeur tient sous le tableau concerné, là où la
+      question se pose vraiment.
+    -->
+    <p class="hint" style="margin:6px 0 18px;font-size:13.5px">Ce que la plateforme a
+      réellement lancé. Chaque lancement s'inscrit tout seul.</p>
 
     <div class="chiffres" id="es-resume"></div>
     <div id="es-alerte" class="alerte" hidden></div>
@@ -394,14 +401,16 @@
     <div id="es-graphs" class="grafs"></div>
 
     <h3 class="sous">Les plus utilisés</h3>
-    <p class="hint" style="margin:2px 0 14px;font-size:12.5px">Le taux ne porte que sur les
-      exécutions <em>jugées</em> — celles où le modèle a répondu et où le contrat a pu être
-      évalué. Un refus au pré-vol en est retiré : c'est la porte qui a fonctionné, pas
-      l'agent qui a échoué.</p>
     <div id="es-palmares"></div>
+    <!-- La précision qui compte reste, mais SOUS le tableau et en petit : elle répond à
+         une question qu'on se pose après avoir vu un taux, jamais avant. -->
+    <p class="note-bas">Le taux ne porte que sur les exécutions jugées. Un refus au
+      pré-vol en est retiré : c'est la porte qui a fonctionné, pas l'agent qui a échoué.</p>
 
     <h3 class="sous">Le journal</h3>
     <div id="es-journal"></div>
+    <p class="note-bas">Les chiffres et les verdicts sont conservés ; les prompts et les
+      réponses ne le sont pas.</p>
   </section>
 </main>
 
