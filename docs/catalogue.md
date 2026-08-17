@@ -129,6 +129,33 @@ Trois formes de choix, et c'est **le signal** qui décide laquelle, jamais l'éc
 - **une merge request** — la liste des MR ouvertes du dépôt se déroule, vous en choisissez
   une, le diff s'assemble seul.
 
+### Les quatre gestes d'une merge request
+
+Sous la réponse de **Relire une merge request**, quatre boutons agissent sur la MR relue :
+
+| | Ce que ça fait |
+|---|---|
+| **💬 Commenter** | poste la revue en commentaire — le texte est **éditable** avant l'envoi |
+| **✅ Approuver** | dépose votre approbation |
+| **🔀 Fusionner** | fusionne dans la branche cible. **Le seul geste qu'on ne défait pas d'un clic** |
+| **🚫 Refuser** | ferme la MR sans fusionner. La branche reste, la MR peut être rouverte |
+
+Quatre règles, toutes visibles à l'écran :
+
+- **c'est vous qui signez.** Les quatre partent sous le nom du porteur du jeton. Ce n'est
+  pas « la plateforme » qui approuve, et la trace sur la forge le dira ;
+- **le modèle ne décide jamais.** Aucun bouton ne lit la réponse de l'agent pour choisir.
+  Le commentaire est le seul à en reprendre le texte — et il reste modifiable, parce que
+  poster tel quel ce qu'un modèle a écrit sous sa propre signature n'est pas une revue,
+  c'est un transfert de responsabilité ;
+- **on confirme avant d'écrire**, les quatre sans exception ;
+- **l'échec se dit.** Un jeton sans droit d'approbation rend un `403` : c'est une
+  information, pas une panne, et elle s'affiche telle quelle.
+
+Les quatre marchent sur **GitHub comme sur GitLab** — les vocabulaires diffèrent (GitHub
+approuve par une *review*, GitLab par une route dédiée ; aucune des deux n'a d'état
+« refusée », donc refuser ferme), et c'est la couche de forge qui absorbe l'écart.
+
 ### 📮 Proposer les correctifs
 
 Sur la **conformité du parc**, un bouton apparaît à côté de l'export dès qu'un dépôt est en

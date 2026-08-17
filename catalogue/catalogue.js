@@ -2039,6 +2039,136 @@ function ouvrirExecution(entry) {
     }
   }
 
+  /*
+   * ── LES QUATRE GESTES D'UNE MERGE REQUEST ───────────────────────────────────
+   *
+   * Une revue qui ne débouche sur rien ne sert à rien. On lisait l'avis de l'agent, puis
+   * on rouvrait la forge dans un autre onglet pour reporter la décision à la main — et ce
+   * détour suffit à ce qu'on ne le fasse pas, ou qu'on le fasse trois jours plus tard.
+   *
+   * QUATRE RÈGLES GOUVERNENT CE BLOC, et elles sont toutes visibles à l'écran :
+   *
+   *   C'EST VOUS QUI SIGNEZ. Les quatre gestes partent sous le nom du porteur du jeton.
+   *   Ce n'est pas « la plateforme » qui approuve, et la trace sur la forge le dira. Le
+   *   bandeau le rappelle avant le premier clic, pas après.
+   *
+   *   LE MODÈLE NE DÉCIDE JAMAIS. Aucun des quatre boutons ne lit la réponse de l'agent
+   *   pour choisir quoi que ce soit. Le commentaire est le seul à en reprendre le texte —
+   *   et il est ÉDITABLE avant l'envoi, parce que c'est vous qui le signez.
+   *
+   *   ON CONFIRME AVANT D'ÉCRIRE. Les quatre, sans exception. Fusionner et fermer ne se
+   *   défont pas d'un clic ; approuver et commenter laissent une trace publique.
+   *
+   *   ON DIT CE QUI S'EST PASSÉ, y compris l'échec. Un jeton sans droit d'approbation
+   *   rend un 403 : c'est une information, pas une panne, et elle s'affiche telle quelle.
+   */
+  function gestesDeMr(matiere, corps) {
+    const pr = matiere.pr;
+    const depot = matiere.depot;
+    const bloc = el('div', { className: 'gestes-mr' });
+
+    bloc.append(el('div', { className: 'gestes-tete' },
+      el('b', { textContent: `Merge request #${pr.numero}` }),
+      el('span', { className: 'sp' }),
+      el('small', { textContent: `Les quatre gestes partent sous ton nom — ${session.username} — `
+                               + 'et laissent une trace sur la forge.' })));
+
+    const etat = el('div', { className: 'gestes-etat', hidden: true });
+    const rangee = el('div', { className: 'gestes-rangee' });
+
+    const dire = (texte, classe) => {
+      etat.hidden = false;
+      etat.textContent = texte;
+      etat.className = `gestes-etat ${classe}`;
+    };
+
+    /** Un geste : confirme, agit, dit ce qui s'est passé — succès comme échec. */
+    const geste = (libelle, question, action, { danger = false } = {}) => {
+      const b = el('button', { type: 'button', className: danger ? 'geste danger' : 'geste',
+                               textContent: libelle });
+      b.onclick = async () => {
+        if (!confirm(question)) return;
+        for (const x of rangee.querySelectorAll('button')) x.disabled = true;
+        dire(`${libelle}…`, 'attente');
+        try {
+          dire(await action(), 'ok');
+        } catch (error) {
+          /*
+           * Un 403 n'est pas une panne : c'est un jeton sans ce droit-là, et le dire
+           * franchement vaut mieux qu'un message technique. Le reste remonte tel quel —
+           * une MR déjà fusionnée, un conflit, une règle de protection.
+           */
+          dire(error.status === 403
+            ? `${libelle} refusé : ton jeton n'a pas ce droit sur ${depot}.`
+            : `${libelle} a échoué : ${error.message}`, 'ko');
+        } finally {
+          for (const x of rangee.querySelectorAll('button')) x.disabled = false;
+        }
+      };
+      return b;
+    };
+
+    /*
+     * Le commentaire porte la revue de l'agent, ÉDITABLE.
+     *
+     * C'est le geste qui rend toute la chaîne utile : l'agent lit la MR, écrit son avis,
+     * et l'avis se pose là où l'équipe le lira. Mais il part sous votre nom, donc il doit
+     * pouvoir être coupé, corrigé, complété avant l'envoi — poster tel quel ce qu'un
+     * modèle a écrit, sous sa propre signature, n'est pas une revue, c'est un transfert
+     * de responsabilité.
+     */
+    const zoneCommentaire = el('textarea', { rows: 8, className: 'gestes-commentaire',
+      value: `${String(corps.sortie || '').trim()}\n\n---\n_Relu avec SalsiIAPrompt `
+           + `(${artifact.id}). Les remarques sont à discuter, pas à appliquer telles quelles._` });
+    const plieCommentaire = el('details', { className: 'gestes-detail' });
+    plieCommentaire.append(el('summary', { textContent: '💬 Commenter — relire le texte avant de le poster' }),
+      zoneCommentaire,
+      geste('Poster le commentaire',
+        `Poster ce commentaire sur #${pr.numero} de ${depot}, sous ton nom ?`,
+        async () => {
+          const texte = zoneCommentaire.value.trim();
+          if (!texte) throw new Error('Le commentaire est vide.');
+          await forge.commenterPullRequest(depot, pr.numero, texte);
+          return `✔ Commentaire posté sur #${pr.numero}.`;
+        }));
+
+    rangee.append(
+      geste('✅ Approuver',
+        `Approuver la merge request #${pr.numero} de ${depot} ?\n\n`
+        + 'Ton approbation apparaîtra publiquement sur la forge, à ton nom.',
+        async () => {
+          await forge.approuverPullRequest(depot, pr.numero);
+          return `✔ #${pr.numero} approuvée par ${session.username}.`;
+        }),
+      geste('🔀 Fusionner',
+        `FUSIONNER la merge request #${pr.numero} de ${depot} dans ${pr.cible} ?\n\n`
+        + 'C\'est le seul geste de cette liste qu\'on ne défait pas d\'un clic : le code '
+        + 'part dans la branche cible.\n\nContinuer ?',
+        async () => {
+          const r = await forge.fusionnerPullRequest(depot, pr.numero);
+          return r.fusionne
+            ? `✔ #${pr.numero} fusionnée dans ${pr.cible}.`
+            : `La forge n'a pas fusionné — état : ${r.etat}. Un conflit ou une règle de `
+              + 'protection l\'empêche.';
+        }, { danger: true }),
+      geste('🚫 Refuser',
+        `Fermer la merge request #${pr.numero} de ${depot} sans la fusionner ?\n\n`
+        + 'Le travail n\'est pas perdu : la branche reste, et la MR peut être rouverte '
+        + 'sur la forge.\n\nContinuer ?',
+        async () => {
+          await forge.fermerPullRequest(depot, pr.numero);
+          return `✔ #${pr.numero} fermée sans fusion. La branche, elle, existe toujours.`;
+        }, { danger: true }));
+
+    if (pr.url) {
+      rangee.append(el('a', { className: 'geste lien', href: pr.url, target: '_blank',
+                              rel: 'noopener', textContent: '↗ Ouvrir sur la forge' }));
+    }
+
+    bloc.append(rangee, plieCommentaire, etat);
+    return bloc;
+  }
+
   function rendreResultat(corps, status) {
     conf.hidden = true;
     zone.textContent = '';
@@ -2088,6 +2218,12 @@ function ouvrirExecution(entry) {
       tete.append(boutonCorrectifs());
     }
     zone.append(tete);
+
+    // Les gestes de merge request, quand l'agent en a relu une : la revue n'a d'intérêt
+    // que si elle débouche sur une décision, et aller la reporter à la main sur la forge
+    // est exactement le détour qui fait qu'on ne le fait pas.
+    const surMr = calcules.map((c) => c.dernier()).find((r) => r?.pr);
+    if (surMr) zone.append(gestesDeMr(surMr, corps));
 
     /*
      * UNE RÉPONSE COUPÉE LE DIT, ET C'EST LE PLUS IMPORTANT DE CET ÉCRAN.

@@ -155,11 +155,20 @@ describe('le résumé de la matière', () => {
 /* ── La forge : les deux backends rendent la MÊME forme ───────────────────── */
 
 describe('les pull requests, des deux côtés', () => {
-  /** Un `fetch` de papier : il note ce qu'on lui demande et rend ce qu'on lui dit. */
+  /**
+   * Un `fetch` de papier : il note ce qu'on lui demande et rend ce qu'on lui dit.
+   *
+   * `appels` garde le VERBE et le CORPS en plus de l'URL. Sur les gestes d'une merge
+   * request, l'URL seule ne suffit pas à distinguer une fermeture d'une réouverture :
+   * c'est le corps qui porte la décision, et c'est donc lui qu'il faut vérifier.
+   */
   const papier = (routes) => {
     const vus = [];
-    return { vus, impl: async (url) => {
+    const appels = [];
+    return { vus, appels, impl: async (url, options = {}) => {
       vus.push(url);
+      appels.push({ url, methode: options.method || 'GET',
+                    corps: options.body ? JSON.parse(options.body) : null });
       for (const [motif, corps] of Object.entries(routes)) {
         if (url.includes(motif)) {
           return { ok: true, status: 200, json: async () => corps };
@@ -267,5 +276,96 @@ describe('les pull requests, des deux côtés', () => {
       .listRuns('moi/demo', { depuis: '2026-07-01T00:00:00Z' });
     assert.match(gh.vus[0], /created=%3E%3D2026-07-01/);
     assert.deepEqual([w[0].sha, w[0].debut, w[0].quand], ['abc', 'A', 'Z']);
+  });
+});
+
+/*
+ * ── LES QUATRE GESTES D'UNE MERGE REQUEST ───────────────────────────────────
+ *
+ * Ils écrivent chez quelqu'un d'autre. Ce qui se vérifie ici est la seule chose qu'un test
+ * peut vérifier de ces gestes : qu'ils tapent la BONNE route avec le BON verbe. Se tromper
+ * ne rend pas une erreur lisible — GitHub répond 422 sur `/pulls/:n/comments` employée
+ * pour un commentaire général, et personne ne devine que la bonne route est celle des
+ * issues.
+ */
+describe('les quatre gestes, des deux côtés', () => {
+  const papier = (corps = {}) => {
+    const appels = [];
+    return { appels, impl: async (url, options = {}) => {
+      appels.push({ url, methode: options.method || 'GET',
+                    corps: options.body ? JSON.parse(options.body) : null });
+      return { ok: true, status: 200, json: async () => corps };
+    } };
+  };
+  const gl = (f) => createForge({ gitlabUrl: 'https://gitlab.example.com', token: 't' }, f);
+  const gh = (f) => createForge({ gitlabUrl: 'https://github.com', token: 't' }, f);
+
+  test('commenter : GitHub range les commentaires de PR avec ceux des ISSUES', async () => {
+    // `/pulls/:n/comments` désigne autre chose — les commentaires attachés à une ligne du
+    // diff. Se tromper de route rend un 422 incompréhensible.
+    const f = papier({ id: 1 });
+    await gh(f.impl).commenterPullRequest('moi/demo', 7, 'mon avis');
+    assert.match(f.appels[0].url, /\/issues\/7\/comments$/);
+    assert.equal(f.appels[0].methode, 'POST');
+    assert.equal(f.appels[0].corps.body, 'mon avis');
+
+    const g = papier({ id: 1 });
+    await gl(g.impl).commenterPullRequest('g/demo', 7, 'mon avis');
+    assert.match(g.appels[0].url, /\/merge_requests\/7\/notes$/);
+  });
+
+  test('approuver : une route dédiée côté GitLab, une « review » côté GitHub', async () => {
+    const f = papier({});
+    await gh(f.impl).approuverPullRequest('moi/demo', 7);
+    assert.match(f.appels[0].url, /\/pulls\/7\/reviews$/);
+    assert.equal(f.appels[0].corps.event, 'APPROVE');
+
+    const g = papier({});
+    await gl(g.impl).approuverPullRequest('g/demo', 7);
+    assert.match(g.appels[0].url, /\/merge_requests\/7\/approve$/);
+    assert.equal(g.appels[0].methode, 'POST');
+  });
+
+  test('fusionner rend un verdict, et ne le suppose pas', async () => {
+    /*
+     * La forge peut REFUSER de fusionner — conflit, règle de protection, pipeline en
+     * échec — en répondant 200. Traiter le 200 comme un succès annoncerait une fusion qui
+     * n'a pas eu lieu, et c'est le pire message possible sur ce bouton-là.
+     */
+    const ok = papier({ merged: true });
+    assert.equal((await gh(ok.impl).fusionnerPullRequest('moi/demo', 7)).fusionne, true);
+    assert.equal(ok.appels[0].methode, 'PUT');
+
+    const non = papier({ merged: false });
+    assert.equal((await gh(non.impl).fusionnerPullRequest('moi/demo', 7)).fusionne, false);
+
+    const g = papier({ state: 'merged' });
+    assert.equal((await gl(g.impl).fusionnerPullRequest('g/demo', 7)).fusionne, true);
+    const gnon = papier({ state: 'opened' });
+    assert.equal((await gl(gnon.impl).fusionnerPullRequest('g/demo', 7)).fusionne, false);
+  });
+
+  test('refuser, c\'est FERMER — aucune des deux forges n\'a d\'état « refusée »', async () => {
+    const f = papier({ state: 'closed' });
+    await gh(f.impl).fermerPullRequest('moi/demo', 7);
+    assert.equal(f.appels[0].methode, 'PATCH');
+    assert.equal(f.appels[0].corps.state, 'closed');
+
+    const g = papier({ state: 'closed' });
+    await gl(g.impl).fermerPullRequest('g/demo', 7);
+    assert.equal(g.appels[0].methode, 'PUT');
+    assert.equal(g.appels[0].corps.state_event, 'close');
+  });
+
+  test('les quatre existent des DEUX côtés', () => {
+    // Un geste présent d'un seul côté ferait un bouton mort sur l'autre forge — et on l'a
+    // déjà vécu avec `commitFiles`, qui lève un 501 sur GitHub.
+    const rien = async () => ({ ok: true, status: 200, json: async () => ({}) });
+    for (const forge of [gh(rien), gl(rien)]) {
+      for (const op of ['commenterPullRequest', 'approuverPullRequest',
+                        'fusionnerPullRequest', 'fermerPullRequest']) {
+        assert.equal(typeof forge[op], 'function', `${forge.kind} : ${op} manque`);
+      }
+    }
   });
 });

@@ -217,6 +217,37 @@ function gitlab(session, fetchImpl) {
       }));
     },
 
+    /*
+     * ── LES QUATRE GESTES D'UNE MERGE REQUEST ─────────────────────────────────
+     *
+     * Ils ÉCRIVENT dans la merge request de quelqu'un, sous le nom du porteur du jeton.
+     * Ce n'est pas la plateforme qui approuve : c'est vous, et la trace le dira.
+     *
+     * Les quatre existent des deux côtés, et c'est la raison pour laquelle ils sont ici
+     * plutôt que dans l'écran : GitLab approuve par une route dédiée, GitHub par une
+     * « review » ; GitLab ferme par un `state_event`, GitHub par un `state`. Un écran qui
+     * connaîtrait ces deux vocabulaires finirait par n'en gérer qu'un.
+     */
+    commenterPullRequest: (repo, numero, texte) =>
+      call(`/projects/${encodeURIComponent(repo)}/merge_requests/${numero}/notes`,
+        { method: 'POST', body: { body: texte } }).then((n) => ({ id: n.id })),
+
+    approuverPullRequest: (repo, numero) =>
+      call(`/projects/${encodeURIComponent(repo)}/merge_requests/${numero}/approve`,
+        { method: 'POST', body: {} }).then(() => ({ approuve: true })),
+
+    /*
+     * Fusionner est le seul geste de cette liste qu'on ne défait pas d'un clic. Il n'est
+     * jamais appelé sans confirmation par l'écran — et jamais par un modèle.
+     */
+    fusionnerPullRequest: (repo, numero) =>
+      call(`/projects/${encodeURIComponent(repo)}/merge_requests/${numero}/merge`,
+        { method: 'PUT', body: {} }).then((m) => ({ fusionne: m.state === 'merged', etat: m.state })),
+
+    fermerPullRequest: (repo, numero) =>
+      call(`/projects/${encodeURIComponent(repo)}/merge_requests/${numero}`,
+        { method: 'PUT', body: { state_event: 'close' } }).then((m) => ({ etat: m.state })),
+
     projectInfo: async (repo) => {
       const p = await call(`/projects/${encodeURIComponent(repo)}`);
       return { defaultBranch: p.default_branch, path: p.path_with_namespace, visibility: p.visibility };
@@ -468,6 +499,39 @@ function github(session, fetchImpl) {
       return list.map((f) => ({ fichier: f.filename, ancien: f.previous_filename || f.filename,
                                 patch: f.patch || '', binaire: !f.patch }));
     },
+
+    /*
+     * ── LES QUATRE GESTES, CÔTÉ GITHUB ────────────────────────────────────────
+     *
+     * Même intention, trois vocabulaires différents — et c'est exactement pourquoi ils
+     * vivent ici et pas dans l'écran.
+     *
+     * Un COMMENTAIRE de pull request est une note d'ISSUE : GitHub range les deux au même
+     * endroit, et `/pulls/:n/comments` désigne autre chose — les commentaires attachés à
+     * une ligne du diff. Se tromper de route rend un 422 incompréhensible.
+     */
+    commenterPullRequest: (repo, numero, texte) =>
+      call(`/repos/${repo}/issues/${numero}/comments`,
+        { method: 'POST', body: { body: texte } }).then((n) => ({ id: n.id })),
+
+    // GitHub n'a pas d'approbation isolée : approuver, c'est déposer une « review » dont
+    // le verdict est APPROVE.
+    approuverPullRequest: (repo, numero) =>
+      call(`/repos/${repo}/pulls/${numero}/reviews`,
+        { method: 'POST', body: { event: 'APPROVE' } }).then(() => ({ approuve: true })),
+
+    /*
+     * Fusionner est le seul geste de cette liste qu'on ne défait pas d'un clic. Il n'est
+     * jamais appelé sans confirmation par l'écran — et jamais par un modèle.
+     */
+    fusionnerPullRequest: (repo, numero) =>
+      call(`/repos/${repo}/pulls/${numero}/merge`, { method: 'PUT', body: {} })
+        .then((m) => ({ fusionne: Boolean(m.merged), etat: m.merged ? 'merged' : 'open' })),
+
+    // Refuser une pull request, c'est la FERMER. GitHub n'a pas d'état « refusée ».
+    fermerPullRequest: (repo, numero) =>
+      call(`/repos/${repo}/pulls/${numero}`, { method: 'PATCH', body: { state: 'closed' } })
+        .then((m) => ({ etat: m.state })),
 
     projectInfo: async (repo) => {
       const r = await call(`/repos/${repo}`);
