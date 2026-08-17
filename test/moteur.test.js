@@ -14,7 +14,7 @@
  */
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -188,11 +188,25 @@ describe('brancher un fournisseur n\'a touché à aucune règle', () => {
   test('aucun artefact du registre ne nomme un fournisseur ni un modèle', () => {
     // La propriété de fond : le catalogue survit à un changement de fournisseur.
     const noms = [...models.map((m) => m.vertex), ...models.map((m) => m.deepseek)];
-    for (const f of ['expliquer-un-code', 'relire-un-changement', 'prep-delivery',
-                     'analyser-une-vulnerabilite', 'commit-message']) {
-      const brut = readFileSync(join(ROOT, `artifacts/${f}.yaml`), 'utf8');
-      for (const n of noms) assert.ok(!brut.includes(n), `${f} nomme le modèle ${n}`);
-      for (const p of FOURNISSEURS) assert.ok(!brut.toLowerCase().includes(p), `${f} nomme ${p}`);
+    // Le DOSSIER, jamais une liste à la main : « le catalogue » veut dire tout le
+    // catalogue, et une liste figée ne vérifie que ce qu'on a pensé à y mettre.
+    for (const f of readdirSync(join(ROOT, 'artifacts')).filter((n) => /\.ya?ml$/.test(n))) {
+      /*
+       * L'ARTEFACT, pas le fichier brut.
+       *
+       * La lecture brute attrapait aussi l'EN-TÊTE DE PROVENANCE — « # modele:
+       * deepseek-chat via deepseek » — que le Studio écrit pour tracer qui a rédigé quoi.
+       * C'est une trace d'origine, en commentaire, que le parseur ignore et qui ne part
+       * jamais au modèle. La refuser reviendrait à interdire de dire d'où vient un
+       * artefact, pour satisfaire une règle qui parle d'autre chose.
+       *
+       * Ce que la règle veut dire, et ce qu'on vérifie désormais : le CONTENU — spec,
+       * intention, critères — ne nomme ni modèle ni fournisseur, pour que le catalogue
+       * survive à un changement de l'un comme de l'autre.
+       */
+      const contenu = JSON.stringify(yaml.load(readFileSync(join(ROOT, `artifacts/${f}`), 'utf8')));
+      for (const n of noms) assert.ok(!contenu.includes(n), `${f} nomme le modèle ${n}`);
+      for (const p of FOURNISSEURS) assert.ok(!contenu.toLowerCase().includes(p), `${f} nomme ${p}`);
     }
   });
 });

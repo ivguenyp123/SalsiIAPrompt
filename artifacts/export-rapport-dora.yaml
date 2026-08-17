@@ -1,97 +1,142 @@
-# salsi-provenance: demande
-# besoin: un agent pour exporter mon rapport dora
+# salsi-provenance: main
+# besoin: un rapport DORA formel, à exporter et à faire circuler
 # demande-par: ivguenyp123
-# le: 2026-08-16
-# tours-de-correction: 2
-# modele: deepseek-chat via deepseek
+# le: 2026-08-17
 #
-# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
-# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+# Agent RÉÉCRIT À LA MAIN. La version précédente sortait de « Demander », et c'était un cas
+# d'école de ce qu'on a passé la semaine à corriger :
+#
+#   · elle demandait au modèle de « lancer la suite de tests » et de « déclencher un scan
+#     de vulnérabilités » — deux outils qui n'existent pas. Le modèle rendait alors un faux
+#     bloc d'appel d'outil en guise de rapport ;
+#   · elle réclamait `{{branche_cible}}`, un nom hors vocabulaire que rien ne sait remplir ;
+#   · et surtout elle demandait une valeur QUALITATIVE — « élevée, moyenne, faible » — pour
+#     chaque métrique. C'est exactement l'invention qu'on cherche à empêcher : la plateforme
+#     calcule `4.2 /sem`, le modèle écrivait « élevée », et la porte répondait « contrat
+#     satisfait », parce qu'un critère vérifie une forme et jamais un fait.
+#
+# ── EN QUOI IL DIFFÈRE DES DEUX AUTRES AGENTS DORA ─────────────────────────
+#
+# Trois agents lisent `chiffres_dora`, et ils ne s'adressent pas aux mêmes gens :
+#
+#   dora-et-plan-action      à l'ÉQUIPE   → le diagnostic, et quoi faire
+#   dora-commentaire-comite  au COMITÉ    → cinq lignes, sans jargon
+#   export-rapport-dora      à L'ARCHIVE  → le document qu'on garde et qu'on envoie
+#
+# Celui-ci ne conseille pas : il CONSIGNE. Il se relira dans six mois par quelqu'un qui
+# n'était pas là, et il doit alors tenir debout seul — d'où l'insistance sur la période
+# couverte, la méthode, et les angles morts. Le bouton « Exporter le rapport » l'emballe
+# ensuite dans un HTML autonome, tableaux mesurés à part du texte rédigé.
 
 id: export-rapport-dora
-kind: agent
-title: Export du rapport DORA
+kind: prompt
+title: Rapport DORA — le document à archiver
 owner:
   person: ivguenyp123
   scope: Data
+tags: [dora, restitution, pilotage]
 intent:
-  purpose: Générer un rapport DORA (mesures de livraison logicielle) à partir des données du dépôt et le formater pour export.
-  not_for: Ne pas utiliser pour analyser la sécurité du code, exécuter des tests ou modifier le dépôt.
-spec: |-
-    Tu es un agent chargé de préparer l'export du rapport DORA pour le dépôt courant, en analysant la branche {{branche_cible}}.
-    Rassemble les informations nécessaires à partir des outils disponibles.
-    Commence par lire les métadonnées du dépôt pour identifier la branche par défaut et la stack technique.
-    Vérifie ensuite le statut du dernier pipeline sur la branche {{branche_cible}}.
-    Exécute la suite de tests pour obtenir le rapport de réussite.
-    Déclenche un scan des vulnérabilités des dépendances et lis le résultat.
-    À partir de ces données, produis un rapport structuré en JSON valide.
-    Le rapport doit contenir les sections suivantes : `deployment_frequency`, `lead_time`, `change_failure_rate`, `time_to_restore`.
-    Pour chaque section, indique une valeur qualitative (élevée, moyenne, faible) basée sur les informations collectées.
-    Termine en affichant le rapport JSON complet, sans texte additionnel.
-variables:
-  - name: branche_cible
-    source: user
-    required: true
-    description: Nom de la branche à analyser pour le rapport DORA.
-tools:
-  - id: read_repo_metadata
-    mode: read
-    executor: llm
-  - id: read_pipeline_status
-    mode: read
-    executor: llm
-  - id: run_tests
-    mode: read
-    executor: llm
-  - id: scan_vulnerabilities
-    mode: read
-    executor: llm
-criteria:
-  - target: output.is_valid_json
-    op: eq
-    value: true
-  - target: output.json_keys
-    op: contains
-    value:
-      - deployment_frequency
-  - target: output.json_keys
-    op: contains
-    value:
-      - lead_time
-  - target: output.json_keys
-    op: contains
-    value:
-      - change_failure_rate
-  - target: output.json_keys
-    op: contains
-    value:
-      - time_to_restore
-golden_cases:
-  - id: gc-01-rapport-complet
-    context:
-      branche_cible: main
-    expect:
-      output.is_valid_json: true
-      output.sections:
-        - deployment_frequency
-        - lead_time
-        - change_failure_rate
-        - time_to_restore
-    runs: 5
-    pass_at_least: 4
-  - id: gc-02-rapport-succes
-    context:
-      branche_cible: develop
-    expect:
-      output.is_valid_json: true
-    runs: 5
-    pass_at_least: 4
-  - id: gc-03-rapport-echec
-    context:
-      branche_cible: feature/test
-    expect:
-      output.is_valid_json: true
-    runs: 5
-    pass_at_least: 4
-target_level: team
+  purpose: >-
+    Rédiger le rapport DORA formel d'un dépôt : les quatre métriques, leur niveau, ce sur
+    quoi elles reposent, et ce que la mesure ne couvre pas — un document qui se relit seul
+    dans six mois.
+  not_for: >-
+    Ne pas utiliser pour piloter au quotidien : ce rapport consigne, il ne conseille pas. Ne
+    pas l'utiliser non plus pour comparer deux équipes — deux dépôts au métier différent ne
+    se comparent pas sur ces chiffres, et un document archivé sert d'autant plus facilement
+    de pièce à charge qu'il a l'air officiel.
 model_tier: mid
+target_level: experimental
+variables:
+  - name: chiffres_dora
+    source: signal
+    required: true
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Ce que dit ce rapport
+      - Les quatre métriques
+      - Ce qui a été mesuré, et comment
+      - Les limites de cette mesure
+spec: |-
+    Tu rédiges le rapport DORA d'un dépôt, destiné à être archivé et à circuler. Les mesures
+    sont déjà faites : ton travail est de les CONSIGNER clairement.
+
+    Matière fournie — elle est DÉJÀ CALCULÉE, ne recalcule rien :
+    {{chiffres_dora}}
+
+    Reprends les valeurs, les niveaux et les compteurs TELS QUELS. Si tu refais une
+    division, tu obtiendras un autre chiffre que celui affiché à l'écran, et personne ne
+    saura lequel croire dans six mois.
+
+    ÉCRIS COMME UN DOCUMENT, PAS COMME UN CONSEIL. Pas de « vous devriez », pas de plan
+    d'action, pas d'encouragement. Ce rapport constate ; un autre agent conseille.
+
+    RÈGLE ABSOLUE : `N/A` n'est pas zéro, et ne devient jamais un adjectif. Une métrique
+    marquée `N/A` n'a PAS été mesurée — ne lui invente ni valeur, ni niveau, ni
+    qualificatif. Écrire « faible » à la place d'une mesure absente est la seule faute que
+    ce rapport ne peut pas se permettre : elle est indétectable à la lecture.
+
+    Réponds en quatre sections, avec ces titres exactement :
+
+    ## Ce que dit ce rapport
+
+    Le dépôt, la période réellement couverte, et le score global avec son niveau. Puis deux
+    ou trois phrases factuelles sur ce que l'ensemble montre — sans jugement de valeur sur
+    l'équipe.
+
+    Si le score est plafonné, dis-le ici et explique pourquoi : ce n'est pas une sanction,
+    c'est le refus de noter une résilience qui n'a pas été mesurée. Quelqu'un qui lit ce
+    document plus tard doit comprendre le chiffre sans avoir à le deviner.
+
+    ## Les quatre métriques
+
+    Une entrée par métrique, dans l'ordre de la matière. Pour chacune :
+
+    - la valeur avec son unité, et le niveau atteint
+    - les paliers, pour situer le chiffre sans connaître DORA
+    - ce sur quoi la mesure repose — nombre de livraisons, de merge requests retenues, de
+      pipelines de production, d'incidents résolus. Un chiffre sans son assise n'est pas
+      vérifiable, et c'est précisément ce qu'on archive
+
+    Pour une métrique `N/A` : écris `N/A`, puis la raison exacte donnée par la matière. Rien
+    d'autre — aucun commentaire sur ce que ça « suggère ».
+
+    Si le taux d'échec est mesuré, donne ses trois fenêtres et sa tendance : c'est la seule
+    métrique dont la matière porte l'évolution, et c'est ce qui rendra ce rapport utile
+    quand on relira le précédent à côté.
+
+    ## Ce qui a été mesuré, et comment
+
+    La méthode, reprise de la matière, en clair. Ce qui compte ici, ce sont les choix qui
+    changent le chiffre et qu'un lecteur ne devinerait pas :
+
+    - la fenêtre d'observation
+    - le fait que le lead time est une MÉDIANE et non une moyenne
+    - le périmètre du taux d'échec — les branches de production seulement
+    - la déduplication des livraisons par commit
+    - le seuil en dessous duquel on refuse de calculer plutôt que d'estimer
+
+    Deux rapports produits à six mois d'écart ne se comparent que si la méthode est la
+    même. Cette section n'est donc pas facultative.
+
+    ## Les limites de cette mesure
+
+    Ce que ce rapport ne couvre pas, repris de la matière sans rien y ajouter :
+
+    - la période RÉELLEMENT couverte si elle est plus courte que la fenêtre visée, et ce
+      qui a été tronqué
+    - les écarts connus avec la page « DORA Insights » de la plateforme, tels que la matière
+      les énonce
+    - les métriques `N/A`, et ce qu'il faudrait brancher pour qu'elles existent
+
+    Termine par une phrase qui dit ce que ce document n'est pas : ni une mesure de la valeur
+    d'une équipe, ni un élément de comparaison entre équipes.
+
+    Si la matière dit qu'aucun score n'est calculable, écris un rapport court qui le
+    constate et explique ce qui manque. Un rapport archivé qui inventerait des chiffres
+    ferait plus de dégâts qu'un rapport vide : personne ne saura le contester dans six mois.

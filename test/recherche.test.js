@@ -77,9 +77,19 @@ describe('le classement', () => {
 
 describe('la correspondance', () => {
   test('répond pendant qu\'on tape', () => {
-    // « revu » doit déjà trouver « revue » : sinon le champ paraît mort une frappe sur deux.
-    assert.ok(chercher(ENTREES, 'requet').length > 0);
-    assert.ok(chercher(ENTREES, 'migrat').length > 0);
+    /*
+     * « revu » doit déjà trouver « revue » : sinon le champ paraît mort une frappe sur deux.
+     *
+     * Le fragment est TIRÉ DU CATALOGUE, pas écrit à la main. Il l'était — « migrat » — et
+     * le jour où l'agent de migration a été retiré, ce test est devenu rouge pour une
+     * raison qui n'avait rien à voir avec la recherche. Un test de propriété ne doit pas
+     * dépendre de la présence d'un artefact précis.
+     */
+    const mot = ENTREES.flatMap((e) => String(e.artifact?.title || '').split(/[\s—]+/))
+      .find((m) => m.length > 6);
+    assert.ok(mot, 'le catalogue doit bien porter un mot assez long');
+    assert.ok(chercher(ENTREES, mot.slice(0, 5)).length > 0,
+      `« ${mot.slice(0, 5)} » devrait déjà trouver « ${mot} »`);
   });
 
   test('TOUS les fragments doivent correspondre', () => {

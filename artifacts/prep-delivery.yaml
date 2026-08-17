@@ -90,27 +90,27 @@ criteria:
 # l'étourderie.
 golden_cases:
   - id: gc-01-nominal
-    context: { repo: demo-spring, branch: feat/refunds }
+    context: { repo: demo-spring, stack: java, branch: feat/refunds }
     expect: { branch.mergeable: true, pipeline.status: success }
     runs: 5
     pass_at_least: 5
 
   - id: gc-02-conflits
-    context: { repo: demo-spring, branch: feat/conflict }
+    context: { repo: demo-spring, stack: java, branch: feat/conflict }
     expect: { branch.mergeable: false }
     runs: 5
     pass_at_least: 5
     expects_violation: true
 
   - id: gc-03-vuln
-    context: { repo: demo-vuln, branch: main }
+    context: { repo: demo-vuln, stack: java, branch: main }
     expect: { vulnerabilities.critical: 1 }
     runs: 5
     pass_at_least: 4
     expects_violation: true
 
   - id: gc-04-sans-overlays
-    context: { repo: demo-no-kustomize, branch: main }
+    context: { repo: demo-no-kustomize, stack: java, branch: main }
     expect: { pipeline.status: failed }
     runs: 3
     pass_at_least: 3
@@ -121,7 +121,7 @@ golden_cases:
   # cas — vérifier que le contrat rattrape bien le débordement. Sans `expects_violation`,
   # L022 signalerait la contradiction, et elle aurait raison de le faire.
   - id: gc-05-volume
-    context: { repo: demo-spring, branch: feat/large-refactor }
+    context: { repo: demo-spring, stack: java, branch: feat/large-refactor }
     expect: { output.files_touched: 47 }
     runs: 3
     pass_at_least: 2

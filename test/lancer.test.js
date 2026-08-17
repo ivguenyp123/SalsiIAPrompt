@@ -14,7 +14,7 @@
  */
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -94,9 +94,15 @@ describe('le contexte d\'un cas d\'or devient de la matière', () => {
   });
 
   test('tous les cas d\'or du registre se résolvent en vraies valeurs', () => {
-    // La propriété d'ensemble : aucun artefact publié ne porte un cas injouable.
-    for (const f of ['expliquer-un-code.yaml', 'relire-un-changement.yaml',
-                     'commit-message.yaml', 'expliquer-un-pipeline-en-echec.yaml']) {
+    /*
+     * La propriété d'ensemble : aucun artefact publié ne porte un cas injouable.
+     *
+     * Le DOSSIER, jamais une liste écrite à la main. Elle nommait quatre fichiers alors
+     * que le commentaire promettait « aucun artefact publié » — la promesse et le code
+     * disaient deux choses différentes, et supprimer un des quatre faisait rougir un test
+     * qui n'avait rien à voir.
+     */
+    for (const f of readdirSync(join(ROOT, 'artifacts')).filter((n) => /\.ya?ml$/.test(n))) {
       const art = load(`artifacts/${f}`);
       for (const g of art.golden_cases || []) {
         const v = valeursDepuisContexte(g.context, registres.entrees, lire);

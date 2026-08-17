@@ -38,7 +38,7 @@ const registres = {
 };
 
 /** Deux vraies briques du registre : la composition doit marcher sur le vrai matériel. */
-const BRIQUES = ['expliquer-un-code', 'resumer-un-incident', 'commit-message']
+const BRIQUES = ['expliquer-un-code', 'relire-un-changement', 'commit-message']
   .map((id) => lireYaml(`artifacts/${id}.yaml`));
 const PAR_ID = new Map(BRIQUES.map((a) => [a.id, a]));
 
@@ -127,8 +127,8 @@ describe('les entrées d\'une brique', () => {
 describe('la normalisation d\'une chaîne', () => {
   const c = chaine([
     { id: 'e1', artefact: 'expliquer-un-code', entrees: { repo: '{{repo}}', code: '{{code}}' } },
-    { id: 'e2', artefact: 'resumer-un-incident',
-      entrees: { repo: '{{repo}}', notes: 'Analyse :\n{{e1.sortie}}' } }
+    { id: 'e2', artefact: 'relire-un-changement',
+      entrees: { repo: '{{repo}}', diff: 'Analyse :\n{{e1.sortie}}' } }
   ]);
 
   test('le spec est RECALCULÉ, jamais celui du modèle', () => {
@@ -158,13 +158,13 @@ describe('la normalisation d\'une chaîne', () => {
 
   test('les critères sont HÉRITÉS de la dernière étape', () => {
     // Une chaîne rend ce que rend sa dernière étape : c'est sa sortie, donc son contrat.
-    assert.deepEqual(c.criteria, PAR_ID.get('resumer-un-incident').criteria);
+    assert.deepEqual(c.criteria, PAR_ID.get('relire-un-changement').criteria);
   });
 
   test('réordonner deux étapes réécrit le spec', () => {
     const inverse = chaine([
-      { id: 'e1', artefact: 'resumer-un-incident',
-        entrees: { repo: '{{repo}}', notes: '{{notes}}' } },
+      { id: 'e1', artefact: 'relire-un-changement',
+        entrees: { repo: '{{repo}}', diff: '{{diff}}' } },
       { id: 'e2', artefact: 'expliquer-un-code',
         entrees: { repo: '{{repo}}', code: '{{e1.sortie}}' } }
     ]);
@@ -252,8 +252,8 @@ describe('L025 — le câblage est résoluble', () => {
     const c = chaine([
       { id: 'e1', artefact: 'expliquer-un-code',
         entrees: { repo: '{{repo}}', code: '{{e2.sortie}}' } },
-      { id: 'e2', artefact: 'resumer-un-incident',
-        entrees: { repo: '{{repo}}', notes: '{{notes}}' } }
+      { id: 'e2', artefact: 'relire-un-changement',
+        entrees: { repo: '{{repo}}', diff: '{{diff}}' } }
     ]);
     assert.ok(lint(c, { ...registres, artifacts: BRIQUES })
       .findings.some((f) => f.code === 'L025' && /APRÈS/.test(f.message)));
@@ -272,8 +272,8 @@ describe('L025 — le câblage est résoluble', () => {
 describe('dérouler une chaîne', () => {
   const c = chaine([
     { id: 'e1', artefact: 'expliquer-un-code', entrees: { repo: '{{repo}}', code: '{{code}}' } },
-    { id: 'e2', artefact: 'resumer-un-incident',
-      entrees: { repo: '{{repo}}', notes: 'Analyse :\n{{e1.sortie}}' } }
+    { id: 'e2', artefact: 'relire-un-changement',
+      entrees: { repo: '{{repo}}', diff: 'Analyse :\n{{e1.sortie}}' } }
   ]);
 
   /** Une sortie qui satisfait le contrat de chaque brique du test. */
@@ -289,7 +289,7 @@ describe('dérouler une chaîne', () => {
 
     assert.equal(vus.length, 2);
     assert.equal(vus[0].entrees.code, 'int a;');
-    assert.equal(vus[1].entrees.notes, `Analyse :\n${bonne}`, 'le pont a bien été fait');
+    assert.equal(vus[1].entrees.diff, `Analyse :\n${bonne}`, 'le pont a bien été fait');
     assert.equal(r.conforme, true);
     assert.equal(r.sortie, bonne);
 
@@ -363,10 +363,10 @@ steps:
       repo: "{{repo}}"
       code: "{{code}}"
   - id: e2
-    artefact: resumer-un-incident
+    artefact: relire-un-changement
     entrees:
       repo: "{{repo}}"
-      notes: "Analyse :\\n{{e1.sortie}}"
+      diff: "Analyse :\\n{{e1.sortie}}"
 \`\`\``;
 
   test('la consigne ne cite que les briques du registre', () => {
@@ -386,7 +386,7 @@ steps:
     assert.equal(r.artefact.kind, 'chain');
     assert.equal(r.artefact.owner.person, 'ivguenyp123');
     assert.deepEqual(r.artefact.steps.map((e) => e.artefact),
-                     ['expliquer-un-code', 'resumer-un-incident']);
+                     ['expliquer-un-code', 'relire-un-changement']);
     assert.equal(r.report.blocked, false);
     assert.ok(r.rendu.includes('kind: chain'));
   });
@@ -413,7 +413,7 @@ steps:
   });
 
   test('une chaîne refusée repart avec les constats du linter', async () => {
-    const mauvaise = BONNE.replace('artefact: resumer-un-incident', 'artefact: nexiste-pas');
+    const mauvaise = BONNE.replace('artefact: relire-un-changement', 'artefact: nexiste-pas');
     const m = moteurDePapier([mauvaise, BONNE]);
     const r = await composer({ phrase: 'explique puis résume', auteur: 'moi' }, outils(m));
 
@@ -431,8 +431,8 @@ describe('POST /api/lancer sur une chaîne', async () => {
 
   const CHAINE = chaine([
     { id: 'e1', artefact: 'expliquer-un-code', entrees: { repo: '{{repo}}', code: '{{code}}' } },
-    { id: 'e2', artefact: 'resumer-un-incident',
-      entrees: { repo: '{{repo}}', notes: 'Analyse :\n{{e1.sortie}}' } }
+    { id: 'e2', artefact: 'relire-un-changement',
+      entrees: { repo: '{{repo}}', diff: 'Analyse :\n{{e1.sortie}}' } }
   ]);
 
   const fauxMoteur = (sorties) => {

@@ -190,7 +190,10 @@ describe('les cas d\'or se modifient au lieu d\'être transportés', () => {
     assert.equal(form.goldenCases.length, 5);
     assert.deepEqual(form.goldenCases[0], {
       id: 'gc-01-nominal',
-      context: [{ key: 'repo', value: 'demo-spring' }, { key: 'branch', value: 'feat/refunds' }],
+      // `stack` est declaree requise par l'artefact : sans elle, le cas d'or ne se joue
+      // pas. Il y manquait, et la liste figee de `lancer.test.js` ne pouvait pas le voir.
+      context: [{ key: 'repo', value: 'demo-spring' }, { key: 'stack', value: 'java' },
+                { key: 'branch', value: 'feat/refunds' }],
       expect: [{ target: 'branch.mergeable', value: 'true' },
                { target: 'pipeline.status', value: 'success' }],
       runs: '5', passAtLeast: '5',
