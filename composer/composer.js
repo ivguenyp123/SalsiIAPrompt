@@ -199,6 +199,7 @@ function basculer(mode) {
   $('familles').hidden = !enAgent();
   $('blocChaines').hidden = enAgent();
   $('blocMiens').hidden = !enAgent();
+  majReprendre();
 
   /*
    * « Sauver chez moi » vaut pour LES DEUX, et c'est une correction.
@@ -275,7 +276,22 @@ async function chargerMiennes(repo) {
  * la blanchisserie — composer en privé, faire enchaîner par quelqu'un d'autre, et laisser
  * la chaîne « hériter » d'une validation qui n'a jamais eu lieu.
  */
+/*
+ * Le compte sur le volet replié.
+ *
+ * Un volet fermé qui ne dit rien ne s'ouvre jamais : on ne sait pas s'il y a quelque
+ * chose derrière. Le chiffre est le seul moyen de le savoir sans cliquer.
+ */
+function majReprendre() {
+  const n = enAgent() ? MIENS.length : CHAINES.length;
+  const quoi = enAgent() ? 'agent' : 'suite';
+  $('nreprendre').textContent = n
+    ? `${n} ${quoi}${n > 1 ? 's' : ''} chez toi`
+    : 'rien pour l\'instant';
+}
+
 function rendreMiens() {
+  majReprendre();
   const zone = $('miens');
   if (!zone) return;
   zone.textContent = '';
@@ -330,6 +346,7 @@ function ouvrirMien(artefact) {
 /* ── Mes chaînes, et celles des autres ────────────────────────────────────── */
 
 function rendreChaines() {
+  majReprendre();
   const zone = $('chaines');
   zone.textContent = '';
   $('nchaines').textContent = String(CHAINES.length);
@@ -468,12 +485,51 @@ function sourcesPrompts() {
   return [...depuisRegistre, ...depuisInventaire];
 }
 
+/*
+ * ── LA PROVENANCE : LE FILTRE QUI DÉMÊLE ────────────────────────────────────
+ *
+ * La colonne mélangeait deux matières que rien ne permettait de séparer :
+ *
+ *   ✅ validé      la consigne d'un agent du registre. Un humain l'a relue.
+ *   🧰 plateforme  un besoin du hub DevOps. Personne ne l'a encore écrit.
+ *
+ * On les lisait à la file, et on ne pouvait pas n'en voir qu'une. Or on ne cherche
+ * jamais les deux en même temps : soit on part de ce qui est éprouvé, soit on part d'une
+ * capacité de la plateforme.
+ */
+/** D'où vient un morceau. `origine` dit déjà tout — on ne le redevine pas. */
+const sourceDe = (m) => (m.origine === 'registre' ? 'registre' : 'inventaire');
+
+const PROVENANCES = [
+  ['', 'Tout'],
+  ['registre', '✅ Validés'],
+  ['inventaire', '🧰 Plateforme']
+];
+let provenanceRetenue = '';
+
 function rendrePrompts() {
   const zone = $('briques');
   zone.textContent = '';
 
   const tous = sourcesPrompts();
   const q = $('recherche').value;
+
+  /*
+   * Le filtre de provenance ne s'affiche qu'en mode agent : une chaîne n'assemble que des
+   * agents du registre, donc un filtre à une seule valeur ne ferait qu'occuper la place.
+   */
+  const seg = $('provenances');
+  seg.hidden = !enAgent();
+  seg.textContent = '';
+  if (enAgent()) {
+    for (const [cle, label] of PROVENANCES) {
+      const n = cle ? tous.filter((m) => sourceDe(m) === cle).length : tous.length;
+      const b = el('button', { className: provenanceRetenue === cle ? 'on' : '' },
+        label, el('span', { className: 'n', textContent: String(n) }));
+      b.onclick = () => { provenanceRetenue = cle; rendrePrompts(); };
+      seg.append(b);
+    }
+  }
 
   /*
    * Les familles de l'inventaire. `familles()` rend des OBJETS — clé, titre, icône et
@@ -495,6 +551,7 @@ function rendrePrompts() {
   }
 
   const vus = tous.filter((m) => {
+    if (enAgent() && provenanceRetenue && sourceDe(m) !== provenanceRetenue) return false;
     if (famille && m.famille !== famille) return false;
     if (!q.trim()) return true;
     return filtrer([{ titre: m.titre, besoin: m.consigne, module: m.module || '',
@@ -510,15 +567,16 @@ function rendrePrompts() {
 
   for (const m of vus) {
     const n = el('div', { className: 'brique', draggable: true },
-      el('span', { className: 'poignee', textContent: '⠿' }),
-      el('span', {}, el('b', { textContent: m.titre }),
-                     el('small', { textContent: m.consigne })),
-      el('span', { className: 'sp' }),
-      el('span', { className: `src ${m.origine === 'registre' ? 'registre' : ''}`,
-                   textContent: m.origine === 'registre' ? 'validé' : (m.module || 'plateforme'),
-                   title: m.origine === 'registre'
-                     ? 'La consigne d\'un agent validé. Elle a été relue — mais l\'assemblage, lui, ne l\'a pas été.'
-                     : 'Un besoin de la plateforme. Personne ne l\'a encore écrit ni relu.' }));
+      el('b', { textContent: m.titre }),
+      el('small', { textContent: m.consigne }));
+
+    const pied = el('div', { className: 'pied' });
+    pied.append(el('span', { className: `src ${m.origine === 'registre' ? 'registre' : ''}`,
+                 textContent: m.origine === 'registre' ? 'validé' : (m.module || 'plateforme'),
+                 title: m.origine === 'registre'
+                   ? 'La consigne d\'un agent validé. Elle a été relue — mais l\'assemblage, lui, ne l\'a pas été.'
+                   : 'Un besoin de la plateforme. Personne ne l\'a encore écrit ni relu.' }));
+    n.append(pied);
 
     /*
      * Le morceau qui REPRODUIT, plutôt que celui qui aide.
@@ -531,9 +589,12 @@ function rendrePrompts() {
      * ne vaut rien.
      */
     if (m.contrat?.champs?.length) {
-      n.append(el('span', { className: 'src contrat', textContent: 'reproduit',
-                            title: provenance(m.contrat) }));
+      pied.append(el('span', { className: 'src contrat', textContent: 'reproduit',
+                               title: provenance(m.contrat) }));
     }
+    // La poignée ferme le pied : sur une carte, elle dit « ça se prend » sans occuper la
+    // première ligne, où le titre a besoin de toute la largeur.
+    pied.append(el('span', { className: 'poignee', textContent: '⠿' }));
 
     n.ondragstart = (e) => {
       n.classList.add('tire');

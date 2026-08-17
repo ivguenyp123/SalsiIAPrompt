@@ -62,8 +62,8 @@
   .fam button{font-size:11px;padding:4px 9px;border-radius:999px;color:var(--tm);font-weight:600}
   .fam button.on{color:#fff;background:rgba(124,92,252,.28);border-color:rgba(167,139,250,.6)}
   .brique .src{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;
-               border-radius:4px;padding:1px 5px;border:1px solid var(--line2);color:var(--tm);
-               white-space:nowrap;align-self:flex-start;margin-top:2px}
+               border-radius:4px;padding:2px 6px;border:1px solid var(--line2);color:var(--tm);
+               white-space:nowrap}
   .brique .src.registre{color:var(--ok);border-color:rgba(52,211,153,.45)}
   /* Un morceau qui REPRODUIT le rapport de son module — clés, calculs et seuils compris —
      et pas seulement un morceau qui parle du même sujet. La différence se voit au choix. */
@@ -88,26 +88,70 @@
                      background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.2);
                      border-radius:5px;padding:1px 6px}
 
-  /* ── L'établi ── */
+  /* ── Reprendre un travail : replié, et hors de la matière ── */
+  .reprendre{margin:0 0 16px;border:1px solid var(--line);border-radius:14px;
+             background:var(--bg-card);padding:12px 15px}
+  .reprendre > summary{cursor:pointer;font-size:12.5px;font-weight:700;color:var(--ts);
+                       list-style:none;display:flex;align-items:center;gap:9px}
+  .reprendre > summary::-webkit-details-marker{display:none}
+  .reprendre > summary::before{content:'▸';color:var(--tm);font-size:11px}
+  .reprendre[open] > summary::before{content:'▾'}
+  .reprendre > summary .n{margin-left:auto;font-family:var(--fm);font-size:11px;color:var(--tm)}
+  .reprendre h2{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;
+                color:var(--tm);margin:14px 0 8px;display:flex;align-items:center;gap:8px}
+  .reprendre h2 .n{margin-left:auto;font-family:var(--fm);font-size:11px}
+
+  /* ── L'établi ─────────────────────────────────────────────────────────────
+     La matière prend la LARGEUR, l'établi la garde fixe. On lisait la matière dans une
+     colonne de 320 px, en lignes serrées : illisible dès qu'il y a cent trente morceaux.
+     Les cartes ont besoin de place ; l'établi, lui, n'en gagne rien. */
   .etabli{display:grid;grid-template-columns:1fr;gap:18px;align-items:start}
-  @media(min-width:900px){.etabli{grid-template-columns:320px 1fr}}
+  @media(min-width:1000px){.etabli{grid-template-columns:minmax(0,1fr) 380px}}
+
+  /* L'ÉTABLI SUIT LE REGARD.
+     La matière est longue : en descendant pour trouver un morceau, la zone où le déposer
+     sortait de l'écran — on glissait dans le vide, ou on remontait vérifier. Collé en
+     haut, le point de dépose est toujours là. Il défile en interne s'il déborde. */
+  @media(min-width:1000px){
+    .etabli-droite{position:sticky;top:14px;max-height:calc(100vh - 28px);overflow:auto}
+  }
 
   .panneau{background:var(--bg-card);border:1px solid var(--line);border-radius:16px;padding:15px}
   .panneau > h2{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;
                 color:var(--tm);margin:0 0 10px;display:flex;align-items:center;gap:8px}
   .panneau > h2 .n{margin-left:auto;font-family:var(--fm);font-size:11px;color:var(--tm)}
 
-  #recherche{width:100%;font-size:12.5px;padding:8px 11px;margin-bottom:9px}
-  .briques{display:grid;gap:5px;max-height:560px;overflow:auto}
-  .brique{display:flex;gap:9px;align-items:flex-start;padding:9px 11px;border-radius:10px;
-          border:1px solid var(--line);background:rgba(0,0,0,.22);cursor:grab;user-select:none}
-  .brique:hover{border-color:rgba(167,139,250,.5);background:rgba(255,255,255,.05)}
+  #recherche{width:100%;font-size:13.5px;padding:11px 14px;margin-bottom:10px}
+
+  /* ── La provenance : le filtre qui démêle ce qui était mélangé ──
+     Une consigne déjà relue par un humain et un besoin de la plateforme que personne n'a
+     jamais écrit sont deux matières différentes. Elles se lisaient à la file, et rien ne
+     permettait de n'en voir qu'une. */
+  .seg{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:9px}
+  .seg button{font-size:11.5px;padding:5px 11px;border-radius:999px;color:var(--tm);font-weight:700}
+  .seg button.on{color:#fff;background:rgba(124,92,252,.28);border-color:rgba(167,139,250,.6)}
+  .seg button .n{opacity:.55;margin-left:5px;font-family:var(--fm)}
+
+  /* ── La matière, en cartes ──
+     Mêmes cartes qu'au Catalogue, et c'est le but : on y cherche de la même façon, on y
+     lit de la même façon. Une ligne de 320 px de large ne laissait voir qu'un titre
+     tronqué — on choisissait au hasard. */
+  .cartes{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(228px,1fr))}
+  .brique{display:flex;flex-direction:column;gap:7px;align-items:flex-start;text-align:left;
+          padding:14px 15px;border-radius:14px;border:1px solid var(--line);
+          background:rgba(0,0,0,.22);cursor:grab;user-select:none;transition:.15s}
+  .brique:hover{border-color:rgba(167,139,250,.5);background:var(--bg-card-h);
+                transform:translateY(-1px)}
   .brique:active{cursor:grabbing}
   .brique.tire{opacity:.4}
-  .brique b{display:block;font-size:12.5px;color:var(--tp);line-height:1.35}
-  .brique small{display:block;font-size:11px;color:var(--tm);line-height:1.5;margin-top:2px}
-  .brique .poignee{color:var(--tm);font-size:13px;line-height:1.2}
-  .brique .sp{flex:1}
+  .brique b{display:block;font-size:13.5px;color:var(--tp);line-height:1.35}
+  /* Trois lignes puis les points de suspension : assez pour juger, pas assez pour qu'une
+     carte bavarde écrase ses voisines et casse l'alignement de la grille. */
+  .brique small{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;
+                overflow:hidden;font-size:11.5px;color:var(--tm);line-height:1.5}
+  .brique .pied{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:auto;
+                padding-top:2px}
+  .brique .poignee{color:var(--tm);font-size:13px;line-height:1.2;margin-left:auto}
   .brique .plus{font-size:15px;color:var(--accent);line-height:1;opacity:0}
   .brique:hover .plus{opacity:1}
 
@@ -211,25 +255,40 @@
       instruction : elle ne fait que désigner ce qui existe déjà.</p>
   </div>
 
+  <!--
+    REPRENDRE, et non composer.
+
+    « Mes agents » et « Les suites » vivaient dans la colonne de matière, sous les
+    morceaux. On y lisait donc, à la file, des choses à GLISSER et des choses à ROUVRIR —
+    deux gestes opposés dans la même liste. C'est ce qui rendait la colonne illisible.
+
+    Ils sont sortis de l'établi et repliés : on les ouvre quand on veut retrouver un
+    travail, jamais en cherchant de la matière.
+  -->
+  <details class="reprendre" id="reprendre">
+    <summary>📂 Reprendre un travail <span class="n" id="nreprendre"></span></summary>
+
+    <div id="blocChaines">
+      <h2>Les suites <span class="n" id="nchaines">…</span></h2>
+      <div class="chaines" id="chaines"></div>
+    </div>
+
+    <div id="blocMiens">
+      <h2>Mes agents <span class="n" id="nmiens">…</span></h2>
+      <div class="chaines" id="miens"></div>
+    </div>
+  </details>
+
   <div class="etabli">
-    <section class="panneau">
+    <section class="panneau matiere">
       <h2 id="titreMatiere">Briques validées <span class="n" id="nbriques">…</span></h2>
-      <input id="recherche" placeholder="chercher…">
+      <input id="recherche" placeholder="chercher un morceau — « dora », « secret », « migration »…">
+      <div class="seg" id="provenances" hidden></div>
       <div class="fam" id="familles" hidden></div>
-      <div class="briques" id="briques"></div>
-
-      <div id="blocChaines">
-        <h2 style="margin-top:16px">Les suites <span class="n" id="nchaines">…</span></h2>
-        <div class="chaines" id="chaines"></div>
-      </div>
-
-      <div id="blocMiens">
-        <h2 style="margin-top:16px">Mes agents <span class="n" id="nmiens">…</span></h2>
-        <div class="chaines" id="miens"></div>
-      </div>
+      <div class="cartes" id="briques"></div>
     </section>
 
-    <section class="panneau">
+    <section class="panneau etabli-droite">
       <h2 id="titreToile">La chaîne <span class="n" id="netapes">0 étape</span></h2>
 
       <div class="identite" id="identite" hidden>
