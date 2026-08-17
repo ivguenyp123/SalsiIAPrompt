@@ -14,7 +14,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { STATUTS, DOSSIERS, inventaireParc, compter, filtrer, plier } from '../admin/parc.js';
+import { STATUTS, DOSSIERS, dossiersDe, inventaireParc, compter, filtrer, plier } from '../admin/parc.js';
 
 const f = (path, id, extra = {}) => ({
   path,
@@ -73,10 +73,40 @@ describe('les trois dossiers font une seule liste', () => {
     assert.match(e.erreur, /illisible/);
   });
 
-  test('les dossiers déclarés couvrent tous les statuts, et l\'inverse', () => {
-    // Ajouter un statut sans son dossier — ou l'inverse — donnerait une colonne que
-    // rien ne peut remplir, ou un dossier que rien n'affiche.
-    assert.deepEqual(DOSSIERS.map(([s]) => s).sort(), Object.keys(STATUTS).sort());
+  test('les dossiers d\'une personne couvrent tous les statuts, et l\'inverse', () => {
+    /*
+     * Ajouter un statut sans son dossier — ou l'inverse — donnerait une colonne que rien
+     * ne peut remplir, ou un dossier que rien n'affiche.
+     *
+     * La confrontation porte sur `dossiersDe(qui)` et non sur `DOSSIERS` : le statut
+     * « mien » vit dans DEUX dossiers, `mes-agents/<qui>` et `mes-chaines/<qui>`, dont le
+     * chemin dépend de la personne connectée. C'est ce qui manquait — le parc ne voyait
+     * que les trois dossiers gouvernés, et un agent sauvé chez soi restait au catalogue
+     * sans qu'aucun écran ne sache l'effacer.
+     */
+    const vus = new Set(dossiersDe('daniel').map(([s]) => s));
+    assert.deepEqual([...vus].sort(), Object.keys(STATUTS).sort());
+  });
+
+  test('sans personne connectée, aucun dossier personnel n\'est lu', () => {
+    // Le parc de quelqu'un d'autre ne se devine pas : `mes-agents/` porte un dossier par
+    // personne, et administrer ne donne pas le droit d'y entrer.
+    assert.deepEqual(dossiersDe('').map(([, d]) => d), DOSSIERS.map(([, d]) => d));
+  });
+
+  test('les deux dossiers personnels portent le MÊME statut', () => {
+    // Agents et chaînes gardés chez soi se gèrent pareil : les séparer en deux statuts
+    // obligerait à savoir lequel on cherche avant de chercher.
+    const miens = dossiersDe('daniel').filter(([, d]) => /^mes-/.test(d));
+    assert.deepEqual(miens.map(([s]) => s), ['mien', 'mien']);
+    assert.deepEqual(miens.map(([, d]) => d),
+      ['mes-agents/daniel', 'mes-chaines/daniel']);
+  });
+
+  test('un artefact personnel prend le statut « à moi »', () => {
+    const [e] = inventaireParc({ mien: [f('mes-agents/daniel/x.yaml', 'x')] });
+    assert.equal(e.statut, 'mien');
+    assert.equal(STATUTS.mien.label, 'à moi');
   });
 });
 
@@ -105,7 +135,7 @@ describe('ce que le tableau refuse d\'inventer', () => {
 describe('les compteurs', () => {
   test('toutes les clés sont là, y compris à zéro', () => {
     // Un compteur absent laisserait croire qu'il n'y a rien à voir de ce côté.
-    assert.deepEqual(compter([]), { revue: 0, actif: 0, retire: 0 });
+    assert.deepEqual(compter([]), { revue: 0, actif: 0, mien: 0, retire: 0 });
   });
 
   test('ils comptent tout, indépendamment des filtres', () => {
@@ -113,7 +143,7 @@ describe('les compteurs', () => {
       actif: [f('artifacts/a.yaml', 'a'), f('artifacts/b.yaml', 'b')],
       retire: [f('artifacts/retires/c.yaml', 'c')]
     });
-    assert.deepEqual(compter(l), { revue: 0, actif: 2, retire: 1 });
+    assert.deepEqual(compter(l), { revue: 0, actif: 2, mien: 0, retire: 1 });
     // Le filtre change ce qu'on voit, pas ce qu'on compte : sinon filtrer changerait
     // les chiffres, et un chiffre qui bouge selon la vue ne prouve rien.
     assert.deepEqual(compter(l), compter(inventaireParc({
@@ -163,6 +193,6 @@ describe('la recherche', () => {
   test('rien n\'explose sur une entrée vide', () => {
     assert.deepEqual(inventaireParc(), []);
     assert.deepEqual(filtrer(), []);
-    assert.deepEqual(compter(), { revue: 0, actif: 0, retire: 0 });
+    assert.deepEqual(compter(), { revue: 0, actif: 0, mien: 0, retire: 0 });
   });
 });

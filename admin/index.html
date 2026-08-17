@@ -76,6 +76,9 @@
   .sm b{font-family:var(--fd);font-size:17px;color:var(--tp)}
   .sm .d{width:9px;height:9px;border-radius:50%}
   .d-actif{background:var(--ok)} .d-retire{background:var(--tm)} .d-revue{background:var(--warn)}
+  /* « À moi » : violet comme le reste du personnel dans le produit — ni un succès
+     (ça n'a été relu par personne) ni une alerte (ça n'engage personne). */
+  .d-mien{background:var(--accent)}
 
   .toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:16px 0 12px}
   .search{flex:1 1 200px;min-width:180px;font-family:var(--fb);font-size:13.5px;color:var(--tp);
@@ -110,6 +113,7 @@
   .st.actif{color:var(--ok);background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.32)}
   .st.retire{color:var(--tm);background:rgba(255,255,255,.04);border:1px solid var(--line2)}
   .st.revue{color:var(--warn);background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.32)}
+  .st.mien{color:#c4b5fd;background:rgba(124,92,252,.12);border:1px solid rgba(124,92,252,.34)}
   .porte b{font-weight:800;font-size:12px}
   .porte .flag{font-size:10px;color:var(--err);display:block;margin-top:1px}
   /* La colonne que la maquette remplit de chiffres et qu'on laisse vide, exprès. */

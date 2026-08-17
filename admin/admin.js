@@ -35,7 +35,7 @@ import { lint, ERROR } from '../lint/index.js';
 import { makeValidator } from '../lib/schema.js';
 import yaml from '../lib/yaml.js';
 import { depuisCommits, parJour, resume, horsParcours, ACTIONS } from './journal.js';
-import { STATUTS, DOSSIERS, inventaireParc, compter, filtrer } from './parc.js';
+import { STATUTS, DOSSIERS, dossiersDe, inventaireParc, compter, filtrer } from './parc.js';
 import { niveau } from '../lib/niveau.js';
 import { carte } from '../runtime/etat-derive.js';
 import { lire as lireProvenance } from '../lib/provenance.js';
@@ -541,13 +541,24 @@ async function chargerParc() {
     }));
   };
 
+  /*
+   * Les dossiers de CETTE personne : les trois gouvernés, plus les siens. Un dossier
+   * personnel absent — on n'a jamais rien sauvé chez soi — rend une liste vide plutôt
+   * qu'une erreur : ce n'est pas une panne, c'est un parc sans brouillon.
+   */
+  const dossiers = dossiersDe(session.username);
+
   try {
-    const lots = await Promise.all(DOSSIERS.map(([, d]) => lire(d)));
+    const lots = await Promise.all(dossiers.map(([, d]) => lire(d).catch(() => [])));
+    // Deux dossiers portent le statut « mien » : on les fusionne au lieu d'écraser l'un
+    // par l'autre — sinon les chaînes personnelles disparaissaient derrière les agents.
+    const parStatut = {};
+    dossiers.forEach(([statut], i) => { (parStatut[statut] ||= []).push(...lots[i]); });
     // `ctx.derive` vient de `derive/etat.json`, écrit par le banc d'essai. Il vaut `null`
     // tant que personne n'a joué de cas d'or : les niveaux restent alors « visé ». Le
     // basculement en « atteint » s'est fait sans revenir ici — c'était tout l'intérêt de
     // le passer avant qu'il existe.
-    pvue.entrees = inventaireParc(Object.fromEntries(DOSSIERS.map(([s], i) => [s, lots[i]])), ctx.derive);
+    pvue.entrees = inventaireParc(parStatut, ctx.derive);
     pvue.charge = true;
   } catch (error) {
     $('pcount').textContent = '';
@@ -670,6 +681,12 @@ function actionsParc(e) {
     const versFile = el('button', { className: 'btn pub', textContent: 'À valider →' });
     versFile.onclick = () => montrerVue('valider');
     out.push(versFile);
+  } else if (e.statut === 'mien') {
+    /*
+     * Un agent gardé chez soi n'a ni retrait ni remise : il n'est au catalogue de
+     * personne d'autre, donc il n'y a rien à en sortir. Restent l'édition et
+     * l'effacement — et c'est justement l'effacement qui manquait.
+     */
   } else if (e.statut === 'actif') {
     const retirer = el('button', { className: 'btn off', textContent: '⏸ Retirer' });
     retirer.onclick = () => agirParc(e, 'retirer');
@@ -712,14 +729,21 @@ const QUESTIONS = {
   supprimer: (nom) => `Supprimer « ${nom} » ?\n\n`
     + 'Le fichier est effacé du registre. L\'historique du dépôt le garde — rien ne '
     + 'disparaît vraiment d\'un dépôt git — mais plus aucun écran ne le retrouvera.\n\n'
-    + 'Pour le sortir du catalogue sans l\'effacer, utilise « Retirer ».'
+    + 'Pour le sortir du catalogue sans l\'effacer, utilise « Retirer ».',
+  // Un artefact personnel n'a pas de « Retirer » à proposer en repli : la question doit
+  // donc dire tout de suite que c'est sans retour, et où il disparaît.
+  supprimerMien: (nom) => `Supprimer « ${nom} » ?\n\n`
+    + 'C\'est un agent que tu as sauvé chez toi. Il disparaîtra de TON catalogue, et il '
+    + 'n\'y a pas de « Retirer » pour celui-là : le geste est sans retour.\n\n'
+    + 'L\'historique du dépôt en gardera la trace.'
 };
 
 const CIBLE = { retirer: 'artifacts/retires', reactiver: 'artifacts' };
 
 async function agirParc(e, action) {
   const nom = e.titre;
-  if (!confirm(QUESTIONS[action](nom))) return;
+  const question = action === 'supprimer' && e.statut === 'mien' ? 'supprimerMien' : action;
+  if (!confirm(QUESTIONS[question](nom))) return;
 
   for (const b of document.querySelectorAll('#vue-parc .btn')) b.disabled = true;
 

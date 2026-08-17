@@ -29,20 +29,51 @@
  * Module PUR : aucune forge, aucun DOM.
  */
 import { niveau } from '../lib/niveau.js';
+import { RACINES, proprietaire } from '../lib/mien.js';
 
 /** Les statuts, du plus demandeur d'attention au plus stable. */
 export const STATUTS = {
   revue: { label: 'en revue', ordre: 0, aide: 'soumis, attend une décision humaine' },
   actif: { label: 'actif', ordre: 1, aide: 'visible au catalogue, lançable' },
-  retire: { label: 'retiré', ordre: 2, aide: 'hors catalogue, réactivable d\'un clic' }
+  mien: { label: 'à moi', ordre: 2,
+          aide: 'sauvé chez toi — tu es seul à le voir, et seul à pouvoir l\'effacer' },
+  retire: { label: 'retiré', ordre: 3, aide: 'hors catalogue, réactivable d\'un clic' }
 };
 
-/** Les dossiers, et le statut que chacun porte. */
+/** Les dossiers GOUVERNÉS, et le statut que chacun porte. */
 export const DOSSIERS = [
   ['revue', 'artifacts/pending'],
   ['actif', 'artifacts'],
   ['retire', 'artifacts/retires']
 ];
+
+/*
+ * ── LE PARC DOIT VOIR CE QUE LE CATALOGUE MONTRE ─────────────────────────────
+ *
+ * Le Catalogue liste `artifacts/` PLUS `mes-agents/<toi>/` et `mes-chaines/<toi>/` — ce
+ * qu'on a sauvé chez soi, et qui se lance comme le reste. Le parc, lui, ne connaissait que
+ * les trois dossiers gouvernés.
+ *
+ * Constaté à l'usage, et c'est un défaut sérieux : on supprime un agent depuis le parc, il
+ * reste au catalogue. Rien n'a raté — c'est un AUTRE fichier, souvent de même nom, dans un
+ * dossier que l'écran d'administration ne regardait pas. Et il n'existait NULLE PART où
+ * l'effacer : un agent qu'on pouvait créer et pas supprimer.
+ *
+ * Un écran qui prétend gérer le catalogue doit voir tout ce que le catalogue affiche,
+ * sinon « supprimer » ment.
+ *
+ * SEULEMENT LES SIENS. `mes-agents/` porte un dossier par personne, et le catalogue ne
+ * montre à chacun que le sien. Le parc suit la même règle : administrer ne donne pas le
+ * droit de fouiller les brouillons des autres — ces fichiers n'engagent qu'eux-mêmes, et
+ * c'est justement ce qui les dispense de validation.
+ */
+export const dossiersMiens = (qui) => (qui
+  ? [['mien', `${RACINES.prompt}/${proprietaire(qui)}`],
+     ['mien', `${RACINES.chain}/${proprietaire(qui)}`]]
+  : []);
+
+/** Tout ce que CETTE personne peut administrer : le gouverné, et le sien. */
+export const dossiersDe = (qui) => [...DOSSIERS, ...dossiersMiens(qui)];
 
 const idDe = (f) =>
   f?.artifact?.id || f?.path?.split('/').pop()?.replace(/\.ya?ml$/, '') || '';
@@ -66,7 +97,9 @@ export const plier = (s) => String(s || '')
 export function inventaireParc(entree = {}, derive = null) {
   const out = [];
 
-  for (const [statut] of DOSSIERS) {
+  // Sur les STATUTS et non sur `DOSSIERS` : deux dossiers portent le statut « mien », et
+  // un statut sans dossier — personne de connecté — rend simplement une liste vide.
+  for (const statut of Object.keys(STATUTS)) {
     for (const f of entree[statut] || []) {
       const a = f?.artifact || {};
       out.push({
