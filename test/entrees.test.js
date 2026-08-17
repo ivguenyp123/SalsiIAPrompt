@@ -18,7 +18,7 @@
  */
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -201,9 +201,20 @@ describe('L023 — un cas d\'or joue sur une entrée qui existe', () => {
     assert.ok(!lint(a, vide).findings.some((f) => f.code === 'L023'));
   });
 
-  test('les artefacts du registre s\'y conforment', () => {
-    for (const f of ['commit-message.yaml', 'expliquer-un-pipeline-en-echec.yaml',
-                     'prep-delivery.yaml', 'verifier-les-migrations-flyway.yaml']) {
+  test('les artefacts du registre s\'y conforment — TOUS, pas une liste écrite ici', () => {
+    /*
+     * Ce test nommait quatre fichiers en dur. `artifacts/` est un dossier que les gens
+     * administrent depuis l'écran : le jour où l'un d'eux a retiré « Vérifier les
+     * migrations Flyway », la suite est devenue rouge sur un geste parfaitement normal.
+     *
+     * Un test qui casse quand le produit s'utilise correctement apprend à ignorer les
+     * tests. On lit donc le dossier tel qu'il est — ce qui couvre aussi tout ce qui y
+     * sera ajouté sans que personne pense à revenir ici.
+     */
+    const fichiers = readdirSync(join(ROOT, 'artifacts')).filter((f) => /\.ya?ml$/.test(f));
+    assert.ok(fichiers.length, 'aucun artefact au registre : vérifier le test');
+
+    for (const f of fichiers) {
       const rapport = lint(charger(`artifacts/${f}`), ctx);
       assert.equal(rapport.blocked, false,
         `${f} : ${rapport.findings.filter((x) => x.severity === ERROR).map((x) => x.code).join(', ')}`);

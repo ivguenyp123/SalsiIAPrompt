@@ -919,7 +919,7 @@ async function brancheDe(depot) {
  * repliée : personne n'a besoin de la voir pour s'en servir, et tout le monde doit
  * pouvoir la lire pour la contester.
  */
-function champCalcule(variable) {
+function champCalcule(variable, { surEtat = () => {} } = {}) {
   const zone = el('textarea', { rows: 8 });
   const etat = el('div', { className: 'calc-etat' });
   const refaire = el('button', { type: 'button', textContent: '↻ recalculer', hidden: true });
@@ -944,12 +944,22 @@ function champCalcule(variable) {
   let enCours = 0;
   async function calculer(depot) {
     const mien = ++enCours;
+    /*
+     * On vide AVANT de recalculer, et c'est volontaire : garder les chiffres du dépôt
+     * précédent le temps du calcul enverrait à l'agent la répartition d'un AUTRE dépôt,
+     * sous le nom du nouveau. Le vide se voit, la confusion non.
+     *
+     * En contrepartie, il faut interdire de lancer pendant ce vide — sinon on part avec
+     * un trou, et le pré-vol refuse pour P003 alors que rien n'est cassé. C'est ce que
+     * `surEtat` sert à dire au bouton.
+     */
     zone.value = '';
     detail.hidden = true;
     refaire.hidden = !depot;
 
-    if (!depot) { dire('Choisis un dépôt ci-dessus.'); return; }
+    if (!depot) { dire('Choisis un dépôt ci-dessus.'); surEtat(false); return; }
     dire(`Lecture de ${depot}…`, 'attente');
+    surEtat(true);
 
     try {
       const r = await matiereCalculee(variable.name, depot);
@@ -965,6 +975,14 @@ function champCalcule(variable) {
       // répondrait quand même, et c'est exactement ce qu'on cherche à empêcher.
       dire(`Impossible de calculer : ${error.message}`, 'ko');
       detail.hidden = false;
+    } finally {
+      /*
+       * Dans le `finally`, sans condition. Un calcul doublé par un plus récent sort par
+       * `return` — s'il ne rendait pas son jeton, le compteur ne retomberait jamais à zéro
+       * et le bouton resterait bloqué pour toujours. Chaque appel prend un jeton et le
+       * rend, quelle que soit la sortie.
+       */
+      surEtat(false);
     }
   }
 
@@ -1208,6 +1226,16 @@ function ouvrirExecution(entry) {
    * apprend à ignorer les sélecteurs.
    */
   const calcules = [];
+  /*
+   * Combien de matières sont en train d'être calculées.
+   *
+   * Le défaut qu'il corrige : sur un dépôt à douze zones, le calcul demande une dizaine
+   * d'appels et prend quelques secondes. Cliquer « Exécuter » pendant ce temps envoyait
+   * un champ VIDE — et le pré-vol refusait pour `P003`, « variable requise non résolue ».
+   * Ça ressemblait à un défaut du produit alors que c'était une course : le premier essai
+   * passait, le suivant non, sans que rien d'autre ait changé.
+   */
+  let calculsEnCours = 0;
   const aCalculer = (artifact.variables || []).some((v) => saitCalculer(v.name));
   const depotCalc = aCalculer
     ? champDepot({ forge, surChoix: (choisi) => {
@@ -1272,7 +1300,11 @@ function ouvrirExecution(entry) {
     // c'est volontaire : prétendre calculer ce qu'on ignore rendrait un champ vide sans
     // dire pourquoi.
     if (saitCalculer(v.name)) {
-      const bloc = champCalcule(v);
+      const bloc = champCalcule(v, { surEtat: (occupe) => {
+        calculsEnCours += occupe ? 1 : -1;
+        if (calculsEnCours < 0) calculsEnCours = 0;
+        majDepart();
+      } });
       saisies[v.name] = bloc.controle;
       calcules.push(bloc);
       grille.append(bloc.noeud);
@@ -1287,13 +1319,15 @@ function ouvrirExecution(entry) {
     form.append(el('h4', { textContent: `Valeurs (${artifact.variables.length})` }), grille);
   }
 
-  // La liste des dépôts se remplit après coup : elle demande un appel à la forge, et
-  // l'écran doit s'afficher avant, pas après.
-  if (depotCalc) {
-    depotCalc.remplir().then(() => {
-      for (const c of calcules) c.calculer(depotCalc.valeur());
-    });
-  }
+  /*
+   * La liste des dépôts se remplit après coup : elle demande un appel à la forge, et
+   * l'écran doit s'afficher avant, pas après.
+   *
+   * On ne relance PAS le calcul derrière : `remplir()` prévient déjà `surChoix` une fois
+   * la sélection faite. Le faire aussi ici lançait deux calculs concurrents, dont un
+   * aussitôt périmé — et le bouton restait bloqué sur « lecture du dépôt ».
+   */
+  if (depotCalc) depotCalc.remplir();
 
   choixCas.onchange = () => {
     const rejoue = Boolean(choixCas.value);
@@ -1315,6 +1349,22 @@ function ouvrirExecution(entry) {
   const actions = el('div', { className: 'acts' });
   const partir = el('button', { className: 'primary', textContent: '▶ Exécuter' });
   actions.append(partir);
+
+  /*
+   * On ne part que si le moteur répond ET si la matière est prête. Le bouton dit LAQUELLE
+   * des deux manque : « moteur indisponible » et « matière en cours de calcul » ne
+   * s'attendent pas de la même façon.
+   */
+  let moteurPret = false;
+  function majDepart() {
+    const occupe = calculsEnCours > 0;
+    partir.disabled = !moteurPret || occupe;
+    partir.textContent = occupe ? '… lecture du dépôt' : '▶ Exécuter';
+    partir.title = occupe
+      ? 'La matière est en train d\'être calculée depuis le dépôt. Partir maintenant '
+        + 'enverrait un champ vide.'
+      : '';
+  }
   form.append(actions);
 
   const zone = el('div');
@@ -1322,7 +1372,8 @@ function ouvrirExecution(entry) {
 
   etatMoteur().then((m) => {
     moteurBloc.hidden = m.pret;
-    partir.disabled = !m.pret;
+    moteurPret = m.pret;
+    majDepart();
     if (m.pret) {
       actions.append(el('span', { className: 'note',
         textContent: `${m.fournisseur} · ${m.ou} · palier ${artifact.model_tier || 'mid'}` }));
@@ -1357,12 +1408,13 @@ function ouvrirExecution(entry) {
       corps = await r.json();
     } catch (error) {
       zone.append(el('div', { className: 'verdict ko', textContent: `✕ ${error.message}` }));
-      partir.disabled = false; partir.textContent = '▶ Exécuter';
+      // `majDepart` et pas `disabled = false` : un recalcul a pu démarrer pendant l'appel,
+      // et rouvrir le bouton à la main le rendrait cliquable sur une matière vide.
+      majDepart();
       return;
     }
 
-    partir.textContent = '▶ Exécuter';
-    partir.disabled = false;
+    majDepart();
     rendreResultat(corps, r.status);
   }
 
