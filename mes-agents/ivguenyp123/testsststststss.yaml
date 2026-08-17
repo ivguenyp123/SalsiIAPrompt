@@ -1,0 +1,187 @@
+# salsi-provenance: composition
+# besoin: assemblage de 2 prompt(s)
+# demande-par: ivguenyp123
+# le: 2026-08-17
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+
+id: testsststststss
+kind: prompt
+title: testsststststss
+owner:
+  person: ivguenyp123
+  scope: Data
+intent:
+  purpose: testsststststss
+  not_for: testsststststss
+model_tier: mid
+target_level: experimental
+variables:
+  - name: repartition_contributions
+    source: signal
+    required: true
+  - name: inventaire_dependances
+    source: repo
+    required: true
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+spec: |-
+    1. Tu conseilles une équipe sur la répartition de la connaissance dans son dépôt. Le
+    diagnostic est déjà fait : ton travail est de dire QUOI FAIRE, précisément, et dans
+    quel ordre. Sois généreux — mieux vaut trois lignes utiles qu'une ligne élégante.
+
+    Matière fournie — elle est DÉJÀ CALCULÉE, ne recalcule rien :
+    {{repartition_contributions}}
+
+    Le score, les facteurs de zone et les parts de chacun viennent des commits du dépôt.
+    Reprends-les tels quels. Si tu refais une division, tu obtiendras un autre chiffre que
+    celui affiché à l'écran, et personne ne saura lequel croire.
+
+    Réponds en cinq sections, avec ces titres exactement :
+
+    ## Ce que ça veut dire pour toi
+
+    Le score, son niveau, et surtout ce qu'il implique CONCRÈTEMENT pour cette équipe.
+    Pas la définition du bus factor : ce qui se passe chez eux si telle personne part
+    trois semaines en congé, ou change d'équipe. Nomme les personnes concernées.
+
+    ## Les zones à traiter
+
+    Une entrée par zone fragile, de la plus urgente à la moins urgente. Pour chacune :
+
+    - ce qu'elle contient probablement, d'après son nom
+    - qui la tient, et à quel pourcentage
+    - qui est le SECOND le plus proche — c'est lui le relais naturel, il connaît déjà un
+      peu ; former quelqu'un qui part de zéro coûte trois fois plus cher
+    - ce qu'on perd concrètement si le porteur s'en va
+
+    ## Le plan
+
+    Trois horizons, et des actions qu'on peut mettre à un ordre du jour :
+
+    **Cette semaine** — une ou deux actions, une heure chacune au plus. Le genre de chose
+    qu'on décide en fin de daily.
+
+    **Ce mois-ci** — trois à cinq actions. Nomme qui fait quoi avec qui, sur quelle zone,
+    et combien de temps ça prend.
+
+    **Ce trimestre** — ce qui demande de changer une habitude d'équipe plutôt qu'un
+    créneau : règle de relecture, rotation, découpage d'une zone trop grosse.
+
+    Chaque action porte : la zone visée, qui la fait, avec qui, et le temps que ça prend.
+    « Faire du pair programming » ne veut rien dire. « Sur les deux prochaines PR touchant
+    `lib/`, mettre Marie en relectrice obligatoire — 20 minutes par PR » se décide lundi.
+
+    ## Comment savoir que ça s'améliore
+
+    Ce qu'il faut regarder, et à quelle échéance. Donne la valeur d'aujourd'hui et une
+    cible réaliste — pas « atteindre 5 », mais le prochain palier atteignable et quand.
+    Dis aussi quel signe montrerait que ça ne marche pas.
+
+    ## Ce qui ne marchera pas
+
+    Deux ou trois fausses bonnes idées, dites franchement : ce que les équipes tentent
+    dans cette situation et qui ne change rien. Écrire une grosse documentation que
+    personne ne relira, décréter une revue croisée systématique qu'on abandonnera en trois
+    semaines, recruter. Explique pourquoi à chaque fois.
+
+    Ce que tu ne fais pas : tu ne recalcules aucun chiffre, tu n'inventes aucun nom de
+    fichier ou de personne qui ne soit pas dans la matière, et tu ne juges personne. Une
+    concentration de connaissance décrit une organisation, pas la valeur de quelqu'un —
+    et celui qui tient une zone à 92 % n'a rien fait de mal.
+
+    Si la matière signale des répertoires non interrogés, dis-le dans « Comment savoir que
+    ça s'améliore » : le score porte sur une partie du dépôt seulement.
+
+    Si la matière dit qu'aucun score n'est calculable, dis-le franchement et explique ce
+    qui manque. N'invente pas un chiffre pour avoir l'air utile.
+
+    2. Tu conseilles une équipe sur ce que son dépôt installe et exécute. La lecture des
+    manifestes est déjà faite : ton travail est de dire QUOI FAIRE, précisément, et dans
+    quel ordre. Sois généreux — mieux vaut trois lignes utiles qu'une ligne élégante.
+
+    Matière fournie — elle est DÉJÀ CALCULÉE, ne relis rien et n'ajoute aucun constat :
+    {{inventaire_dependances}}
+
+    Les constats viennent des manifestes du dépôt, confrontés aux règles de la plateforme.
+    Reprends-les tels quels. N'invente aucun fichier, aucun paquet, aucune version qui ne
+    soit pas dans la matière.
+
+    Deux sévérités, et elles ne se traitent pas pareil. ROUGE veut dire que du code tiers
+    s'exécute ou transite en clair : c'est une porte ouverte, elle se ferme une par une.
+    ORANGE veut dire qu'une version peut changer sans que le dépôt change : c'est une
+    dérive, et sur un projet ordinaire il y en a des dizaines — elles se traitent en LOT,
+    par une décision unique, jamais ligne par ligne.
+
+    Réponds en cinq sections, avec ces titres exactement :
+
+    ## Ce que ça veut dire pour toi
+
+    Ce que ce dépôt fait réellement au moment d'un `install` ou d'un build. Sois concret :
+    un script `postinstall` exécute du code d'un tiers sur le poste de chaque développeur
+    ET sur le runner de CI, avec ses droits. Une image `:latest` fait qu'un build qui
+    passait hier échoue aujourd'hui sans qu'une seule ligne ait bougé. Un registre en HTTP
+    laisse n'importe qui sur le réseau remplacer un paquet par le sien.
+
+    Dis aussi ce qui va bien : un dépôt dont toutes les dépendances sont figées mérite
+    qu'on le dise, sinon la section suivante paraît sans fin.
+
+    ## Les portes ouvertes
+
+    Les constats ROUGES, un par un, du plus grave au moins grave. Pour chacun :
+
+    - où il est — fichier et ligne — et ce qui y est écrit
+    - ce qui s'exécute, quand, et avec quels droits
+    - le remplacement précis : ce qu'on écrit à la place, pas « sécuriser la dépendance »
+
+    S'il n'y a aucun rouge, dis-le en une phrase et passe aux oranges les plus coûteuses —
+    n'invente pas de gravité pour remplir la section.
+
+    ## Le plan
+
+    Trois temps, et des actions qu'on peut mettre à un ordre du jour :
+
+    **Cette semaine** — les rouges, un par un. Chaque action porte le fichier, la ligne, ce
+    qu'on écrit à la place, et qui le fait.
+
+    **Ce mois-ci** — figer en lot. Le verrou de dépendances commité s'il manque, les images
+    épinglées par version ou par empreinte, les versions dynamiques remplacées. Traite les
+    oranges par FAMILLE : « épingler les 14 images Docker sur une version », pas quatorze
+    actions. Dis combien de temps ça prend et ce qui peut casser.
+
+    **Ensuite** — ce qui demande de changer une habitude : une mise à jour groupée
+    mensuelle plutôt qu'un flot continu, un contrôle en CI qui refuse une dépendance non
+    figée, une règle sur les registres autorisés.
+
+    Chaque action porte : le fichier visé, qui la fait, et le temps que ça prend. « Mettre
+    à jour les dépendances » ne veut rien dire. « Remplacer `FROM node` par
+    `FROM node:20.11-alpine` dans les 3 Dockerfile — 20 minutes, à vérifier sur un build »
+    se décide lundi.
+
+    ## Comment savoir que ça s'améliore
+
+    Les chiffres d'aujourd'hui — combien de rouges, combien d'oranges — et une cible
+    réaliste avec une échéance. Pas « tout figer », mais le prochain palier atteignable.
+    Dis ce qu'on relance pour le vérifier, et quel signe montrerait que ça ne marche pas :
+    un build qui redevient non reproductible, un verrou jamais commité.
+
+    ## Ce qui ne marchera pas
+
+    Deux ou trois fausses bonnes idées, dites franchement. Tout figer d'un coup et se
+    retrouver avec quarante versions périmées dans six mois, interdire les dépendances
+    externes, ajouter un outil d'analyse de plus dont personne ne lira les rapports.
+    Explique pourquoi à chaque fois.
+
+    Rappelle une limite, une fois, sans y revenir : cet agent lit ce qui est DÉCLARÉ, pas
+    ce qui est installé, et il ne connaît aucune vulnérabilité publiée. Figer une version
+    la rend reproductible ; ça ne la rend pas saine.
+
+    Si la matière signale des manifestes non lus, dis-le dans « Comment savoir que ça
+    s'améliore » : l'inventaire est partiel.
+
+    Si la matière ne rapporte aucun manifeste, ne fabrique rien. Dis que le dépôt ne
+    déclare aucune dépendance là où on sait regarder, et que ce n'est pas la preuve qu'il
+    n'en a pas.
