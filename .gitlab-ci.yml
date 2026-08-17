@@ -3,7 +3,7 @@
 # Aucun LLM dans ce pipeline. Le verdict est déterministe, reproductible et explicable :
 # un auteur peut corriger, resoumettre et comprendre, et un refus est défendable en audit.
 
-stages: [lint]
+stages: [lint, deploy]
 
 registry:lint:
   stage: lint
@@ -20,3 +20,45 @@ registry:lint:
     - npm run lint      # tous les artefacts
   # Bloquant : c'est ce code de sortie qui fait de la porte une porte.
   allow_failure: false
+
+# ── L'application, en fichiers statiques ─────────────────────────────────────
+#
+# CE QUI MARCHE SANS SERVEUR. Se connecter, parcourir le catalogue, lire le guide,
+# composer un agent, l'enregistrer chez soi ou l'envoyer en validation, voir la porte
+# rendre son verdict. Tout ça tourne dans le navigateur : le lint, le schéma et les
+# contrats sont du JavaScript sans dépendance, et le registre se lit par l'API de la forge
+# avec le jeton de la personne connectée.
+#
+# CE QUI NE MARCHE PAS, ET POURQUOI. Tout ce qui appelle un modèle : lancer un agent, la
+# dictée du Studio, l'assistant de composition, le conseiller de cohérence. Ces quatre-là
+# passent par `/api/...`, c'est-à-dire par `serve.js`, parce que la clé du modèle ne peut
+# pas vivre dans le navigateur — sur une page publique elle serait lisible par quiconque
+# ouvre les outils de développement. Les écrans le disent d'eux-mêmes plutôt que de laisser
+# un bouton échouer au clic.
+#
+# Pour une démonstration où il faut VOIR un agent tourner, il faut donc `npm start`
+# quelque part, pas Pages. Pages montre le produit et la gouvernance ; il ne les exécute
+# pas.
+#
+# AVANT D'ACTIVER, UNE VÉRIFICATION QUI N'EST PAS TECHNIQUE. Les Pages d'un projet GitLab
+# peuvent être publiques même quand le dépôt est privé. Ce qui serait publié ici : le
+# guide, l'inventaire des capacités de la plateforme, et les contrats extraits — donc les
+# seuils internes des rapports. Régler « Pages access control » sur les membres du projet
+# avant le premier pipeline, pas après.
+
+pages:
+  stage: deploy
+  image: alpine:3.20
+  script:
+    # Liste EXPLICITE plutôt qu'une copie du dépôt entier : ce qui n'est pas nommé ne part
+    # pas en ligne. `cp` échoue si un dossier disparaît — le pipeline rougit au lieu de
+    # publier une application amputée d'un import.
+    - mkdir -p public
+    - cp -r index.html app admin catalogue composer demande guide studio public/
+    - cp -r lib lint preflight runtime public/
+    - cp -r registries inventaire entrees schema docs public/
+  artifacts:
+    paths: [public]
+  rules:
+    # Uniquement depuis la branche par défaut : une branche de travail ne publie rien.
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
