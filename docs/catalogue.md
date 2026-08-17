@@ -74,9 +74,38 @@ banc d'essai rejouera.
 
 Le bouton **Lancer** ouvre l'écran d'exécution.
 
+### Les agents qui ne demandent rien
+
+Certains agents n'ont **aucun champ à remplir**. Vous choisissez un dépôt dans la liste, et
+c'est tout : la plateforme lit la forge et calcule elle-même ce dont l'agent a besoin.
+
+| L'agent | Ce que la plateforme calcule pour lui |
+|---|---|
+| **Bus factor et plan d'action** | qui contribue, et sur quelles zones |
+| **Vérification des branches mortes** | l'âge de chaque branche, les protégées mises à part |
+| **Secrets exposés** | les fichiers à risque, confrontés à 24 motifs de secret |
+| **Chaîne d'approvisionnement** | les manifestes : versions non figées, scripts d'installation |
+| **Conformité CIS** | les contrôles du référentiel, leurs poids, et le verdict |
+| **Revue de sécurité du dépôt** | les trois précédents, d'un coup |
+
+C'est **la séparation qui fait marcher ces agents** : le chiffre est calculé par du code,
+déterministe et rejouable ; l'explication est écrite par le modèle, qui est bon à ça et
+mauvais à l'arithmétique. Un modèle à qui on demande de calculer un bus factor sans données
+répond « élevé », et aucun contrôle automatique ne peut le prendre en défaut — un critère
+vérifie une forme, jamais un fait.
+
+Le résultat du calcul s'affiche **avant** le lancement — *« bus factor 1 — RISQUE CRITIQUE ·
+3 contributeurs · 9 zones »* — et le détail complet reste à un clic, sous **voir la matière
+envoyée**. Vous voyez ce qui part avant que ça parte, et vous pouvez le contester.
+
+Ce que ces calculs **n'ont pas pu voir** est toujours écrit dans la matière, jamais masqué :
+les répertoires non interrogés, les fichiers non lus, les contrôles qui demandent des droits
+d'administration. Un scan partiel qui se présenterait comme complet est pire qu'un scan
+absent, parce qu'il rassure.
+
 ### Où va-t-il chercher la matière ?
 
-Trois sources, et c'est vous qui choisissez :
+Pour les autres agents, trois sources, et c'est vous qui choisissez :
 
 | Source | Quand |
 |---|---|

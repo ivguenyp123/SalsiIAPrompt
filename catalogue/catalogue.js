@@ -20,6 +20,9 @@ import { rapportHtml, nomFichier } from '../lib/rapport.js';
 import { sait as saitCalculer, zonesDepuisArbre, repartitionContributions,
          inventaireBranches, resumeCourt, resumeBranches,
          FENETRE, MAX_ZONES_INTERROGEES } from '../lib/signaux-matiere.js';
+import { fichierSuspect, MAX_FICHIERS_LUS, rapportSecrets, resumeSecrets,
+         ecosysteme, MAX_MANIFESTES_LUS, inventaireDependances, resumeDependances,
+         rapportConformite, resumeConformite } from '../lib/signaux-securite.js';
 import { indexer, chercher, etiquettes, porteEtiquettes } from '../lib/recherche.js';
 import { ETAPES, VU, jouables, placer } from '../lib/tour.js';
 import { niveau, pastille } from '../lib/niveau.js';
@@ -872,9 +875,33 @@ async function arbre(depot) {
  * marchera sur l'un comme sur l'autre.
  */
 async function matiereCalculee(nom, depot) {
-  if (nom === 'inventaire_branches') return matiereBranches(depot);
-  if (nom !== 'repartition_contributions') return null;
+  const calcul = CALCULS[nom];
+  return calcul ? calcul(depot) : null;
+}
 
+/*
+ * Un signal, une façon d'aller le chercher. Une table plutôt qu'une chaîne de `if` :
+ * chaque signal ajouté était une ligne de plus dans la même fonction, et le jour où l'un
+ * d'eux manquait, l'écran retombait sur un champ vide sans rien dire.
+ */
+const CALCULS = {
+  repartition_contributions: (depot) => matiereContributions(depot),
+  inventaire_branches: (depot) => matiereBranches(depot),
+  rapport_secrets: (depot) => matiereSecrets(depot),
+  inventaire_dependances: (depot) => matiereDependances(depot),
+  rapport_conformite: (depot) => matiereConformite(depot)
+};
+
+/** Le résumé d'une ligne, par signal. Sans entrée ici, l'écran n'afficherait rien. */
+const RESUMES = {
+  repartition_contributions: resumeCourt,
+  inventaire_branches: resumeBranches,
+  rapport_secrets: resumeSecrets,
+  inventaire_dependances: resumeDependances,
+  rapport_conformite: resumeConformite
+};
+
+async function matiereContributions(depot) {
   const ref = await brancheDe(depot);
   const [commits, chemins] = await Promise.all([
     forge.listCommits(depot, undefined, { perPage: FENETRE, ref }),
@@ -918,6 +945,81 @@ async function matiereBranches(depot) {
 
   const branches = brutes.map((b) => ({ ...b, quand: b.quand || dates.get(b.name) || '' }));
   return inventaireBranches({ depot, branches, maintenant: new Date().toISOString() });
+}
+
+/**
+ * Lire un lot de fichiers sans qu'un échec emporte les autres.
+ *
+ * Un `.env` illisible — droits, binaire, fichier trop gros — ne doit pas faire échouer le
+ * scan entier : il manquerait alors le rapport ET la raison. Le fichier saute, le compte
+ * des candidats ne bouge pas, et l'écart entre les deux est dit dans le texte produit.
+ */
+async function lireLot(depot, chemins, ref) {
+  const lus = await Promise.all(chemins.map(async (chemin) => {
+    const f = await forge.getFile(depot, chemin, ref).catch(() => null);
+    // 200 ko : au-delà c'est un dump ou un binaire, et le scanner de la plateforme les
+    // écarte pour la même raison — les lire coûte cher et ne trouve rien.
+    if (!f?.content || f.content.length > 200000) return null;
+    return { chemin, contenu: f.content };
+  }));
+  return lus.filter(Boolean);
+}
+
+/**
+ * Les secrets exposés — l'arbre, puis les seuls fichiers à risque.
+ *
+ * On ne lit PAS tout le dépôt : ce serait des milliers d'appels pour un taux de faux
+ * positifs qui rendrait le rapport inutilisable. Le filtre sur les noms de fichiers est
+ * celui de la plateforme, et ce qu'il laisse de côté est compté.
+ */
+async function matiereSecrets(depot) {
+  const ref = await brancheDe(depot);
+  const chemins = await arbre(depot);
+  const suspects = chemins.filter(fichierSuspect);
+  const fichiers = await lireLot(depot, suspects.slice(0, MAX_FICHIERS_LUS), ref);
+  return rapportSecrets({ depot, fichiers, candidats: suspects.length, total: chemins.length });
+}
+
+/** La chaîne d'approvisionnement — les manifestes, et rien d'autre. */
+async function matiereDependances(depot) {
+  const ref = await brancheDe(depot);
+  const chemins = await arbre(depot);
+  const cibles = chemins.map((c) => ({ chemin: c, eco: ecosysteme(c) })).filter((x) => x.eco);
+  const lus = await lireLot(depot, cibles.slice(0, MAX_MANIFESTES_LUS).map((c) => c.chemin), ref);
+  const ecoDe = new Map(cibles.map((c) => [c.chemin, c.eco]));
+  return inventaireDependances({
+    depot,
+    fichiers: lus.map((f) => ({ ...f, eco: ecoDe.get(f.chemin) })),
+    candidats: cibles.length
+  });
+}
+
+/**
+ * La conformité CIS — trois lectures, et l'aveu de ce qu'on ne peut pas voir.
+ *
+ * `pom.xml` n'est lu que s'il existe : une lecture de plus sur un dépôt Java, aucune
+ * ailleurs. Le reste des contrôles se déduit de l'arbre et des branches, déjà en cache.
+ */
+async function matiereConformite(depot) {
+  const ref = await brancheDe(depot);
+  const [info, branches, chemins] = await Promise.all([
+    forge.projectInfo(depot).catch(() => ({})),
+    forge.listBranches(depot).catch(() => []),
+    arbre(depot)
+  ]);
+
+  const cheminPom = chemins.find((c) => c === 'pom.xml' || c.endsWith('/pom.xml'));
+  const [pom, dernier] = await Promise.all([
+    cheminPom ? forge.getFile(depot, cheminPom, ref).then((f) => f?.content ?? null).catch(() => null)
+              : Promise.resolve(null),
+    forge.listCommits(depot, undefined, { perPage: 1, ref }).catch(() => [])
+  ]);
+
+  return rapportConformite({
+    depot, defaut: ref, visibilite: info.visibility || '', branches, chemins, pom,
+    derniereActivite: dernier[0]?.date || '',
+    maintenant: new Date().toISOString()
+  });
 }
 
 /*
@@ -1007,7 +1109,7 @@ function champCalcule(variable, { surEtat = () => {} } = {}) {
       dernier = r;
       zone.value = r.texte;
       detail.hidden = false;
-      dire(`✔ ${(variable.name === 'inventaire_branches' ? resumeBranches : resumeCourt)(r)}`, 'ok');
+      dire(`✔ ${(RESUMES[variable.name] || (() => 'matière calculée'))(r)}`, 'ok');
     } catch (error) {
       if (mien !== enCours) return;
       // On ne se rabat PAS sur un champ vide en silence : un agent lancé sans matière
@@ -1045,7 +1147,10 @@ function champCalcule(variable, { surEtat = () => {} } = {}) {
 /** Le nom qu'on montre. Personne ne doit lire `repartition_contributions` à l'écran. */
 const SIGNAL_LISIBLE = {
   repartition_contributions: 'Qui contribue, et où — calculé depuis le dépôt',
-  inventaire_branches: 'L\'état des branches — lu depuis le dépôt'
+  inventaire_branches: 'L\'état des branches — lu depuis le dépôt',
+  rapport_secrets: 'Les secrets exposés — scannés dans le dépôt',
+  inventaire_dependances: 'Les dépendances déclarées — lues dans les manifestes',
+  rapport_conformite: 'La conformité CIS — contrôlée sur le dépôt'
 };
 
 /**
@@ -1337,16 +1442,19 @@ function ouvrirExecution(entry) {
       continue;
     }
 
-    if (v.source === 'repo') {
-      const input = el('input', { placeholder: 'issu du dépôt' });
-      saisies[v.name] = input;
-      grille.append(champ(`{{${v.name}}}${v.required === false ? ' · facultative' : ''}`, input));
-      continue;
-    }
-
-    // Ce qu'on sait calculer ne se demande plus. Le reste continue de se demander — et
-    // c'est volontaire : prétendre calculer ce qu'on ignore rendrait un champ vide sans
-    // dire pourquoi.
+    /*
+     * Ce qu'on sait calculer ne se demande plus, et cette question se pose AVANT toutes
+     * les autres.
+     *
+     * Elle venait après le test `source: repo`, et `inventaire_dependances` est déclaré
+     * `repo` au vocabulaire — l'agent des dépendances retombait donc sur un champ texte
+     * d'une ligne, alors que la plateforme sait lire ses manifestes. La source déclarée
+     * dit d'où la matière VIENT ; elle ne dit pas qui va la chercher. Savoir la calculer
+     * l'emporte, quelle que soit l'étiquette.
+     *
+     * Le reste continue de se demander — et c'est volontaire : prétendre calculer ce
+     * qu'on ignore rendrait un champ vide sans dire pourquoi.
+     */
     if (saitCalculer(v.name)) {
       const bloc = champCalcule(v, { surEtat: (occupe) => {
         calculsEnCours += occupe ? 1 : -1;
@@ -1356,6 +1464,13 @@ function ouvrirExecution(entry) {
       saisies[v.name] = bloc.controle;
       calcules.push(bloc);
       grille.append(bloc.noeud);
+      continue;
+    }
+
+    if (v.source === 'repo') {
+      const input = el('input', { placeholder: 'issu du dépôt' });
+      saisies[v.name] = input;
+      grille.append(champ(`{{${v.name}}}${v.required === false ? ' · facultative' : ''}`, input));
       continue;
     }
 
@@ -1532,9 +1647,16 @@ function ouvrirExecution(entry) {
         // La matière telle qu'elle est PARTIE, relue sur le champ lui-même : c'est elle
         // que le modèle a eue sous les yeux, pas ce qu'on croit lui avoir donné.
         matiere: calcules.map((c) => c.controle.value).filter(Boolean).join('\n\n'),
-        // Les chiffres MESURÉS, à part du texte : le rapport en fait ses propres tableaux
-        // plutôt que de faire confiance à ce que le modèle en a recopié.
-        mesures: calcules.map((c) => c.dernier()).find(Boolean) || null,
+        /*
+         * Les chiffres MESURÉS, à part du texte : le rapport en fait ses propres tableaux
+         * plutôt que de faire confiance à ce que le modèle en a recopié.
+         *
+         * TOUTES les matières, et non plus la première. Un agent qui lit les secrets, les
+         * dépendances et la conformité en même temps n'exportait qu'un tiers de ce qu'il
+         * avait sous les yeux — et le rapport paraissait complet, ce qui est pire que de
+         * n'en montrer aucun.
+         */
+        mesures: calcules.map((c) => c.dernier()).filter(Boolean),
         postvol: corps.postvol || null,
         jetons: corps.jetons || null
       });

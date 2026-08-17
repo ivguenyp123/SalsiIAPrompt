@@ -97,6 +97,25 @@ contrats:
 #   Pipeline Generator   js/pipeline-generator.js   un fichier de CI
 #   Release Notes        js/releasenotes.js         un texte de notes
 #
+# ── PAS DE CONTRAT NE VEUT PAS DIRE PAS DE CALCUL ───────────────────────────
+#
+# Trois de ces modules ont fini par être RÉÉCRITS EN CALCUL, sans passer par un contrat, et
+# la distinction vaut d'être comprise : un contrat sert à fixer un VOCABULAIRE — des clés,
+# des unités, des seuils — quand deux rapports doivent se comparer. Une liste de constats
+# n'en a pas besoin : il n'y a rien à nommer, seulement des règles à appliquer.
+#
+#   js/secrets-scanner.js    → `rapportSecrets` et `inventaireDependances`
+#                              les 24 motifs, le filtre des fichiers à risque, l'écart des
+#                              valeurs factices, et les règles par écosystème
+#   js/gouvernance-repo.js   → `rapportConformite`
+#                              les contrôles CIS, leurs poids, l'exclusion du non vérifiable
+#                              du dénominateur, et le verdict binaire
+#
+# Ce qui se lit dans `lib/signaux-securite.js`. Deux divergences y sont assumées et écrites
+# sur place : la protection de branche ne peut être vérifiée qu'à moitié par notre couche
+# de forge — protégée oui, force push inconnu — et l'inactivité se mesure sur le dernier
+# commit là où le hub lit la dernière activité du projet.
+#
 # ── LA QUESTION OUVERTE A ÉTÉ TRANCHÉE, ET J'AVAIS LU LE MAUVAIS FICHIER ─────
 #
 # `js/insights.js` n'était pas « à rattacher » : c'EST le module « DORA Insights ». La

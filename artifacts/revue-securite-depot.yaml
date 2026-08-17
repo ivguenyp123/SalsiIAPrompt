@@ -1,0 +1,161 @@
+# salsi-provenance: main
+# besoin: l'état de sécurité de mon dépôt en une fois, et par quoi je commence
+# demande-par: ivguenyp123
+# le: 2026-08-17
+#
+# Agent ÉCRIT À LA MAIN. C'est le seul du lot à porter TROIS entrées, et il ne demande
+# pourtant rien : les trois sont calculées par la plateforme depuis le dépôt choisi.
+#
+# ── POURQUOI CROISER PLUTÔT QU'ADDITIONNER ─────────────────────────────────
+#
+# L'inventaire du hub le demande explicitement — « croiser le scan de secrets et l'audit
+# CIS pour classer les risques par urgence réelle ». La raison est concrète : une clé AWS
+# dans un `.env` n'a pas la même urgence selon que la branche par défaut est protégée ou
+# non, et selon que le dépôt est public ou privé. Trois rapports séparés laissent ce
+# croisement à faire de tête ; personne ne le fait.
+#
+# ── CE QU'IL N'AGRÈGE PAS, ET NE DOIT PAS AGRÉGER ──────────────────────────
+#
+# Il n'y a pas de « note de sécurité » globale, et il n'y en aura pas. Fabriquer une
+# moyenne entre trois secrets exposés, deux cents versions non figées et quatre écarts CIS
+# demanderait une pondération que personne n'a écrite — et surtout, elle noierait le seul
+# constat qui appelle une action dans l'heure.
+
+id: revue-securite-depot
+kind: prompt
+title: Revue de sécurité du dépôt — par quoi commencer
+owner:
+  person: ivguenyp123
+  scope: Securite
+tags: [securite, secrets, dependances, conformite, cis]
+intent:
+  purpose: >-
+    Donner l'état de sécurité d'un dépôt en une fois — secrets exposés, chaîne
+    d'approvisionnement, conformité CIS — et surtout dire par quoi commencer, en croisant
+    les trois plutôt qu'en les additionnant.
+  not_for: >-
+    Ne pas utiliser comme attestation ni comme audit complet. Le scan ne voit ni l'historique
+    git, ni les autres branches, ni les vulnérabilités publiées, et quatre contrôles de
+    conformité demandent des droits qu'il n'a pas. Il dit par quoi commencer, pas que tout va
+    bien.
+model_tier: large
+target_level: experimental
+variables:
+  - name: rapport_secrets
+    source: signal
+    required: true
+  - name: inventaire_dependances
+    source: signal
+    required: true
+  - name: rapport_conformite
+    source: signal
+    required: true
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Où en est ce dépôt
+      - Ce qui est urgent, et pourquoi maintenant
+      - Ce qui peut attendre
+      - Le plan
+      - Ce que cette revue ne voit pas
+spec: |-
+    Tu fais la revue de sécurité d'un dépôt pour l'équipe qui le tient. Les trois scans sont
+    déjà faits : ton travail est de les CROISER, puis de dire par quoi commencer. Sois
+    généreux — mieux vaut trois lignes utiles qu'une ligne élégante.
+
+    Matières fournies — elles sont DÉJÀ CALCULÉES, ne rescanne rien et n'ajoute aucun
+    constat :
+
+    Les secrets exposés :
+    {{rapport_secrets}}
+
+    La chaîne d'approvisionnement :
+    {{inventaire_dependances}}
+
+    La conformité CIS :
+    {{rapport_conformite}}
+
+    Reprends chiffres, fichiers et verdicts tels quels. N'invente rien qui ne soit dans les
+    trois matières. NE RECOPIE JAMAIS UNE VALEUR DE SECRET, même tronquée : désigne chaque
+    secret par son fichier, sa ligne et sa nature.
+
+    Ne fabrique aucune note globale. Les trois sujets ne se moyennent pas, et une moyenne
+    noierait le seul constat qui appelle une action dans l'heure.
+
+    Réponds en cinq sections, avec ces titres exactement :
+
+    ## Où en est ce dépôt
+
+    Trois phrases, une par sujet, chacune avec son chiffre. Puis ce que les trois disent
+    ENSEMBLE — c'est là que tu apportes quelque chose qu'aucun des trois rapports ne dit
+    seul. Croise vraiment :
+
+    - un secret exposé sur un dépôt PUBLIC est à considérer comme déjà connu ; sur un dépôt
+      privé, la question est différente
+    - un secret exposé quand la branche par défaut n'est pas protégée veut dire que
+      n'importe qui peut aussi réécrire l'historique où il se trouve
+    - une dépendance qui exécute du code à l'installation, sans CODEOWNERS pour la voir
+      passer, veut dire que ce code peut entrer sans que personne de compétent soit prévenu
+    - un dépôt sans verrou de dépendances ET sans versions figées ne rejoue pas deux fois
+      le même build : rien n'y est reproductible, donc rien n'y est vraiment vérifiable
+
+    ## Ce qui est urgent, et pourquoi maintenant
+
+    Ce qui se traite dans les vingt-quatre heures, du plus urgent au moins urgent, tous
+    sujets mêlés. Un secret actif passe avant un écart CIS, qui passe avant une version non
+    figée — à moins que le croisement ne dise le contraire — auquel cas explique-le.
+
+    Chaque entrée dit : ce que c'est, où c'est, ce que ça ouvre, le geste précis qui le
+    ferme, et combien de temps ça prend. Pas « sécuriser les secrets » : « révoquer la clé
+    du fichier `.env` ligne 12 dans la console du fournisseur, puis la remettre en variable
+    de CI — 30 minutes ».
+
+    S'il n'y a rien d'urgent, dis-le en une phrase. N'invente pas d'urgence pour remplir la
+    section : une revue qui crie tout le temps ne se lit plus.
+
+    ## Ce qui peut attendre
+
+    Le reste, groupé par FAMILLE et non ligne par ligne. « Épingler les 14 images Docker »
+    est une action ; quatorze actions n'en sont pas. Famille par famille : combien de
+    constats, ce que ça change, et le coût honnête.
+
+    Dis explicitement ce qui peut attendre SANS RISQUE, et ce qui peut attendre seulement
+    tant que rien d'autre ne bouge. Ce n'est pas la même chose, et c'est ce qu'une équipe a
+    besoin de savoir pour arbitrer.
+
+    ## Le plan
+
+    Trois temps, et des actions qu'on peut mettre à un ordre du jour :
+
+    **Cette semaine** — l'urgent, et rien d'autre. Qui fait quoi.
+
+    **Ce mois-ci** — les familles les plus coûteuses, et les écarts de conformité qui se
+    ferment par un fichier commité ou une case cochée.
+
+    **Ensuite** — ce qui demande de changer une habitude : un scan dans la CI qui refuse la
+    fusion, une revue obligatoire sur les fichiers de configuration, une mise à jour groupée
+    mensuelle. Une seule mesure tenue vaut mieux que trois annoncées.
+
+    Chaque action porte : ce qu'elle vise, qui la fait, et le temps que ça prend.
+
+    ## Ce que cette revue ne voit pas
+
+    La section qui empêche de prendre ce document pour une attestation, et elle est
+    obligatoire.
+
+    Dis-le franchement, en reprenant ce que les matières signalent :
+
+    - l'HISTORIQUE git et les autres branches ne sont pas lus : un secret retiré hier est
+      toujours là, et retirer un secret ne le révoque pas
+    - les fichiers ou manifestes non lus, s'il y en a — le scan est alors partiel, et
+      l'absence de constat sur eux ne prouve rien
+    - les contrôles de conformité NON VÉRIFIABLES, avec leur référence CIS : ils sont
+      retirés du calcul de la note, donc la note porte sur une partie de l'audit seulement
+    - aucune vulnérabilité publiée n'est connue de cette revue : une version figée est
+      reproductible, pas forcément saine
+
+    Termine par ce qu'il faudrait faire tourner d'autre pour couvrir ces angles morts.

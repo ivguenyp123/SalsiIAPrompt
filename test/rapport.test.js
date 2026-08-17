@@ -125,6 +125,72 @@ describe('les chiffres mesurés, montrés comme des chiffres', () => {
   });
 });
 
+/*
+ * Un rapport qui ne parle pas de bus factor.
+ *
+ * Les tableaux du bus factor sont écrits en dur — score, contributeurs, zones. Un rapport
+ * de secrets exposés n'a rien de tout ça, et il ne doit pas pour autant sortir nu. La
+ * matière décrit alors elle-même sa mise en page, et le rapport n'a pas à connaître son
+ * sujet.
+ */
+describe('une matière qui décrit sa propre mise en page', () => {
+  const secrets = { presentation: {
+    entete: { valeur: '3', libelle: 'secrets à révoquer', sous: '2 fichiers lus', ton: 'ko' },
+    tableaux: [{
+      titre: 'Où ils se trouvent',
+      colonnes: [{ libelle: 'Fichier' }, { libelle: 'Ligne', align: 'n' }],
+      lignes: [{ ton: 'ko', cellules: [{ texte: '.env', code: true }, { texte: '12' }] }],
+      note: '8 fichier(s) non lus.'
+    }]
+  } };
+
+  test('l\'en-tête et les tableaux viennent de la matière', () => {
+    const html = rapportHtml({ ...BASE, mesures: secrets });
+    assert.match(html, /<div class="score ko">/);
+    assert.match(html, /secrets à révoquer/);
+    assert.match(html, /Où ils se trouvent/);
+    assert.match(html, /<code>\.env<\/code>/);
+    assert.match(html, /8 fichier\(s\) non lus\./);
+  });
+
+  test('les tableaux du bus factor ne s\'invitent pas', () => {
+    const html = rapportHtml({ ...BASE, mesures: secrets });
+    assert.ok(!/Qui porte le code/.test(html));
+    assert.ok(!/Les zones, de la plus fragile/.test(html));
+  });
+
+  test('plusieurs matières : autant de chiffres, côte à côte et sans moyenne', () => {
+    /*
+     * Une revue de sécurité lit trois signaux. N'en exporter qu'un donnait un rapport qui
+     * paraissait complet — pire que de n'en montrer aucun. Et les agréger en une note
+     * unique inventerait une pondération que personne n'a écrite.
+     */
+    const conformite = { presentation: {
+      entete: { valeur: '67', libelle: 'non conforme', ton: 'ko' },
+      tableaux: [{ titre: 'Les contrôles', colonnes: [{ libelle: 'CIS' }],
+                   lignes: [{ cellules: [{ texte: '1.1.1' }] }] }]
+    } };
+    const html = rapportHtml({ ...BASE, mesures: [secrets, conformite] });
+    assert.match(html, /<div class="scores">/);
+    assert.match(html, /secrets à révoquer/);
+    assert.match(html, /non conforme/);
+    assert.match(html, /Où ils se trouvent/);
+    assert.match(html, /Les contrôles/);
+  });
+
+  test('une liste vide ne fabrique ni chiffre ni tableau', () => {
+    const html = rapportHtml({ ...BASE, mesures: [] });
+    assert.ok(!/class="score/.test(html));
+    assert.ok(!/Qui porte le code/.test(html));
+  });
+
+  test('un tableau large défile dans son cadre, pas la page entière', () => {
+    // Sinon le texte part de travers sur téléphone, et le rapport devient illisible là
+    // où il est le plus souvent ouvert.
+    assert.match(rapportHtml({ ...BASE, mesures: secrets }), /<div class="scroll">/);
+  });
+});
+
 describe('ce que le rapport refuse de laisser croire', () => {
   const html = rapportHtml(BASE);
 
