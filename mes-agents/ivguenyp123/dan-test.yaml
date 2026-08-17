@@ -1,0 +1,34 @@
+# salsi-provenance: composition
+# besoin: assemblage de 1 prompt(s)
+# demande-par: ivguenyp123
+# le: 2026-08-17
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+
+id: dan-test
+kind: prompt
+title: dan test
+owner:
+  person: ivguenyp123
+  scope: Data
+intent:
+  purpose: rererererererererer
+  not_for: ererererere
+model_tier: mid
+target_level: experimental
+variables:
+  - name: chiffres_dora
+    source: signal
+    required: true
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+spec: |-
+    1. Explique les 4 métriques DORA d'une équipe à quelqu'un qui ne les connaît pas
+
+    2. Rédige en cinq lignes le commentaire DORA pour le comité mensuel
+
+    Matière fournie :
+    - chiffres_dora : {{chiffres_dora}}
