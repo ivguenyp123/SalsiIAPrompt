@@ -117,6 +117,36 @@ c'est tout : la plateforme lit la forge et calcule elle-même ce dont l'agent a 
 | **DORA — vos quatre métriques et le plan** | fréquence, lead time, taux d'échec, rétablissement |
 | **DORA — le commentaire du comité** | les mêmes chiffres, pour cinq lignes |
 | **Taux d'échec — ce qui a bougé** | les trois fenêtres du taux d'échec, et la tendance |
+| **Conformité du parc** | l'audit CIS de **plusieurs** dépôts que vous cochez |
+| **Relire une merge request** | le diff de la MR choisie, avec son titre et ses branches |
+
+Trois formes de choix, et c'est **le signal** qui décide laquelle, jamais l'écran :
+
+- **un dépôt** — un menu déroulant, la plupart des agents ;
+- **plusieurs dépôts** — des cases à cocher, pour la conformité du parc. Rien n'est coché
+  au départ : un jeton voit des archives et des bacs à sable, et ce qui n'est pas coché est
+  compté à part plutôt que passé sous silence ;
+- **une merge request** — la liste des MR ouvertes du dépôt se déroule, vous en choisissez
+  une, le diff s'assemble seul.
+
+### 📮 Proposer les correctifs
+
+Sur la **conformité du parc**, un bouton apparaît à côté de l'export dès qu'un dépôt est en
+écart. Il ouvre **une merge request par dépôt**, qui ajoute `SECURITY.md` et `CODEOWNERS`
+quand ils manquent.
+
+Ce qu'il ne fait pas, et qui compte autant :
+
+- **il ne fusionne jamais.** Les équipes relisent, ajustent, fusionnent ou ferment ;
+- **il ne corrige aucun réglage de projet.** Protéger une branche, exiger deux
+  approbateurs, sécuriser un webhook : aucun commit ne les change. La description de la MR
+  les liste avec l'écran exact où aller les régler ;
+- **aucun modèle ne décide** de ce qui est écrit. Les fichiers et le texte viennent de
+  l'audit, par du code.
+
+Une confirmation liste les dépôts visés et les fichiers avant d'écrire quoi que ce soit.
+Sur GitHub le bouton est désactivé : l'ouverture d'une merge request n'y est pas
+implémentée — la cible est GitLab.
 
 C'est **la séparation qui fait marcher ces agents** : le chiffre est calculé par du code,
 déterministe et rejouable ; l'explication est écrite par le modèle, qui est bon à ça et

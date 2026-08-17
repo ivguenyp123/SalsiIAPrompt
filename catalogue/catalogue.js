@@ -17,7 +17,7 @@ import { prevol, SENSIBILITES } from '../preflight/index.js';
 import { SOURCES, sourceProbable, chercher as chercherFichier, diffUnifie, resume, grosse } from '../lib/matiere.js';
 import { rendre as rendreMd, ressembleADuMarkdown, lienSur } from '../lib/md.js';
 import { rapportHtml, nomFichier } from '../lib/rapport.js';
-import { sait as saitCalculer, surPlusieursDepots, zonesDepuisArbre,
+import { sait as saitCalculer, surPlusieursDepots, surUneMr, zonesDepuisArbre,
          repartitionContributions, inventaireBranches, resumeCourt, resumeBranches,
          FENETRE, MAX_ZONES_INTERROGEES } from '../lib/signaux-matiere.js';
 import { fichierSuspect, MAX_FICHIERS_LUS, rapportSecrets, resumeSecrets,
@@ -26,6 +26,7 @@ import { fichierSuspect, MAX_FICHIERS_LUS, rapportSecrets, resumeSecrets,
 import { chiffresDora, resumeDora, FENETRE_JOURS,
          MAX_PIPELINES, MAX_MR } from '../lib/signaux-dora.js';
 import { parcSecurite, resumeParc, MAX_DEPOTS } from '../lib/signaux-parc.js';
+import { revueMr, resumeRevue } from '../lib/signaux-revue.js';
 import { BRANCHE as BRANCHE_CORRECTIFS, fichiersAProposer, aProposer,
          descriptionMr, titreMr, messageCommit } from '../lib/correctifs.js';
 import { indexer, chercher, etiquettes, porteEtiquettes } from '../lib/recherche.js';
@@ -1030,6 +1031,19 @@ async function matiereDependances(depot) {
 }
 
 /**
+ * Le diff d'une merge request, assemblé — un appel, et le contexte avec.
+ *
+ * Le titre et les branches partent avec le diff : l'écart entre l'intention ANNONCÉE et ce
+ * que le changement fait vraiment est le constat le plus utile d'une revue, et c'est le
+ * seul qu'aucun outil ne sait voir. Un diff nu prive le relecteur de cette prise.
+ */
+async function matiereRevue(depot, pr) {
+  const changements = await forge.pullRequestChanges(depot, pr.numero);
+  const d = diffUnifie(changements);
+  return revueMr({ depot, pr, diff: d.texte, fichiers: d.fichiers, binaires: d.ignores });
+}
+
+/**
  * La conformité d'un PARC — le même audit, sur les dépôts qu'on a cochés.
  *
  * Quatre appels par dépôt. Ils partent en parallèle mais un échec ne fait tomber que SON
@@ -1158,11 +1172,25 @@ function champCalcule(variable, { surEtat = () => {} } = {}) {
   const detail = el('details', { className: 'calc-detail' });
   detail.append(el('summary', { textContent: 'voir la matière envoyée' }), zone);
 
+  /*
+   * LA LISTE DES MERGE REQUESTS OUVERTES, quand le signal porte sur une MR.
+   *
+   * Elle existait déjà, mais derrière un menu « source » à trois entrées — un fichier, une
+   * PR, un collage. On ne relit pas « une source » : on relit LA merge request de
+   * quelqu'un. Trois clics dont le premier demande de choisir un mot qui n'est le
+   * vocabulaire de personne, ça suffit à ce que l'outil ne serve pas.
+   *
+   * Ici, on choisit le dépôt en haut, on déroule, on choisit. Le diff s'assemble seul.
+   */
+  const parMr = surUneMr(variable.name);
+  const choixMr = el('select', { hidden: !parMr });
+  let mrs = [];
+
   const noeud = el('div', { className: 'mat calc' },
     el('div', { className: 'mat-tete' },
       el('label', { textContent: SIGNAL_LISIBLE[variable.name] || `{{${variable.name}}}` }),
       refaire),
-    etat, detail);
+    choixMr, etat, detail);
 
   const dire = (texte, classe = '') => {
     etat.textContent = texte;
@@ -1198,10 +1226,46 @@ function champCalcule(variable, { surEtat = () => {} } = {}) {
     refaire.hidden = vide;
 
     if (vide) {
+      if (parMr) { choixMr.hidden = true; mrs = []; }
       dire(liste ? 'Coche les dépôts à auditer ci-dessus.' : 'Choisis un dépôt ci-dessus.');
       surEtat(false);
       return;
     }
+    /*
+     * Sur une MR, le choix du dépôt ne calcule rien : il REMPLIT la liste. C'est le choix
+     * de la merge request qui déclenche la lecture du diff — assembler le diff de la
+     * première MR venue coûterait un appel par fichier pour quelque chose que personne
+     * n'a demandé.
+     */
+    if (parMr) {
+      dire(`Lecture des merge requests de ${depot}…`, 'attente');
+      surEtat(true);
+      try {
+        mrs = await forge.listPullRequests(depot);
+        if (mien !== enCours) return;
+        choixMr.textContent = '';
+        choixMr.hidden = false;
+        if (!mrs.length) {
+          choixMr.hidden = true;
+          dire('Aucune merge request ouverte sur ce dépôt — il n\'y a rien à relire.');
+          return;
+        }
+        choixMr.append(el('option', { value: '',
+          textContent: `— choisir parmi ${mrs.length} merge request(s) ouverte(s) —` }));
+        for (const p of mrs) {
+          choixMr.append(el('option', { value: String(p.numero),
+            textContent: `#${p.numero}  ${p.titre}  (${p.branche} → ${p.cible})` }));
+        }
+        dire('Choisis la merge request à relire.');
+      } catch (error) {
+        if (mien !== enCours) return;
+        dire(`Merge requests illisibles : ${error.message}`, 'ko');
+      } finally {
+        surEtat(false);
+      }
+      return;
+    }
+
     dire(liste ? `Lecture de ${depot.length} dépôt(s)…` : `Lecture de ${depot}…`, 'attente');
     surEtat(true);
 
@@ -1237,6 +1301,31 @@ function champCalcule(variable, { surEtat = () => {} } = {}) {
   let dernierChoix = '';
   refaire.onclick = () => calculer(dernierChoix);
 
+  /** Choisir une merge request : c'est là que le diff s'assemble. */
+  choixMr.onchange = async () => {
+    const pr = mrs.find((p) => String(p.numero) === choixMr.value);
+    zone.value = '';
+    detail.hidden = true;
+    if (!pr) { dire('Choisis la merge request à relire.'); return; }
+
+    const mien = ++enCours;
+    dire(`Assemblage du diff de #${pr.numero}…`, 'attente');
+    surEtat(true);
+    try {
+      const r = await matiereRevue(dernierChoix, pr);
+      if (mien !== enCours) return;
+      dernier = r;
+      zone.value = r.texte;
+      detail.hidden = false;
+      dire(`✔ ${resumeRevue(r)}`, 'ok');
+    } catch (error) {
+      if (mien !== enCours) return;
+      dire(`Diff illisible : ${error.message}`, 'ko');
+    } finally {
+      surEtat(false);
+    }
+  };
+
   return {
     noeud,
     controle: zone,
@@ -1260,7 +1349,8 @@ const SIGNAL_LISIBLE = {
   inventaire_dependances: 'Les dépendances déclarées — lues dans les manifestes',
   rapport_conformite: 'La conformité CIS — contrôlée sur le dépôt',
   chiffres_dora: 'Les quatre métriques DORA — mesurées sur 30 jours',
-  parc_securite: 'La conformité du parc — auditée sur les dépôts cochés'
+  parc_securite: 'La conformité du parc — auditée sur les dépôts cochés',
+  revue_mr: 'La merge request à relire — choisie dans la liste'
 };
 
 /**
