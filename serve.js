@@ -324,7 +324,27 @@ createServer(async (req, res) => {
     const info = await stat(path);
     if (info.isDirectory()) { res.writeHead(403).end('403'); return; }
 
-    res.writeHead(200, { 'Content-Type': TYPES[extname(path)] || 'application/octet-stream' });
+    /*
+     * `no-store`, et ce n'est pas un détail de confort.
+     *
+     * Ce serveur ne renvoyait NI `Cache-Control`, NI `ETag`, NI `Last-Modified`. Sans
+     * aucune de ces indications, un navigateur applique un cache HEURISTIQUE : il garde
+     * le fichier le temps qu'il juge raisonnable, sans jamais redemander. Derrière le
+     * proxy HTTPS d'un Codespace, c'est encore plus franc.
+     *
+     * Conséquence vécue : on tire les changements, on relance le serveur, on recharge —
+     * et l'écran est identique. On cherche alors le défaut dans le code qu'on vient
+     * d'écrire, qui n'a jamais été servi. Les écrans se protégeaient déjà pour les
+     * référentiels YAML (`cache: 'no-cache'`), mais un `import` de module ES ne prend pas
+     * d'options : `shell.js` et `admin.js` n'avaient aucune parade.
+     *
+     * Un serveur de développement doit rendre CE QU'IL Y A SUR LE DISQUE. Il écoute sur
+     * 127.0.0.1 et sert un dépôt de travail — il n'y a rien à économiser ici.
+     */
+    res.writeHead(200, {
+      'Content-Type': TYPES[extname(path)] || 'application/octet-stream',
+      'Cache-Control': 'no-store, must-revalidate'
+    });
     res.end(await readFile(path));
   } catch {
     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }).end('404');
