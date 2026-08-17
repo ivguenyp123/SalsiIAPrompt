@@ -82,13 +82,22 @@ export function statutCI(brut) {
   return 'en-cours';
 }
 
-function explain(status, { host, scopeHint }) {
-  if (status === 401) return 'Jeton refusé : invalide, révoqué ou expiré.';
-  if (status === 403) return `Jeton valide mais accès refusé : il manque le droit ${scopeHint}.`;
-  if (status === 404) return `Ressource introuvable sur ${host} — dépôt inexistant, ou jeton sans visibilité dessus.`;
-  if (status === 409) return 'Conflit : le fichier a changé entre la lecture et l\'écriture. Recharge et réessaie.';
-  if (status >= 500) return 'La forge répond une erreur serveur. Réessaie dans un instant.';
-  return `La forge a répondu ${status}.`;
+/*
+ * `dit` porte CE QUE LA FORGE A RÉPONDU, quand on a pu le lire.
+ *
+ * « La forge répond une erreur serveur » est vrai et inutilisable : ça ne dit ni quelle
+ * forge, ni quel appel, ni ce qu'elle a dit. On a passé une soirée à deviner faute de
+ * cette ligne. Quand la réponse porte un message — et les deux forges en mettent un —
+ * il part à l'écran tel quel, tronqué mais jamais réécrit.
+ */
+function explain(status, { host, scopeHint, dit = '' }) {
+  const suite = dit ? ` La forge dit : « ${String(dit).slice(0, 220)} »` : '';
+  if (status === 401) return `Jeton refusé : invalide, révoqué ou expiré.${suite}`;
+  if (status === 403) return `Jeton valide mais accès refusé : il manque le droit ${scopeHint}.${suite}`;
+  if (status === 404) return `Ressource introuvable sur ${host} — dépôt inexistant, ou jeton sans visibilité dessus.${suite}`;
+  if (status === 409) return `Conflit : le fichier a changé entre la lecture et l'écriture. Recharge et réessaie.${suite}`;
+  if (status >= 500) return `${host} répond une erreur serveur (${status}).${suite}`;
+  return `La forge a répondu ${status}.${suite}`;
 }
 
 /*
@@ -136,8 +145,28 @@ async function parLeRelais(url, { method, headers, body }, fetchImpl) {
   return {
     ok: enveloppe.statut >= 200 && enveloppe.statut < 300,
     status: enveloppe.statut,
-    json: async () => JSON.parse(enveloppe.corps || 'null')
+    json: async () => JSON.parse(enveloppe.corps || 'null'),
+    /*
+     * Le corps BRUT, garde de côté pour le message d'erreur.
+     *
+     * Par le relais, on l'a déjà entièrement lu — c'est la seule voie où on peut le
+     * montrer sans risquer de consommer un flux qu'on lira ensuite. En direct, le
+     * navigateur nous refuse souvent jusqu'au corps des réponses d'erreur.
+     */
+    brut: enveloppe.corps || ''
   };
+}
+
+/** Le message d'une réponse d'erreur, quand la forge en met un. Les deux en mettent. */
+function messageDe(brut) {
+  if (!brut) return '';
+  try {
+    const o = JSON.parse(brut);
+    return o.message || o.error || o.error_description || '';
+  } catch {
+    // Une page HTML d'erreur — un portail, un proxy — n'a pas de message exploitable.
+    return /^\s*</.test(brut) ? '' : String(brut).trim();
+  }
 }
 
 function makeCaller({ base, headers, host, scopeHint }, fetchImpl) {
@@ -171,8 +200,10 @@ function makeCaller({ base, headers, host, scopeHint }, fetchImpl) {
       }
     }
 
-    if (response.status === 404) throw new ForgeError(explain(404, { host, scopeHint }), 404);
-    if (!response.ok) throw new ForgeError(explain(response.status, { host, scopeHint }), response.status);
+    if (!response.ok) {
+      const dit = messageDe(response.brut);
+      throw new ForgeError(explain(response.status, { host, scopeHint, dit }), response.status);
+    }
     return response.status === 204 ? null : response.json();
   };
 }
