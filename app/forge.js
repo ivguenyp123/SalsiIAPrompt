@@ -231,9 +231,18 @@ function gitlab(session, fetchImpl) {
       }));
     },
 
+    /*
+     * GitLab donne la date du dernier commit avec la branche ; GitHub non — voir plus bas.
+     * On la remonte quand elle est là plutôt que de l'ignorer des deux côtés : sans elle,
+     * impossible de dire qu'une branche est morte.
+     */
     listBranches: async (repo) => {
       const list = await call(`/projects/${encodeURIComponent(repo)}/repository/branches`, { params: { per_page: 100 } });
-      return list.map((b) => ({ name: b.name, protectee: Boolean(b.protected), default: Boolean(b.default) }));
+      return list.map((b) => ({
+        name: b.name, protectee: Boolean(b.protected), default: Boolean(b.default),
+        sha: b.commit?.id || '',
+        quand: b.commit?.committed_date || b.commit?.created_at || ''
+      }));
     },
 
     /** Arbre récursif d'une réf — sert à découvrir les overlays sans les deviner. */
@@ -414,9 +423,18 @@ function github(session, fetchImpl) {
       }));
     },
 
+    /*
+     * GitHub ne rend PAS la date du dernier commit d'une branche — seulement son SHA.
+     * `quand` reste donc vide, et l'appelant va la chercher branche par branche s'il en a
+     * besoin. Inventer une date ici serait pire que de ne rien rendre : une branche
+     * paraîtrait fraîche ou morte sans que rien ne l'ait mesuré.
+     */
     listBranches: async (repo) => {
       const list = await call(`/repos/${repo}/branches`, { params: { per_page: 100 } });
-      return list.map((b) => ({ name: b.name, protectee: Boolean(b.protected), default: false }));
+      return list.map((b) => ({
+        name: b.name, protectee: Boolean(b.protected), default: false,
+        sha: b.commit?.sha || '', quand: ''
+      }));
     },
 
     listTree: async (repo, ref) => {

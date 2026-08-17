@@ -9,7 +9,8 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { facteurDeZone, medianePonderee, niveauDeRisque, repartitionContributions,
-         resumeCourt, sait, zonesDepuisArbre, MINI_COMMITS_ZONE } from '../lib/signaux-matiere.js';
+         resumeCourt, sait, zonesDepuisArbre, inventaireBranches, resumeBranches,
+         MINI_COMMITS_ZONE } from '../lib/signaux-matiere.js';
 
 const commits = (paires) => paires.flatMap(([qui, n]) =>
   Array.from({ length: n }, () => ({ author: qui })));
@@ -227,5 +228,64 @@ describe('les zones d\'un dépôt', () => {
 
   test('un arbre vide ne donne aucune zone', () => {
     assert.deepEqual([...zonesDepuisArbre([])], []);
+  });
+});
+
+describe('l\'état des branches', () => {
+  const quand = (jours) => new Date(Date.UTC(2026, 7, 17) - jours * 86400000).toISOString();
+  const r = inventaireBranches({
+    depot: 'moi/demo', maintenant: '2026-08-17T00:00:00Z',
+    branches: [
+      { name: 'main', protectee: true, default: true, quand: quand(120) },
+      { name: 'feature/ancienne', quand: quand(228) },
+      { name: 'chore/tiede', quand: quand(45) },
+      { name: 'fix/recent', quand: quand(7) },
+      { name: 'wip/sans-date' }
+    ]
+  });
+
+  test('classe aux paliers du hub — 90 jours, 30 jours', () => {
+    assert.equal(r.comptes.critiques, 1);
+    assert.equal(r.comptes.aSurveiller, 1);
+    assert.equal(r.comptes.recentes, 1);
+  });
+
+  test('une branche PROTÉGÉE n\'est jamais morte, quel que soit son âge', () => {
+    /*
+     * `main` sans commit depuis quatre mois n'est pas une branche abandonnée : c'est une
+     * branche stable. La compter parmi les mortes ferait proposer de supprimer la branche
+     * principale — le genre de conseil qui discrédite tout le reste.
+     */
+    assert.equal(r.comptes.protegees, 1);
+    assert.ok(!r.texte.split('De la plus ancienne')[1].split('Protégées')[0].includes('main'));
+    assert.match(r.texte, /jamais à supprimer/);
+  });
+
+  test('une branche SANS DATE est comptée à part, jamais classée', () => {
+    // GitHub ne donne pas la date avec la branche. La ranger d'office en « récente »
+    // laisserait croire le dépôt plus propre qu'il ne l'est ; en « morte », l'inverse.
+    assert.equal(r.comptes.sansDate, 1);
+    assert.match(r.texte, /n'a pas pu être établi/);
+  });
+
+  test('les branches sortent de la plus ancienne à la plus récente', () => {
+    const ordre = r.branches.filter((b) => !b.protegee && b.jours !== null)
+      .sort((a, b) => b.jours - a.jours).map((b) => b.nom);
+    assert.deepEqual(ordre, ['feature/ancienne', 'chore/tiede', 'fix/recent']);
+  });
+
+  test('le texte dit sa méthode et ses seuils', () => {
+    assert.match(r.texte, /90 jours/);
+    assert.match(r.texte, /30 jours/);
+    assert.match(r.texte, /branches protégées sont exclues/);
+  });
+
+  test('aucune branche : on le dit, on ne rend pas un rapport vide', () => {
+    const vide = inventaireBranches({ depot: 'd', branches: [] });
+    assert.match(vide.texte, /Aucune branche lue/);
+  });
+
+  test('le résumé tient sur une ligne', () => {
+    assert.match(resumeBranches(r), /5 branche\(s\) · 1 morte\(s\) · 1 à surveiller · 1 sans date/);
   });
 });

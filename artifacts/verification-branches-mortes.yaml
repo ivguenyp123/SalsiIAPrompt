@@ -7,50 +7,92 @@
 #
 # Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
 # ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# ── RÉÉCRIT : IL LIT L'ÉTAT DU DÉPÔT, IL NE L'INTERROGE PLUS ────────────────
+#
+# La première version, écrite par le rédacteur IA, demandait UNE branche à vérifier et
+# appelait deux outils — `check_branch`, `read_pipeline_status`. À l'usage :
+#
+#   · la question était la mauvaise. On ne veut pas confirmer l'état d'une branche qu'on
+#     connaît déjà : on veut savoir CE QU'IL Y A dans le dépôt.
+#   · les outils sont déclarés `executor: llm` au registre. Le modèle, n'ayant aucun moyen
+#     de les appeler, a écrit un faux bloc d'appel d'outil dans sa réponse — et le critère
+#     a refusé, à juste titre, une sortie qui n'était pas un rapport.
+#
+# Il reçoit maintenant l'état des branches, calculé depuis la forge par
+# `lib/signaux-matiere.js` : nom, âge en jours, palier, protection. Il n'a plus rien à
+# demander, et plus rien à aller chercher.
 
 id: verification-branches-mortes
-kind: agent
+kind: prompt
 title: Vérification des branches mortes
 owner:
   person: ivguenyp123
   scope: Data
 intent:
-  purpose: Identifier les branches qui ne sont plus à jour ou non mergeables par rapport à leur cible afin de les supprimer ou de les mettre à jour.
-  not_for: Ne pas utiliser pour décider de la suppression automatique de branches sans validation humaine, ni pour analyser l'historique des commits.
-spec: Analyse la branche nommée {{branche_a_verifier}} du dépôt. Utilise l'outil check_branch pour déterminer si cette branche est à jour et mergeable par rapport à sa branche cible. Examine le statut du dernier pipeline avec read_pipeline_status pour vérifier si la branche est en échec. Si la branche n'est pas à jour, n'est pas mergeable ou si son pipeline est en échec, considère-la comme une branche morte. Fournis un rapport concis listant les branches mortes et les raisons de leur statut.
+  purpose: Dire quelles branches du dépôt sont mortes, lesquelles supprimer sans risque, et comment éviter qu'elles s'accumulent.
+  not_for: Ne pas utiliser pour supprimer des branches automatiquement — la décision reste humaine, et une branche non fusionnée peut porter du travail.
 variables:
-  - name: branche_a_verifier
-    source: user
+  - name: inventaire_branches
+    source: signal
     required: true
-    description: Le nom de la branche à vérifier.
-tools:
-  - id: check_branch
-    mode: read
-    executor: llm
-  - id: read_pipeline_status
-    mode: read
-    executor: llm
+    description: L'état des branches du dépôt, calculé depuis la forge.
 criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
   - target: output.sections
     op: contains
     value:
-      - branches-mortes
-golden_cases:
-  - id: gc-01-branche-non-mergeable
-    context:
-      branche_a_verifier: feature/ancienne
-    expect:
-      output.sections:
-        - branches-mortes
-    runs: 5
-    pass_at_least: 4
-  - id: gc-02-branche-a-jour
-    context:
-      branche_a_verifier: main
-    expect:
-      output.sections:
-        - branches-mortes
-    runs: 5
-    pass_at_least: 4
+      - Où en est ton dépôt
+      - À supprimer sans risque
+      - À regarder avant de trancher
+      - Pour que ça ne recommence pas
+spec: |-
+    Tu fais le ménage des branches d'un dépôt avec l'équipe qui y travaille. L'état est
+    déjà relevé : ton travail est de dire quoi supprimer, quoi regarder, et comment
+    éviter que ça revienne.
+
+    Matière fournie — elle est DÉJÀ CALCULÉE, ne recalcule rien :
+    {{inventaire_branches}}
+
+    Les âges sont en jours depuis le dernier commit. Les branches protégées sont exclues
+    des comptes : leur ancienneté est normale, et elles ne se suppriment jamais.
+
+    Réponds en quatre sections, avec ces titres exactement :
+
+    ## Où en est ton dépôt
+
+    Combien de branches, combien de mortes, et ce que ça dit de l'équipe. Une dizaine de
+    branches à plus de 90 jours n'est pas un problème d'hygiène : c'est du travail
+    commencé et jamais fini, ou des suppressions qu'on n'ose pas faire.
+
+    ## À supprimer sans risque
+
+    Les branches que tu proposes d'enlever, NOMMÉES, avec leur âge. Pour chacune, dis en
+    quelques mots pourquoi elle est sans risque d'après ce que tu vois — et rappelle que
+    rien n'est perdu dans un dépôt git, ce qui rend le geste réversible.
+
+    Ne mets ici que des branches dont l'âge est établi. Une branche sans date n'a pas été
+    mesurée : elle n'appartient pas à cette liste.
+
+    ## À regarder avant de trancher
+
+    Celles dont on ne peut pas décider seul : les branches sans date, celles dont le nom
+    évoque un travail en cours, celles qui portent peut-être du code non fusionné. Dis
+    à qui poser la question, et laquelle.
+
+    ## Pour que ça ne recommence pas
+
+    Deux ou trois habitudes concrètes — suppression automatique à la fusion, revue
+    trimestrielle, convention de nommage qui rend l'abandon visible. Explique à chaque
+    fois ce que ça évite, et ce que ça coûte.
+
+    Ce que tu ne fais pas : tu n'inventes aucune branche qui ne soit pas dans la matière,
+    tu ne supprimes rien toi-même, et tu ne conclus jamais qu'une branche est sans valeur
+    parce qu'elle est ancienne. Une branche de six mois peut porter le seul essai
+    sérieux qu'on ait fait sur un sujet.
+
+    Si la matière ne contient aucune branche jugeable, dis-le et explique pourquoi.
 target_level: experimental
-model_tier: small
+model_tier: mid

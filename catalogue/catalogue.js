@@ -18,7 +18,8 @@ import { SOURCES, sourceProbable, chercher as chercherFichier, diffUnifie, resum
 import { rendre as rendreMd, ressembleADuMarkdown, lienSur } from '../lib/md.js';
 import { rapportHtml, nomFichier } from '../lib/rapport.js';
 import { sait as saitCalculer, zonesDepuisArbre, repartitionContributions,
-         resumeCourt, FENETRE, MAX_ZONES_INTERROGEES } from '../lib/signaux-matiere.js';
+         inventaireBranches, resumeCourt, resumeBranches,
+         FENETRE, MAX_ZONES_INTERROGEES } from '../lib/signaux-matiere.js';
 import { indexer, chercher, etiquettes, porteEtiquettes } from '../lib/recherche.js';
 import { ETAPES, VU, jouables, placer } from '../lib/tour.js';
 import { niveau, pastille } from '../lib/niveau.js';
@@ -871,6 +872,7 @@ async function arbre(depot) {
  * marchera sur l'un comme sur l'autre.
  */
 async function matiereCalculee(nom, depot) {
+  if (nom === 'inventaire_branches') return matiereBranches(depot);
   if (nom !== 'repartition_contributions') return null;
 
   const ref = await brancheDe(depot);
@@ -892,6 +894,39 @@ async function matiereCalculee(nom, depot) {
   return repartitionContributions({ depot, commits, zones,
     ignorees: Math.max(0, toutes.length - interrogees.length) });
 }
+
+/**
+ * L'état des branches — et la date qu'une des deux forges ne donne pas.
+ *
+ * GitLab rend `committed_date` avec chaque branche. GitHub ne rend que le SHA : sans
+ * date, impossible de dire qu'une branche est morte, et l'inventer serait pire que de se
+ * taire. On va donc la chercher, une branche à la fois, et seulement là où elle manque —
+ * sur GitLab, aucun appel de plus.
+ *
+ * Les branches sans date restent dans le rapport, comptées à part : les faire disparaître
+ * laisserait croire que le dépôt est plus propre qu'il ne l'est.
+ */
+async function matiereBranches(depot) {
+  const brutes = await forge.listBranches(depot);
+
+  const aDater = brutes.filter((b) => !b.quand).slice(0, MAX_BRANCHES_DATEES);
+  const dates = new Map(await Promise.all(aDater.map(async (b) => {
+    const [dernier] = await forge.listCommits(depot, undefined, { perPage: 1, ref: b.name })
+      .catch(() => []);
+    return [b.name, dernier?.date || ''];
+  })));
+
+  const branches = brutes.map((b) => ({ ...b, quand: b.quand || dates.get(b.name) || '' }));
+  return inventaireBranches({ depot, branches, maintenant: new Date().toISOString() });
+}
+
+/*
+ * Combien de branches on date à la main quand la forge ne le fait pas.
+ *
+ * Un appel chacune : sans plafond, un dépôt à deux cents branches en déclencherait deux
+ * cents. Celles qu'on n'a pas datées figurent quand même au rapport, dans « sans date ».
+ */
+const MAX_BRANCHES_DATEES = 40;
 
 /** La branche par défaut du dépôt, mise en cache comme son arbre. */
 async function brancheDe(depot) {
@@ -972,7 +1007,7 @@ function champCalcule(variable, { surEtat = () => {} } = {}) {
       dernier = r;
       zone.value = r.texte;
       detail.hidden = false;
-      dire(`✔ ${resumeCourt(r)}`, 'ok');
+      dire(`✔ ${(variable.name === 'inventaire_branches' ? resumeBranches : resumeCourt)(r)}`, 'ok');
     } catch (error) {
       if (mien !== enCours) return;
       // On ne se rabat PAS sur un champ vide en silence : un agent lancé sans matière
@@ -1009,7 +1044,8 @@ function champCalcule(variable, { surEtat = () => {} } = {}) {
 
 /** Le nom qu'on montre. Personne ne doit lire `repartition_contributions` à l'écran. */
 const SIGNAL_LISIBLE = {
-  repartition_contributions: 'Qui contribue, et où — calculé depuis le dépôt'
+  repartition_contributions: 'Qui contribue, et où — calculé depuis le dépôt',
+  inventaire_branches: 'L\'état des branches — lu depuis le dépôt'
 };
 
 /**
