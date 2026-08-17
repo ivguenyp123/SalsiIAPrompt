@@ -135,6 +135,7 @@ describe('les chiffres mesurés, montrés comme des chiffres', () => {
  */
 describe('une matière qui décrit sa propre mise en page', () => {
   const secrets = { presentation: {
+    sujet: 'Les secrets exposés',
     entete: { valeur: '3', libelle: 'secrets à révoquer', sous: '2 fichiers lus', ton: 'ko' },
     tableaux: [{
       titre: 'Où ils se trouvent',
@@ -166,6 +167,7 @@ describe('une matière qui décrit sa propre mise en page', () => {
      * unique inventerait une pondération que personne n'a écrite.
      */
     const conformite = { presentation: {
+      sujet: 'La conformité CIS',
       entete: { valeur: '67', libelle: 'non conforme', ton: 'ko' },
       tableaux: [{ titre: 'Les contrôles', colonnes: [{ libelle: 'CIS' }],
                    lignes: [{ cellules: [{ texte: '1.1.1' }] }] }]
@@ -176,6 +178,29 @@ describe('une matière qui décrit sa propre mise en page', () => {
     assert.match(html, /non conforme/);
     assert.match(html, /Où ils se trouvent/);
     assert.match(html, /Les contrôles/);
+  });
+
+  /*
+   * Le défaut qui s'est vu au premier vrai rapport à trois scans : deux tableaux
+   * s'appelaient « Par nature de secret » et « Par nature », et plus rien ne disait lequel
+   * parlait des secrets. Un rapport dont on ne sait pas d'où vient une ligne ne se
+   * conteste pas, donc ne sert à rien.
+   */
+  test('à plusieurs matières, chaque groupe annonce son sujet', () => {
+    const conformite = { presentation: {
+      sujet: 'La conformité CIS',
+      entete: { valeur: '67', libelle: 'non conforme', ton: 'ko' },
+      tableaux: [{ titre: 'Par nature', colonnes: [{ libelle: 'CIS' }],
+                   lignes: [{ cellules: [{ texte: '1.1.1' }] }] }]
+    } };
+    const html = rapportHtml({ ...BASE, mesures: [secrets, conformite] });
+    assert.match(html, /<h2 class="sujet">Les secrets exposés<\/h2>/);
+    assert.match(html, /<h2 class="sujet">La conformité CIS<\/h2>/);
+  });
+
+  test('à une seule matière, le sujet ne redit pas le titre de la page', () => {
+    const html = rapportHtml({ ...BASE, mesures: secrets });
+    assert.ok(!/class="sujet"/.test(html));
   });
 
   test('une liste vide ne fabrique ni chiffre ni tableau', () => {
