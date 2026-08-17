@@ -249,7 +249,7 @@ Le coût est celui de la somme des étapes, affiché avant de lancer.
 niveaux d'imbrication, plus personne ne sait ce qui tourne vraiment.
 
 **Il n'y a ni condition ni boucle.** Une chaîne est une suite. Si votre besoin demande
-un « si », c'est un agent qu'il faut, pas une chaîne — [demandez-le](demander.md).
+un « si », c'est un agent qu'il faut, pas une chaîne.
 
 ## Reproduire le rapport de la plateforme
 

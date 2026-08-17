@@ -5,11 +5,29 @@
  * l'utilisateur doit voir où va le produit, sans croire que ça marche déjà.
  */
 
+/*
+ * ── « DEMANDER » EST RETIRÉ, ET C'EST UNE DÉCISION ───────────────────────────
+ *
+ * L'écran laissait un modèle écrire un artefact COMPLET à partir d'une phrase. Ce qu'il
+ * produisait franchissait la porte à chaque fois, et ne se lançait jamais :
+ *
+ *   · des noms d'entrées inventés — `repo_metadata`, `contribution_data` — que rien ne
+ *     sait remplir, donc autant de champs à coller à la main ;
+ *   · une entrée de plus que nécessaire : `historique_commits` ajoutée à un bus factor
+ *     qui n'en a aucun besoin, et le pré-vol refuse pour un champ vide ;
+ *   · des outils qui n'existent pas, appelés dans la consigne — le modèle rendait alors
+ *     un faux bloc d'appel d'outil en guise de réponse.
+ *
+ * Chacun de ces cas a été corrigé par un mécanisme de plus : un vocabulaire dans la
+ * consigne, une règle de lint, des instructions plus longues. Chaque correctif réglait un
+ * cas et alourdissait le reste. Le motif est net, et il a fallu se le faire dire trois
+ * fois : CE QUI EST CADRÉ MARCHE, CE QUI EST LIBRE ÉCHOUE.
+ *
+ * Le code de l'écran reste au dépôt — il n'y a rien à jeter, et la dictée du Studio
+ * s'appuie sur le même rédacteur. C'est le CHEMIN DE CRÉATION LIBRE qu'on ferme, le temps
+ * d'écrire à la main des agents dont on maîtrise la forme.
+ */
 const TABS = [
-  // « Demander » en tête : c'est l'entrée du public le plus large — celui qui a un besoin
-  // et pas un artefact. Le mettre après les écrans d'auteur reviendrait à le réserver à
-  // ceux qui savent déjà que le registre existe.
-  { id: 'demande', label: '✨ Demander', href: 'demande' },
   { id: 'composer', label: '🧩 Fabriquer', href: 'composer' },
   { id: 'catalogue', label: '🧰 Les agents', href: 'catalogue' },
   { id: 'studio', label: '🛠️ Studio', href: 'studio' },

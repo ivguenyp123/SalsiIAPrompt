@@ -21,7 +21,9 @@ Concrètement, et c'est ce qui explique la moitié des comportements du produit 
 
 ## Par où commencer
 
-**Vous avez un besoin, pas un agent.** → [Demander un agent](demander.md)
+**Vous avez un besoin, pas un agent.** → dites-le à quelqu'un qui tient le registre.
+L'écriture d'un agent par un modèle a été retirée : elle produisait des fiches conformes
+et inutilisables. Les agents s'écrivent à la main, le temps qu'on maîtrise leur forme.
 Vous écrivez ce que vous voulez obtenir en une phrase. Le reste est fabriqué pour vous et
 part en validation.
 

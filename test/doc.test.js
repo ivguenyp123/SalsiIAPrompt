@@ -171,9 +171,11 @@ describe('les nombres', () => {
   });
 
   test('le nombre de capacités du catalogue des besoins est le bon', () => {
+    // Le compte vivait dans « Demander », page retirée avec son écran. Il est désormais
+    // dans « Composer », qui est le seul endroit d'où l'on voit encore ces besoins.
     const n = (lire('inventaire/hub-devops.yaml').match(/^ +- id:/gm) || []).length;
     assert.ok(n > 0, 'inventaire illisible');
-    assert.ok(SOURCES.demander.includes(`${n} capacités`), `la doc devrait dire ${n} capacités`);
+    assert.ok(SOURCES.composer.includes(`${n} besoins`), `la doc devrait dire ${n} besoins`);
   });
 });
 
@@ -191,7 +193,7 @@ describe('la couverture des écrans', () => {
       // La maquette n'est pas un écran du produit, et le guide est la doc elle-même.
       .filter((o) => !['maquette', 'guide'].includes(o.id));
 
-    assert.ok(onglets.length >= 5, 'les onglets ne se lisent plus');
+    assert.ok(onglets.length >= 4, 'les onglets ne se lisent plus');
     for (const o of onglets) {
       const nom = o.label.replace(/^\S+\s/, '');
       assert.ok(TOUT.includes(nom), `l'onglet « ${nom} » n'est mentionné dans aucune page`);
