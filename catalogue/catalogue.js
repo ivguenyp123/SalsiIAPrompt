@@ -23,6 +23,8 @@ import { sait as saitCalculer, zonesDepuisArbre, repartitionContributions,
 import { fichierSuspect, MAX_FICHIERS_LUS, rapportSecrets, resumeSecrets,
          ecosysteme, MAX_MANIFESTES_LUS, inventaireDependances, resumeDependances,
          rapportConformite, resumeConformite } from '../lib/signaux-securite.js';
+import { chiffresDora, resumeDora, FENETRE_JOURS,
+         MAX_PIPELINES, MAX_MR } from '../lib/signaux-dora.js';
 import { indexer, chercher, etiquettes, porteEtiquettes } from '../lib/recherche.js';
 import { ETAPES, VU, jouables, placer } from '../lib/tour.js';
 import { niveau, pastille } from '../lib/niveau.js';
@@ -889,7 +891,8 @@ const CALCULS = {
   inventaire_branches: (depot) => matiereBranches(depot),
   rapport_secrets: (depot) => matiereSecrets(depot),
   inventaire_dependances: (depot) => matiereDependances(depot),
-  rapport_conformite: (depot) => matiereConformite(depot)
+  rapport_conformite: (depot) => matiereConformite(depot),
+  chiffres_dora: (depot) => matiereDora(depot)
 };
 
 /** Le résumé d'une ligne, par signal. Sans entrée ici, l'écran n'afficherait rien. */
@@ -898,7 +901,8 @@ const RESUMES = {
   inventaire_branches: resumeBranches,
   rapport_secrets: resumeSecrets,
   inventaire_dependances: resumeDependances,
-  rapport_conformite: resumeConformite
+  rapport_conformite: resumeConformite,
+  chiffres_dora: resumeDora
 };
 
 async function matiereContributions(depot) {
@@ -991,6 +995,33 @@ async function matiereDependances(depot) {
     depot,
     fichiers: lus.map((f) => ({ ...f, eco: ecoDe.get(f.chemin) })),
     candidats: cibles.length
+  });
+}
+
+/**
+ * Les quatre métriques DORA — deux lectures, et l'aveu de ce qui a été coupé.
+ *
+ * Les pipelines et les merge requests fusionnées, sur la même fenêtre. Notre couche ne
+ * pagine pas : une page pleine veut dire que le dépôt est plus actif qu'elle, et donc que
+ * la fenêtre réelle est plus courte que trente jours. On le SIGNALE au calcul plutôt que
+ * de laisser un score partiel se présenter comme un score du mois.
+ *
+ * Un échec sur l'un des deux ne fait pas tomber l'autre : sans la CI, le lead time reste
+ * mesurable et les trois autres métriques passent en `N/A`, ce qui est la vérité.
+ */
+async function matiereDora(depot) {
+  const ref = await brancheDe(depot);
+  const depuis = new Date(Date.now() - FENETRE_JOURS * 86400000).toISOString();
+
+  const [pipelines, mrs] = await Promise.all([
+    forge.listRuns(depot, { perPage: MAX_PIPELINES, depuis }).catch(() => []),
+    forge.listPullRequests(depot, { etat: 'fusionnees', perPage: MAX_MR, depuis }).catch(() => [])
+  ]);
+
+  return chiffresDora({
+    depot, pipelines, mrs, brancheDefaut: ref,
+    maintenant: new Date().toISOString(),
+    tronque: pipelines.length >= MAX_PIPELINES || mrs.length >= MAX_MR
   });
 }
 
@@ -1150,7 +1181,8 @@ const SIGNAL_LISIBLE = {
   inventaire_branches: 'L\'état des branches — lu depuis le dépôt',
   rapport_secrets: 'Les secrets exposés — scannés dans le dépôt',
   inventaire_dependances: 'Les dépendances déclarées — lues dans les manifestes',
-  rapport_conformite: 'La conformité CIS — contrôlée sur le dépôt'
+  rapport_conformite: 'La conformité CIS — contrôlée sur le dépôt',
+  chiffres_dora: 'Les quatre métriques DORA — mesurées sur 30 jours'
 };
 
 /**

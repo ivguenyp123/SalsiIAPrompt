@@ -68,8 +68,28 @@
 # à 5, seuil des 80 %, zones d'au moins 5 commits. `test/contrats.test.js` confronte les
 # deux : si le calcul dérive du contrat, il rougit.
 #
-# Le prochain calculateur — `chiffres_dora`, `activite_sprint` — se lira ici avant de
-# s'écrire. C'est à ça qu'ils servent, et ils n'ont plus rien à faire dans une consigne.
+# `dora-insights.yaml` a servi de la même façon à écrire `lib/signaux-dora.js` — fenêtre de
+# trente jours, médiane et non moyenne, périmètre des branches de production, plancher des
+# cinq pipelines, plafonds du score. C'est à ça que servent ces contrats, et ils n'ont plus
+# rien à faire dans une consigne.
+#
+# ── CE QUE LA LECTURE DE `js/insights.js` A RÉVÉLÉ EN PLUS ──────────────────
+#
+# Deux choses que le contrat de forme ne pouvait pas dire, et qui changent le chiffre :
+#
+#   LE LEAD TIME NE PART PAS DU PREMIER COMMIT. Le code lit
+#   `mr.first_commit_at || mr.created_at`, mais l'API des merge requests ne rend jamais
+#   `first_commit_at` : la branche de gauche est morte, et ce que la plateforme mesure
+#   RÉELLEMENT est « MR ouverte → fusionnée ». Le calcul reproduit ce qui est mesuré, pas
+#   ce qui est annoncé, et il l'écrit dans son texte.
+#
+#   LA RÈGLE « SCORE PLAFONNÉ À HIGH » EST INATTEIGNABLE. Le hub plafonne le score à 75
+#   AVANT de tester s'il vaut Elite — ce qui ne peut plus arriver, Elite commençant à 85.
+#   Le plafond EST le refus ; la seconde règle n'a jamais pu s'exécuter. Le calcul garde
+#   l'intention et ne recopie pas la branche morte.
+#
+# Le prochain calculateur — `activite_sprint`, `scores_maturite` — se lira ici avant de
+# s'écrire.
 
 contrats:
   - auto-retro.yaml

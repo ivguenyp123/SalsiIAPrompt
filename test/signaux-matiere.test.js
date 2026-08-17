@@ -180,7 +180,13 @@ describe('ce qu\'on sait calculer', () => {
     // Un signal qu'on ne sait pas calculer doit rester un champ de saisie : prétendre le
     // calculer rendrait un champ vide sans dire pourquoi.
     assert.equal(sait('repartition_contributions'), true);
-    assert.equal(sait('chiffres_dora'), false);
+    assert.equal(sait('chiffres_dora'), true);
+    /*
+     * `scores_maturite` vient d'un QUESTIONNAIRE rempli par une équipe. Aucune lecture de
+     * la forge ne le produira jamais — ce n'est pas un calculateur qui manque, c'est une
+     * matière d'une autre nature. Il reste donc à saisir, et c'est la bonne réponse.
+     */
+    assert.equal(sait('scores_maturite'), false);
     assert.equal(sait(''), false);
   });
 });

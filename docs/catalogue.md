@@ -87,6 +87,9 @@ c'est tout : la plateforme lit la forge et calcule elle-même ce dont l'agent a 
 | **Chaîne d'approvisionnement** | les manifestes : versions non figées, scripts d'installation |
 | **Conformité CIS** | les contrôles du référentiel, leurs poids, et le verdict |
 | **Revue de sécurité du dépôt** | les trois précédents, d'un coup |
+| **DORA — vos quatre métriques et le plan** | fréquence, lead time, taux d'échec, rétablissement |
+| **DORA — le commentaire du comité** | les mêmes chiffres, pour cinq lignes |
+| **Taux d'échec — ce qui a bougé** | les trois fenêtres du taux d'échec, et la tendance |
 
 C'est **la séparation qui fait marcher ces agents** : le chiffre est calculé par du code,
 déterministe et rejouable ; l'explication est écrite par le modèle, qui est bon à ça et

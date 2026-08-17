@@ -188,15 +188,25 @@ function gitlab(session, fetchImpl) {
     /* ── Ce qu'exige la livraison (moment 5) ─────────────────────────────── */
 
     /*
-     * Les merge requests OUVERTES. Fermées et fusionnées sont volontairement exclues :
-     * on vient chercher ce qui est en cours de relecture, pas de l'archive.
+     * Les merge requests, OUVERTES par défaut — on vient d'ordinaire chercher ce qui est en
+     * relecture, pas de l'archive.
+     *
+     * `etat: 'fusionnees'` ouvre l'archive, et c'est le lead time qui l'a rendu nécessaire :
+     * il se mesure sur ce qui est PARTI, donc sur ce qui est fermé. Sans lui, une des quatre
+     * métriques DORA restait à coller à la main.
      */
-    listPullRequests: async (repo) => {
-      const list = await call(`/projects/${encodeURIComponent(repo)}/merge_requests`,
-                              { params: { state: 'opened', per_page: 50, order_by: 'updated_at' } });
+    listPullRequests: async (repo, { etat = 'ouvertes', perPage = 50, depuis = '' } = {}) => {
+      const list = await call(`/projects/${encodeURIComponent(repo)}/merge_requests`, {
+        params: {
+          state: etat === 'fusionnees' ? 'merged' : 'opened',
+          per_page: perPage, order_by: 'updated_at',
+          ...(depuis ? { updated_after: depuis } : {})
+        }
+      });
       return list.map((m) => ({ numero: m.iid, titre: m.title, branche: m.source_branch,
                                 cible: m.target_branch, auteur: m.author?.username || '',
-                                url: m.web_url || '' }));
+                                url: m.web_url || '',
+                                ouvert: m.created_at || '', fusionne: m.merged_at || '' }));
     },
 
     pullRequestChanges: async (repo, numero) => {
@@ -222,12 +232,24 @@ function gitlab(session, fetchImpl) {
      * `failure` : un appelant qui devrait connaître les deux vocabulaires finirait par
      * n'en gérer qu'un, et le signal se perdrait sur l'autre forge sans que rien le dise.
      */
-    listRuns: async (repo, { perPage = 20 } = {}) => {
-      const list = await call(`/projects/${encodeURIComponent(repo)}/pipelines`,
-                              { params: { per_page: perPage, order_by: 'updated_at' } });
+    listRuns: async (repo, { perPage = 20, depuis = '' } = {}) => {
+      const list = await call(`/projects/${encodeURIComponent(repo)}/pipelines`, {
+        params: { per_page: perPage, order_by: 'updated_at',
+                  ...(depuis ? { updated_after: depuis } : {}) }
+      });
       return list.map((p) => ({
         id: p.id, statut: statutCI(p.status), branche: p.ref || '',
-        quand: p.updated_at || p.created_at || '', url: p.web_url || ''
+        quand: p.updated_at || p.created_at || '', url: p.web_url || '',
+        /*
+         * `sha` et `debut` servent aux mesures, `quand` à l'affichage.
+         *
+         * La fréquence de déploiement DÉDUPLIQUE par commit — un commit qui déclenche
+         * trois pipelines est une livraison, pas trois — et sans `sha` on ne peut pas le
+         * faire. Le taux d'échec et le temps de rétablissement, eux, comptent l'âge d'un
+         * pipeline : `updated_at` bouge quand un job est relancé des jours après, et
+         * daterait l'incident du jour de sa réparation.
+         */
+        sha: p.sha || '', debut: p.created_at || ''
       }));
     },
 
@@ -381,12 +403,26 @@ function github(session, fetchImpl) {
      * que personne n'exécutera jamais sur cette forge. Le construire « au cas où » serait
      * du poids mort à maintenir. Mieux vaut une erreur qui dit la vérité.
      */
-    listPullRequests: async (repo) => {
-      const list = await call(`/repos/${repo}/pulls`,
-                              { params: { state: 'open', per_page: 50, sort: 'updated', direction: 'desc' } });
-      return list.map((p) => ({ numero: p.number, titre: p.title, branche: p.head?.ref || '',
-                                cible: p.base?.ref || '', auteur: p.user?.login || '',
-                                url: p.html_url || '' }));
+    /*
+     * GitHub n'a pas d'état « fusionnée » : une PR fusionnée est une PR CLOSE dont
+     * `merged_at` est rempli. Demander `state: merged` ne rendrait rien, et prendre les
+     * `closed` sans regarder `merged_at` compterait les PR ABANDONNÉES comme des
+     * livraisons — le lead time se mettrait alors à mesurer des changements qui ne sont
+     * jamais partis. Le filtre est donc ici, et il est la seule différence entre les deux
+     * forges sur cette opération.
+     */
+    listPullRequests: async (repo, { etat = 'ouvertes', perPage = 50 } = {}) => {
+      const fusionnees = etat === 'fusionnees';
+      const list = await call(`/repos/${repo}/pulls`, {
+        params: { state: fusionnees ? 'closed' : 'open', per_page: perPage,
+                  sort: 'updated', direction: 'desc' }
+      });
+      return list
+        .filter((p) => !fusionnees || Boolean(p.merged_at))
+        .map((p) => ({ numero: p.number, titre: p.title, branche: p.head?.ref || '',
+                       cible: p.base?.ref || '', auteur: p.user?.login || '',
+                       url: p.html_url || '',
+                       ouvert: p.created_at || '', fusionne: p.merged_at || '' }));
     },
 
     /*
@@ -414,12 +450,20 @@ function github(session, fetchImpl) {
      * sans elle l'appel échoue en 403, et c'est à l'appelant de traiter l'absence de
      * signal comme une absence — pas comme une panne.
      */
-    listRuns: async (repo, { perPage = 20 } = {}) => {
-      const r = await call(`/repos/${repo}/actions/runs`, { params: { per_page: perPage } });
+    listRuns: async (repo, { perPage = 20, depuis = '' } = {}) => {
+      const r = await call(`/repos/${repo}/actions/runs`, {
+        // GitHub filtre les dates par une expression dans `created`, là où GitLab a un
+        // paramètre dédié. Même intention, deux écritures — c'est le rôle de cette couche.
+        params: { per_page: perPage, ...(depuis ? { created: `>=${depuis.slice(0, 10)}` } : {}) }
+      });
       return (r.workflow_runs || []).map((w) => ({
         id: w.id, statut: statutCI(w.status === 'completed' ? w.conclusion : w.status),
         branche: w.head_branch || '', quand: w.updated_at || w.created_at || '',
-        url: w.html_url || ''
+        url: w.html_url || '',
+        // Voir le commentaire côté GitLab : `sha` pour dédupliquer les livraisons, `debut`
+        // parce qu'un job relancé plus tard déplacerait `updated_at` et daterait un
+        // incident du jour de sa réparation.
+        sha: w.head_sha || '', debut: w.created_at || ''
       }));
     },
 

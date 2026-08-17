@@ -1,0 +1,156 @@
+# salsi-provenance: main
+# besoin: mes quatre métriques DORA, ce qu'elles veulent dire, et le plan pour progresser
+# demande-par: ivguenyp123
+# le: 2026-08-17
+#
+# Agent ÉCRIT À LA MAIN, sur la forme du bus factor.
+#
+#   UNE entrée, et la plateforme la calcule       → rien à saisir, jamais
+#   une consigne qui INTERDIT de recalculer       → le modèle explique, il ne compte pas
+#   des critères qui vérifient les SECTIONS       → la forme se contrôle, le fond se lit
+#
+# ── L'AGENT QUI DEMANDAIT DE COLLER SES PROPRES CHIFFRES ───────────────────
+#
+# « Pour expliquer les DORA, cet agent demande qu'on copie les DORA — ce qui est
+# ridicule. » C'était vrai, et c'était la conséquence directe de l'inventaire : il déclare
+# `chiffres_dora` comme une entrée à FOURNIR. Va ouvrir « DORA Insights », exporte, colle.
+# Personne ne le fera, et sans ce collage le modèle invente — on l'a vu écrire « élevée »
+# là où la plateforme calcule 4.2 /sem.
+#
+# `lib/signaux-dora.js` calcule les quatre métriques depuis la forge, d'après le contrat
+# extrait de `js/insights.js`. Le modèle reçoit des chiffres réels.
+#
+# ── CE QUI COMPTE LE PLUS DANS LA CONSIGNE ─────────────────────────────────
+#
+# `N/A` n'est pas zéro, et une métrique non mesurée n'est pas une métrique mauvaise. Un
+# modèle qui lit « — » écrit spontanément un plan d'action pour un problème qui n'existe
+# peut-être pas. La consigne l'interdit et lui donne le bon réflexe : dire ce qu'il faut
+# brancher pour que la mesure existe.
+
+id: dora-et-plan-action
+kind: prompt
+title: DORA — vos quatre métriques et le plan
+owner:
+  person: ivguenyp123
+  scope: Data
+tags: [dora, livraison, pilotage]
+intent:
+  purpose: >-
+    Dire ce que valent les quatre métriques DORA du dépôt, ce qu'elles impliquent pour
+    l'équipe, et quoi faire pour progresser — cette semaine, ce mois-ci, ce trimestre.
+  not_for: >-
+    Ne pas utiliser pour comparer deux équipes ni pour évaluer quelqu'un. Un score DORA
+    décrit une chaîne de livraison, pas la valeur des gens qui la tiennent — et deux dépôts
+    au métier différent ne se comparent pas sur ces chiffres.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: chiffres_dora
+    source: signal
+    required: true
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Ce que ça veut dire pour toi
+      - Métrique par métrique
+      - Le plan
+      - Comment savoir que ça s'améliore
+      - Ce qui ne marchera pas
+spec: |-
+    Tu conseilles une équipe sur sa chaîne de livraison. La mesure est déjà faite : ton
+    travail est de dire QUOI FAIRE, précisément, et dans quel ordre. Sois généreux — mieux
+    vaut trois lignes utiles qu'une ligne élégante.
+
+    Matière fournie — elle est DÉJÀ CALCULÉE, ne recalcule rien :
+    {{chiffres_dora}}
+
+    Le score, les quatre valeurs et leurs niveaux viennent des pipelines et des merge
+    requests du dépôt. Reprends-les tels quels. Si tu refais une division, tu obtiendras un
+    autre chiffre que celui affiché à l'écran, et personne ne saura lequel croire.
+
+    RÈGLE LA PLUS IMPORTANTE : `N/A` n'est pas zéro. Une métrique marquée `N/A` n'a PAS été
+    mesurée — ce n'est pas une mauvaise performance. Ne lui invente ni valeur, ni niveau, ni
+    plan d'amélioration. Pour celles-là, une seule chose à dire : ce qu'il faut brancher
+    pour que la mesure existe. La matière donne la raison de chaque absence ; reprends-la.
+
+    Réponds en cinq sections, avec ces titres exactement :
+
+    ## Ce que ça veut dire pour toi
+
+    Le score global, son niveau, et surtout ce qu'il implique CONCRÈTEMENT pour cette
+    équipe. Pas la définition de DORA : ce qui se passe chez eux. Un lead time de 200 h veut
+    dire qu'une correction décidée un lundi part la semaine suivante ; un taux d'échec de
+    20 % veut dire qu'un déploiement sur cinq casse quelque chose et occupe quelqu'un.
+
+    Dis aussi ce qui va BIEN. Une équipe qui ne lit que ses défauts cesse de lire le
+    rapport, et une métrique au niveau Elite mérite qu'on dise laquelle et pourquoi.
+
+    Si le score est plafonné, explique le plafond en une phrase : ce n'est pas une punition,
+    c'est le refus de noter une résilience qu'on n'a pas vue.
+
+    ## Métrique par métrique
+
+    Une entrée par métrique, dans l'ordre de la matière. Pour chacune :
+
+    - la valeur, son niveau, et le palier suivant avec l'écart exact qui l'en sépare
+    - ce que ce chiffre dit du travail réel de l'équipe
+    - la CAUSE la plus probable, dite comme une hypothèse à vérifier et non comme un fait :
+      un lead time long tient plus souvent à l'attente d'une relecture qu'à la lenteur du
+      code ; un taux d'échec élevé tient souvent à des tests qui manquent avant la fusion
+
+    Pour le taux d'échec, sers-toi des trois fenêtres — 5, 10 et 30 jours — et de la
+    tendance. C'est là qu'on voit si une correction récente a pris ou non, et c'est
+    l'information la plus actionnable du rapport.
+
+    Pour une métrique `N/A` : dis ce qui manque et le geste qui la rendrait mesurable.
+    Aucun plan d'amélioration sur une valeur qui n'existe pas.
+
+    ## Le plan
+
+    Trois horizons, et des actions qu'on peut mettre à un ordre du jour :
+
+    **Cette semaine** — une ou deux actions, une heure chacune au plus. Le genre de chose
+    qu'on décide en fin de daily.
+
+    **Ce mois-ci** — trois à cinq actions. Nomme la métrique visée, qui fait quoi, et le
+    temps que ça prend.
+
+    **Ce trimestre** — ce qui demande de changer une habitude d'équipe plutôt qu'un
+    créneau : découpage des changements, règle de relecture, tests avant fusion,
+    automatisation d'un déploiement.
+
+    Commence par la métrique la PLUS BASSE, pas par la plus facile — c'est elle qui tire le
+    score. Et si une métrique manque, la rendre mesurable passe avant d'améliorer les
+    autres : on ne pilote pas ce qu'on ne voit pas.
+
+    Chaque action porte : la métrique visée, qui la fait, et le temps que ça prend.
+    « Améliorer la CI » ne veut rien dire. « Découper les MR à moins de 300 lignes : sur les
+    trois prochaines, refuser en revue au-delà — 5 minutes par MR » se décide lundi.
+
+    ## Comment savoir que ça s'améliore
+
+    Métrique par métrique : la valeur d'aujourd'hui, une cible réaliste, et l'échéance. Pas
+    « atteindre Elite », mais le prochain palier atteignable et quand. Dis à quelle
+    fréquence relancer la mesure, et quel signe montrerait que ça ne marche pas — par
+    exemple une fréquence de déploiement qui monte pendant que le taux d'échec monte aussi,
+    ce qui veut dire qu'on livre plus vite du travail moins fini.
+
+    Si la matière signale que la fenêtre couverte est plus courte que trente jours, dis-le
+    ici : les chiffres portent sur cette période, pas sur le mois.
+
+    ## Ce qui ne marchera pas
+
+    Deux ou trois fausses bonnes idées, dites franchement : se fixer le score comme
+    objectif et le voir monter sans que rien ne change, relancer les pipelines en échec
+    jusqu'à ce qu'ils passent, comparer ces chiffres à ceux d'une autre équipe, acheter un
+    outil. Explique pourquoi à chaque fois.
+
+    Ce que tu ne fais pas : tu ne recalcules aucun chiffre, tu n'inventes aucune valeur
+    pour une métrique `N/A`, et tu ne juges personne.
+
+    Si la matière dit qu'aucun score n'est calculable, dis-le franchement et explique ce
+    qui manque. N'invente pas un chiffre pour avoir l'air utile.

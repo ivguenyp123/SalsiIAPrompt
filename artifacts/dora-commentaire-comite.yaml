@@ -1,0 +1,94 @@
+# salsi-provenance: main
+# besoin: le commentaire DORA du comité mensuel, en cinq lignes
+# demande-par: ivguenyp123
+# le: 2026-08-17
+#
+# Agent ÉCRIT À LA MAIN. Même entrée calculée que `dora-et-plan-action`, sortie tout autre.
+#
+# ── POURQUOI DEUX AGENTS ET NON UN SEUL AVEC UNE OPTION ────────────────────
+#
+# Le rapport complet et le commentaire de comité ne s'adressent pas aux mêmes gens et ne
+# se jugent pas de la même façon. L'un doit être exhaustif ; l'autre doit tenir sur une
+# diapositive et être compris par quelqu'un qui ne saura jamais ce qu'est un lead time.
+#
+# Un agent unique avec un paramètre « court/long » redonnerait un champ à remplir, et
+# rendrait un texte à mi-chemin qui ne servirait ni au comité ni à l'équipe. Deux consignes
+# courtes valent mieux qu'une longue qui se dédouble.
+#
+# ── LE CRITÈRE EST UNE LONGUEUR, ET C'EST VOLONTAIRE ───────────────────────
+#
+# Ailleurs on vérifie des sections. Ici la promesse EST la brièveté : un commentaire de
+# comité qui déborde n'est pas lu, donc ne remplit pas son office. Une longueur est le
+# seul contrôle déterministe qui corresponde à ce que l'agent promet.
+
+id: dora-commentaire-comite
+kind: prompt
+title: DORA — le commentaire du comité
+owner:
+  person: ivguenyp123
+  scope: Data
+tags: [dora, comite, restitution]
+intent:
+  purpose: >-
+    Rédiger en cinq lignes le commentaire DORA du comité mensuel : où on en est, ce qui a
+    bougé, ce qu'on fait le mois prochain — lisible par quelqu'un qui ne connaît pas DORA.
+  not_for: >-
+    Ne pas utiliser pour piloter l'équipe : cinq lignes ne portent aucun plan d'action. Ne
+    pas utiliser non plus pour justifier une décision budgétaire ou un arbitrage sur les
+    personnes — ces chiffres décrivent une chaîne de livraison, pas une performance.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: chiffres_dora
+    source: signal
+    required: true
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  # La promesse de cet agent EST la brièveté. Cinq lignes tiennent largement sous cette
+  # borne ; au-delà, ce n'est plus un commentaire de comité, c'est un rapport.
+  - target: output.length
+    op: lte
+    value: 1600
+spec: |-
+    Tu rédiges le commentaire DORA du comité mensuel. Il sera lu à voix haute ou posé sur
+    une diapositive, devant des gens qui ne connaissent pas DORA et n'ont pas à
+    l'apprendre.
+
+    Matière fournie — elle est DÉJÀ CALCULÉE, ne recalcule rien :
+    {{chiffres_dora}}
+
+    Écris CINQ LIGNES, pas une de plus. Pas de titre, pas de puces, pas de tableau : cinq
+    phrases qui s'enchaînent et se lisent d'affilée.
+
+    Ce que chaque ligne porte :
+
+    1. où en est la livraison, en une phrase — le score, son niveau, et ce que ça vaut
+    2. ce qui va bien, avec le chiffre qui le montre
+    3. ce qui coince, avec le chiffre qui le montre, et ce que ça coûte concrètement
+    4. ce qu'on fait le mois prochain — UNE action, celle qui compte, avec son échéance
+    5. ce qu'on ne sait pas encore mesurer, s'il y a lieu, et depuis quand on le sait
+
+    Comment écrire :
+
+    - traduis chaque terme. Pas « lead time de 72 h » mais « un changement met trois jours
+      à partir en production ». Pas « change failure rate » mais « un déploiement sur six
+      casse quelque chose ». Le chiffre reste, le jargon part
+    - donne l'ordre de grandeur, pas la décimale. « environ trois jours » se retient,
+      « 72.4 h » ne se retient pas
+    - une seule action au point 4. Un comité ne suit pas cinq engagements
+    - pas de superlatif, pas d'adjectif de satisfaction. Les chiffres parlent ; « une nette
+      progression » sans chiffre ne veut rien dire
+
+    Ce que tu ne fais pas : tu ne recalcules aucun chiffre, tu n'inventes aucune valeur, tu
+    ne compares pas cette équipe à une autre, et tu ne promets pas de cible chiffrée que la
+    matière ne permette pas de tenir.
+
+    Si une métrique est marquée `N/A`, elle n'a PAS été mesurée — ce n'est pas un mauvais
+    résultat. Elle a sa place à la ligne 5 et nulle part ailleurs : dire au comité qu'un
+    chiffre manque est utile, lui faire croire qu'il est mauvais ne l'est pas.
+
+    Si la matière dit qu'aucun score n'est calculable, écris-le simplement en deux lignes
+    et dis ce qu'il faut brancher pour que le mois prochain ce soit mesurable. N'invente
+    pas cinq lignes de commentaire sur des chiffres qui n'existent pas.

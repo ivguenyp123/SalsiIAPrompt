@@ -182,7 +182,8 @@ describe('les pull requests, des deux côtés', () => {
 
     const pulls = await forge.listPullRequests('moi/demo');
     assert.deepEqual(pulls[0], { numero: 12, titre: 'fix(ff) : la colonne', branche: 'fix/ff',
-                                 cible: 'main', auteur: 'ivguenyp123', url: 'https://x' });
+                                 cible: 'main', auteur: 'ivguenyp123', url: 'https://x',
+                                 ouvert: '', fusionne: '' });
 
     const ch = await forge.pullRequestChanges('moi/demo', 12);
     assert.equal(ch[0].fichier, 'src/Foo.java');
@@ -203,7 +204,8 @@ describe('les pull requests, des deux côtés', () => {
 
     const pulls = await forge.listPullRequests('groupe/demo');
     assert.deepEqual(pulls[0], { numero: 7, titre: 'feat: endpoint', branche: 'feat/x',
-                                 cible: 'main', auteur: 'moi', url: 'https://y' });
+                                 cible: 'main', auteur: 'moi', url: 'https://y',
+                                 ouvert: '', fusionne: '' });
 
     const ch = await forge.pullRequestChanges('groupe/demo', 7);
     assert.deepEqual(ch, [{ fichier: 'src/Foo.java', ancien: 'src/Foo.java',
@@ -219,5 +221,51 @@ describe('les pull requests, des deux côtés', () => {
     const gl = papier({ '/merge_requests?': [] });
     await createForge(session('https://gitlab.example.com'), gl.impl).listPullRequests('g/demo');
     assert.match(gl.vus[0], /state=opened/);
+  });
+
+  /*
+   * L'archive s'ouvre sur demande, et les deux forges n'y répondent pas de la même façon.
+   * C'est le lead time qui l'a rendue nécessaire : il se mesure sur ce qui est PARTI.
+   */
+  test('les fusionnées se demandent autrement, et GitHub filtre à la main', async () => {
+    const gl = papier({ '/merge_requests?': [{ iid: 1, created_at: 'A', merged_at: 'B' }] });
+    const mr = await createForge(session('https://gitlab.example.com'), gl.impl)
+      .listPullRequests('g/demo', { etat: 'fusionnees', depuis: '2026-07-01T00:00:00Z' });
+    assert.match(gl.vus[0], /state=merged/);
+    assert.match(gl.vus[0], /updated_after=/);
+    assert.deepEqual([mr[0].ouvert, mr[0].fusionne], ['A', 'B']);
+
+    /*
+     * GitHub n'a pas d'état « fusionnée » : il rend les CLOSES, dont les abandonnées.
+     * Sans le filtre sur `merged_at`, le lead time mesurerait des changements qui ne sont
+     * jamais partis — et paraîtrait d'autant meilleur que l'équipe abandonne vite.
+     */
+    const gh = papier({ '/pulls?': [
+      { number: 1, created_at: 'A', merged_at: 'B' },
+      { number: 2, created_at: 'C', merged_at: null }
+    ] });
+    const pr = await createForge(session('https://github.com'), gh.impl)
+      .listPullRequests('moi/demo', { etat: 'fusionnees' });
+    assert.match(gh.vus[0], /state=closed/);
+    assert.deepEqual(pr.map((p) => p.numero), [1]);
+  });
+
+  test('un pipeline rend son commit et sa date de création, des deux côtés', async () => {
+    // `sha` pour dédupliquer les livraisons, `debut` parce qu'un job relancé plus tard
+    // déplace `updated_at` et daterait un incident du jour de sa réparation.
+    const gl = papier({ '/pipelines?': [
+      { id: 9, status: 'success', ref: 'main', sha: 'abc', created_at: 'A', updated_at: 'Z' }] });
+    const p = await createForge(session('https://gitlab.example.com'), gl.impl)
+      .listRuns('g/demo', { depuis: '2026-07-01T00:00:00Z' });
+    assert.match(gl.vus[0], /updated_after=/);
+    assert.deepEqual([p[0].sha, p[0].debut, p[0].quand], ['abc', 'A', 'Z']);
+
+    const gh = papier({ '/actions/runs?': { workflow_runs: [
+      { id: 9, status: 'completed', conclusion: 'success', head_branch: 'main',
+        head_sha: 'abc', created_at: 'A', updated_at: 'Z' }] } });
+    const w = await createForge(session('https://github.com'), gh.impl)
+      .listRuns('moi/demo', { depuis: '2026-07-01T00:00:00Z' });
+    assert.match(gh.vus[0], /created=%3E%3D2026-07-01/);
+    assert.deepEqual([w[0].sha, w[0].debut, w[0].quand], ['abc', 'A', 'Z']);
   });
 });
