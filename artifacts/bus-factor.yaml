@@ -39,55 +39,83 @@ criteria:
   - target: output.contains_secret
     op: eq
     value: false
-  # Les trois sections attendues. Vérifiables parce que la consigne les impose au mot
-  # près — et c'est tout ce qu'un critère peut vérifier : la forme, jamais la justesse
-  # du conseil.
+  # Les sections attendues. Vérifiables parce que la consigne les impose au mot près — et
+  # c'est tout ce qu'un critère peut vérifier : la forme, jamais la justesse du conseil.
   - target: output.sections
     op: contains
     value:
-      - Ton bus factor
-      - Où ça coince
-      - Quoi faire
+      - Ce que ça veut dire pour toi
+      - Les zones à traiter
+      - Le plan
+      - Comment savoir que ça s'améliore
+      - Ce qui ne marchera pas
 spec: |-
-    Tu expliques un rapport de bus factor à quelqu'un qui découvre la notion, et tu lui
-    dis quoi faire. Tu parles de SON dépôt, pas de la notion en général.
+    Tu conseilles une équipe sur la répartition de la connaissance dans son dépôt. Le
+    diagnostic est déjà fait : ton travail est de dire QUOI FAIRE, précisément, et dans
+    quel ordre. Sois généreux — mieux vaut trois lignes utiles qu'une ligne élégante.
 
     Matière fournie — elle est DÉJÀ CALCULÉE, ne recalcule rien :
     {{repartition_contributions}}
 
-    Le score, les facteurs de zone et les parts de chacun ont été calculés à partir des
-    commits du dépôt. Reprends-les tels quels. Si tu refais une division, tu obtiendras
-    un autre chiffre que celui affiché à l'écran, et personne ne saura lequel croire.
+    Le score, les facteurs de zone et les parts de chacun viennent des commits du dépôt.
+    Reprends-les tels quels. Si tu refais une division, tu obtiendras un autre chiffre que
+    celui affiché à l'écran, et personne ne saura lequel croire.
 
-    Réponds en trois sections, avec ces titres exactement :
+    Réponds en cinq sections, avec ces titres exactement :
 
-    ## Ton bus factor
+    ## Ce que ça veut dire pour toi
 
-    Le score, son niveau de risque, et ce que ça veut dire en une phrase que quelqu'un
-    qui n'a jamais entendu le terme comprend. Un bus factor de 2 signifie que si deux
-    personnes précises s'en vont, l'équipe perd la main sur une partie du code.
+    Le score, son niveau, et surtout ce qu'il implique CONCRÈTEMENT pour cette équipe.
+    Pas la définition du bus factor : ce qui se passe chez eux si telle personne part
+    trois semaines en congé, ou change d'équipe. Nomme les personnes concernées.
 
-    ## Où ça coince
+    ## Les zones à traiter
 
-    Les zones les plus fragiles, NOMMÉES, avec qui les tient et à quel pourcentage.
-    Commence par la plus fragile. Si une personne dépasse 70 % sur une zone, dis-le : ce
-    n'est pas le nombre de contributeurs qui compte, c'est la concentration.
+    Une entrée par zone fragile, de la plus urgente à la moins urgente. Pour chacune :
 
-    Si la matière signale des répertoires non interrogés, mentionne-le : une zone fragile
-    peut s'y cacher.
+    - ce qu'elle contient probablement, d'après son nom
+    - qui la tient, et à quel pourcentage
+    - qui est le SECOND le plus proche — c'est lui le relais naturel, il connaît déjà un
+      peu ; former quelqu'un qui part de zéro coûte trois fois plus cher
+    - ce qu'on perd concrètement si le porteur s'en va
 
-    ## Quoi faire
+    ## Le plan
 
-    Deux ou trois actions concrètes, dans l'ordre où les faire, chacune rattachée à une
-    zone précise. « Faire du pair programming » ne veut rien dire ; « faire relire les
-    prochaines PR sur `lib/` par quelqu'un d'autre que Daniel » se fait lundi.
+    Trois horizons, et des actions qu'on peut mettre à un ordre du jour :
 
-    Ne propose rien qui demande de recruter. Reste sur ce que l'équipe peut décider
-    elle-même.
+    **Cette semaine** — une ou deux actions, une heure chacune au plus. Le genre de chose
+    qu'on décide en fin de daily.
+
+    **Ce mois-ci** — trois à cinq actions. Nomme qui fait quoi avec qui, sur quelle zone,
+    et combien de temps ça prend.
+
+    **Ce trimestre** — ce qui demande de changer une habitude d'équipe plutôt qu'un
+    créneau : règle de relecture, rotation, découpage d'une zone trop grosse.
+
+    Chaque action porte : la zone visée, qui la fait, avec qui, et le temps que ça prend.
+    « Faire du pair programming » ne veut rien dire. « Sur les deux prochaines PR touchant
+    `lib/`, mettre Marie en relectrice obligatoire — 20 minutes par PR » se décide lundi.
+
+    ## Comment savoir que ça s'améliore
+
+    Ce qu'il faut regarder, et à quelle échéance. Donne la valeur d'aujourd'hui et une
+    cible réaliste — pas « atteindre 5 », mais le prochain palier atteignable et quand.
+    Dis aussi quel signe montrerait que ça ne marche pas.
+
+    ## Ce qui ne marchera pas
+
+    Deux ou trois fausses bonnes idées, dites franchement : ce que les équipes tentent
+    dans cette situation et qui ne change rien. Écrire une grosse documentation que
+    personne ne relira, décréter une revue croisée systématique qu'on abandonnera en trois
+    semaines, recruter. Explique pourquoi à chaque fois.
 
     Ce que tu ne fais pas : tu ne recalcules aucun chiffre, tu n'inventes aucun nom de
-    fichier ou de personne qui ne soit pas dans la matière, et tu ne juges personne. Le
-    bus factor décrit une répartition de connaissance, pas la valeur de quelqu'un.
+    fichier ou de personne qui ne soit pas dans la matière, et tu ne juges personne. Une
+    concentration de connaissance décrit une organisation, pas la valeur de quelqu'un —
+    et celui qui tient une zone à 92 % n'a rien fait de mal.
+
+    Si la matière signale des répertoires non interrogés, dis-le dans « Comment savoir que
+    ça s'améliore » : le score porte sur une partie du dépôt seulement.
 
     Si la matière dit qu'aucun score n'est calculable, dis-le franchement et explique ce
     qui manque. N'invente pas un chiffre pour avoir l'air utile.

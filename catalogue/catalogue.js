@@ -944,6 +944,7 @@ function champCalcule(variable, { surEtat = () => {} } = {}) {
   dire('Choisis un dépôt ci-dessus.');
 
   let enCours = 0;
+  let dernier = null;
   async function calculer(depot) {
     const mien = ++enCours;
     /*
@@ -968,6 +969,7 @@ function champCalcule(variable, { surEtat = () => {} } = {}) {
       // Un dépôt a pu être choisi entre-temps : une réponse en retard ne doit pas écraser
       // la bonne. Sans ce garde, changer deux fois de dépôt rapidement affiche le premier.
       if (mien !== enCours) return;
+      dernier = r;
       zone.value = r.texte;
       detail.hidden = false;
       dire(`✔ ${resumeCourt(r)}`, 'ok');
@@ -993,6 +995,14 @@ function champCalcule(variable, { surEtat = () => {} } = {}) {
   return {
     noeud,
     controle: zone,
+    /*
+     * Le dernier résultat, sous sa forme STRUCTURÉE et pas seulement en texte.
+     *
+     * Le rapport exporté en a besoin pour dresser ses propres tableaux — score,
+     * contributeurs, zones — au lieu de reprendre ce que le modèle en a écrit. Ce sont
+     * deux choses différentes : l'un est mesuré, l'autre est rédigé.
+     */
+    dernier: () => dernier,
     calculer: (depot) => { refaire.dataset.depot = depot || ''; return calculer(depot); }
   };
 }
@@ -1486,6 +1496,9 @@ function ouvrirExecution(entry) {
         // La matière telle qu'elle est PARTIE, relue sur le champ lui-même : c'est elle
         // que le modèle a eue sous les yeux, pas ce qu'on croit lui avoir donné.
         matiere: calcules.map((c) => c.controle.value).filter(Boolean).join('\n\n'),
+        // Les chiffres MESURÉS, à part du texte : le rapport en fait ses propres tableaux
+        // plutôt que de faire confiance à ce que le modèle en a recopié.
+        mesures: calcules.map((c) => c.dernier()).find(Boolean) || null,
         postvol: corps.postvol || null,
         jetons: corps.jetons || null
       });

@@ -55,6 +55,18 @@ describe('ce que le rapport porte', () => {
     assert.match(html, /output\.sections/);
   });
 
+  test('la technique est DISPONIBLE mais repliée — on vient pour le plan', () => {
+    /*
+     * Agent, version, modèle, coût et critères occupaient le haut de page. Personne ne
+     * vient chercher ça : on vient chercher quoi faire de son dépôt. Les supprimer serait
+     * pire — le jour où quelqu'un conteste un chiffre, il doit pouvoir remonter à
+     * l'agent qui l'a produit.
+     */
+    assert.match(html, /<details class="tech">/);
+    assert.match(html, /Provenance et contrôles/);
+    assert.ok(html.indexOf('Le diagnostic et le plan') < html.indexOf('class="tech"'));
+  });
+
   test('un critère violé ne se cache pas', () => {
     // Un rapport qui masquerait un refus mentirait exactement là où il sert de preuve.
     const ko = rapportHtml({ ...BASE, postvol: { conforme: false,
@@ -62,6 +74,54 @@ describe('ce que le rapport porte', () => {
       constats: [{ cible: 'output.sections', op: 'contains', attendu: ['x'], verdict: 'violé' }] } });
     assert.match(ko, /1 critère\(s\) violé\(s\)/);
     assert.match(ko, /verdict ko/);
+  });
+});
+
+describe('les chiffres mesurés, montrés comme des chiffres', () => {
+  const m = { score: 2, niveau: 'RISQUE MOYEN',
+    contributeurs: [{ nom: 'claude', commits: 51 }, { nom: 'daniel', commits: 49 }],
+    zones: [{ chemin: 'lib', facteur: 1, commits: 40, parts: [{ nom: 'claude', part: 100 }] },
+            { chemin: 'app', facteur: 2, commits: 20,
+              parts: [{ nom: 'daniel', part: 64 }, { nom: 'claude', part: 36 }] }],
+    comptes: { ignorees: 15 } };
+  const html = rapportHtml({ ...BASE, mesures: m });
+
+  test('le score s\'affiche en grand, depuis la MESURE et non depuis le texte', () => {
+    /*
+     * Si le modèle recopiait mal un chiffre, c'est celui-ci qui ferait foi. Le calculer à
+     * part est ce qui permet de le dire.
+     */
+    assert.match(html, /<div class="score moyen">/);
+    assert.match(html, /<b>2<\/b>/);
+    assert.match(html, /RISQUE MOYEN/);
+  });
+
+  test('qui porte le code, en tableau', () => {
+    assert.match(html, /Qui porte le code/);
+    assert.match(html, /claude/);
+    assert.match(html, /51/);
+  });
+
+  test('les zones, avec leur urgence lisible sans lire', () => {
+    assert.match(html, /Les zones, de la plus fragile/);
+    assert.match(html, /<tr class="ko">/);
+    assert.match(html, /<code>lib<\/code>/);
+  });
+
+  test('ce qui n\'a pas été regardé est dit, pas tu', () => {
+    assert.match(html, /15 répertoire\(s\) n'ont pas été interrogés/);
+  });
+
+  test('sans mesure, aucun tableau inventé', () => {
+    const nu = rapportHtml({ ...BASE, mesures: null });
+    assert.ok(!/class="score"/.test(nu));
+    assert.ok(!/Qui porte le code/.test(nu));
+  });
+
+  test('un score non calculable ne devient pas zéro', () => {
+    const na = rapportHtml({ ...BASE, mesures: { score: null, contributeurs: [], zones: [] } });
+    assert.match(na, /score non calculable/);
+    assert.ok(!/<b>0<\/b>/.test(na));
   });
 });
 
@@ -76,7 +136,7 @@ describe('ce que le rapport refuse de laisser croire', () => {
      */
     assert.match(html, /Les chiffres fournis à l'agent/);
     assert.match(html, /n'ont pas été produits par le modèle/);
-    assert.match(html, /le commentaire est rédigé par un modèle/);
+    assert.match(html, /le diagnostic est rédigé par un modèle/);
   });
 
   test('la matière figure telle quelle, pour être confrontée', () => {
