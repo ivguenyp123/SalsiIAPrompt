@@ -15,6 +15,7 @@ import { mountShell } from '../app/shell.js';
 import { lint, ERROR } from '../lint/index.js';
 import { prevol, SENSIBILITES } from '../preflight/index.js';
 import { SOURCES, sourceProbable, chercher as chercherFichier, diffUnifie, resume, grosse } from '../lib/matiere.js';
+import { rendre as rendreMd, ressembleADuMarkdown, lienSur } from '../lib/md.js';
 import { sait as saitCalculer, zonesDepuisArbre, repartitionContributions,
          resumeCourt, FENETRE, MAX_ZONES_INTERROGEES } from '../lib/signaux-matiere.js';
 import { indexer, chercher, etiquettes, porteEtiquettes } from '../lib/recherche.js';
@@ -1418,6 +1419,38 @@ function ouvrirExecution(entry) {
     rendreResultat(corps, r.status);
   }
 
+  /*
+   * La sortie, LUE — et non montrée telle quelle.
+   *
+   * Un agent qui répond en Markdown s'affichait en chasse fixe : on lisait « ## Ton bus
+   * factor » et « **92 %** » au lieu d'un titre et d'un chiffre en gras. La réponse était
+   * bonne et illisible, ce qui revient au même pour celui qui la reçoit.
+   *
+   * Deux précautions, parce que ce texte vient d'un MODÈLE et pas de nous :
+   *
+   *   · `rendre()` échappe tout AVANT de baliser — aucune balise du modèle ne devient du
+   *     HTML. `lienSur` neutralise en plus les destinations `javascript:` et `data:`.
+   *   · le texte EXACT reste à un clic. C'est lui que les critères ont évalué : le cacher
+   *     derrière une mise en forme rendrait le verdict invérifiable.
+   *
+   * Du JSON n'est pas rendu : sa structure EST sa lisibilité, et la baliser l'effacerait.
+   */
+  function sortieLisible(brut) {
+    const texte = String(brut ?? '');
+    if (!ressembleADuMarkdown(texte)) return el('pre', { textContent: texte });
+
+    const boite = el('div', {});
+    const lu = el('div', { className: 'lu' });
+    lu.innerHTML = rendreMd(texte, { lien: lienSur });
+    boite.append(lu);
+
+    const exact = el('details', { className: 'brut' });
+    exact.append(el('summary', { textContent: 'le texte exact rendu par le modèle' }),
+                 el('pre', { textContent: texte }));
+    boite.append(exact);
+    return boite;
+  }
+
   function rendreResultat(corps, status) {
     conf.hidden = true;
     zone.textContent = '';
@@ -1457,7 +1490,7 @@ function ouvrirExecution(entry) {
     }
 
     zone.append(el('h4', { textContent: `Sortie — ${corps.modele}${corps.cas ? ` · ${corps.cas}` : ''}` }));
-    zone.append(el('pre', { textContent: corps.sortie }));
+    zone.append(sortieLisible(corps.sortie));
 
     /*
      * Le post-vol. C'est LA nouveauté visible : `criteria` était déclaré depuis le début

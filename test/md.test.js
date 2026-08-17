@@ -11,7 +11,8 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { rendre, enLigne, echapper, plan, ancre, titre } from '../lib/md.js';
+import { rendre, enLigne, echapper, plan, ancre, titre, lienSur,
+         ressembleADuMarkdown } from '../lib/md.js';
 
 describe('l\'échappement', () => {
   test('aucun contenu ne devient du balisage', () => {
@@ -170,5 +171,46 @@ describe('les entrées limites', () => {
       assert.doesNotThrow(() => rendre(x), String(x));
     }
     assert.equal(echapper(null), '');
+  });
+});
+
+describe('ce qui gagne à être rendu', () => {
+  test('un titre, une puce, du gras : oui', () => {
+    assert.equal(ressembleADuMarkdown('## Ton bus factor\n\ndu texte'), true);
+    assert.equal(ressembleADuMarkdown('- une zone\n- une autre'), true);
+    assert.equal(ressembleADuMarkdown('la zone **lib** est tenue par une personne'), true);
+    assert.equal(ressembleADuMarkdown('1. faire ceci\n2. puis cela'), true);
+  });
+
+  test('du JSON reste du JSON — le rendre effacerait sa structure', () => {
+    assert.equal(ressembleADuMarkdown('{"score": 2, "zones": []}'), false);
+    assert.equal(ressembleADuMarkdown('```json\n{"a": 1}\n```'), false);
+  });
+
+  test('du texte nu n\'a rien à rendre', () => {
+    assert.equal(ressembleADuMarkdown('Une phrase toute simple.'), false);
+    assert.equal(ressembleADuMarkdown(''), false);
+    assert.equal(ressembleADuMarkdown(null), false);
+  });
+});
+
+describe('les liens d\'un texte qu\'on n\'a pas écrit', () => {
+  test('http, mailto et les chemins passent', () => {
+    assert.equal(lienSur('https://exemple.fr/a'), 'https://exemple.fr/a');
+    assert.equal(lienSur('mailto:a@b.fr'), 'mailto:a@b.fr');
+    assert.equal(lienSur('#section'), '#section');
+    assert.equal(lienSur('./page.md'), './page.md');
+  });
+
+  test('`javascript:` et `data:` deviennent inertes', () => {
+    /*
+     * La doc est écrite par nous ; la sortie d'un modèle ne l'est pas. Rendue telle
+     * quelle, elle donnerait à un texte généré le pouvoir d'exécuter du code dans la page.
+     * Le libellé du lien reste visible — seule sa destination est neutralisée.
+     */
+    assert.equal(lienSur('javascript:alert(1)'), '#');
+    assert.equal(lienSur('JavaScript:alert(1)'), '#');
+    assert.equal(lienSur('data:text/html,<script>'), '#');
+    assert.equal(lienSur(''), '#');
   });
 });

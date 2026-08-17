@@ -75,6 +75,38 @@
      avant d'avoir lu le mot. Une pastille pleine, elle, est un fait. */
   .pill.vise{border-style:dashed;background:transparent;opacity:.85}
 
+  /* ── La sortie du modèle, LUE ──
+     Un rapport se lit ; il ne se déchiffre pas. Le texte exact reste dessous, replié :
+     c'est lui que les critères ont évalué, et on doit pouvoir le confronter. */
+  .lu{font-size:13.5px;line-height:1.7;color:var(--ts);background:rgba(0,0,0,.24);
+      border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+  .lu > :first-child{margin-top:0}
+  .lu > :last-child{margin-bottom:0}
+  .lu h1,.lu h2,.lu h3{font-family:var(--fd);color:var(--tp);line-height:1.3;
+                       margin:22px 0 9px}
+  .lu h1{font-size:18px} .lu h2{font-size:16px} .lu h3{font-size:14px}
+  .lu p{margin:0 0 11px}
+  .lu ul,.lu ol{margin:0 0 12px;padding-left:20px}
+  .lu li{margin-bottom:6px}
+  .lu li::marker{color:var(--accent)}
+  .lu b,.lu strong{color:var(--tp)}
+  .lu code{font-family:var(--fm);font-size:11.5px;color:#fcd34d;
+           background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.22);
+           border-radius:5px;padding:1px 5px}
+  .lu pre{background:rgba(0,0,0,.4);border:1px solid var(--line);border-radius:10px;
+          padding:12px 14px;overflow:auto;font-size:11.5px;line-height:1.6}
+  .lu pre code{background:none;border:0;color:var(--ts);padding:0}
+  .lu table{border-collapse:collapse;width:100%;margin:0 0 12px;font-size:12.5px}
+  .lu th,.lu td{border:1px solid var(--line);padding:7px 10px;text-align:left}
+  .lu th{background:rgba(255,255,255,.04);color:var(--tp)}
+  .lu blockquote{margin:0 0 12px;padding-left:12px;border-left:2px solid var(--line2);
+                 color:var(--tm)}
+  .lu hr{border:0;border-top:1px solid var(--line);margin:16px 0}
+  .brut{margin-top:9px}
+  .brut summary{cursor:pointer;font-size:11px;color:var(--tm);text-transform:uppercase;
+                letter-spacing:.05em;font-weight:700}
+  .brut pre{margin-top:8px}
+
   .empty{padding:34px;text-align:center;color:var(--tm);border:1px dashed var(--line2);border-radius:16px}
   .empty b{color:var(--tp);display:block;margin-bottom:6px;font-family:var(--fd);font-size:15px}
 
