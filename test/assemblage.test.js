@@ -7,7 +7,7 @@
  */
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -21,6 +21,18 @@ import { SOURCES_ENTREES, CRITERE_PAR_SORTIE, consigneDepuisBesoin, morceauDepui
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const INVENTAIRE = aplatir(yaml.load(readFileSync(join(ROOT, 'inventaire/hub-devops.yaml'), 'utf8')));
 const SOURCES_VALIDES = ['user', 'signal', 'repo'];
+
+/*
+ * Les artefacts publiés, lus depuis le DOSSIER et jamais listés à la main.
+ *
+ * Une liste écrite ici rougirait au premier agent créé depuis le produit — c'est déjà
+ * arrivé sur `test/entrees.test.js`, et un test qui casse quand on se sert normalement du
+ * produit finit par être désactivé.
+ */
+const ARTEFACTS = readdirSync(join(ROOT, 'artifacts'))
+  .filter((f) => /\.ya?ml$/.test(f))
+  .map((f) => yaml.load(readFileSync(join(ROOT, 'artifacts', f), 'utf8')))
+  .filter(Boolean);
 
 /* ── La table des sources, confrontée à l'inventaire ──────────────────────── */
 
@@ -38,8 +50,22 @@ describe('les sources des entrées', () => {
       `entrées sans source dans lib/assemblage.js : ${orphelines.join(', ')}`);
   });
 
-  test('aucune source déclarée pour une entrée qui n\'existe plus', () => {
-    const utilisees = new Set(INVENTAIRE.flatMap((p) => p.entrees || []));
+  test('aucune source déclarée pour une entrée que personne n\'emploie', () => {
+    /*
+     * Le pendant du test précédent : pas de vocabulaire mort.
+     *
+     * Il ne confronte PLUS le seul inventaire du hub. Le registre pose des questions que
+     * le hub ne pose pas — `parc_securite` demande « par quelle équipe commencer », et
+     * l'inventaire raisonne toujours sur un dépôt à la fois. Refuser ce mot au motif que
+     * le hub ne l'emploie pas reviendrait à interdire d'aller plus loin que lui.
+     *
+     * Ce qu'on refuse reste le mot que PERSONNE n'emploie — ni l'inventaire, ni un
+     * artefact publié. C'est celui-là qui pourrit la table.
+     */
+    const utilisees = new Set([
+      ...INVENTAIRE.flatMap((p) => p.entrees || []),
+      ...ARTEFACTS.flatMap((a) => (a.variables || []).map((v) => v.name))
+    ]);
     const fantomes = Object.keys(SOURCES_ENTREES).filter((n) => !utilisees.has(n)).sort();
     assert.deepEqual(fantomes, [], `sources déclarées en trop : ${fantomes.join(', ')}`);
   });

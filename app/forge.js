@@ -287,7 +287,37 @@ function gitlab(session, fetchImpl) {
      * laisserait le dépôt dans un état incohérent, et il n'y aurait rien à annuler d'un
      * bloc. L'atomicité n'est pas un confort, c'est ce qui rend l'opération réversible.
      */
-    commitFiles: async (repo, { branch, message, files }) => {
+    /*
+     * `depuis` crée la branche si elle n'existe pas — c'est `start_branch` de GitLab.
+     *
+     * Sans lui, proposer un correctif demandait de créer la branche à part, donc un appel
+     * de plus et un état intermédiaire : une branche vide qui traîne si le commit échoue.
+     * GitLab fait les deux en une fois, et l'atomicité vaut ici autant qu'ailleurs.
+     *
+     * `action: create` plutôt que `update` quand on part d'une branche neuve : GitLab
+     * refuse `update` sur un fichier qui n'existe pas, et `SECURITY.md` absent est
+     * précisément le cas nominal. On retombe sur `update` si le fichier était déjà là —
+     * une branche de correctifs rejouée porte déjà les fichiers du coup précédent.
+     */
+    commitFiles: async (repo, { branch, message, files, depuis = '' }) => {
+      const chemin = `/projects/${encodeURIComponent(repo)}/repository/commits`;
+      const corps = (action) => ({
+        branch, commit_message: message, ...(depuis ? { start_branch: depuis } : {}),
+        actions: files.map((f) => ({ action, file_path: f.path, content: f.content }))
+      });
+
+      if (depuis) {
+        try {
+          const neuf = await call(chemin, { method: 'POST', body: corps('create') });
+          return { sha: neuf.id, url: neuf.web_url };
+        } catch (error) {
+          // 400 : un des fichiers existe déjà sur la branche de départ. On réécrit.
+          if (error.status !== 400) throw error;
+          const maj = await call(chemin, { method: 'POST', body: corps('update') });
+          return { sha: maj.id, url: maj.web_url };
+        }
+      }
+
       const actions = files.map((f) => ({ action: 'update', file_path: f.path, content: f.content }));
       const c = await call(`/projects/${encodeURIComponent(repo)}/repository/commits`, {
         method: 'POST', body: { branch, commit_message: message, actions }

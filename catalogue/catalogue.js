@@ -17,14 +17,17 @@ import { prevol, SENSIBILITES } from '../preflight/index.js';
 import { SOURCES, sourceProbable, chercher as chercherFichier, diffUnifie, resume, grosse } from '../lib/matiere.js';
 import { rendre as rendreMd, ressembleADuMarkdown, lienSur } from '../lib/md.js';
 import { rapportHtml, nomFichier } from '../lib/rapport.js';
-import { sait as saitCalculer, zonesDepuisArbre, repartitionContributions,
-         inventaireBranches, resumeCourt, resumeBranches,
+import { sait as saitCalculer, surPlusieursDepots, zonesDepuisArbre,
+         repartitionContributions, inventaireBranches, resumeCourt, resumeBranches,
          FENETRE, MAX_ZONES_INTERROGEES } from '../lib/signaux-matiere.js';
 import { fichierSuspect, MAX_FICHIERS_LUS, rapportSecrets, resumeSecrets,
          ecosysteme, MAX_MANIFESTES_LUS, inventaireDependances, resumeDependances,
          rapportConformite, resumeConformite } from '../lib/signaux-securite.js';
 import { chiffresDora, resumeDora, FENETRE_JOURS,
          MAX_PIPELINES, MAX_MR } from '../lib/signaux-dora.js';
+import { parcSecurite, resumeParc, MAX_DEPOTS } from '../lib/signaux-parc.js';
+import { BRANCHE as BRANCHE_CORRECTIFS, fichiersAProposer, aProposer,
+         descriptionMr, titreMr, messageCommit } from '../lib/correctifs.js';
 import { indexer, chercher, etiquettes, porteEtiquettes } from '../lib/recherche.js';
 import { ETAPES, VU, jouables, placer } from '../lib/tour.js';
 import { niveau, pastille } from '../lib/niveau.js';
@@ -33,7 +36,7 @@ import { preparer as preparerLivraison, executer as executerLivraison } from '..
 import { knownScopes, guessScope } from '../app/scopes.js';
 import { contexteDepot } from '../lib/repos.js';
 import { dossier as dossierMien } from '../lib/mien.js';
-import { champDepot, estUnDepot } from '../app/depots.js';
+import { champDepot, champDepots, estUnDepot } from '../app/depots.js';
 import { makeValidator } from '../lib/schema.js';
 import yaml from '../lib/yaml.js';
 import { carte } from '../runtime/etat-derive.js';
@@ -918,7 +921,8 @@ const CALCULS = {
   rapport_secrets: (depot) => matiereSecrets(depot),
   inventaire_dependances: (depot) => matiereDependances(depot),
   rapport_conformite: (depot) => matiereConformite(depot),
-  chiffres_dora: (depot) => matiereDora(depot)
+  chiffres_dora: (depot) => matiereDora(depot),
+  parc_securite: (depots) => matiereParc(depots)
 };
 
 /** Le résumé d'une ligne, par signal. Sans entrée ici, l'écran n'afficherait rien. */
@@ -928,7 +932,8 @@ const RESUMES = {
   rapport_secrets: resumeSecrets,
   inventaire_dependances: resumeDependances,
   rapport_conformite: resumeConformite,
-  chiffres_dora: resumeDora
+  chiffres_dora: resumeDora,
+  parc_securite: resumeParc
 };
 
 async function matiereContributions(depot) {
@@ -1021,6 +1026,36 @@ async function matiereDependances(depot) {
     depot,
     fichiers: lus.map((f) => ({ ...f, eco: ecoDe.get(f.chemin) })),
     candidats: cibles.length
+  });
+}
+
+/**
+ * La conformité d'un PARC — le même audit, sur les dépôts qu'on a cochés.
+ *
+ * Quatre appels par dépôt. Ils partent en parallèle mais un échec ne fait tomber que SON
+ * dépôt : sur vingt-cinq dépôts il y en a toujours un d'archivé ou d'inaccessible, et
+ * perdre tout l'audit pour celui-là serait absurde. Ceux qu'on n'a pas pu lire sont
+ * remontés par leur nom et comptés à part — jamais tenus pour conformes.
+ *
+ * Le cache d'arbres et de branches par défaut est partagé avec le reste de l'écran : un
+ * dépôt déjà audité seul ne sera pas relu.
+ */
+async function matiereParc(depots = []) {
+  const choisis = [...depots].slice(0, MAX_DEPOTS);
+  const echoues = [];
+
+  const audits = await Promise.all(choisis.map(async (depot) => {
+    try {
+      return { depot, conformite: await matiereConformite(depot) };
+    } catch (error) {
+      echoues.push({ depot, pourquoi: error.message });
+      return null;
+    }
+  }));
+
+  return parcSecurite({
+    depots: audits.filter(Boolean), echoues,
+    ignores: Math.max(0, depots.length - choisis.length)
   });
 }
 
@@ -1150,12 +1185,24 @@ function champCalcule(variable, { surEtat = () => {} } = {}) {
      * un trou, et le pré-vol refuse pour P003 alors que rien n'est cassé. C'est ce que
      * `surEtat` sert à dire au bouton.
      */
+    /*
+     * `depot` est une chaîne, ou une LISTE quand le signal porte sur plusieurs dépôts.
+     * Un tableau vide est truthy en JavaScript : sans ce test, cocher puis tout décocher
+     * lancerait un audit sur zéro dépôt et rendrait « parc conforme ».
+     */
+    const liste = Array.isArray(depot);
+    const vide = liste ? depot.length === 0 : !depot;
+
     zone.value = '';
     detail.hidden = true;
-    refaire.hidden = !depot;
+    refaire.hidden = vide;
 
-    if (!depot) { dire('Choisis un dépôt ci-dessus.'); surEtat(false); return; }
-    dire(`Lecture de ${depot}…`, 'attente');
+    if (vide) {
+      dire(liste ? 'Coche les dépôts à auditer ci-dessus.' : 'Choisis un dépôt ci-dessus.');
+      surEtat(false);
+      return;
+    }
+    dire(liste ? `Lecture de ${depot.length} dépôt(s)…` : `Lecture de ${depot}…`, 'attente');
     surEtat(true);
 
     try {
@@ -1184,7 +1231,11 @@ function champCalcule(variable, { surEtat = () => {} } = {}) {
     }
   }
 
-  refaire.onclick = () => calculer(refaire.dataset.depot || '');
+  // Le dernier choix est gardé en mémoire plutôt que dans un attribut : un `dataset` ne
+  // stocke que des chaînes, et « recalculer » sur une liste de dépôts en rendrait une
+  // chaîne à virgules dont personne ne saurait quoi faire.
+  let dernierChoix = '';
+  refaire.onclick = () => calculer(dernierChoix);
 
   return {
     noeud,
@@ -1197,7 +1248,7 @@ function champCalcule(variable, { surEtat = () => {} } = {}) {
      * deux choses différentes : l'un est mesuré, l'autre est rédigé.
      */
     dernier: () => dernier,
-    calculer: (depot) => { refaire.dataset.depot = depot || ''; return calculer(depot); }
+    calculer: (depot) => { dernierChoix = depot || ''; return calculer(depot); }
   };
 }
 
@@ -1208,7 +1259,8 @@ const SIGNAL_LISIBLE = {
   rapport_secrets: 'Les secrets exposés — scannés dans le dépôt',
   inventaire_dependances: 'Les dépendances déclarées — lues dans les manifestes',
   rapport_conformite: 'La conformité CIS — contrôlée sur le dépôt',
-  chiffres_dora: 'Les quatre métriques DORA — mesurées sur 30 jours'
+  chiffres_dora: 'Les quatre métriques DORA — mesurées sur 30 jours',
+  parc_securite: 'La conformité du parc — auditée sur les dépôts cochés'
 };
 
 /**
@@ -1448,16 +1500,42 @@ function ouvrirExecution(entry) {
    */
   let calculsEnCours = 0;
   const aCalculer = (artifact.variables || []).some((v) => saitCalculer(v.name));
-  const depotCalc = aCalculer
-    ? champDepot({ forge, surChoix: (choisi) => {
-        localStorage.setItem('salsi_ia_project_path', choisi || '');
-        for (const c of calcules) c.calculer(choisi);
-      } })
-    : null;
+
+  /*
+   * UN dépôt, ou PLUSIEURS — c'est le signal qui décide, pas l'écran.
+   *
+   * La revue de parc audite N dépôts choisis ; tous les autres agents portent sur un seul.
+   * Offrir des cases à cocher à un agent qui n'en lira qu'un ferait croire qu'il compare,
+   * et offrir un menu déroulant à la revue de parc la rendrait inutile. Le descripteur du
+   * signal porte l'information, donc les deux ne peuvent pas diverger.
+   */
+  const surParc = (artifact.variables || []).some((v) => surPlusieursDepots(v.name));
+  const depotCalc = !aCalculer ? null
+    : surParc
+      ? champDepots({ forge, max: MAX_DEPOTS,
+                      surChoix: (liste) => { for (const c of calcules) c.calculer(liste); } })
+      : champDepot({ forge, surChoix: (choisi) => {
+          localStorage.setItem('salsi_ia_project_path', choisi || '');
+          for (const c of calcules) c.calculer(choisi);
+        } });
 
   const tete = el('div', { className: 'champs' },
     champ('Entrée', choixCas), champ('Sensibilité du dépôt', sensibilite), champ('Criticité', criticite));
-  if (depotCalc) tete.prepend(champ('Dépôt', depotCalc.noeud));
+  if (depotCalc) tete.prepend(champ(surParc ? 'Les dépôts à auditer' : 'Dépôt', depotCalc.noeud));
+
+  /*
+   * Sur quoi le rapport a porté, en une chaîne — pour l'en-tête et le nom du fichier.
+   *
+   * Un audit de parc n'a pas UN dépôt : écrire le premier de la liste ferait passer un
+   * rapport sur douze dépôts pour un rapport sur un seul, et le fichier exporté porterait
+   * un nom qui ment.
+   */
+  const cible = () => {
+    if (!depotCalc) return '';
+    if (!surParc) return depotCalc.valeur();
+    const n = depotCalc.valeurs().length;
+    return n ? `${n} dépôt(s)` : '';
+  };
   form.append(tete);
 
   /*
@@ -1697,7 +1775,7 @@ function ouvrirExecution(entry) {
         version: artifact.version || '',
         auteur: artifact.owner?.person || '',
         perimetre: artifact.owner?.scope || '',
-        depot: depotCalc ? depotCalc.valeur() : '',
+        depot: cible(),
         quand: maintenant.toLocaleString('fr-FR',
           { dateStyle: 'long', timeStyle: 'short' }),
         modele: corps.modele || '',
@@ -1721,7 +1799,7 @@ function ouvrirExecution(entry) {
 
       const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
       const a = el('a', { href: url, download: nomFichier({
-        agent: artifact.id, depot: depotCalc ? depotCalc.valeur() : '',
+        agent: artifact.id, depot: cible(),
         date: maintenant.toISOString() }) });
       document.body.append(a);
       a.click();
@@ -1731,6 +1809,140 @@ function ouvrirExecution(entry) {
     };
 
     return b;
+  }
+
+  /*
+   * ── PROPOSER LES CORRECTIFS ─────────────────────────────────────────────────
+   *
+   * La seule action de ce produit qui ÉCRIT chez quelqu'un d'autre. Elle mérite donc plus
+   * de garde-fous que tout le reste, et ils sont tous ici :
+   *
+   *   AUCUN MODÈLE NE DÉCIDE. Les dépôts visés, les fichiers posés et le texte de la
+   *   description viennent de `lib/correctifs.js` — du code, dérivé de l'audit. Ce que le
+   *   modèle a écrit dans son rapport n'entre nulle part dans ce qui est commité.
+   *
+   *   ON N'ÉCRIT QUE DEUX FICHIERS, et seulement s'ils manquent. Protéger une branche ou
+   *   exiger deux approbateurs sont des RÉGLAGES : aucun commit ne les change, et la
+   *   description le dit avec l'écran exact où aller les régler.
+   *
+   *   ON NE FUSIONNE JAMAIS. On ouvre une merge request, l'équipe décide. C'est ce qui a
+   *   été demandé — « à valider par les équipes » — et c'est aussi la seule façon de ne
+   *   pas se faire couper les droits la semaine suivante.
+   *
+   *   ON DIT AVANT DE FAIRE. La confirmation liste les dépôts visés et les fichiers, un
+   *   par un. Un bouton qui écrit chez les autres sans montrer quoi ni où n'a rien à faire
+   *   dans un produit qui prétend gouverner.
+   */
+  function boutonCorrectifs() {
+    const b = el('button', { className: 'export', type: 'button',
+      textContent: '📮 Proposer les correctifs' });
+
+    /*
+     * GitHub n'est pas servi, et le bouton le DIT plutôt que d'échouer au clic.
+     *
+     * `commitFiles` et `createMergeRequest` lèvent un 501 volontaire sur GitHub : la cible
+     * est GitLab, et la reconstruction d'arbre git côté GitHub n'a jamais été écrite faute
+     * d'usage. Laisser le bouton actif ferait découvrir le trou après coup, sur un message
+     * technique — alors qu'il se dit en une phrase avant.
+     */
+    if (forge.kind !== 'gitlab') {
+      b.disabled = true;
+      b.title = 'Sur GitLab seulement. L\'ouverture d\'une merge request n\'est pas '
+              + 'implémentée côté GitHub : la connexion actuelle ne peut pas écrire.';
+      return b;
+    }
+
+    b.onclick = async () => {
+      const parc = calcules.map((c) => c.dernier()).find((r) => r?.lignes);
+      const aFaire = (parc?.lignes || [])
+        .filter((d) => aProposer(d.conformite))
+        .map((d) => ({ depot: d.depot, conformite: d.conformite,
+                       fichiers: fichiersAProposer(d.conformite, d.depot) }));
+
+      if (!aFaire.length) {
+        alert('Aucun dépôt en écart parmi ceux audités — il n\'y a rien à proposer.');
+        return;
+      }
+
+      const apercu = aFaire.map((x) => `  • ${x.depot}\n`
+        + (x.fichiers.length
+          ? x.fichiers.map((f) => `      + ${f.chemin}`).join('\n')
+          : '      (aucun fichier à poser — la MR portera le constat)')).join('\n');
+
+      if (!confirm(
+        `Ouvrir ${aFaire.length} merge request(s), branche « ${BRANCHE_CORRECTIFS} ».\n\n`
+        + `${apercu}\n\n`
+        + 'Aucune ne sera fusionnée : ce sont des propositions, les équipes décident.\n'
+        + 'Les réglages de projet — branches protégées, approbations, webhooks — ne sont '
+        + 'PAS corrigés ; la description dit où les régler à la main.\n\nContinuer ?')) return;
+
+      b.disabled = true;
+      const suivi = el('div', { className: 'constats' });
+      zone.append(el('h4', { textContent: 'Les correctifs proposés' }), suivi);
+
+      for (const x of aFaire) {
+        const ligne = el('div', { textContent: `⏳ ${x.depot}…` });
+        suivi.append(ligne);
+        try {
+          const r = await proposerCorrectif(x);
+          ligne.textContent = `✔ ${x.depot}${r.url ? ' — ' : ' — merge request déjà ouverte'}`;
+          if (r.url) {
+            ligne.append(el('a', { href: r.url, target: '_blank', rel: 'noopener',
+                                   textContent: 'voir la merge request' }));
+          }
+        } catch (error) {
+          // Un dépôt qui refuse n'arrête pas les autres : sur vingt dépôts il y en a
+          // toujours un où le jeton n'a pas le droit d'écrire, et ce n'est pas une panne.
+          ligne.textContent = `✕ ${x.depot} — ${error.message}`;
+          ligne.className = 'ko';
+        }
+      }
+      b.disabled = false;
+    };
+
+    return b;
+  }
+
+  /**
+   * Une merge request de correctifs sur UN dépôt.
+   *
+   * Rejouable : la branche porte toujours le même nom, et une merge request déjà ouverte
+   * depuis elle est réutilisée plutôt que doublée. Relancer l'audit trois fois ne doit pas
+   * poser trois MR identiques sur le dos d'équipes qui n'ont rien demandé.
+   */
+  async function proposerCorrectif({ depot, conformite, fichiers }) {
+    const cibleBranche = await brancheDe(depot);
+
+    /*
+     * Un dépôt sans fichier à poser reçoit quand même sa merge request : le constat et la
+     * liste des réglages à faire à la main SONT le contenu utile. Le fichier ne sert que
+     * de support — sans lui, il n'y a pas de commit, donc pas de MR possible.
+     */
+    const aEcrire = fichiers.length ? fichiers : [{
+      chemin: 'CONFORMITE-CIS.md',
+      contenu: descriptionMr({ depot, conformite, fichiers: [] })
+    }];
+
+    await forge.commitFiles(depot, {
+      branch: BRANCHE_CORRECTIFS,
+      depuis: cibleBranche,
+      message: messageCommit(conformite),
+      files: aEcrire.map((f) => ({ path: f.chemin, content: f.contenu }))
+    });
+
+    try {
+      const mr = await forge.createMergeRequest(depot, {
+        source: BRANCHE_CORRECTIFS, target: cibleBranche,
+        title: titreMr(conformite),
+        description: descriptionMr({ depot, conformite, fichiers })
+      });
+      return { url: mr.url };
+    } catch (error) {
+      // 409 : une MR est déjà ouverte depuis cette branche. Ce n'est pas un échec, c'est
+      // l'idempotence qui fait son travail — la branche vient d'être mise à jour.
+      if (error.status === 409) return { url: '' };
+      throw error;
+    }
   }
 
   function rendreResultat(corps, status) {
@@ -1775,6 +1987,12 @@ function ouvrirExecution(entry) {
       el('h4', { textContent: `Sortie — ${corps.modele}${corps.cas ? ` · ${corps.cas}` : ''}` }),
       el('span', { className: 'sp' }),
       boutonExport(corps));
+    // Le bouton n'apparaît que sur un audit de parc, et seulement s'il a trouvé un écart :
+    // proposer des correctifs à un parc conforme n'aurait aucun sens, et le bouton visible
+    // ferait douter du verdict.
+    if (surParc && calcules.some((c) => (c.dernier()?.lignes || []).some((d) => aProposer(d.conformite)))) {
+      tete.append(boutonCorrectifs());
+    }
     zone.append(tete);
     zone.append(sortieLisible(corps.sortie));
 

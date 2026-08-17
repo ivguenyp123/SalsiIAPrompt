@@ -158,6 +158,23 @@
   .calc-etat.ok{color:#6ee7b7;border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.07);
                 font-weight:700}
   .calc-etat.ko{color:#fca5a5;border-color:rgba(248,113,113,.45);background:rgba(248,113,113,.08)}
+  /* ── Choisir PLUSIEURS dépôts : des cases, pas un menu ──
+     Rien n'est coché au départ, et c'est délibéré : un jeton voit des archives et des
+     bacs à sable, les auditer noierait le vrai sujet. La liste défile dans son cadre —
+     trente dépôts qui poussent le bouton « Exécuter » hors de l'écran rendraient la
+     sélection inutilisable. */
+  .champ-depots .depots-barre{display:flex;gap:7px;margin-bottom:7px}
+  .champ-depots .depots-barre input{flex:1}
+  .champ-depots .depots-barre button{font-size:11.5px;padding:5px 10px;white-space:nowrap}
+  .champ-depots .depots-liste{max-height:230px;overflow:auto;border:1px solid var(--line2);
+                              border-radius:10px;background:rgba(0,0,0,.24);padding:5px}
+  .champ-depots .depot-ligne{display:flex;align-items:center;gap:9px;padding:5px 8px;
+                             border-radius:7px;cursor:pointer;font-size:12.5px}
+  .champ-depots .depot-ligne:hover{background:rgba(255,255,255,.05)}
+  .champ-depots .depot-ligne input{margin:0;flex:none}
+  .champ-depots .note{margin-top:7px}
+  .champ-depots .note.ko{color:#fca5a5}
+
   .calc-detail{margin-top:7px}
   .calc-detail summary{cursor:pointer;font-size:11px;color:var(--tm);text-transform:uppercase;
                        letter-spacing:.05em;font-weight:700}

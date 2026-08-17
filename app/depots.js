@@ -127,4 +127,100 @@ export function champDepot({ forge, valeur = '', surChoix = () => {}, doc = docu
   return { noeud, valeur: lire, remplir };
 }
 
-export default { CLE_TRAVAIL, estUnDepot, listerDepots, oublierDepots, champDepot };
+/**
+ * Un champ « PLUSIEURS dépôts » : des cases à cocher, une recherche, un plafond.
+ *
+ * ── POURQUOI ON NE COCHE PAS TOUT PAR DÉFAUT ────────────────────────────────
+ *
+ * Un jeton voit souvent des dizaines de dépôts, dont des archives et des bacs à sable.
+ * Les scanner tous coûte quatre appels chacun et produit un classement où le vrai sujet
+ * est noyé sous des dépôts que personne ne maintient. La sélection est donc EXPLICITE :
+ * rien n'est coché au départ, et ce qui n'est pas coché est compté à part dans le rapport
+ * plutôt que d'être passé sous silence.
+ *
+ * Le plafond n'est pas une limite technique, c'est une limite d'attention : au-delà,
+ * l'écran se fige plusieurs minutes et personne ne sait si ça avance.
+ *
+ * @param {object} options
+ * @param {object} options.forge      pour lister
+ * @param {number} [options.max]      combien on accepte d'en cocher
+ * @param {Function} [options.surChoix] appelée à chaque changement, avec la liste
+ * @returns {{noeud, valeurs, remplir}}
+ */
+export function champDepots({ forge, max = 25, surChoix = () => {}, doc = document } = {}) {
+  const el = (tag, attrs = {}) => Object.assign(doc.createElement(tag), attrs);
+
+  const noeud = el('div', { className: 'champ-depots' });
+  const barre = el('div', { className: 'depots-barre' });
+  const q = el('input', { type: 'search', placeholder: 'filtrer les dépôts…' });
+  const toutBtn = el('button', { type: 'button', textContent: 'tout cocher' });
+  const rienBtn = el('button', { type: 'button', textContent: 'tout décocher' });
+  const liste = el('div', { className: 'depots-liste' });
+  const aide = el('div', { className: 'note' });
+
+  barre.append(q, toutBtn, rienBtn);
+  noeud.append(barre, liste, aide);
+
+  let tous = [];
+  const choisis = new Set();
+
+  const dire = () => {
+    const trop = choisis.size > max;
+    aide.textContent = choisis.size === 0
+      ? `Aucun dépôt coché. ${tous.length} visible(s) avec ta connexion — coche ceux à auditer.`
+      : `${choisis.size} dépôt(s) coché(s) sur ${tous.length}`
+        + (trop ? ` — c'est plus que le plafond de ${max}, décoche.` : '')
+        + (choisis.size <= max ? ` · environ ${choisis.size * 4} appels à la forge.` : '');
+    aide.className = trop ? 'note ko' : 'note';
+    surChoix([...choisis]);
+  };
+
+  function rendre() {
+    const f = q.value.trim().toLowerCase();
+    liste.textContent = '';
+    const vus = tous.filter((d) => !f || d.path.toLowerCase().includes(f));
+    if (!vus.length) {
+      liste.append(el('div', { className: 'note', textContent: 'Aucun dépôt ne correspond.' }));
+      return;
+    }
+    for (const d of vus) {
+      const ligne = el('label', { className: 'depot-ligne' });
+      const c = el('input', { type: 'checkbox', checked: choisis.has(d.path) });
+      c.onchange = () => {
+        if (c.checked) choisis.add(d.path); else choisis.delete(d.path);
+        dire();
+      };
+      ligne.append(c, el('span', { textContent: d.path }));
+      liste.append(ligne);
+    }
+  }
+
+  q.oninput = rendre;
+  // « Tout cocher » ne coche que ce qui est VISIBLE — donc filtré. Cocher deux cents
+  // dépôts cachés derrière un filtre serait une surprise, et une surprise coûteuse.
+  toutBtn.onclick = () => {
+    const f = q.value.trim().toLowerCase();
+    for (const d of tous) if (!f || d.path.toLowerCase().includes(f)) choisis.add(d.path);
+    rendre(); dire();
+  };
+  rienBtn.onclick = () => { choisis.clear(); rendre(); dire(); };
+
+  async function remplir() {
+    liste.textContent = '';
+    aide.textContent = 'Lecture des dépôts…';
+    try {
+      tous = await listerDepots(forge);
+      rendre();
+    } catch {
+      liste.append(el('div', { className: 'note ko',
+        textContent: 'La liste des dépôts n\'est pas accessible avec cette connexion. '
+                   + 'Un jeton restreint à un seul dépôt ne peut pas lister les autres.' }));
+    }
+    dire();
+  }
+
+  return { noeud, valeurs: () => [...choisis], remplir };
+}
+
+export default { CLE_TRAVAIL, estUnDepot, listerDepots, oublierDepots, champDepot,
+                 champDepots };
