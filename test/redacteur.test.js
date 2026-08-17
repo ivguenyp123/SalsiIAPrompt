@@ -356,7 +356,37 @@ describe('le vocabulaire des entrées, donné au rédacteur', () => {
     }
   });
 
-  test('elle dit ce que coûte un nom inventé', () => {
-    assert.match(c, /oblige à\s*\n?coller la matière à la main/);
+  test('elle dit ce que coûte une entrée qui ne se calcule pas', () => {
+    assert.match(c, /devront être collées à\s*\n?la main/);
+  });
+});
+
+describe('une entrée, pas deux', () => {
+  const c = consigne({ phrase: 'un agent qui analyse mon bus factor', auteur: 'daniel',
+                       scopes: ['Data'], tools: [], targets: [], entrees: null });
+
+  test('la consigne exige le MINIMUM d\'entrées', () => {
+    /*
+     * Le rédacteur en rajoutait parce que ça fait sérieux. Sur un besoin de bus factor il
+     * a déclaré `repartition_contributions` — qui se calcule — ET `historique_commits`,
+     * qui ne se calcule pas et n'apporte rien : qui commite où est déjà dans la première.
+     *
+     * Résultat : un champ vide, un pré-vol qui refuse sur P003, et un agent qu'on ne peut
+     * pas lancer. Une entrée de trop suffit à rendre le reste inutile.
+     */
+    assert.match(c, /UNE SEULE, sauf impossibilité/);
+    assert.match(c, /sans elle, la réponse serait-elle fausse/);
+  });
+
+  test('elle donne le contre-exemple vécu, pas une consigne abstraite', () => {
+    assert.match(c, /repartition_contributions.* suffit/s);
+    assert.match(c, /historique_commits.* n'apporte rien/s);
+  });
+
+  test('elle dit ce que coûte une entrée NON calculée', () => {
+    // « préfère les calculées » ne suffisait pas : il faut dire que les autres se collent
+    // à la main à chaque exécution.
+    assert.match(c, /devront être collées à\s*\n?la main/);
+    assert.match(c, /n'en déclare AUCUNE\s*\n?AUTRE/);
   });
 });

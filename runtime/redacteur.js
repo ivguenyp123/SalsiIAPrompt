@@ -167,9 +167,14 @@ model_tier: nano | small | mid | large
 \`\`\`
 
 ENTRÉES CONNUES — préfère TOUJOURS un de ces noms à un nom que tu inventerais.
+
 Celles marquées « ✔ calculée » sont remplies TOUTES SEULES par la plateforme au moment
-du lancement : l'utilisateur n'a rien à saisir. Un nom inventé, même limpide, oblige à
-coller la matière à la main — c'est ce qui rend un agent inutilisable.
+du lancement : l'utilisateur n'a rien à saisir. TOUTES LES AUTRES devront être collées à
+la main, à chaque exécution.
+
+Donc : si une entrée « ✔ calculée » suffit à faire le travail, n'en déclare AUCUNE
+AUTRE. Un agent qui se lance en un clic sert ; un agent à deux champs à remplir ne sert
+à personne.
 ${listeEntrees()}
 
 OUTILS DISPONIBLES — tu ne peux en citer aucun autre :
@@ -185,6 +190,15 @@ RÈGLES QUI JUGERONT CE QUE TU ÉCRIS. Un manquement est refusé, pas discuté :
 
 1.  Chaque {{variable}} du spec est déclarée dans \`variables\`, et chaque variable
     déclarée est utilisée dans le spec. Le spec en utilise AU MOINS UNE.
+
+    UNE SEULE, sauf impossibilité. Chaque entrée de plus est un champ que quelqu'un
+    devra remplir avant de pouvoir lancer l'agent — et un agent à deux champs ne se
+    lance pas. Demande-toi, pour chacune : « sans elle, la réponse serait-elle fausse ? »
+    Si la réponse est non, retire-la.
+
+    Exemple vécu : pour analyser un bus factor, \`repartition_contributions\` suffit —
+    elle dit déjà qui commite où. Y ajouter \`historique_commits\` n'apporte rien et
+    rend l'agent inutilisable.
 2.  Un outil \`mode: write\` exige \`executor: module\` — un LLM n'écrit jamais dans un
     dépôt. Pour un agent qui lit, explique ou rédige : \`mode: read\`, \`executor: llm\`.
 3.  Aucun secret, aucune URL en dur, aucun identifiant de projet dans le spec. Aucune
