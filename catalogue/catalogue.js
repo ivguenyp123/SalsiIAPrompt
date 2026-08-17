@@ -15,6 +15,8 @@ import { mountShell } from '../app/shell.js';
 import { lint, ERROR } from '../lint/index.js';
 import { prevol, SENSIBILITES } from '../preflight/index.js';
 import { SOURCES, sourceProbable, chercher as chercherFichier, diffUnifie, resume, grosse } from '../lib/matiere.js';
+import { sait as saitCalculer, zonesDepuisArbre, repartitionContributions,
+         resumeCourt, FENETRE, MAX_ZONES_INTERROGEES } from '../lib/signaux-matiere.js';
 import { indexer, chercher, etiquettes, porteEtiquettes } from '../lib/recherche.js';
 import { ETAPES, VU, jouables, placer } from '../lib/tour.js';
 import { niveau, pastille } from '../lib/niveau.js';
@@ -859,6 +861,128 @@ async function arbre(depot) {
 }
 
 /**
+ * La matière d'un signal, ALLÉE CHERCHER puis CALCULÉE — jamais demandée.
+ *
+ * C'est la moitié déterministe du travail. Le modèle recevra des chiffres réels au lieu
+ * d'un champ vide, et n'aura donc plus de raison d'en inventer. Tout passe par
+ * `app/forge.js` : rien ici ne connaît GitHub ni GitLab, et c'est ce qui garantit que ça
+ * marchera sur l'un comme sur l'autre.
+ */
+async function matiereCalculee(nom, depot) {
+  if (nom !== 'repartition_contributions') return null;
+
+  const ref = await brancheDe(depot);
+  const [commits, chemins] = await Promise.all([
+    forge.listCommits(depot, undefined, { perPage: FENETRE, ref }),
+    arbre(depot)
+  ]);
+
+  const toutes = zonesDepuisArbre(chemins);
+  const interrogees = toutes.slice(0, MAX_ZONES_INTERROGEES);
+
+  // Une zone qui échoue ne doit pas emporter les autres : le rapport sera partiel, et il
+  // le dira, plutôt que de ne rien rendre du tout.
+  const zones = await Promise.all(interrogees.map(async (z) => ({
+    chemin: z.chemin,
+    commits: await forge.listCommits(depot, z.chemin, { perPage: 100, ref }).catch(() => [])
+  })));
+
+  return repartitionContributions({ depot, commits, zones,
+    ignorees: Math.max(0, toutes.length - interrogees.length) });
+}
+
+/** La branche par défaut du dépôt, mise en cache comme son arbre. */
+async function brancheDe(depot) {
+  if (!CACHE.branches.has(depot)) {
+    const info = await forge.projectInfo(depot);
+    CACHE.branches.set(depot, info.defaultBranch || 'main');
+  }
+  return CACHE.branches.get(depot);
+}
+
+/**
+ * Un champ de matière CALCULÉE — c'est-à-dire pas un champ du tout.
+ *
+ * ── CE QU'IL REMPLACE ────────────────────────────────────────────────────────
+ *
+ * Pour lancer le bus factor, l'écran demandait de remplir `{{repartition_contributions}}`.
+ * Le retour a été sans détour : « si je dois mettre des variables que je ne connais pas
+ * partout, personne ne l'utilisera. » C'est juste — ce nom est un détail
+ * d'implémentation du prompt, et il n'aurait jamais dû être montré.
+ *
+ * Ce qu'on montre à la place : le RÉSULTAT. « bus factor 1 — RISQUE CRITIQUE ·
+ * 3 contributeurs · 9 zones ». On voit ce qui part avant de partir, sans avoir rien à
+ * saisir, et le détail complet reste à un clic pour qui veut vérifier.
+ *
+ * La zone de texte existe encore et porte toujours la valeur — le reste de l'écran, le
+ * pré-vol et l'exécution la lisent sans savoir d'où elle vient. Elle est simplement
+ * repliée : personne n'a besoin de la voir pour s'en servir, et tout le monde doit
+ * pouvoir la lire pour la contester.
+ */
+function champCalcule(variable) {
+  const zone = el('textarea', { rows: 8 });
+  const etat = el('div', { className: 'calc-etat' });
+  const refaire = el('button', { type: 'button', textContent: '↻ recalculer', hidden: true });
+
+  const detail = el('details', { className: 'calc-detail' });
+  detail.append(el('summary', { textContent: 'voir la matière envoyée' }), zone);
+
+  const noeud = el('div', { className: 'mat calc' },
+    el('div', { className: 'mat-tete' },
+      el('label', { textContent: SIGNAL_LISIBLE[variable.name] || `{{${variable.name}}}` }),
+      refaire),
+    etat, detail);
+
+  const dire = (texte, classe = '') => {
+    etat.textContent = texte;
+    etat.className = `calc-etat${classe ? ` ${classe}` : ''}`;
+  };
+
+  detail.hidden = true;
+  dire('Choisis un dépôt ci-dessus.');
+
+  let enCours = 0;
+  async function calculer(depot) {
+    const mien = ++enCours;
+    zone.value = '';
+    detail.hidden = true;
+    refaire.hidden = !depot;
+
+    if (!depot) { dire('Choisis un dépôt ci-dessus.'); return; }
+    dire(`Lecture de ${depot}…`, 'attente');
+
+    try {
+      const r = await matiereCalculee(variable.name, depot);
+      // Un dépôt a pu être choisi entre-temps : une réponse en retard ne doit pas écraser
+      // la bonne. Sans ce garde, changer deux fois de dépôt rapidement affiche le premier.
+      if (mien !== enCours) return;
+      zone.value = r.texte;
+      detail.hidden = false;
+      dire(`✔ ${resumeCourt(r)}`, 'ok');
+    } catch (error) {
+      if (mien !== enCours) return;
+      // On ne se rabat PAS sur un champ vide en silence : un agent lancé sans matière
+      // répondrait quand même, et c'est exactement ce qu'on cherche à empêcher.
+      dire(`Impossible de calculer : ${error.message}`, 'ko');
+      detail.hidden = false;
+    }
+  }
+
+  refaire.onclick = () => calculer(refaire.dataset.depot || '');
+
+  return {
+    noeud,
+    controle: zone,
+    calculer: (depot) => { refaire.dataset.depot = depot || ''; return calculer(depot); }
+  };
+}
+
+/** Le nom qu'on montre. Personne ne doit lire `repartition_contributions` à l'écran. */
+const SIGNAL_LISIBLE = {
+  repartition_contributions: 'Qui contribue, et où — calculé depuis le dépôt'
+};
+
+/**
  * Un champ de matière : une zone de saisie, un bouton pour aller chercher, et le
  * sélecteur qui s'ouvre dessous.
  *
@@ -1073,8 +1197,29 @@ function ouvrirExecution(entry) {
     sensibilite.append(el('option', { value: sv, textContent: sv, selected: sv === 'interne' }));
   }
 
-  form.append(el('div', { className: 'champs' },
-    champ('Entrée', choixCas), champ('Sensibilité du dépôt', sensibilite), champ('Criticité', criticite)));
+  /*
+   * LE DÉPÔT, quand une matière se calcule.
+   *
+   * L'écran n'en demandait aucun : les variables se saisissaient à la main, donc la
+   * question ne se posait pas. Dès qu'une matière se calcule, c'est le SEUL choix qui
+   * revienne à l'utilisateur — et celui qu'il sait faire. Tout le reste en découle.
+   *
+   * Il n'apparaît que si quelque chose en dépend : un sélecteur qui ne sert à rien
+   * apprend à ignorer les sélecteurs.
+   */
+  const calcules = [];
+  const aCalculer = (artifact.variables || []).some((v) => saitCalculer(v.name));
+  const depotCalc = aCalculer
+    ? champDepot({ forge, surChoix: (choisi) => {
+        localStorage.setItem('salsi_ia_project_path', choisi || '');
+        for (const c of calcules) c.calculer(choisi);
+      } })
+    : null;
+
+  const tete = el('div', { className: 'champs' },
+    champ('Entrée', choixCas), champ('Sensibilité du dépôt', sensibilite), champ('Criticité', criticite));
+  if (depotCalc) tete.prepend(champ('Dépôt', depotCalc.noeud));
+  form.append(tete);
 
   /*
    * Une saisie par variable déclarée, et deux formes selon ce que la variable EST.
@@ -1122,12 +1267,32 @@ function ouvrirExecution(entry) {
       grille.append(champ(`{{${v.name}}}${v.required === false ? ' · facultative' : ''}`, input));
       continue;
     }
+
+    // Ce qu'on sait calculer ne se demande plus. Le reste continue de se demander — et
+    // c'est volontaire : prétendre calculer ce qu'on ignore rendrait un champ vide sans
+    // dire pourquoi.
+    if (saitCalculer(v.name)) {
+      const bloc = champCalcule(v);
+      saisies[v.name] = bloc.controle;
+      calcules.push(bloc);
+      grille.append(bloc.noeud);
+      continue;
+    }
+
     const bloc = champMatiere(v);
     saisies[v.name] = bloc.controle;
     grille.append(bloc.noeud);
   }
   if (artifact.variables?.length) {
     form.append(el('h4', { textContent: `Valeurs (${artifact.variables.length})` }), grille);
+  }
+
+  // La liste des dépôts se remplit après coup : elle demande un appel à la forge, et
+  // l'écran doit s'afficher avant, pas après.
+  if (depotCalc) {
+    depotCalc.remplir().then(() => {
+      for (const c of calcules) c.calculer(depotCalc.valeur());
+    });
   }
 
   choixCas.onchange = () => {

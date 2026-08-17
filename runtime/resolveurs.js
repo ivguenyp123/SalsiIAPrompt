@@ -160,9 +160,24 @@ export function satisfait(valeur, op, attendu) {
     case 'lte': return Number(valeur) <= Number(attendu);
     case 'gt': return Number(valeur) > Number(attendu);
     case 'gte': return Number(valeur) >= Number(attendu);
-    case 'contains': return Array.isArray(valeur)
-      ? valeur.some((v) => String(v).toLowerCase().includes(String(attendu).toLowerCase()))
-      : String(valeur).includes(String(attendu));
+    /*
+     * `contains` avec une LISTE attendue veut dire « tous », pas « la chaîne
+     * "a,b,c" quelque part ».
+     *
+     * Sans ce traitement, `String(['df','lt'])` donnait `"df,lt"` et on cherchait cette
+     * chaîne-là dans les clés : un critère à un seul élément passait par accident, un
+     * critère à cinq échouait TOUJOURS. Les contrats extraits en produisent cinq — leurs
+     * agents étaient donc déclarés non conformes en rendant exactement les bonnes clés.
+     *
+     * Un contrôle qui refuse à tort coûte aussi cher qu'un contrôle qui accepte à tort :
+     * dans les deux cas on cesse de le croire.
+     */
+    case 'contains': {
+      const contient = (cible) => (Array.isArray(valeur)
+        ? valeur.some((v) => String(v).toLowerCase().includes(String(cible).toLowerCase()))
+        : String(valeur).includes(String(cible)));
+      return Array.isArray(attendu) ? attendu.every(contient) : contient(attendu);
+    }
     case 'matches':
       try { return new RegExp(attendu).test(String(valeur)); } catch { return false; }
     case 'exists': return (valeur !== undefined && valeur !== null

@@ -108,6 +108,24 @@
   .mat-info{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:5px;
             font-size:11px;color:var(--tm)}
   .mat-info b{color:var(--tp);font-weight:700}
+
+  /* ── Une matière CALCULÉE : on montre le résultat, on ne demande rien ──
+     La zone de texte existe toujours et porte la valeur ; elle est repliée. Personne
+     n'a besoin de la voir pour s'en servir, tout le monde doit pouvoir la lire pour la
+     contester. */
+  .calc-etat{font-size:12.5px;line-height:1.6;padding:9px 12px;border-radius:10px;
+             border:1px solid var(--line2);background:rgba(0,0,0,.24);color:var(--tm)}
+  .calc-etat.attente{color:#fcd34d;border-color:rgba(251,191,36,.35)}
+  .calc-etat.ok{color:#6ee7b7;border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.07);
+                font-weight:700}
+  .calc-etat.ko{color:#fca5a5;border-color:rgba(248,113,113,.45);background:rgba(248,113,113,.08)}
+  .calc-detail{margin-top:7px}
+  .calc-detail summary{cursor:pointer;font-size:11px;color:var(--tm);text-transform:uppercase;
+                       letter-spacing:.05em;font-weight:700}
+  .calc-detail textarea{width:100%;margin-top:7px;font-family:var(--fm);font-size:11px;
+                        line-height:1.6;resize:vertical}
+  .mat.calc .mat-tete label{color:var(--ts);text-transform:none;letter-spacing:0;
+                            font-size:12.5px;font-weight:700}
   .mat-info button{font-size:10.5px;padding:2px 8px}
   .mat-info.gros{color:#fcd34d}
 

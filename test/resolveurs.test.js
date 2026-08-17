@@ -8,7 +8,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { resoudre } from '../runtime/resolveurs.js';
+import { resoudre, satisfait } from '../runtime/resolveurs.js';
 
 
 /* ── La cible qui manquait, trouvée à l'usage ─────────────────────────────── */
@@ -44,5 +44,33 @@ describe('output.json_keys', () => {
                                change_failure_rate: {}, time_to_restore: {} });
     assert.deepEqual(resoudre('output.sections', s), []);
     assert.equal(resoudre('output.json_keys', s).length, 4);
+  });
+});
+
+describe('`contains` avec une liste attendue', () => {
+  test('exige TOUS les éléments, pas la chaîne « a,b,c »', () => {
+    /*
+     * Le défaut : `String(['df','lt'])` vaut « df,lt », et on cherchait cette chaîne dans
+     * les clés. Un critère à un seul élément passait par accident, un critère à cinq
+     * échouait toujours. Les contrats extraits en produisent cinq — leurs agents étaient
+     * refusés en rendant exactement les bonnes clés.
+     */
+    const cles = ['score_global', 'df', 'lt', 'cfr', 'mttr'];
+    assert.equal(satisfait(cles, 'contains', ['score_global', 'df', 'lt', 'cfr', 'mttr']), true);
+    assert.equal(satisfait(cles, 'contains', ['df']), true);
+  });
+
+  test('une seule clé manquante suffit à refuser', () => {
+    assert.equal(satisfait(['df', 'lt'], 'contains', ['df', 'lt', 'mttr']), false);
+  });
+
+  test('une chaîne attendue continue de se comporter comme avant', () => {
+    assert.equal(satisfait(['alpha', 'beta'], 'contains', 'alph'), true);
+    assert.equal(satisfait('un texte entier', 'contains', 'texte'), true);
+    assert.equal(satisfait(['a'], 'contains', 'zz'), false);
+  });
+
+  test('une liste attendue vide ne prouve rien, donc ne refuse rien', () => {
+    assert.equal(satisfait(['a'], 'contains', []), true);
   });
 });

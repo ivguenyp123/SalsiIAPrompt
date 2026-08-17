@@ -5,6 +5,20 @@
 #
 # Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
 # ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# ── CONSIGNE RÉÉCRITE : IL EXPLIQUE, IL NE CALCULE PLUS ──────────────────────
+#
+# La première version demandait au modèle de REPRODUIRE le calcul du bus factor et d'en
+# rendre du JSON. Deux erreurs, et elles viennent de la conception, pas de l'auteur :
+#
+#   · un modèle sans données invente des données. On lui a vu écrire « élevée » là où la
+#     plateforme calcule un chiffre — et la porte avait dit « contrat satisfait ».
+#   · personne ne veut du JSON. La demande était : « c'est quoi mon score, où sont mes
+#     problèmes, comment je l'améliore. »
+#
+# Le score, les zones et les parts sont désormais CALCULÉS par `lib/signaux-matiere.js`,
+# en code déterministe, et arrivent tout faits dans la matière. Il ne reste au modèle que
+# ce qu'il fait bien : lire des chiffres et dire quoi en faire.
 
 id: bus-factor
 kind: prompt
@@ -25,40 +39,55 @@ criteria:
   - target: output.contains_secret
     op: eq
     value: false
-  - target: output.is_valid_json
-    op: eq
-    value: true
-  - target: output.json_keys
+  # Les trois sections attendues. Vérifiables parce que la consigne les impose au mot
+  # près — et c'est tout ce qu'un critère peut vérifier : la forme, jamais la justesse
+  # du conseil.
+  - target: output.sections
     op: contains
     value:
-      - score
-      - zones
+      - Ton bus factor
+      - Où ça coince
+      - Quoi faire
 spec: |-
-    Reproduit le bus factor de la plateforme, avec la même pondération et les mêmes paliers de risque
+    Tu expliques un rapport de bus factor à quelqu'un qui découvre la notion, et tu lui
+    dis quoi faire. Tu parles de SON dépôt, pas de la notion en général.
 
-    Matière fournie :
-    - repartition_contributions : {{repartition_contributions}}
+    Matière fournie — elle est DÉJÀ CALCULÉE, ne recalcule rien :
+    {{repartition_contributions}}
 
-    Rends du JSON, et RIEN d'autre — pas de texte avant ni après.
+    Le score, les facteurs de zone et les parts de chacun ont été calculés à partir des
+    commits du dépôt. Reprends-les tels quels. Si tu refais une division, tu obtiendras
+    un autre chiffre que celui affiché à l'écran, et personne ne saura lequel croire.
 
-    Les clés sont exactement celles-ci, sans en ajouter ni en retirer :
-      - "score" — Bus factor global (personnes)
-          seuils  : RISQUE CRITIQUE < 2 · RISQUE MOYEN < 3 · RISQUE FAIBLE au-delà
-          calcul  : MÉDIANE PONDÉRÉE des facteurs de zone, jamais moyenne — chaque zone pesant son nombre de commits. On trie les zones par facteur croissant, on cumule les poids, et la valeur retenue est celle qui fait franchir la moitié du poids total. Le résultat est plafonné à 5 et arrondi à une décimale.
-      - "zones" — Zones à risque (liste)
-          forme   : une liste d'objets `{ "zone": "<chemin>", "facteur": <nombre>, "commits": <nombre>, "contributeurs": [ { "nom": "<nom>", "part": <pourcentage> } ] }`
-          calcul  : Le facteur d'une zone est le nombre de personnes nécessaires pour couvrir 80 % de ses commits : on trie ses contributeurs du plus actif au moins actif, on cumule leurs parts arrondies, et on compte combien il en a fallu pour atteindre 80. Ne sont listées que les zones d'AU MOINS 5 COMMITS, triées de la plus fragile à la plus solide, les 10 premières, avec au plus 3 contributeurs chacune.
+    Réponds en trois sections, avec ces titres exactement :
 
-    Le niveau des champs qui en portent un est l'une de ces valeurs EXACTEMENT : "RISQUE CRITIQUE", "RISQUE MOYEN", "RISQUE FAIBLE".
+    ## Ton bus factor
 
-    Fenêtre d'observation : les 200 commits les plus récents, et non une durée. La plateforme mesure qui sait quoi MAINTENANT ; l'historique complet dirait qui savait quoi autrefois. Aucun chiffre ne se calcule sur une autre période sans le dire.
+    Le score, son niveau de risque, et ce que ça veut dire en une phrase que quelqu'un
+    qui n'a jamais entendu le terme comprend. Un bus factor de 2 signifie que si deux
+    personnes précises s'en vont, l'équipe perd la main sur une partie du code.
 
-    Périmètre : Une « zone » est un répertoire pris à DEUX niveaux de profondeur — `src/components`, `frontend/lib` — un fichier à la racine formant sa propre zone. Le découpage est arbitraire et le code le dit : sur un dépôt très plat ou très profond, il peut être inadapté.
+    ## Où ça coince
 
-    Ces règles PRIMENT sur le calcul. Applique-les après avoir calculé, avant de rendre la réponse :
-      · Une zone de moins de 5 commits n'est pas une alerte — Elle est écartée de la liste. Un fichier touché une fois par une seule personne donnerait un facteur de 1 sans qu'aucune connaissance soit réellement en jeu.
-      · Les compteurs portent sur TOUTES les zones, la liste non — « critiques » compte les zones de facteur 1, « à surveiller » celles de facteur 2, « saines » celles de facteur 3 ou plus — sur l'ensemble des zones, y compris celles trop petites pour être listées. Les deux ne portent donc pas sur le même ensemble, et c'est voulu.
-      · Une part de 70 % ou plus signale une personne dominante — La plateforme la marque visuellement, et c'est le sens même du rapport : ce n'est pas le nombre de contributeurs qui compte, c'est la concentration.
-      · Aucun commit — Le rapport ne rend pas un score de 0 : il dit que le projet semble vide. Zéro personne se lirait comme un bus factor catastrophique alors qu'il n'y a rien à mesurer.
+    Les zones les plus fragiles, NOMMÉES, avec qui les tient et à quel pourcentage.
+    Commence par la plus fragile. Si une personne dépasse 70 % sur une zone, dis-le : ce
+    n'est pas le nombre de contributeurs qui compte, c'est la concentration.
 
-    Chaque champ vaut un objet `{ "valeur": <nombre>, "niveau": "<niveau>" }`. Les champs dont la forme est précisée plus haut suivent la leur, pas celle-ci. Une zone sans contributeur exploitable est écartée plutôt que rendue à zéro, et un dépôt sans commit ne donne pas de score du tout — pas un score nul.
+    Si la matière signale des répertoires non interrogés, mentionne-le : une zone fragile
+    peut s'y cacher.
+
+    ## Quoi faire
+
+    Deux ou trois actions concrètes, dans l'ordre où les faire, chacune rattachée à une
+    zone précise. « Faire du pair programming » ne veut rien dire ; « faire relire les
+    prochaines PR sur `lib/` par quelqu'un d'autre que Daniel » se fait lundi.
+
+    Ne propose rien qui demande de recruter. Reste sur ce que l'équipe peut décider
+    elle-même.
+
+    Ce que tu ne fais pas : tu ne recalcules aucun chiffre, tu n'inventes aucun nom de
+    fichier ou de personne qui ne soit pas dans la matière, et tu ne juges personne. Le
+    bus factor décrit une répartition de connaissance, pas la valeur de quelqu'un.
+
+    Si la matière dit qu'aucun score n'est calculable, dis-le franchement et explique ce
+    qui manque. N'invente pas un chiffre pour avoir l'air utile.
