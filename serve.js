@@ -305,6 +305,65 @@ createServer(async (req, res) => {
       return;
     }
 
+    /*
+     * ── LE RELAIS DE FORGE ────────────────────────────────────────────────────
+     *
+     * Le navigateur appelle la forge en direct, et c'est le bon choix : sur le GitLab
+     * cible, l'appel part du poste et personne n'a de serveur à installer. Mais ce choix
+     * rend l'écran otage du CORS d'un service qu'on ne contrôle pas — et le jour où
+     * `api.github.com` a répondu `Access-Control-Allow-Origin: *;`, un en-tête invalide,
+     * plus personne n'a pu se connecter. Aucune ligne de notre code n'y pouvait rien.
+     *
+     * Ce relais est la sortie de secours : Node n'a pas de politique d'origine, donc il
+     * appelle la forge quels que soient les en-têtes qu'elle renvoie. L'écran ne s'en sert
+     * QUE lorsqu'un appel direct a échoué — le direct reste la voie normale, et là où
+     * aucun serveur ne tourne, rien ne change.
+     *
+     * ── CE QU'IL NE FAIT PAS ──────────────────────────────────────────────────
+     *
+     * Il ne garde RIEN : ni le jeton, ni la réponse, ni une trace. Il transporte et il
+     * oublie. Le jeton traverse ce processus le temps de l'appel — c'est le prix de la
+     * sortie de secours, et il n'est acceptable que parce que ce serveur tourne sur la même
+     * machine que le navigateur qui l'appelle.
+     *
+     * Il refuse tout ce qui n'est pas une URL http(s) : sans ce garde, une page ouverte
+     * dans ce navigateur disposerait d'un relais universel vers le réseau local.
+     */
+    if (url.pathname === '/api/forge') {
+      if (req.method !== 'POST') { json(res, 405, { erreur: 'POST attendu.' }); return; }
+      let requete;
+      try { requete = await corps(req); }
+      catch (error) { json(res, 400, { erreur: error.message }); return; }
+
+      let cible;
+      try {
+        cible = new URL(requete.url);
+        if (cible.protocol !== 'https:' && cible.protocol !== 'http:') throw new Error('protocole');
+      } catch {
+        json(res, 400, { erreur: 'URL de forge invalide.' });
+        return;
+      }
+
+      try {
+        const amont = await fetch(cible.toString(), {
+          method: requete.methode || 'GET',
+          headers: requete.entetes || {},
+          ...(requete.corps ? { body: JSON.stringify(requete.corps) } : {})
+        });
+        /*
+         * On rend le STATUT de la forge tel quel, et son corps en texte.
+         *
+         * Le client rejoue exactement sa logique d'erreur dessus : un 401 doit rester un
+         * 401, un 404 un 404. Traduire ici ferait deux vocabulaires d'erreur à maintenir,
+         * et le message « jeton refusé » finirait par diverger selon le chemin emprunté.
+         */
+        json(res, 200, { statut: amont.status, corps: await amont.text() });
+      } catch (error) {
+        json(res, 502, { erreur: `Le relais n'a pas joint la forge : ${error.message}` });
+      }
+      return;
+    }
+
     if (url.pathname === '/api/lancer') {
       if (req.method !== 'POST') { json(res, 405, { erreur: 'POST attendu.' }); return; }
       let requete;

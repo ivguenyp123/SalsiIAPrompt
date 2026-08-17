@@ -91,12 +91,63 @@ function explain(status, { host, scopeHint }) {
   return `La forge a répondu ${status}.`;
 }
 
+/*
+ * ── LE REPLI PAR LE RELAIS ───────────────────────────────────────────────────
+ *
+ * Un appel direct qui échoue AVANT toute réponse HTTP — `fetch` qui jette — a deux causes
+ * possibles, et une seule est une panne :
+ *
+ *   le réseau ne passe pas          → il n'y a rien à faire, et on le dit ;
+ *   le navigateur a REFUSÉ la réponse pour cause de CORS → la forge a répondu, c'est le
+ *   navigateur qui a jeté. Le réseau, lui, marche parfaitement.
+ *
+ * Le second cas s'est produit : `api.github.com` a renvoyé
+ * `Access-Control-Allow-Origin: *;` — un en-tête invalide — et plus personne n'a pu se
+ * connecter. Aucune ligne de notre code n'y pouvait quoi que ce soit, parce que le refus
+ * vient du navigateur et pas de nous.
+ *
+ * Le navigateur ne nous dit PAS laquelle des deux causes c'est : `fetch` jette un
+ * `TypeError` sans détail dans les deux cas, par conception. On ne peut donc pas choisir —
+ * on RÉESSAIE, une fois, par un relais qui n'a pas de politique d'origine. S'il répond,
+ * c'était le CORS ; s'il échoue aussi, c'était bien le réseau, et on rend le message
+ * d'origine.
+ *
+ * Le direct reste la voie normale, toujours tentée d'abord. Là où aucun serveur ne tourne
+ * — l'appli servie en fichiers statiques sur un poste — le relais échoue en silence et le
+ * comportement est exactement celui d'avant.
+ */
+const RELAIS = '/api/forge';
+
+async function parLeRelais(url, { method, headers, body }, fetchImpl) {
+  const r = await fetchImpl(RELAIS, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url, methode: method, entetes: headers, corps: body || null })
+  });
+  if (!r.ok) throw new Error('relais indisponible');
+  const enveloppe = await r.json();
+  if (enveloppe.erreur) throw new Error(enveloppe.erreur);
+
+  /*
+   * On reconstruit une réponse à la forme de `fetch`, pour que la suite de `call` ne
+   * sache pas par où l'appel est passé. Un chemin qui aurait sa propre gestion d'erreurs
+   * finirait par ne plus dire la même chose que l'autre.
+   */
+  return {
+    ok: enveloppe.statut >= 200 && enveloppe.statut < 300,
+    status: enveloppe.statut,
+    json: async () => JSON.parse(enveloppe.corps || 'null')
+  };
+}
+
 function makeCaller({ base, headers, host, scopeHint }, fetchImpl) {
   return async function call(path, { params, body, method = 'GET' } = {}) {
     const url = new URL(base + path);
     for (const [k, v] of Object.entries(params || {})) {
       if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, v);
     }
+
+    const entetes = { ...headers, ...(body ? { 'Content-Type': 'application/json' } : {}) };
 
     let response;
     try {
@@ -105,14 +156,19 @@ function makeCaller({ base, headers, host, scopeHint }, fetchImpl) {
         // Sans ceci, le navigateur peut resservir une liste d'artefacts mise en cache :
         // on publie, et le catalogue continue d'afficher l'état d'avant.
         cache: 'no-store',
-        headers: { ...headers, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+        headers: entetes,
         ...(body ? { body: JSON.stringify(body) } : {})
       });
     } catch {
-      throw new ForgeError(
-        `Impossible de joindre ${host}. Vérifie l'adresse, ton accès réseau (VPN), ` +
-        'et que la forge autorise les appels depuis le navigateur (CORS).', 0
-      );
+      try {
+        response = await parLeRelais(url.toString(), { method, headers: entetes, body }, fetchImpl);
+      } catch {
+        throw new ForgeError(
+          `Impossible de joindre ${host}. Vérifie l'adresse, ton accès réseau (VPN), ` +
+          'et que la forge autorise les appels depuis le navigateur (CORS). Le relais du '
+          + 'serveur local n\'a pas répondu non plus.', 0
+        );
+      }
     }
 
     if (response.status === 404) throw new ForgeError(explain(404, { host, scopeHint }), 404);
