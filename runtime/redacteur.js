@@ -39,6 +39,11 @@
  */
 
 import { narrer, variablesDeduites, criteresHerites } from '../lib/chaine.js';
+import { SOURCES_ENTREES } from '../lib/assemblage.js';
+import { SIGNAUX } from '../lib/signaux-matiere.js';
+
+/** Celles que la plateforme sait remplir seule — l'agent devient utilisable sans saisie. */
+const SIGNAUX_CALCULES = new Set(Object.keys(SIGNAUX));
 
 /* ── L'identifiant ────────────────────────────────────────────────────────── */
 
@@ -160,6 +165,12 @@ golden_cases:
 target_level: experimental | team
 model_tier: nano | small | mid | large
 \`\`\`
+
+ENTRÉES CONNUES — préfère TOUJOURS un de ces noms à un nom que tu inventerais.
+Celles marquées « ✔ calculée » sont remplies TOUTES SEULES par la plateforme au moment
+du lancement : l'utilisateur n'a rien à saisir. Un nom inventé, même limpide, oblige à
+coller la matière à la main — c'est ce qui rend un agent inutilisable.
+${listeEntrees()}
 
 OUTILS DISPONIBLES — tu ne peux en citer aucun autre :
 ${listeOutils(tools) || '  (aucun)'}

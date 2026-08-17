@@ -323,3 +323,40 @@ describe('POST /api/rediger', () => {
     assert.ok(corps.artefact, 'juste un brouillon');
   });
 });
+
+describe('le vocabulaire des entrées, donné au rédacteur', () => {
+  const c = consigne({ phrase: 'un agent qui analyse mon bus factor', auteur: 'daniel',
+                       scopes: ['Data'], tools: [], targets: [], entrees: null });
+
+  test('la consigne PORTE la liste des entrées connues', () => {
+    /*
+     * Sans elle, le rédacteur invente. Sur un vrai besoin de bus factor il a produit
+     * `{{repo_metadata}}` et `{{contribution_data}}` — deux noms limpides et parfaitement
+     * inutiles : la plateforme sait calculer la répartition des contributions, mais elle
+     * se branche sur le NOM `repartition_contributions`.
+     */
+    assert.match(c, /ENTRÉES CONNUES/);
+    assert.match(c, /repartition_contributions/);
+    assert.match(c, /historique_commits/);
+  });
+
+  test('elle SIGNALE celles que la plateforme remplit toute seule', () => {
+    // C'est vers elles qu'il faut le pousser : ce sont celles qui donnent un agent
+    // utilisable sans rien taper.
+    assert.match(c, /repartition_contributions\s+✔ calculée/);
+    assert.match(c, /inventaire_branches\s+✔ calculée/);
+  });
+
+  test('elle range les entrées par provenance', () => {
+    // « ce qui se lit dans le dépôt » et « ce que quelqu'un tape » ne s'obtiennent pas de
+    // la même façon : les mélanger ferait choisir au hasard.
+    for (const titre of ['ce qui se lit dans le dépôt', 'ce que la plateforme produit',
+                         'ce que quelqu\'un tape']) {
+      assert.ok(c.includes(titre), `« ${titre} » manque à la consigne`);
+    }
+  });
+
+  test('elle dit ce que coûte un nom inventé', () => {
+    assert.match(c, /oblige à\s*\n?coller la matière à la main/);
+  });
+});
