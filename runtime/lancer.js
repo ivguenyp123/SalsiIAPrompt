@@ -116,7 +116,22 @@ export async function lancer(artifact, { vertex, valeurs = {}, contexte = {},
              raison: `Le prompt partirait avec ${manquantes.length} trou(s) : ${manquantes.join(', ')}.` };
   }
 
-  const reponse = await vertex.generer({ prompt, tier: artifact.model_tier || 'mid' });
+  /*
+   * Le plafond de sortie vient du REGISTRE, pas du moteur.
+   *
+   * Il était en dur à 4096 pour tout le monde, et un agent qui rend cinq sections
+   * généreuses — une revue de sécurité, un plan DORA — se faisait couper en plein milieu.
+   * Le pire n'est pas la coupure : c'est qu'elle ne se voit pas. La réponse a l'air finie,
+   * on la lit, on agit dessus.
+   *
+   * Sans `max_sortie` déclaré, on laisse le moteur appliquer son défaut : un registre
+   * incomplet ne doit pas faire tomber un lancement.
+   */
+  const tier = artifact.model_tier || 'mid';
+  const palier = models.find((m) => m.tier === tier);
+
+  const reponse = await vertex.generer({ prompt, tier,
+    ...(palier?.max_sortie ? { maxTokens: palier.max_sortie } : {}) });
   const apres = postvol(artifact, reponse.texte, { valeurs, artifact });
 
   return {

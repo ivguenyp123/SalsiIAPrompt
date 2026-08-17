@@ -26,6 +26,7 @@ import { fichierSuspect, MAX_FICHIERS_LUS, rapportSecrets, resumeSecrets,
 import { chiffresDora, resumeDora, FENETRE_JOURS,
          MAX_PIPELINES, MAX_MR } from '../lib/signaux-dora.js';
 import { parcSecurite, resumeParc, MAX_DEPOTS } from '../lib/signaux-parc.js';
+import { coupee } from '../lib/arret.js';
 import { revueMr, resumeRevue } from '../lib/signaux-revue.js';
 import { BRANCHE as BRANCHE_CORRECTIFS, fichiersAProposer, aProposer,
          descriptionMr, titreMr, messageCommit } from '../lib/correctifs.js';
@@ -1884,7 +1885,10 @@ function ouvrirExecution(entry) {
          */
         mesures: calcules.map((c) => c.dernier()).filter(Boolean),
         postvol: corps.postvol || null,
-        jetons: corps.jetons || null
+        jetons: corps.jetons || null,
+        // Une reponse coupee le dit AUSSI dans le fichier exporte : il part en piece
+        // jointe et se relit six mois plus tard, par quelqu'un qui n'etait pas la.
+        motifArret: corps.motifArret || ''
       });
 
       const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
@@ -2084,6 +2088,30 @@ function ouvrirExecution(entry) {
       tete.append(boutonCorrectifs());
     }
     zone.append(tete);
+
+    /*
+     * UNE RÉPONSE COUPÉE LE DIT, ET C'EST LE PLUS IMPORTANT DE CET ÉCRAN.
+     *
+     * Le motif d'arrêt remontait déjà du moteur jusqu'ici — et personne ne le lisait. Une
+     * réponse tronquée par le plafond de jetons a l'air FINIE : elle a un début, des
+     * sections, un ton assuré. On la lit, on agit dessus, et le plan d'action s'arrête là
+     * où le modèle a été coupé sans que rien ne l'indique.
+     *
+     * C'est le même défaut que partout ailleurs dans ce produit — une mesure partielle qui
+     * se présente comme complète — et il était ici sous nos yeux.
+     */
+    if (coupee(corps.motifArret)) {
+      zone.append(el('div', { className: 'verdict ko' },
+        el('span', { textContent: '✂' }),
+        el('span', {},
+          el('b', { textContent: 'Réponse coupée : elle s\'arrête au plafond de jetons.' }),
+          el('div', { style: 'font-size:12px;margin-top:4px',
+            textContent: 'Ce qui suit n\'a pas été écrit. Ne conclus rien de son absence — '
+                       + 'les dernières sections manquent peut-être entièrement. Relance : '
+                       + 'la matière est déjà calculée, le nouvel appel repart du même '
+                       + 'point.' }))));
+    }
+
     zone.append(sortieLisible(corps.sortie));
 
     /*

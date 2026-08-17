@@ -21,8 +21,24 @@
 # Tant qu'il manque, l'écran affiche « tarif inconnu » — ce qui est exact. Deux nombres
 # pris dans la console DeepSeek suffisent à le remplir, et le coût apparaîtra seul.
 
+# ── LE PLAFOND DE SORTIE APPARTIENT AU PALIER ────────────────────────────────
+#
+# `max_sortie` dit combien de jetons un palier a le droit de produire. Il était en dur à
+# 4096 dans le moteur, pour tout le monde : un agent qui rend cinq sections généreuses
+# — une revue de sécurité, un plan DORA — se faisait couper en plein milieu. Et une
+# réponse coupée ne se voit PAS : elle a l'air finie, on la lit, on agit dessus.
+#
+# Il appartient au palier et non à l'artefact. Un agent déclare ce qu'il veut FAIRE, pas
+# combien de jetons il consomme ; écrit dans chaque artefact, ce nombre divergerait dès le
+# troisième et personne ne saurait plus quel plafond s'applique.
+#
+# Les valeurs suivent l'usage du palier, pas la capacité du modèle : `nano` classe et
+# reformate — au-delà de deux mille jetons il ne fait plus son métier. `large` raisonne sur
+# un dépôt entier et rend des plans en cinq sections.
+
 models:
   - tier: nano
+    max_sortie: 2048
     vertex: gemini-2.5-flash-lite
     deepseek: deepseek-chat
     description: Classer, extraire, reformater. Aucun raisonnement attendu.
@@ -30,6 +46,7 @@ models:
       vertex: { entree_mtok: 0.10, sortie_mtok: 0.40 }
 
   - tier: small
+    max_sortie: 4096
     vertex: gemini-2.5-flash
     deepseek: deepseek-chat
     description: Rédiger court, résumer, expliquer un morceau de code isolé.
@@ -37,6 +54,7 @@ models:
       vertex: { entree_mtok: 0.30, sortie_mtok: 2.50 }
 
   - tier: mid
+    max_sortie: 8192
     vertex: gemini-2.5-flash
     deepseek: deepseek-chat
     description: >
@@ -46,6 +64,7 @@ models:
       vertex: { entree_mtok: 0.30, sortie_mtok: 2.50 }
 
   - tier: large
+    max_sortie: 16384
     vertex: gemini-2.5-pro
     deepseek: deepseek-reasoner
     description: >

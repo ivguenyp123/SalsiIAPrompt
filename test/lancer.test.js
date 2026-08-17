@@ -39,8 +39,8 @@ const models = load('registries/models.yaml').models;
 const faux = (texte) => {
   const vu = {};
   return { vu, modele: () => 'gemini-test',
-           generer: async ({ prompt, tier }) => {
-             vu.prompt = prompt; vu.tier = tier;
+           generer: async ({ prompt, tier, maxTokens }) => {
+             vu.prompt = prompt; vu.tier = tier; vu.maxTokens = maxTokens;
              return { texte, modele: 'gemini-test', tier,
                       jetons: { entree: 100, sortie: 50 }, motifArret: 'STOP' };
            } };
@@ -229,6 +229,32 @@ describe('lancer un artefact', () => {
     assert.match(v.vu.prompt, /const a = 1;/);
     assert.equal(v.vu.tier, 'small');
     assert.ok(!v.vu.prompt.includes('{{'), 'aucun trou ne part au modèle');
+  });
+
+  /*
+   * Le plafond de sortie était en dur à 4096 dans le moteur, pour tout le monde. Un agent
+   * qui rend cinq sections généreuses se faisait couper en plein milieu — et une réponse
+   * coupée a l'air FINIE : on la lit, on agit dessus. Le plafond appartient donc au
+   * PALIER, déclaré au registre, et il monte avec lui.
+   */
+  test('le plafond de sortie vient du registre, et suit le palier', async () => {
+    const v = faux('## À quoi ça sert\nÀ rien.');
+    await lancer(lecture(), { vertex: v, valeurs: valeursOk, contexte: contexteOk(), models });
+    assert.equal(v.vu.maxTokens, models.find((m) => m.tier === 'small').max_sortie);
+
+    const gros = faux('## À quoi ça sert\nÀ rien.');
+    await lancer({ ...lecture(), model_tier: 'large' },
+      { vertex: gros, valeurs: valeursOk, contexte: contexteOk(), models });
+    assert.ok(gros.vu.maxTokens > v.vu.maxTokens,
+      'un palier qui raisonne doit écrire plus long qu\'un palier qui classe');
+  });
+
+  test('sans registre, on laisse le moteur appliquer son défaut', async () => {
+    // Un registre incomplet ne doit pas faire tomber un lancement : on se tait plutôt que
+    // d'imposer ici un chiffre que personne n'a déclaré.
+    const v = faux('## À quoi ça sert\nÀ rien.');
+    await lancer(lecture(), { vertex: v, valeurs: valeursOk, contexte: contexteOk(), models: [] });
+    assert.equal(v.vu.maxTokens, undefined);
   });
 
   test('le contrat est évalué sur la sortie réelle', async () => {

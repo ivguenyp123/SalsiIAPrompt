@@ -87,6 +87,12 @@
                 }
               }
             }
+          },
+          "max_sortie": {
+            "type": "integer",
+            "minimum": 256,
+            "maximum": 65536,
+            "description": "Combien de jetons de SORTIE ce palier a le droit de produire. Facultatif : sans lui, le moteur applique son plafond par defaut. Il appartient au palier et non a l'artefact — un agent declare ce qu'il veut faire, pas combien de jetons il consomme, et un plafond ecrit dans chaque artefact divergerait des le troisieme."
           }
         },
         "description": "Un palier, et le modèle réel derrière chez chaque fournisseur. Les colonnes de coût ne sont renseignées que là où le tarif a été vérifié : un coût inventé s'afficherait avec l'aplomb d'un coût mesuré."
