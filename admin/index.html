@@ -156,10 +156,20 @@
                    white-space:pre-wrap;color:var(--ts);max-height:34vh}
   ul.findings{margin:0 0 14px;padding-left:17px;font-size:12px;line-height:1.7;color:var(--ts)}
 
+  /* ── Chapeau : l'écran dit ses trois métiers avant d'en montrer un ── */
+  .chapeau{margin:0 0 14px}
+  .chapeau h1{margin:0 0 5px}
+  .chapeau p{margin:0;font-size:13.5px;color:var(--tm)}
+
   /* ── Bascule de vue ── */
   .vues{display:flex;gap:8px;margin:0 0 6px}
   .vues button{padding:8px 14px;font-size:12.5px}
   .vues button.on{color:var(--tp);border-color:var(--accent);background:rgba(167,139,250,.14)}
+  /* Le compte d'attente reste lisible depuis les autres vues : ne pas atterrir sur la
+     file ne doit pas revenir à ignorer qu'elle se remplit. */
+  .vues .att{margin-left:6px;padding:1px 6px;border-radius:999px;font-size:11px;font-weight:800;
+             color:#0f1216;background:var(--accent)}
+  .vues .att:empty{display:none}
 
   /* ── Journal ── */
   .chiffres{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
@@ -196,13 +206,26 @@
 <body>
 
 <main>
+  <!--
+    L'écran nomme ce qu'il porte AVANT de montrer une vue.
+
+    Sans cette ligne, on arrivait sur une file de validation et on en concluait que
+    l'écran ne servait qu'à ça. Les trois vues existaient, le sélecteur aussi — mais rien
+    ne disait qu'il y avait trois métiers derrière, et la gestion du catalogue s'est
+    perdue pour tout le monde sauf celui qui l'avait écrite.
+  -->
+  <header class="chapeau">
+    <h1>Admin</h1>
+    <p>Piloter le parc : ce qui tourne, ce qui attend une décision, ce qui a été décidé.</p>
+  </header>
+
   <div class="vues" id="vues"></div>
 
   <div id="flash"></div>
 
   <!-- Vue 1 : la file de validation -->
   <section id="vue-valider">
-    <h1>À relire</h1>
+    <h2>À relire</h2>
     <p class="hint" style="margin:8px 0 20px;font-size:13.5px">Les contrôles automatiques sont
       déjà passés. Ce qui reste, c'est le jugement : est-ce que ça sert, et est-ce que ça fait
       ce que ça annonce ? <b>Personne ne peut s'en servir tant que tu n'as pas dit oui.</b></p>
@@ -219,7 +242,7 @@
 
   <!-- Vue 2 : le parc publié -->
   <section id="vue-parc" hidden>
-    <h1>Le parc</h1>
+    <h2>Le parc</h2>
     <p class="hint" style="margin:8px 0 20px;font-size:13.5px">Ce qui est publié, et ce qui a été
       retiré. Le dossier porte l'état : <code>artifacts/</code> est actif et visible au catalogue,
       <code>artifacts/retires/</code> ne l'est plus. Retirer se défait ; supprimer ne se défait
@@ -251,7 +274,7 @@
 
   <!-- Vue 3 : le journal des décisions -->
   <section id="vue-journal" hidden>
-    <h1>Journal des décisions</h1>
+    <h2>Journal des décisions</h2>
     <p class="hint" style="margin:8px 0 20px;font-size:13.5px">Qui a soumis, qui a validé, qui a
       refusé, et quand. Rien n'est tenu à la main : chaque décision est un commit, donc l'historique
       du dépôt <strong>est</strong> le journal.</p>

@@ -140,6 +140,7 @@ async function load() {
 
   if (files.length === 0) {
     $('count').textContent = '0 en attente';
+    attente.textContent = '';
     return showEmpty('La file est vide.', 'Tout ce qui a été soumis a été traité.');
   }
 
@@ -158,6 +159,9 @@ async function load() {
   }));
 
   $('count').textContent = `${entries.length} en attente de décision`;
+  // Le même chiffre sur le sélecteur : on n'atterrit plus sur la file, elle doit donc
+  // s'annoncer d'elle-même depuis le parc comme depuis le journal.
+  attente.textContent = entries.length ? String(entries.length) : '';
   for (const entry of entries) $('queue').append(row(entry));
 }
 
@@ -758,11 +762,29 @@ async function agirParc(e, action) {
 const JOURNAL_TAILLE = 100;
 
 const jvue = { evenements: [], filtre: 'tout', charge: false };
-const VUES = [['valider', '✅ À valider'], ['parc', '📦 Le parc'], ['journal', '📜 Journal']];
+/*
+ * Le parc EN PREMIER, et c'est un choix.
+ *
+ * L'écran s'ouvrait sur la file de validation. Avec un onglet renommé « À relire »,
+ * l'ensemble donnait un écran qui semblait ne servir qu'à ça — alors que sa vue la plus
+ * utile au quotidien est le parc : où en est cet agent, qui en répond, franchit-il encore
+ * la porte, et comment le retirer.
+ *
+ * Ne plus atterrir sur la file ne doit pas revenir à ignorer qu'elle se remplit : le
+ * nombre en attente est porté par le sélecteur, donc visible depuis n'importe quelle vue.
+ */
+const VUES = [['parc', '📦 Le parc'], ['valider', '✅ À valider'], ['journal', '📜 Journal']];
+const VUE_DEFAUT = 'parc';
+
+/** Le compte d'attente, sur son bouton. Vide tant que la file n'est pas connue. */
+const attente = el('span', { className: 'att' });
 
 function montrerVue(id) {
   for (const [v] of VUES) $(`vue-${v}`).hidden = v !== id;
   for (const b of $('vues').children) b.className = b.dataset.vue === id ? 'on' : '';
+  // L'adresse suit la vue : une vue se partage, et un rechargement ne renvoie pas
+  // ailleurs. `replaceState` plutôt qu'un `hash =` pour ne pas empiler l'historique.
+  history.replaceState(null, '', `#${id}`);
   if (id === 'journal' && !jvue.charge) chargerJournal();
   if (id === 'parc' && !pvue.charge) chargerParc();
 }
@@ -770,9 +792,25 @@ function montrerVue(id) {
 for (const [id, label] of VUES) {
   const b = el('button', { textContent: label });
   b.dataset.vue = id;
+  if (id === 'valider') b.append(attente);
   b.onclick = () => montrerVue(id);
   $('vues').append(b);
 }
+
+/** La vue demandée par l'adresse, si elle existe. Sinon celle par défaut. */
+function vueDemandee() {
+  const voulue = location.hash.replace('#', '');
+  return VUES.some(([v]) => v === voulue) ? voulue : VUE_DEFAUT;
+}
+
+/*
+ * Suivre l'adresse quand elle change, pas seulement au chargement.
+ *
+ * Sans ça, coller `admin/#parc` depuis l'écran déjà ouvert ne fait rien : le navigateur
+ * change le fragment sans recharger la page. Le lien marche à froid et pas à chaud — le
+ * genre d'incohérence qu'on met vingt minutes à s'expliquer.
+ */
+addEventListener('hashchange', () => montrerVue(vueDemandee()));
 
 async function chargerJournal() {
   if (!repo) {
@@ -903,5 +941,5 @@ function heureLisible(iso) {
     : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-montrerVue('valider');
+montrerVue(vueDemandee());
 await load();

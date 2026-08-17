@@ -3,7 +3,9 @@
 **Pour qui** : vous relisez ce que les équipes déposent, et vous décidez si ça devient
 visible de tous.
 
-**Où** : onglet **✅ À relire**, écran **À relire**.
+**Où** : onglet **📊 Admin**, vue **✅ À valider**. L'onglet s'ouvre sur **📦 Le parc**, parce
+qu'administrer n'est pas que valider ; le nombre en attente est affiché sur le sélecteur,
+donc visible depuis n'importe laquelle des trois vues.
 
 ## Ce que vous décidez, et ce que vous ne décidez pas
 
@@ -108,9 +110,34 @@ Chaque motif qui revient dans les constats est un candidat `L0xx`. Ce bouton est
 Rien n'est perdu : tout passe par un commit, et le **Journal** garde la trace de qui a
 décidé quoi et quand.
 
-## Les deux autres écrans de l'Admin
+## 📦 Le parc — gérer le catalogue
 
-**Le parc** — tous les agents actifs, leur niveau, leur certification, leur date de
-dernière exécution. C'est là qu'on voit vieillir le registre.
+C'est la vue qui s'ouvre en premier, et la plus utilisée : **une ligne par agent**, tous
+dossiers confondus — ce qui est actif, ce qui attend, ce qui a été retiré. Recherche,
+filtre par nature, filtre par statut.
 
-**Le journal** — l'historique des décisions. Qui a validé, qui a refusé, quand, pourquoi.
+Sur chaque ligne, quatre gestes :
+
+| | Ce que ça fait |
+|---|---|
+| **⏸ Retirer** | l'agent sort du catalogue, plus personne ne peut le lancer. **Réversible** |
+| **▶ Remettre** | il revient au catalogue |
+| **Éditer** | ouvre le Studio sur ce fichier — et repasse par la validation. Corriger n'est pas contourner |
+| **🗑 Supprimer** | efface le fichier du registre. **Irréversible** — la confirmation le dit |
+
+Retirer plutôt que supprimer, c'est ce qui permet de nettoyer sans se faire peur. Sans
+cette porte de sortie, personne n'ose enlever quoi que ce soit, et un catalogue qu'on ne
+croit plus ne se consulte plus.
+
+La colonne **Porte** dit si l'agent franchit *encore* les règles. Elle est calculée à
+chaque affichage, pas au moment de la validation : une règle ajoutée depuis peut très bien
+faire tomber un agent validé il y a six mois. C'est le but.
+
+La colonne des usages affiche **« jamais mesuré »**, et c'est volontaire. Rien ne capture
+encore les exécutions ; un chiffre à cet endroit serait inventé.
+
+## 📜 Le journal — ce qui a été décidé
+
+L'historique des décisions, reconstruit depuis les commits du dépôt : qui a validé, qui a
+refusé, quoi, quand. Aucune base à tenir — chaque décision **est** un commit, donc
+l'historique du dépôt fait le journal.

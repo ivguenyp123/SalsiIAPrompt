@@ -13,7 +13,20 @@ const TABS = [
   { id: 'composer', label: '🧩 Fabriquer', href: 'composer' },
   { id: 'catalogue', label: '🧰 Les agents', href: 'catalogue' },
   { id: 'studio', label: '🛠️ Studio', href: 'studio' },
-  { id: 'admin', label: '✅ À relire', href: 'admin' },
+  /*
+   * « Admin », et pas « À relire ».
+   *
+   * L'onglet s'est appelé « ✅ À relire » le temps d'une passe d'ergonomie, au motif qu'un
+   * nom vaut mieux quand il dit ce qu'on FAIT derrière. Il ne disait qu'un tiers de ce
+   * qu'on y fait : l'écran porte aussi LE PARC — retirer, remettre, éditer, supprimer un
+   * agent — et le journal des décisions.
+   *
+   * Un onglet qui nomme une seule de ses trois vues fait disparaître les deux autres.
+   * C'est exactement ce qui est arrivé : la gestion du catalogue est devenue introuvable
+   * alors qu'elle n'avait pas bougé d'une ligne. Le nom d'un onglet promet ce qu'il y a
+   * derrière ; trop précis, il ment par omission.
+   */
+  { id: 'admin', label: '📊 Admin', href: 'admin' },
   // Le guide est en queue de barre, jamais en tête : on l'ouvre quand quelque chose
   // coince, pas au démarrage. Mais il est DANS la barre, visible depuis tous les écrans —
   // une aide qu'il faut chercher est une aide que personne ne lit.
