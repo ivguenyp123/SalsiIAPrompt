@@ -23,8 +23,15 @@
 /** La clé du dépôt de travail, choisi à l'accueil. Une seule définition. */
 export const CLE_TRAVAIL = 'salsi_ia_project_path';
 
-/** Les noms de variable qui désignent un dépôt, et méritent donc la liste. */
-const NOMS_DEPOT = new Set(['repo', 'depot', 'dépôt', 'projet', 'project', 'repository']);
+/*
+ * Les noms qui désignent un dépôt sont DÉCLARÉS DANS `lib/assemblage.js`.
+ *
+ * Le composeur doit savoir, sans toucher au DOM, si une entrée sera remplissable — et ce
+ * module-ci touche au DOM, donc aucune couche pure ne peut l'importer. Deux listes
+ * auraient fini par diverger, et une divergence à cet endroit ferait passer un agent
+ * lançable pour un agent bloqué — ou l'inverse, ce qui est pire.
+ */
+import { NOMS_DEPOT } from '../lib/assemblage.js';
 
 /**
  * Cette variable désigne-t-elle un dépôt ?

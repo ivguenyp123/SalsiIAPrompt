@@ -35,10 +35,12 @@ import { prochainId, etapePour, variablesDeduites, criteresHerites,
          narrer, renvoisImpossibles } from '../lib/chaine.js';
 import { chemin as cheminMien, dossier as dossierMien, forker, etat as etatChaine,
          ETATS } from '../lib/mien.js';
-import { aplatir, confronter, familles as famillesDe, filtrer } from '../lib/inventaire.js';
-import { morceauDepuisInventaire, morceauDepuisArtefact, consigneAssemblee,
-         assembler, cequilManque } from '../lib/assemblage.js';
-import { indexer as indexerContrats, contratDe, provenance } from '../lib/contrats.js';
+// `filtrer` seul reste utile : la recherche du composeur passe par le même moteur que
+// l'inventaire, pour que « dora » y trouve la même chose des deux côtés.
+import { filtrer } from '../lib/inventaire.js';
+import { morceauDepuisArtefact, consigneAssemblee,
+         assembler, cequilManque, besoinsDe, peutTourner } from '../lib/assemblage.js';
+import { sait as saitCalculer } from '../lib/signaux-matiere.js';
 import yaml from '../lib/yaml.js';
 
 const session = requireSession('../app/login.html');
@@ -80,42 +82,32 @@ let CHAINES = [];                 // les miennes + celles du registre
  * ne vaut que quand le registre porte déjà des agents validés à enchaîner.
  */
 let MODE = 'agent';
-let INVENTAIRE = [];              // les besoins de la plateforme, confrontés au registre
 let MORCEAUX = [];                // les prompts posés dans la consigne
 let MIENS = [];                   // mes agents composés, sauvés chez moi
-let CONTRATS = new Map();         // la forme réelle des rapports de la plateforme
-let famille = '';                 // le filtre de famille, en mode agent
+let famille = '';                 // le filtre d'étiquette, en mode agent
 
 const enAgent = () => MODE === 'agent';
 
 /* ── Chargement ───────────────────────────────────────────────────────────── */
 
 async function charger() {
-  const [tools, targets, entrees, schema, inventaire, contrats] = await Promise.all([
+  const [tools, targets, entrees, schema] = await Promise.all([
     fetch('../registries/tools.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t).tools),
     fetch('../registries/targets.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t).targets),
     fetch('../entrees/index.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t)),
     fetch('../schema/artifact.schema.json', FRAIS).then((r) => r.json()),
-    // Les besoins de la plateforme. C'est LA matière du mode agent : un établi qui
-    // n'offrirait que les artefacts déjà validés serait vide le premier jour, et donc
-    // inutile le jour où il sert le plus.
-    fetch('../inventaire/hub-devops.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t)),
     /*
-     * Les contrats de sortie — la forme RÉELLE des rapports de la plateforme.
+     * L'INVENTAIRE ET LES CONTRATS NE SONT PLUS CHARGÉS ICI, ET C'EST LA DÉCISION.
      *
-     * Sans eux, un agent tiré d'un module invente son vocabulaire : il rendait
-     * `deployment_frequency: "élevée"` là où la plateforme calcule `df: 4.2 /sem → High`.
-     * Une imitation qu'on ne peut ni comparer ni rejouer.
+     * Ils fournissaient 130 besoins de la plateforme comme morceaux assemblables. Un
+     * besoin n'est pas un agent : « un agent qui explique les 4 métriques DORA » est une
+     * phrase de catalogue que personne n'a écrite ni relue. Et 48 d'entre eux déclaraient
+     * une entrée que rien ne sait remplir — l'agent monté franchissait la porte et
+     * échouait au lancement sur un champ vide.
      *
-     * Le manifeste est déclaré : un navigateur ne sait pas lister un dossier.
+     * L'inventaire garde son rôle : dire ce qu'il RESTE à écrire. Il n'a pas à peupler une
+     * boîte à outils. Deux appels de moins au démarrage, au passage.
      */
-    fetch('../inventaire/contrats/index.yaml', FRAIS)
-      .then((r) => (r.ok ? r.text() : 'contrats: []'))
-      .then((t) => Promise.all((yaml.parse(t).contrats || []).map((n) =>
-        fetch(`../inventaire/contrats/${n}`, FRAIS).then((r) => r.text())
-          .then((x) => yaml.parse(x)).catch(() => null))))
-      .then((l) => l.filter(Boolean))
-      .catch(() => [])
   ]);
   ctx = { tools, targets, entrees, validateArtifact: makeValidator(schema) };
 
@@ -147,12 +139,6 @@ async function charger() {
   CHAINES = publies.filter((a) => a.kind === 'chain')
     .map((a) => ({ artefact: a, proprietaire: a.owner?.person || '', publiee: true }));
 
-  // L'état d'un besoin — « au registre » ou « à créer » — n'est écrit nulle part : il se
-  // confronte. Un inventaire qui mentirait sur ce qui existe ferait recomposer ce qui est
-  // déjà là.
-  INVENTAIRE = confronter(aplatir(inventaire), publies.map((a) => a.id));
-  CONTRATS = indexerContrats(contrats);
-
   basculer(MODE);
   await chargerMiennes(repo);
 }
@@ -174,8 +160,9 @@ function basculer(mode) {
 
   $('chapo').textContent = enAgent()
     ? 'Prends des morceaux à gauche, pose-les à droite : ils forment les instructions d\'un '
-      + 'seul agent. Garde-le pour toi, ou propose-le aux autres — dans ce cas quelqu\'un '
-      + 'le relira, comme pour tout agent écrit à la main.'
+      + 'seul agent. À gauche, uniquement des agents DÉJÀ RELUS et qui tournent — chaque '
+      + 'carte dit ce qu\'il faudra saisir pour la lancer. L\'assemblage, lui, n\'a été relu '
+      + 'par personne : garde-le pour toi, ou propose-le et quelqu\'un le relira.'
     : 'Mets bout à bout des agents déjà relus : le résultat de l\'un nourrit le suivant. '
       + 'Tu n\'écris aucune instruction ici, tu choisis l\'ordre — et chaque étape est '
       + 'contrôlée avant de passer à la suivante.';
@@ -469,43 +456,69 @@ function rendreBriques() {
  * mélanger dans une seule liste, en disant d'où vient chacun, vaut mieux que deux
  * colonnes dont l'une reste vide six mois.
  */
+/*
+ * ── ON N'ASSEMBLE QUE CE QUI TOURNE ─────────────────────────────────────────
+ *
+ * La colonne offrait 130 besoins de l'inventaire en plus des agents du registre. Deux
+ * défauts, et le second est le grave :
+ *
+ *   UN BESOIN N'EST PAS UN AGENT. « Un agent qui explique les 4 métriques DORA » est une
+ *   phrase de catalogue, pas une consigne. Personne ne l'a écrite ni relue. Assembler
+ *   trois phrases de catalogue produit un agent conforme et creux — la forme passe la
+ *   porte, le fond n'existe pas.
+ *
+ *   LA MOITIÉ NE POUVAIT PAS TOURNER. 48 de ces 130 besoins déclarent une entrée que rien
+ *   ne sait remplir — `rapport_depot`, `activite_sprint`, `scores_maturite`. On montait
+ *   l'agent, il franchissait la porte, et il échouait au lancement sur un champ vide :
+ *   `P003`. Rien, au moment du montage, ne l'avait laissé prévoir.
+ *
+ * La règle est donc double, et elle vaut pour tout ce qui apparaît ici : ÉCRIT ET RELU
+ * (donc au registre), et LANÇABLE (donc dont chaque entrée est remplissable). Le reste
+ * n'est pas jeté — l'inventaire reste ce qu'il a toujours été, la liste de ce qu'il reste
+ * à écrire. Il n'a simplement rien à faire dans une boîte à outils.
+ */
 function sourcesPrompts() {
-  const depuisRegistre = BRIQUES
+  return BRIQUES
     .map((a) => morceauDepuisArtefact(a))
-    .filter((m) => m && m.consigne);
-
-  // Un besoin déjà réalisé au registre est écarté : sa version validée est juste
-  // au-dessus, et proposer les deux ferait choisir le brouillon.
-  const dejaFaits = new Set(depuisRegistre.map((m) => m.ref));
-  const depuisInventaire = INVENTAIRE
-    .filter((p) => !dejaFaits.has(p.id))
-    .map((p) => ({ ...morceauDepuisInventaire(p, { contrat: contratDe(p, CONTRATS) }),
-                   famille: p.famille, module: p.module }));
-
-  return [...depuisRegistre, ...depuisInventaire];
+    .filter((m) => m && m.consigne)
+    .map((m) => ({ ...m, besoins: besoinsDe(m.entrees, { sait: saitCalculer }) }))
+    .filter((m) => peutTourner(m.entrees, { sait: saitCalculer }));
 }
 
 /*
- * ── LA PROVENANCE : LE FILTRE QUI DÉMÊLE ────────────────────────────────────
+ * Ce que le morceau demandera au lancement, dit sur la carte.
  *
- * La colonne mélangeait deux matières que rien ne permettait de séparer :
- *
- *   ✅ validé      la consigne d'un agent du registre. Un humain l'a relue.
- *   🧰 plateforme  un besoin du hub DevOps. Personne ne l'a encore écrit.
- *
- * On les lisait à la file, et on ne pouvait pas n'en voir qu'une. Or on ne cherche
- * jamais les deux en même temps : soit on part de ce qui est éprouvé, soit on part d'une
- * capacité de la plateforme.
+ * C'est l'information qui décide du choix, et elle n'était nulle part : on voyait
+ * `{{repartition_contributions}}` — un nom d'implémentation — ou rien du tout. « Rien à
+ * saisir » et « 2 choses à écrire » ne se composent pas de la même façon, et un agent
+ * assemblé sans le savoir se découvre au premier lancement.
  */
-/** D'où vient un morceau. `origine` dit déjà tout — on ne le redevine pas. */
-const sourceDe = (m) => (m.origine === 'registre' ? 'registre' : 'inventaire');
+const ETIQUETTES = {
+  calculee: ['⚡', 'calculé'],
+  choisie: ['📦', 'un dépôt'],
+  depot: ['📄', 'depuis le dépôt'],
+  ecrite: ['✍️', 'à écrire']
+};
 
-const PROVENANCES = [
+/** Le résumé du coût d'usage d'un morceau — ce qu'on aura à faire pour le lancer. */
+function coutDUsage(besoins = []) {
+  if (!besoins.length) return { icone: '⚡', texte: 'rien à saisir', classe: 'libre' };
+  const aFaire = besoins.filter((b) => b.etat !== 'calculee');
+  if (!aFaire.length) return { icone: '⚡', texte: 'rien à saisir', classe: 'libre' };
+  const parts = [];
+  for (const etat of ['choisie', 'depot', 'ecrite']) {
+    const n = aFaire.filter((b) => b.etat === etat).length;
+    if (n) parts.push(`${n} ${ETIQUETTES[etat][1]}`);
+  }
+  return { icone: '✍️', texte: parts.join(' · '), classe: 'saisie' };
+}
+
+const USAGES = [
   ['', 'Tout'],
-  ['registre', '✅ Validés'],
-  ['inventaire', '🧰 Plateforme']
+  ['libre', '⚡ Rien à saisir'],
+  ['saisie', '✍️ Avec saisie']
 ];
-let provenanceRetenue = '';
+let usageRetenu = '';
 
 function rendrePrompts() {
   const zone = $('briques');
@@ -515,26 +528,28 @@ function rendrePrompts() {
   const q = $('recherche').value;
 
   /*
-   * Le filtre de provenance ne s'affiche qu'en mode agent : une chaîne n'assemble que des
-   * agents du registre, donc un filtre à une seule valeur ne ferait qu'occuper la place.
+   * Le filtre porte désormais sur CE QU'IL FAUDRA FAIRE pour lancer, et non sur la
+   * provenance — tout ce qui est ici vient du registre, un filtre à une seule valeur ne
+   * ferait qu'occuper la place. « Rien à saisir » est ce qu'on cherche en premier quand on
+   * monte quelque chose que d'autres devront utiliser.
    */
   const seg = $('provenances');
   seg.hidden = !enAgent();
   seg.textContent = '';
   if (enAgent()) {
-    for (const [cle, label] of PROVENANCES) {
-      const n = cle ? tous.filter((m) => sourceDe(m) === cle).length : tous.length;
-      const b = el('button', { className: provenanceRetenue === cle ? 'on' : '' },
+    for (const [cle, label] of USAGES) {
+      const n = cle ? tous.filter((m) => coutDUsage(m.besoins).classe === cle).length : tous.length;
+      const b = el('button', { className: usageRetenu === cle ? 'on' : '' },
         label, el('span', { className: 'n', textContent: String(n) }));
-      b.onclick = () => { provenanceRetenue = cle; rendrePrompts(); };
+      b.onclick = () => { usageRetenu = cle; rendrePrompts(); };
       seg.append(b);
     }
   }
 
   /*
-   * Les familles de l'inventaire. `familles()` rend des OBJETS — clé, titre, icône et
-   * comptes — et pas des chaînes : le bouton affiche le titre lisible, le filtre compare
-   * la clé.
+   * Les étiquettes des agents, à la place des familles de l'inventaire — celui-ci ne
+   * fournit plus de morceaux. Elles se déduisent de ce qui est là : une étiquette que
+   * personne ne porte ne s'affiche pas, et le filtre ne peut donc jamais rendre le vide.
    */
   const boite = $('familles');
   boite.textContent = '';
@@ -542,19 +557,29 @@ function rendrePrompts() {
   tout.onclick = () => { famille = ''; rendrePrompts(); };
   boite.append(tout);
 
-  for (const f of famillesDe(INVENTAIRE)) {
-    const b = el('button', { textContent: `${f.icone || ''} ${f.titre || f.cle}`.trim(),
-                             className: famille === f.cle ? 'on' : '',
-                             title: `${f.total} capacité(s)` });
-    b.onclick = () => { famille = f.cle; rendrePrompts(); };
+  /*
+   * Seules les étiquettes portées par au moins DEUX agents.
+   *
+   * Sur vingt agents il y en a trente-quatre, dont vingt-cinq uniques : trois lignes de
+   * boutons qui poussent les cartes sous la ligne de flottaison, pour des filtres qui
+   * rendent chacun une seule carte. Une étiquette unique ne trie rien, elle désigne — et
+   * la recherche fait déjà ce travail-là, en mieux.
+   */
+  const compte = new Map();
+  for (const m of tous) for (const t of m.tags || []) compte.set(t, (compte.get(t) || 0) + 1);
+  const utiles = [...compte].filter(([, n]) => n >= 2);
+  for (const [t, n] of utiles.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))) {
+    const b = el('button', { textContent: t, className: famille === t ? 'on' : '',
+                             title: `${n} agent(s)` });
+    b.onclick = () => { famille = t; rendrePrompts(); };
     boite.append(b);
   }
 
   const vus = tous.filter((m) => {
-    if (enAgent() && provenanceRetenue && sourceDe(m) !== provenanceRetenue) return false;
-    if (famille && m.famille !== famille) return false;
+    if (enAgent() && usageRetenu && coutDUsage(m.besoins).classe !== usageRetenu) return false;
+    if (famille && !(m.tags || []).includes(famille)) return false;
     if (!q.trim()) return true;
-    return filtrer([{ titre: m.titre, besoin: m.consigne, module: m.module || '',
+    return filtrer([{ titre: m.titre, besoin: m.consigne, module: (m.tags || []).join(' '),
                       entrees: m.entrees }], { q }).length > 0;
   });
 
@@ -570,28 +595,31 @@ function rendrePrompts() {
       el('b', { textContent: m.titre }),
       el('small', { textContent: m.consigne }));
 
+    /*
+     * Plus de pastille « validé » sur chaque carte : tout ce qui est ici l'est, donc elle
+     * ne distingue plus rien et coûte une ligne sur vingt cartes. Ce qui reste vrai — que
+     * l'assemblage, lui, n'a été relu par personne — est dit une fois en tête d'écran, où
+     * on le lit, plutôt que vingt fois où on ne le lit plus.
+     */
     const pied = el('div', { className: 'pied' });
-    pied.append(el('span', { className: `src ${m.origine === 'registre' ? 'registre' : ''}`,
-                 textContent: m.origine === 'registre' ? 'validé' : (m.module || 'plateforme'),
-                 title: m.origine === 'registre'
-                   ? 'La consigne d\'un agent validé. Elle a été relue — mais l\'assemblage, lui, ne l\'a pas été.'
-                   : 'Un besoin de la plateforme. Personne ne l\'a encore écrit ni relu.' }));
-    n.append(pied);
 
     /*
-     * Le morceau qui REPRODUIT, plutôt que celui qui aide.
+     * CE QUE LE MORCEAU DEMANDERA AU LANCEMENT, sur la carte.
      *
-     * Deux morceaux du même module se ressemblent dans la liste et ne font pas le même
-     * métier : l'un explique les métriques DORA à quelqu'un qui les découvre, l'autre rend
-     * le rapport de la plateforme — mêmes clés, mêmes calculs, mêmes seuils. Sans marque on
-     * choisit à l'aveugle et on découvre l'écart une fois l'agent lancé. La provenance est
-     * en info-bulle : elle dit quel fichier du hub a été lu, parce qu'un seuil sans source
-     * ne vaut rien.
+     * C'est l'information qui décide du choix, et elle n'était nulle part. On voyait au
+     * mieux `{{repartition_contributions}}` — un nom d'implémentation que personne ne sait
+     * lire — et le plus souvent rien. Un agent monté à partir de trois morceaux dont
+     * chacun réclame un collage se découvre au premier lancement, quand il est trop tard
+     * pour changer d'avis.
      */
-    if (m.contrat?.champs?.length) {
-      pied.append(el('span', { className: 'src contrat', textContent: 'reproduit',
-                               title: provenance(m.contrat) }));
-    }
+    const cout = coutDUsage(m.besoins);
+    pied.append(el('span', { className: `src usage ${cout.classe}`,
+                 textContent: `${cout.icone} ${cout.texte}`,
+                 title: m.besoins.length
+                   ? m.besoins.map((b) => `${b.nom} — ${ETIQUETTES[b.etat][1]}`).join('\n')
+                   : 'Aucune entrée : ce morceau se lance tel quel.' }));
+    n.append(pied);
+
     // La poignée ferme le pied : sur une carte, elle dit « ça se prend » sans occuper la
     // première ligne, où le titre a besoin de toute la largeur.
     pied.append(el('span', { className: 'poignee', textContent: '⠿' }));

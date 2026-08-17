@@ -65,10 +65,12 @@
   .brique .src{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;
                border-radius:4px;padding:2px 6px;border:1px solid var(--line2);color:var(--tm);
                white-space:nowrap}
-  .brique .src.registre{color:var(--ok);border-color:rgba(52,211,153,.45)}
-  /* Un morceau qui REPRODUIT le rapport de son module — clés, calculs et seuils compris —
-     et pas seulement un morceau qui parle du même sujet. La différence se voit au choix. */
-  .brique .src.contrat{color:#c4b5fd;border-color:rgba(167,139,250,.5)}
+  /* Ce que le morceau demandera au lancement. Vert quand il ne demande RIEN — c'est ce
+     qu'on cherche en premier pour monter un agent que d'autres utiliseront. Pas de
+     capitales ici : « 1 un dépôt · 1 depuis le dépôt » en majuscules se lit comme un code
+     d'erreur, alors que c'est une phrase. */
+  .brique .src.usage{text-transform:none;font-weight:600;letter-spacing:0;font-size:10.5px}
+  .brique .src.usage.libre{color:var(--ok);border-color:rgba(52,211,153,.45)}
 
   /* ── Un morceau posé dans la consigne ── */
   .morceau{border:1px solid var(--line);border-radius:12px;background:rgba(0,0,0,.24);
