@@ -14,7 +14,8 @@ import { createForge } from '../app/forge.js';
 import { mountShell } from '../app/shell.js';
 import { lint, ERROR } from '../lint/index.js';
 import { prevol, SENSIBILITES } from '../preflight/index.js';
-import { SOURCES, sourceProbable, chercher as chercherFichier, diffUnifie, resume, grosse } from '../lib/matiere.js';
+import { SOURCES, sourceProbable, estUnIdentifiant, chercher as chercherFichier,
+         diffUnifie, resume, grosse } from '../lib/matiere.js';
 import { rendre as rendreMd, ressembleADuMarkdown, lienSur } from '../lib/md.js';
 import { rapportHtml, nomFichier } from '../lib/rapport.js';
 import { sait as saitCalculer, surPlusieursDepots, surUneMr, zonesDepuisArbre,
@@ -1342,6 +1343,35 @@ function champCalcule(variable, { surEtat = () => {} } = {}) {
   };
 }
 
+/**
+ * Le nom qu'on MONTRE, pour n'importe quelle entrée.
+ *
+ * Le vocabulaire des entrées est une convention interne : il relie une variable au
+ * calculateur ou au sélecteur qui sait la remplir. Il n'a jamais eu à être lu par
+ * quelqu'un qui lance un agent — et un nom qu'on ne comprend pas est un champ qu'on ne
+ * remplit pas.
+ *
+ * Une entrée inconnue retombe sur son propre nom, souligné remplacé par des espaces : mieux
+ * vaut « inventaire flags » que `{{inventaire_flags}}`, et surtout mieux que rien.
+ */
+const lisible = (nom) => SIGNAL_LISIBLE[nom]
+  || MATIERE_LISIBLE[nom]
+  || String(nom).replace(/_/g, ' ');
+
+/** Ce que désignent les entrées qu'on va chercher, plutôt que de les calculer. */
+const MATIERE_LISIBLE = {
+  code: 'Le code à lire — un fichier du dépôt, ou collé',
+  diff: 'Le changement à relire — une pull request, ou collé',
+  config_ci: 'La configuration de CI — un fichier du dépôt, ou collée',
+  historique_commits: 'L\'historique des commits',
+  inventaire_fichiers: 'L\'inventaire des fichiers',
+  pipeline_log: 'Le journal du pipeline — à coller',
+  besoin_metier: 'Le besoin métier, dans tes mots',
+  notes_incident: 'Les notes d\'incident, dans tes mots',
+  story: 'La user story, dans tes mots',
+  requete: 'La requête SQL — un fichier du dépôt, ou collée'
+};
+
 /** Le nom qu'on montre. Personne ne doit lire `repartition_contributions` à l'écran. */
 const SIGNAL_LISIBLE = {
   repartition_contributions: 'Qui contribue, et où — calculé depuis le dépôt',
@@ -1374,7 +1404,11 @@ function champMatiere(variable) {
 
   const noeud = el('div', { className: 'mat' },
     el('div', { className: 'mat-tete' },
-      el('label', { textContent: `{{${variable.name}}}${variable.required === false ? ' · facultative' : ''}` }),
+      // Le nom LISIBLE, comme sur les champs calculés. « Si je dois mettre des variables
+      // que je ne connais pas partout, personne ne l'utilisera » valait pour
+      // `{{repartition_contributions}}` ; ça vaut tout autant pour `{{code}}`.
+      el('label', { textContent: lisible(variable.name)
+                               + (variable.required === false ? ' · facultative' : '') }),
       bouton),
     zone, info, panneau);
 
@@ -1652,7 +1686,7 @@ function ouvrirExecution(entry) {
      */
     if (estUnDepot(v)) {
       const picker = champDepot({ forge });
-      grille.append(champ(`{{${v.name}}}`, picker.noeud));
+      grille.append(champ(lisible(v.name), picker.noeud));
       picker.remplir();
 
       // Le formulaire lit `.value` et pilote `.disabled` sur ce qu'il trouve ici. Avec
@@ -1694,10 +1728,24 @@ function ouvrirExecution(entry) {
       continue;
     }
 
-    if (v.source === 'repo') {
+    /*
+     * Une ligne de saisie SEULEMENT pour ce qui tient sur une ligne.
+     *
+     * Ce test portait sur `v.source === 'repo'` : deux agents qui font la même chose se
+     * comportaient donc différemment, selon un mot que leur auteur n'a pas choisi
+     * consciemment. `expliquer-un-code` déclare `code: signal` et recevait la zone avec le
+     * sélecteur de fichiers ; `analyseur-de-code`, sorti de Fabriquer, déclare `code: repo`
+     * et ne recevait qu'une ligne — où l'on ne peut ni choisir un fichier, ni même en
+     * coller un.
+     *
+     * La zone de matière est un surensemble de la ligne : elle offre les sélecteurs ET le
+     * collage. Le défaut penche donc de son côté, et seul ce qui est nommément court garde
+     * la ligne.
+     */
+    if (estUnIdentifiant(v)) {
       const input = el('input', { placeholder: 'issu du dépôt' });
       saisies[v.name] = input;
-      grille.append(champ(`{{${v.name}}}${v.required === false ? ' · facultative' : ''}`, input));
+      grille.append(champ(lisible(v.name) + (v.required === false ? ' · facultative' : ''), input));
       continue;
     }
 
