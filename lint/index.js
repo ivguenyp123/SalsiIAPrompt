@@ -12,7 +12,8 @@
  */
 import { ERROR, WARN, isBlocked } from './core.js';
 import { L001, L011, L013 } from './rules/structure.js';
-import { L002, L003, L021 } from './rules/variables.js';
+import { L002, L003, L021, L027 } from './rules/variables.js';
+import { SOURCES_ENTREES } from '../lib/assemblage.js';
 import { L004, L005, L006 } from './rules/tools.js';
 import { L008, L009, L017, L022, L023, L026 } from './rules/criteria.js';
 import { L007, L012 } from './rules/safety.js';
@@ -27,6 +28,7 @@ export const RULES = [
   { code: 'L001', fn: L001, severity: ERROR, title: 'Schéma valide et complet' },
   { code: 'L002', fn: L002, severity: ERROR, title: 'Toute {{variable}} du spec est déclarée' },
   { code: 'L003', fn: L003, severity: WARN,  title: 'Toute variable déclarée est utilisée' },
+  { code: 'L027', fn: L027, severity: WARN,  title: 'Entrée au vocabulaire connu' },
   { code: 'L004', fn: L004, severity: ERROR, title: 'Tout outil existe au registre' },
   { code: 'L005', fn: L005, severity: ERROR, title: 'mode:write ⟹ executor:module' },
   { code: 'L006', fn: L006, severity: ERROR, title: 'Outils autorisés pour le périmètre' },
@@ -67,7 +69,16 @@ export const RULES = [
  * @returns {{findings:Array, blocked:boolean, errors:number, warnings:number}}
  */
 export function lint(artifact, ctx = {}) {
-  const context = { tools: [], targets: [], artifacts: [], derive: null, entrees: null, ...ctx };
+  /*
+   * Le vocabulaire des entrées est une CONSTANTE du produit, pas un fichier : il ne peut
+   * pas être périmé, et le défaut vaut donc mieux que l'absence. Un appelant peut le
+   * remplacer — le banc d'essai s'en sert pour éprouver la règle sur un vocabulaire à lui.
+   */
+  const context = {
+    tools: [], targets: [], artifacts: [], derive: null, entrees: null,
+    entreesConnues: Object.keys(SOURCES_ENTREES),
+    ...ctx
+  };
   const findings = [];
 
   for (const rule of RULES) {

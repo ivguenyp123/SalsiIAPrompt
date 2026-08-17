@@ -74,3 +74,72 @@ export function L021(artifact) {
     )
   ];
 }
+
+/**
+ * L027 — Une entrée porte un nom du vocabulaire, ou personne ne saura la remplir. 🟡
+ *
+ * ── LE DÉFAUT QUE CETTE RÈGLE ATTRAPE ────────────────────────────────────────
+ *
+ * Le rédacteur IA invente librement ses noms de variables. Sur un besoin d'analyse de
+ * bus factor, il a produit `{{repo_metadata}}` et `{{contribution_data}}` — deux noms
+ * qui n'existent nulle part. L'agent était conforme, lançable, et inutilisable : la
+ * plateforme sait CALCULER la répartition des contributions, mais elle se branche sur le
+ * NOM `repartition_contributions`. Sous un autre nom, elle ne reconnaît rien et redemande
+ * une saisie à la main.
+ *
+ * Le vocabulaire n'est pas une coquetterie de nommage : c'est ce qui relie une entrée
+ * déclarée à la matière que la plateforme sait aller chercher.
+ *
+ * ── POURQUOI UN AVERTISSEMENT ET NON UN REFUS ────────────────────────────────
+ *
+ * Un besoin neuf peut réclamer une entrée que le référentiel ne connaît pas encore, et
+ * refuser bloquerait le premier agent d'un domaine nouveau. Mais l'avertissement remonte
+ * dans la boucle de correction du rédacteur : il se corrige tout seul, sans qu'on ait
+ * jamais à refuser quoi que ce soit.
+ *
+ * Silencieuse sans référentiel — comme L023 sans la banque. Une règle qui inventerait son
+ * vocabulaire vaudrait moins que pas de règle.
+ */
+export function L027(artifact, ctx = {}) {
+  const connues = ctx.entreesConnues;
+  if (!Array.isArray(connues) || connues.length === 0) return [];
+
+  const vocabulaire = new Set(connues);
+  return (artifact?.variables || [])
+    .filter((v) => v?.name && !vocabulaire.has(v.name))
+    .map((v) => {
+      const proche = plusProche(v.name, connues);
+      return finding(
+        'L027', WARN,
+        `L'entrée \`${v.name}\` n'est pas au vocabulaire des entrées. `
+        + (proche
+          ? `\`${proche}\` lui ressemble — et la plateforme sait la remplir toute seule.`
+          : 'Sous un nom inconnu, la plateforme ne peut pas aller la chercher : '
+            + 'elle sera demandée à la main à chaque lancement.'),
+        `variables.${v.name}`
+      );
+    });
+}
+
+/**
+ * Le nom connu le plus proche, ou rien.
+ *
+ * On compare les MOTS et non les lettres : `contribution_data` et
+ * `repartition_contributions` ne se ressemblent pas caractère par caractère, mais ils
+ * partagent « contribution ». C'est ce genre de parenté qu'un auteur reconnaît d'un
+ * coup d'œil, et une distance d'édition la manquerait.
+ */
+function plusProche(nom, connues) {
+  const mots = (s) => new Set(String(s).toLowerCase().split(/[_-]+/).filter((m) => m.length > 3));
+  const cible = mots(nom);
+  if (cible.size === 0) return '';
+
+  let meilleur = '';
+  let score = 0;
+  for (const c of connues) {
+    const communs = [...mots(c)].filter((m) => cible.has(m)
+      || [...cible].some((x) => x.startsWith(m) || m.startsWith(x))).length;
+    if (communs > score) { score = communs; meilleur = c; }
+  }
+  return score > 0 ? meilleur : '';
+}

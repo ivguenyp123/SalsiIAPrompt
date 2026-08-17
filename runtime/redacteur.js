@@ -66,6 +66,35 @@ export function identifiant(propose, titre) {
 
 /* ── La consigne ──────────────────────────────────────────────────────────── */
 
+/**
+ * Le vocabulaire des entrées, tel qu'on le donne au rédacteur.
+ *
+ * Sans lui, il invente. Sur un besoin de bus factor il a produit `{{repo_metadata}}` et
+ * `{{contribution_data}}` : deux noms parfaitement lisibles, et parfaitement inutiles —
+ * la plateforme sait calculer la répartition des contributions, mais elle se branche sur
+ * le NOM `repartition_contributions`. Sous un autre nom, elle ne reconnaît rien et
+ * redemande une saisie à la main.
+ *
+ * Les entrées CALCULÉES sont signalées comme telles : ce sont celles qui rendent un agent
+ * utilisable sans rien taper, et c'est vers elles qu'il faut le pousser.
+ */
+const listeEntrees = () => {
+  const groupes = { repo: [], signal: [], user: [] };
+  for (const [nom, source] of Object.entries(SOURCES_ENTREES)) {
+    if (groupes[source]) groupes[source].push(nom);
+  }
+  const marque = (n) => `${n}${SIGNAUX_CALCULES.has(n) ? '   ✔ calculée' : ''}`;
+  const bloc = (titre, noms) => (noms.length
+    ? `  ${titre}\n${noms.map((n) => `    ${marque(n)}`).join('\n')}`
+    : '');
+
+  return [
+    bloc('ce qui se lit dans le dépôt :', groupes.repo),
+    bloc('ce que la plateforme produit :', groupes.signal),
+    bloc('ce que quelqu\'un tape :', groupes.user)
+  ].filter(Boolean).join('\n');
+};
+
 const listeOutils = (tools = []) => (tools || []).map((t) =>
   `  - ${t.id} · ${t.mode} · executor ${t.executor}`
   + `${t.scopes?.length ? ` · périmètres : ${t.scopes.join(', ')}` : ''}`

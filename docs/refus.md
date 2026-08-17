@@ -25,7 +25,7 @@ sait. Voir « refuser ce qu'on sait » en bas de page — c'est la clé de lectu
 
 ---
 
-## La porte — les 26 règles
+## La porte — les 27 règles
 
 ### Structure et propriété
 
@@ -143,6 +143,22 @@ pour ça que rien ne l'attrapait avant.
 
 → *Pour exiger des clés dans une sortie JSON, utilisez `output.json_keys` et non
 `output.sections`.*
+
+**`L027` 🟡 — Une entrée porte un nom que la plateforme ne connaît pas.**
+
+Votre agent déclare une entrée hors du **vocabulaire des entrées** — `repo_metadata`,
+`contribution_data`, ce genre de nom.
+
+Ce n'est pas une question de style. La plateforme sait **calculer** certaines matières et
+remplir le champ toute seule au lancement — mais elle se branche sur le **nom**. Sous un
+nom inventé, même limpide, elle ne reconnaît rien : la matière sera réclamée à la main à
+chaque exécution, et l'agent deviendra pénible au point que personne ne s'en servira.
+
+Le message vous propose le nom connu le plus proche quand il y en a un.
+
+→ *Reprenez le nom du vocabulaire. Si votre besoin réclame vraiment une entrée que le
+référentiel ne connaît pas, l'avertissement n'est pas bloquant — mais dites-le à
+quelqu'un : c'est peut-être une entrée à ajouter.*
 
 **`L022` 🟡 — Un cas d'or dont l'attente viole un critère de l'artefact.**
 
