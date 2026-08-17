@@ -45,8 +45,9 @@
   /* ── L'identité d'un agent composé ──
      Elle n'existe qu'en mode agent, et c'est délibéré : une chaîne dérive la sienne de
      ses étapes, un agent neuf doit la porter — quelqu'un va le relire. */
-  .identite{display:grid;gap:9px;margin-bottom:13px;padding-bottom:13px;
-            border-bottom:1px solid var(--line)}
+  /* L'identité vient APRÈS la toile : le trait la sépare de ce qui la précède. */
+  .identite{display:grid;gap:9px;margin-top:13px;padding-top:13px;
+            border-top:1px solid var(--line)}
   .identite label{display:block;font-size:10.5px;font-weight:800;text-transform:uppercase;
                   letter-spacing:.05em;color:var(--tm);margin-bottom:4px}
   .identite input,.identite textarea{width:100%;font-size:13px;padding:8px 11px}
@@ -156,9 +157,12 @@
   .brique:hover .plus{opacity:1}
 
   /* ── La chaîne ── */
-  #toile{min-height:190px;display:grid;gap:9px;padding:4px;border-radius:12px;
-         border:1.5px dashed var(--line2);transition:.15s}
-  #toile.survol{border-color:#fbbf24;background:rgba(251,191,36,.07)}
+  /* La cible de dépose se voit AVANT qu'on glisse : un cadre gris pâle ressemble à un
+     bloc vide, et on ne vise pas un bloc vide. Elle s'allume franchement au survol. */
+  #toile{min-height:150px;display:grid;gap:9px;padding:4px;border-radius:12px;
+         border:1.5px dashed rgba(167,139,250,.4);background:rgba(124,92,252,.05);
+         transition:.15s}
+  #toile.survol{border-color:#fbbf24;background:rgba(251,191,36,.1)}
   .vide-toile{color:var(--tm);font-size:12.5px;line-height:1.7;padding:34px 20px;text-align:center}
   .vide-toile b{display:block;color:var(--ts);font-size:13.5px;margin-bottom:5px}
 
@@ -288,8 +292,21 @@
       <div class="cartes" id="briques"></div>
     </section>
 
+    <!--
+      LA ZONE DE DÉPOSE EN PREMIER.
+
+      Elle venait après les trois champs d'identité. Sur un écran ordinaire, ça la
+      poussait hors de vue : on demandait de glisser un morceau vers un endroit invisible,
+      et l'établi avait beau rester collé en haut, c'était son BAS qu'il fallait atteindre.
+
+      L'ordre suit maintenant le geste : on dépose, PUIS on nomme. Personne ne titre un
+      agent avant de savoir de quoi il sera fait.
+    -->
     <section class="panneau etabli-droite">
       <h2 id="titreToile">La chaîne <span class="n" id="netapes">0 étape</span></h2>
+
+      <div id="toile"></div>
+      <div id="manque"></div>
 
       <div class="identite" id="identite" hidden>
         <div>
@@ -306,8 +323,6 @@
         </div>
       </div>
 
-      <div id="manque"></div>
-      <div id="toile"></div>
       <div id="verdict"></div>
 
       <div class="acts">
