@@ -169,6 +169,33 @@ function messageDe(brut) {
   }
 }
 
+/*
+ * ── RÉESSAYER CE QUI EST SANS CONSÉQUENCE ────────────────────────────────────
+ *
+ * Une panne totale se voit et on l'attend. Un TAUX D'ERREUR ne se voit pas : pendant
+ * l'incident GitHub du 17 août, l'API rendait ~20 % de 5xx. Neuf appels passent, le
+ * dixième tombe — et un agent qui en fait soixante, comme le scan de secrets, n'a
+ * pratiquement aucune chance d'aboutir. L'écran affiche alors « erreur serveur » sur un
+ * service qui, vu de l'extérieur, fonctionne.
+ *
+ * Deux réessais espacés ramènent un appel à 20 % d'échec sous 1 %. C'est la différence
+ * entre une démo qui tient et une démo qui tombe au milieu.
+ *
+ * ── ON NE RÉESSAIE QUE CE QUI EST SANS CONSÉQUENCE ───────────────────────────
+ *
+ * Uniquement les LECTURES, et uniquement sur 5xx ou 429. Rejouer un POST qui a peut-être
+ * abouti ouvrirait deux merge requests, poserait deux commentaires, approuverait deux
+ * fois — un dégât bien pire que l'erreur qu'on répare. Le doute sur un écrit se tranche
+ * en le laissant échouer.
+ *
+ * Un 4xx n'est jamais réessayé : un jeton refusé le restera, et insister ne fait que
+ * doubler le temps avant d'afficher la vraie cause.
+ */
+const REESSAIS = 2;
+const ATTENTE = [400, 1200];
+const A_REESSAYER = (statut) => statut === 429 || statut >= 500;
+const dormir = (ms) => new Promise((r) => { setTimeout(r, ms); });
+
 function makeCaller({ base, headers, host, scopeHint }, fetchImpl) {
   return async function call(path, { params, body, method = 'GET' } = {}) {
     const url = new URL(base + path);
@@ -178,26 +205,38 @@ function makeCaller({ base, headers, host, scopeHint }, fetchImpl) {
 
     const entetes = { ...headers, ...(body ? { 'Content-Type': 'application/json' } : {}) };
 
-    let response;
-    try {
-      response = await fetchImpl(url.toString(), {
-        method,
-        // Sans ceci, le navigateur peut resservir une liste d'artefacts mise en cache :
-        // on publie, et le catalogue continue d'afficher l'état d'avant.
-        cache: 'no-store',
-        headers: entetes,
-        ...(body ? { body: JSON.stringify(body) } : {})
-      });
-    } catch {
+    // Une lecture peut être rejouée sans conséquence. Un écrit qui a peut-être abouti,
+    // non — voir plus haut : deux merge requests valent pire qu'une erreur.
+    const rejouable = method === 'GET';
+
+    const unAppel = async () => {
       try {
-        response = await parLeRelais(url.toString(), { method, headers: entetes, body }, fetchImpl);
+        return await fetchImpl(url.toString(), {
+          method,
+          // Sans ceci, le navigateur peut resservir une liste d'artefacts mise en cache :
+          // on publie, et le catalogue continue d'afficher l'état d'avant.
+          cache: 'no-store',
+          headers: entetes,
+          ...(body ? { body: JSON.stringify(body) } : {})
+        });
       } catch {
-        throw new ForgeError(
-          `Impossible de joindre ${host}. Vérifie l'adresse, ton accès réseau (VPN), ` +
-          'et que la forge autorise les appels depuis le navigateur (CORS). Le relais du '
-          + 'serveur local n\'a pas répondu non plus.', 0
-        );
+        try {
+          return await parLeRelais(url.toString(), { method, headers: entetes, body }, fetchImpl);
+        } catch {
+          throw new ForgeError(
+            `Impossible de joindre ${host}. Vérifie l'adresse, ton accès réseau (VPN), ` +
+            'et que la forge autorise les appels depuis le navigateur (CORS). Le relais du '
+            + 'serveur local n\'a pas répondu non plus.', 0
+          );
+        }
       }
+    };
+
+    let response = await unAppel();
+    for (let essai = 0; essai < REESSAIS
+                        && rejouable && !response.ok && A_REESSAYER(response.status); essai += 1) {
+      await dormir(ATTENTE[essai]);
+      response = await unAppel();
     }
 
     if (!response.ok) {
