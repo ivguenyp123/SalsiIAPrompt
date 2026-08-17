@@ -36,6 +36,7 @@ import { rediger as redigerArtefact, composer as composerChaine } from './redact
 import { knownScopes } from '../app/scopes.js';
 import { toYaml } from '../studio/to-yaml.js';
 import { relire } from './coherence.js';
+import { ligne as ligneJournal } from '../lib/executions.js';
 
 /** Les dossiers où un artefact peut vivre. Aucun chemin ne vient de la requête. */
 export const DOSSIERS = ['artifacts', 'artifacts/pending', 'artifacts/retires'];
@@ -63,13 +64,52 @@ export function etat({ creerVertex, models = [] } = {}) {
 }
 
 /**
- * Exécute un artefact.
+ * Exécute un artefact, et l'INSCRIT AU JOURNAL.
+ *
+ * ── POURQUOI LE JOURNAL EST ICI, ET PAS DANS LE SERVEUR ──────────────────────
+ *
+ * Le serveur de développement n'est pas le seul appelant prévu : à LCL, cette route
+ * vivra dans un vrai back, et c'est ce module-là qui partira, pas `serve.js`. Journaliser
+ * dans le serveur reviendrait à ne tracer que le poste du développeur — c'est-à-dire
+ * précisément l'endroit où la mesure n'intéresse personne.
+ *
+ * Ici, en revanche, TOUTE exécution passe par cette fonction, quel qu'en soit l'appelant.
+ * C'est la seule position d'où « 100 % des lancements sont tracés » est une propriété du
+ * code, et pas une consigne qu'on rappelle aux gens.
+ *
+ * `journaliser` est INJECTÉ, et facultatif. Absent, ce module se comporte exactement
+ * comme avant — les tests existants n'ont rien à savoir de tout ceci, et une plateforme
+ * sans magasin n'est pas une plateforme cassée.
+ *
+ * Et il ne peut RIEN casser : ce qu'il jette est avalé. Perdre une réponse attendue et
+ * payée parce que le disque du journal est plein serait un très mauvais échange.
  *
  * @param {object} requete  { id, valeurs, cas, criticite, depot, assume }
- * @param {object} deps     { charger, banque, registres, models, creerVertex, lireEntree, derive }
+ * @param {object} deps     { charger, banque, registres, models, creerVertex, lireEntree,
+ *                            derive, journaliser, horloge }
  * @returns {{status, corps}}  status HTTP et corps JSON — le serveur ne décide rien
  */
 export async function executer(requete = {}, deps = {}) {
+  const { journaliser, horloge = () => new Date() } = deps;
+  if (typeof journaliser !== 'function') return await conduire(requete, deps, {});
+
+  const trace = {};
+  const debut = horloge();
+  const r = await conduire(requete, deps, trace);
+
+  try {
+    journaliser(ligneJournal({
+      le: debut.toISOString(), artifact: trace.artifact, requete,
+      status: r.status, corps: r.corps, fournisseur: trace.fournisseur,
+      ms: horloge() - debut
+    }));
+  } catch { /* un journal en panne ne fait pas échouer ce qu'il devait décrire */ }
+
+  return r;
+}
+
+/** Le travail réel. `trace` recueille ce que le journal ne peut pas lire dans la sortie. */
+async function conduire(requete = {}, deps = {}, trace = {}) {
   const { charger, banque, registres, models = [], creerVertex, lireEntree,
           derive = null, briques = [] } = deps;
   const id = String(requete.id || '');
@@ -87,6 +127,7 @@ export async function executer(requete = {}, deps = {}) {
    * à savoir lequel il a.
    */
   const artifact = await charger(id, DOSSIERS);
+  trace.artifact = artifact;
   if (!artifact) {
     return { status: 404, corps: { erreur: `Artefact \`${id}\` introuvable au registre.` } };
   }
@@ -115,6 +156,7 @@ export async function executer(requete = {}, deps = {}) {
   let vertex;
   try { vertex = creerVertex(); }
   catch (error) { return { status: 503, corps: { erreur: error.message } }; }
+  trace.fournisseur = vertex.fournisseur;
 
   /*
    * `derive` est ce que le banc d'essai a MESURÉ. Le passer ici est ce qui resserre le

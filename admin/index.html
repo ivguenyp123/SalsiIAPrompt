@@ -199,6 +199,88 @@
   .alerte{padding:12px 15px;border-radius:12px;margin-bottom:16px;font-size:12.5px;line-height:1.6;
           color:#fcd34d;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.35)}
 
+  /* ── Exécutions ──
+     Cinq chiffres et pas quatre : la part d'entrée est ce que le produit défend, elle ne
+     se range pas dans une grille faite pour autre chose. `auto-fit` plutôt qu'un nombre
+     fixe de colonnes — sinon le cinquième s'étale seul sur toute une ligne. */
+  #vue-executions .chiffres{grid-template-columns:repeat(auto-fit,minmax(158px,1fr))}
+  .chiffre small{display:block;margin-top:5px;font-size:10.5px;color:var(--tm);
+                 line-height:1.45;font-weight:500;letter-spacing:0;text-transform:none}
+  .chiffre.accent{border-color:rgba(56,189,248,.4);background:rgba(56,189,248,.06)}
+  .chiffre.accent b{color:#7dd3fc}
+  .chiffre.bon b{color:#6ee7b7}
+  .chiffre.moyen b{color:#fcd34d}
+  .chiffre.mauvais b{color:#fca5a5}
+
+  .issues{margin:0 0 22px}
+  .bandeau{display:flex;height:9px;border-radius:5px;overflow:hidden;gap:2px}
+  .bandeau .seg-issue{display:block;min-width:3px}
+  .legende{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:9px;
+           font-size:11px;color:var(--tm)}
+  .legende i{display:inline-block;width:9px;height:9px;border-radius:2px;
+             vertical-align:-1px;margin-right:4px}
+  .legende .gmax{margin-left:auto;font-family:var(--fm);font-size:10.5px}
+
+  .grafs{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:26px}
+  @media (max-width:760px){ .grafs{grid-template-columns:1fr} }
+  .carte-graf{background:var(--bg-card);border:1px solid var(--line);border-radius:16px;
+              padding:15px 17px 12px}
+  .gtitre{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+  .gtitre b{font-family:var(--fd);font-size:14.5px;color:var(--tp)}
+  .gtitre .gsous{font-size:11px;color:var(--tm)}
+  /* Le SVG est ÉTIRÉ en largeur (`preserveAspectRatio:none`) : c'est ce qui permet de
+     dessiner en coordonnées 0-100 sans connaître la largeur réelle. Les libellés d'axe
+     restent donc en HTML — du texte étiré serait déformé. */
+  .gzone{margin-top:12px;height:132px}
+  .graf{width:100%;height:100%;display:block;overflow:visible}
+  .graf .grille{stroke:var(--line);stroke-width:.5;vector-effect:non-scaling-stroke}
+  .graf .axe{stroke:var(--line2);stroke-width:1;vector-effect:non-scaling-stroke}
+  .graf .barre{transition:opacity .12s}
+  .graf .barre:hover{opacity:.72}
+  /* Le seau VIDE garde un trait au ras de l'axe : sans lui, « aucune activité » et
+     « aucune donnée » se ressemblent, et ce ne sont pas les mêmes conclusions. */
+  .graf .vide{fill:var(--tm);opacity:.5}
+  .axe-x{display:flex;margin-top:5px}
+  /* PAS d'`overflow:hidden` : un seul libellé sur N est écrit, les cases voisines sont
+     vides, et rogner « 19/07 » en « 19/ » rendait l'axe illisible pour économiser une
+     place que personne n'occupait. `min-width:0` garde le partage égal des colonnes. */
+  .axe-x span{flex:1;min-width:0;text-align:center;font-size:9.5px;color:var(--tm);
+              font-family:var(--fm);white-space:nowrap}
+
+  h3.sous{font-family:var(--fd);font-size:16px;color:var(--tp);margin:26px 0 2px}
+
+  .tblx,.tblj{border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  /* Le journal DÉFILE dans son cadre. Deux cents lignes déroulées faisaient une page de
+     onze mille pixels : le résumé et les graphiques — qui sont ce qu'on vient lire —
+     devenaient un accident en haut d'un mur de texte. L'en-tête reste collé, sinon on
+     défile trois écrans et on ne sait plus quelle colonne est laquelle. */
+  .tblj{max-height:520px;overflow-y:auto}
+  .theadj{position:sticky;top:0;z-index:1;backdrop-filter:blur(8px);background:rgba(13,13,24,.94)}
+  .theadx,.rowx{display:grid;grid-template-columns:2.1fr 1.2fr .8fr .7fr 1fr .8fr;
+                gap:12px;align-items:center;padding:11px 15px;font-size:12.5px}
+  .theadj,.rowj{display:grid;grid-template-columns:1fr 1.6fr 1.3fr 1.2fr .8fr 1.2fr;
+                gap:12px;align-items:center;padding:10px 15px;font-size:12.5px}
+  .theadx,.theadj{background:rgba(0,0,0,.24);font-size:10.5px;text-transform:uppercase;
+                  letter-spacing:.05em;color:var(--tm);font-weight:800}
+  .rowx,.rowj{border-top:1px solid var(--line);color:var(--ts)}
+  .rowx:hover,.rowj:hover{background:rgba(255,255,255,.02)}
+  .nomx b{display:block;color:var(--tp);font-size:13px}
+  .nomx small{display:block;color:var(--tm);font-size:10.5px;font-family:var(--fm)}
+  .jauge{position:relative;height:16px;background:rgba(255,255,255,.05);border-radius:4px}
+  .jauge i{position:absolute;inset:0 auto 0 0;background:rgba(167,139,250,.45);border-radius:4px}
+  .jauge em{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+            font-style:normal;font-size:11px;font-weight:800;color:var(--tp)}
+  .rowx .ok{color:#6ee7b7;font-weight:700}
+  .rowx .moy{color:#fcd34d;font-weight:700}
+  .rowx .ko{color:#fca5a5;font-weight:700}
+  .rowx .tm{color:var(--tm)}
+  .rowj .quand,.rowj .mono{font-family:var(--fm);font-size:11px;color:var(--tm);
+                           white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .iss{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+  .iss.succes{color:#6ee7b7} .iss.contrat{color:#fcd34d} .iss.coupe{color:#f9a8d4}
+  .iss.refus{color:var(--tm)} .iss.erreur{color:#fca5a5}
+  .coupe-note{margin:10px 2px 0;font-size:11.5px;color:var(--tm)}
+
   .empty{padding:34px;text-align:center;color:var(--tm);border:1px dashed var(--line2);border-radius:16px}
   .empty b{color:var(--tp);display:block;margin-bottom:6px;font-family:var(--fd);font-size:15px}
   #flash{display:none;margin:0 0 16px;padding:11px 14px;border-radius:10px;font-size:13px;font-weight:700}
@@ -293,6 +375,33 @@
     <div id="alerte" class="alerte" hidden></div>
     <div id="jours"></div>
     <div class="empty" id="jempty" style="display:none"></div>
+  </section>
+
+  <!-- Vue 4 : ce que la plateforme a réellement exécuté -->
+  <section id="vue-executions" hidden>
+    <h2>Exécutions</h2>
+    <p class="hint" style="margin:8px 0 20px;font-size:13.5px">Ce que la plateforme a
+      réellement lancé : combien de jetons, quand, sur quoi, et avec quel résultat. Rien n'est
+      saisi — chaque lancement s'inscrit tout seul. <strong>Le journal garde les chiffres et
+      les verdicts, jamais les prompts ni les réponses :</strong> un prompt porte la matière
+      qu'on lui a donnée à lire, et ce n'est pas ici que ça se stocke.</p>
+
+    <div class="chiffres" id="es-resume"></div>
+    <div id="es-alerte" class="alerte" hidden></div>
+    <div id="es-issues" class="issues"></div>
+
+    <div class="seg" id="es-pas" style="margin:22px 0 14px"></div>
+    <div id="es-graphs" class="grafs"></div>
+
+    <h3 class="sous">Les plus utilisés</h3>
+    <p class="hint" style="margin:2px 0 14px;font-size:12.5px">Le taux ne porte que sur les
+      exécutions <em>jugées</em> — celles où le modèle a répondu et où le contrat a pu être
+      évalué. Un refus au pré-vol en est retiré : c'est la porte qui a fonctionné, pas
+      l'agent qui a échoué.</p>
+    <div id="es-palmares"></div>
+
+    <h3 class="sous">Le journal</h3>
+    <div id="es-journal"></div>
   </section>
 </main>
 

@@ -49,9 +49,21 @@ describe('l\'application servie en statique', () => {
       // `api` n'est pas un dossier : c'est la route du moteur, absente par construction
       // d'un hébergement statique, et les écrans le disent d'eux-mêmes.
       if (dossier === 'api') continue;
-      // `derive` est produit par le banc d'essai ; tant qu'il n'a rien mesuré, il n'existe
-      // pas. Ne pas le copier est juste — l'inventer serait mentir sur une mesure.
-      if (dossier === 'derive' && !existsSync(join(ROOT, 'derive'))) continue;
+      /*
+       * `derive/etat.json` est produit par le banc d'essai ; tant qu'il n'a rien mesuré,
+       * il n'existe pas. Ne pas le copier est juste — l'inventer serait mentir sur une
+       * mesure.
+       *
+       * LA CONDITION PORTE SUR LE FICHIER, PAS SUR LE DOSSIER, et la nuance vient de se
+       * payer. Le journal des exécutions écrit lui aussi dans `derive/` : il suffit
+       * désormais de lancer UN agent en local pour que le dossier existe, sans qu'aucune
+       * mesure de banc n'ait eu lieu. Testé sur le dossier, ce test virait au rouge pour
+       * une raison sans aucun rapport avec ce qu'il surveille — et un test rouge dont le
+       * message ne décrit pas la cause est la meilleure façon de désapprendre à le lire.
+       *
+       * Ce qui doit encore alerter le jour venu : `etat.json` publié et non copié.
+       */
+      if (dossier === 'derive' && !existsSync(join(ROOT, 'derive/etat.json'))) continue;
       assert.ok(COPIES.has(dossier),
         `« ${dossier} » est importé par un écran et le job \`pages\` ne le copie pas`);
     }

@@ -39,6 +39,7 @@ import { STATUTS, DOSSIERS, dossiersDe, inventaireParc, compter, filtrer } from 
 import { niveau } from '../lib/niveau.js';
 import { carte } from '../runtime/etat-derive.js';
 import { lire as lireProvenance } from '../lib/provenance.js';
+import { chargerExecutions, monterPas, chargeEs } from './executions.js';
 
 /*
  * `cache: 'no-cache'` sur les référentiels — pas une coquetterie.
@@ -797,7 +798,19 @@ const jvue = { evenements: [], filtre: 'tout', charge: false };
  * Ne plus atterrir sur la file ne doit pas revenir à ignorer qu'elle se remplit : le
  * nombre en attente est porté par le sélecteur, donc visible depuis n'importe quelle vue.
  */
-const VUES = [['parc', '📦 Le parc'], ['valider', '✅ À valider'], ['journal', '📜 Journal']];
+/*
+ * Une QUATRIÈME vue : ce qui a réellement tourné.
+ *
+ * Les trois premières décrivent le parc DÉCLARÉ — ce qui existe, ce qui attend, ce qui a
+ * été décidé. Aucune ne dit ce qui a été fait. Un registre gouverné qui ne sait pas
+ * combien de jetons il a consommés ni combien de ses agents tiennent leur contrat décrit
+ * une intention, pas une activité.
+ *
+ * Elle vit dans `executions.js` : mettre ses graphiques ici aurait ajouté trois cents
+ * lignes à un fichier qui en fait déjà mille, pour un métier qui n'est pas le sien.
+ */
+const VUES = [['parc', '📦 Le parc'], ['valider', '✅ À valider'],
+              ['executions', '📊 Exécutions'], ['journal', '📜 Journal']];
 const VUE_DEFAUT = 'parc';
 
 /** Le compte d'attente, sur son bouton. Vide tant que la file n'est pas connue. */
@@ -811,6 +824,7 @@ function montrerVue(id) {
   history.replaceState(null, '', `#${id}`);
   if (id === 'journal' && !jvue.charge) chargerJournal();
   if (id === 'parc' && !pvue.charge) chargerParc();
+  if (id === 'executions' && !chargeEs()) chargerExecutions();
 }
 
 for (const [id, label] of VUES) {
@@ -965,5 +979,6 @@ function heureLisible(iso) {
     : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
+monterPas();
 montrerVue(vueDemandee());
 await load();

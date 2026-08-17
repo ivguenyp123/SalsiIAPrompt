@@ -24,3 +24,17 @@ vertex*.json
 # …sauf le modèle, qui ne contient que des noms de variables. Sans cette exception,
 # `.env.*` l'avale et personne ne sait plus quoi remplir.
 !.env.exemple
+
+# ── Le journal des exécutions ─────────────────────────────────────────────────
+#
+# `derive/etat.json` est versionné : c'est le VERDICT du banc d'essai, il doit être
+# lisible par le Catalogue et son historique dit quand un agent a été certifié.
+#
+# `derive/executions.jsonl` ne l'est pas, et la différence est nette : c'est l'activité
+# d'UNE instance. Le versionner produirait un conflit à chaque lancement — deux personnes
+# qui travaillent en même temps ajoutent chacune des lignes en fin de fichier, git ne sait
+# pas les fusionner — et ferait entrer au dépôt du registre des noms de dépôts et des
+# volumes de jetons qui n'y ont rien à faire.
+#
+# Le jour où ça vit en base, ce fichier disparaît sans que rien d'autre bouge.
+derive/executions.jsonl

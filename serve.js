@@ -40,6 +40,9 @@ import { lint } from './lint/index.js';
 import { chemin } from './lib/entrees.js';
 import { CHEMIN, carte } from './runtime/etat-derive.js';
 import { createForge } from './app/forge.js';
+import { ajouter as ajouterAuJournal, lire as lireLeJournal,
+         echec as echecJournal, MAX_LIGNES } from './runtime/journal-exec.js';
+import { serie, palmares, resume, PAS } from './lib/executions.js';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 
@@ -206,7 +209,16 @@ function dependances() {
     // suivante, pas au prochain redémarrage.
     derive: existsSync(join(ROOT, CHEMIN))
       ? carte(JSON.parse(readFileSync(join(ROOT, CHEMIN), 'utf8'))) : null,
-    creerVertex: () => createMoteur({ models })
+    creerVertex: () => createMoteur({ models }),
+    /*
+     * Le journal des exécutions.
+     *
+     * C'est la SEULE écriture de ce serveur, et elle est délibérée. Sans elle, aucune
+     * exécution ne laisse de trace : la plateforme ne peut rien prouver de ce qu'elle
+     * affirme sur ses jetons, ses coûts et ses verdicts. Elle est confinée à `derive/`,
+     * là où vit déjà tout ce qui est MESURÉ plutôt que déclaré.
+     */
+    journaliser: (ligne) => ajouterAuJournal(ligne)
   };
 }
 
@@ -361,6 +373,64 @@ createServer(async (req, res) => {
       } catch (error) {
         json(res, 502, { erreur: `Le relais n'a pas joint la forge : ${error.message}` });
       }
+      return;
+    }
+
+    /*
+     * ── LA LECTURE DU JOURNAL ──────────────────────────────────────────────
+     *
+     * Tout est agrégé ICI, côté serveur, et pas dans l'onglet. Envoyer vingt mille lignes
+     * au navigateur pour qu'il les additionne ferait une page qui rame et un réseau qui
+     * transporte des jetons pour rien — alors que la page n'affiche jamais que des
+     * totaux, trois séries et un tableau.
+     *
+     * `decalage` vient du navigateur : `new Date().getTimezoneOffset()`. Le journal est
+     * écrit en UTC, mais « les jetons par heure » doit se lire dans l'heure du lecteur,
+     * sinon la pointe de 14 h apparaît à 12 h et personne ne comprend son propre
+     * graphique. Le serveur ne devine aucun fuseau.
+     */
+    if (url.pathname === '/api/executions') {
+      const q = url.searchParams;
+      /*
+       * `q.get()` rend `null` quand le paramètre est ABSENT — et `Number(null)` vaut 0,
+       * qui est parfaitement fini. Un `Number.isFinite` seul acceptait donc ce zéro et
+       * écrasait la valeur par défaut : le journal ne rendait qu'une ligne sur trois cent
+       * cinquante-six, sans erreur, sans avertissement, avec un total juste juste à côté.
+       *
+       * Le paramètre manquant se teste AVANT la conversion, jamais après.
+       */
+      const nombre = (nom, defaut) => {
+        const brut = q.get(nom);
+        if (brut === null || brut.trim() === '') return defaut;
+        const v = Number(brut);
+        return Number.isFinite(v) ? v : defaut;
+      };
+      // Un décalage se borne : au-delà d'une journée, ce n'est plus un fuseau, c'est une
+      // requête qui essaie de déplacer les seaux.
+      const decalageMin = Math.max(-840, Math.min(840, -nombre('decalage', 0)));
+      const jusqua = new Date().toISOString();
+      const derniers = Math.max(1, Math.min(1000, nombre('derniers', 200)));
+
+      const { lignes, total, tronque, illisibles, octets, erreur } = lireLeJournal();
+
+      json(res, 200, {
+        resume: resume(lignes),
+        series: Object.fromEntries(Object.keys(PAS).map((pas) =>
+          [pas, serie(lignes, { pas, jusqua, decalageMin })])),
+        palmares: palmares(lignes),
+        // Le journal brut, du plus récent au plus ancien — c'est l'ordre dans lequel on
+        // ouvre un journal.
+        journal: lignes.slice(-derniers).reverse(),
+        meta: {
+          total, tronque, illisibles, octets, plafond: MAX_LIGNES,
+          rendus: Math.min(derniers, lignes.length),
+          jusqua, decalageMin,
+          // Une panne d'écriture ne doit pas être silencieuse : sans ça, l'écran
+          // afficherait un journal qui a cessé de grandir sans dire pourquoi.
+          echec: echecJournal(),
+          erreur: erreur || null
+        }
+      });
       return;
     }
 
