@@ -1,0 +1,190 @@
+# Le contrat de sortie de « Repo Analyzer », EXTRAIT de la plateforme.
+#
+# ── D'OÙ VIENT CHAQUE MORCEAU ────────────────────────────────────────────────
+#
+# Tout est lu dans `js/repo-analyzer.js` :
+#   · les onze lectures            → `fetchBranches()` … `fetchDeployments()` (l.78-104)
+#   · le flow                      → `detectFlow()` (l.106)
+#   · le bus factor                → `calculateBusFactor()` (l.112)
+#   · le Health Score              → `calculateHealthScore()` (l.120)
+#   · les vingt-cinq contrôles     → `generateQuickWins()` (l.130-650)
+#
+# ── CE QUE CE MODULE A D'UNIQUE, ET CE QU'IL RÉPÈTE ─────────────────────────
+#
+# Son écran montre deux choses. La première — activité, contributeurs, branches — recoupe
+# trois autres modules déjà extraits : Bus Factor, Branch Monitor, gouvernance CIS. La
+# seconde, les QUICK WINS, n'existe nulle part ailleurs : vingt-cinq contrôles rangés en
+# quatre niveaux de gravité, chacun avec son geste.
+#
+# C'est pour la seconde que ce contrat existe. La première est laissée aux modules qui la
+# font mieux, et un rapport qui la reprendrait ferait trois fois le même travail.
+#
+# ── LE DÉSACCORD LE PLUS COÛTEUX DE LA PLATEFORME ───────────────────────────
+#
+# DEUX « HEALTH SCORE » COEXISTENT, avec des formules incompatibles, et le même nom :
+#
+#   Repo Analyzer   100 − 40 si aucun commit − 10 si ≥10 MR ouvertes − 15 si un auteur ≥80 %
+#   Daily Report    100 − 20/−15 taux de succès − 15 branches dormantes − 10 MR anciennes
+#
+# Le même dépôt peut valoir 100 sur un écran et 65 sur l'autre. Aucun des deux n'est faux :
+# ils ne répondent pas à la même question — l'un mesure la VITALITÉ d'un dépôt, l'autre la
+# SANTÉ D'UNE SEMAINE de livraison. Mais rien à l'écran ne le dit, et quelqu'un qui ouvre
+# les deux pages conclut qu'un des deux ment.
+#
+# Le registre ne tranche pas : il porte les deux, NOMMÉS distinctement, et oblige tout
+# rapport qui en cite un à préciser lequel. C'est la même règle que pour les deux seuils
+# de lead time — le désaccord appartient à la plateforme, sa lisibilité nous appartient.
+#
+# ── TROIS DÉCISIONS DU CODE QUI CHANGENT LE RÉSULTAT ────────────────────────
+#
+# LE BUS FACTOR EST UNE PART, PAS UN NOMBRE DE PERSONNES. `calculateBusFactor()` rend le
+# POURCENTAGE du plus gros contributeur. Le module « Bus Factor », lui, rend un nombre de
+# personnes issu d'une médiane pondérée par zone. Même nom, deux grandeurs sans rapport :
+# 93 % ici, 1,4 personne là-bas. Les comparer n'a aucun sens, et les afficher côte à côte
+# sans le dire en produit un.
+#
+# LE FLOW SE DÉTECTE SUR UNE SEULE BRANCHE. `detectFlow()` teste la présence de `develop`
+# ou `dev` : si elle existe, c'est « GitFlow », sinon « Feature Branching ». La valeur
+# « Trunk-based » existe dans l'affichage et AUCUNE branche du code n'y mène — elle est
+# inatteignable. Le calcul reproduit ce qui est mesuré, pas ce que l'écran laisse croire
+# qu'il sait détecter.
+#
+# LES CONTRÔLES SONT EXCLUSIFS DEUX À DEUX. Une branche est morte (>90 j) OU dormante
+# (30-90 j). Une MR est abandonnée (>30 j) OU en attente (7-30 j). Un bus factor est
+# critique (≥90 %) OU élevé (70-90 %). Les faire tomber ensemble produirait des gestes
+# contradictoires sur le même objet — « supprimer » et « reprendre » la même branche.
+
+module: Repo Analyzer
+source: js/repo-analyzer.js
+format: json
+
+fenetre: >-
+  les 90 derniers jours pour les commits (`fetchCommits()` pose `since` à 90 jours), et
+  l'ÉTAT ACTUEL pour tout le reste — branches, merge requests ouvertes, arbre du dépôt.
+  Les deux périmètres se mélangent dans le même rapport sans que rien le signale : un
+  constat sur les branches ne parle pas de la même période qu'un constat sur les commits.
+
+perimetre: >-
+  UN dépôt, ses branches, son arbre de premier niveau, ses merge requests et ses
+  pipelines. Les branches de tronc — main, master, develop, dev — ne sont jamais jugées,
+  ni sur leur nom ni sur leur âge. Les branches de robots (renovate, dependabot) sont
+  exclues du contrôle de nommage seulement.
+
+niveaux: ["critical", "urgent", "important", "improvement"]
+
+champs:
+  - cle: quickWins
+    libelle: Les corrections à faire
+    unite: liste
+    forme: >-
+      Une liste d'objets { priority, title, subtitle, description, impact, time, actions },
+      triée par `priorityOrder = { critical: 0, urgent: 1, important: 2, improvement: 3 }`.
+    methode: >-
+      VINGT-CINQ CONTRÔLES indépendants, chacun avec sa condition propre, évalués dans
+      l'ordre du code et empilés dans une liste triée à la fin par niveau de gravité. Un
+      contrôle ne produit rien quand sa condition est fausse — la liste est donc de
+      longueur variable, et son absence de contenu n'est pas un score parfait mais une
+      absence de constat. Les conditions sont détaillées dans la section `regles`.
+
+  - cle: healthScore
+    libelle: Health Score (Repo Analyzer)
+    unite: /100
+    seuils: "bon ≥ 80 · à surveiller ≥ 50 · critique en dessous"
+    methode: >-
+      PART DE 100 ET NE FAIT QUE RETIRER, jamais ajouter : −40 si aucun commit sur la
+      fenêtre, −10 si dix merge requests ouvertes ou plus, −15 si le plus gros
+      contributeur porte 80 % des commits ou plus. Borné entre 0 et 100. Il ne récompense
+      rien : 100 signifie « aucune des trois pénalités ne s'applique », pas « dépôt
+      exemplaire ». CE SCORE N'EST PAS CELUI DU DAILY REPORT — formules et périmètres
+      différents, même nom.
+
+  - cle: busFactor
+    libelle: Concentration de la connaissance
+    unite: "%"
+    seuils: "critique ≥ 90 % · élevé de 70 à 89 % · dominant signalé dès 70 %"
+    methode: >-
+      PART DU PLUS GROS CONTRIBUTEUR, en pourcentage des commits — et non un nombre de
+      personnes. On somme les commits par auteur, on prend le plus actif, on divise par le
+      total et on arrondit. À NE PAS CONFONDRE avec le bus factor du module du même nom,
+      qui rend un nombre de personnes issu d'une médiane pondérée par zone : deux
+      grandeurs sans rapport.
+
+  - cle: flowType
+    libelle: Modèle de branches détecté
+    unite: texte
+    methode: >-
+      PRÉSENCE D'UNE BRANCHE `develop` OU `dev` : si elle existe, « GitFlow » ; sinon,
+      « Feature Branching ». Aucune autre observation n'entre dans la détection. La valeur
+      « Trunk-based » figure dans l'affichage mais aucune branche du code n'y conduit :
+      elle est inatteignable.
+
+regles:
+  - titre: Une branche est morte OU dormante, jamais les deux
+    effet: >-
+      Morte au-delà de 90 jours sans commit, dormante entre 30 et 90. Les deux constats
+      proposent des gestes opposés — supprimer, ou reprendre — et les faire tomber ensemble
+      sur la même branche produirait une liste incohérente.
+
+  - titre: Une merge request est abandonnée OU en attente, jamais les deux
+    effet: >-
+      Abandonnée au-delà de 30 jours, en attente entre 7 et 30. Une MR de plus d'un mois ne
+      se relit plus : elle a divergé, et le geste est de trancher, pas de relire.
+
+  - titre: Le bus factor est critique OU élevé, jamais les deux
+    effet: >-
+      Critique à 90 % et plus, élevé de 70 à 89 %. Le second est un avertissement, le
+      premier un risque à traiter.
+
+  - titre: Les branches de tronc échappent à tous les contrôles de branche
+    effet: >-
+      main, master, develop, dev ne sont jugées ni sur leur nom ni sur leur âge. Une
+      branche `develop` sans commit depuis un an n'est pas une branche morte, et conseiller
+      de la supprimer serait une faute.
+
+  - titre: Les branches de robots échappent au NOMMAGE seulement
+    effet: >-
+      Celles qui contiennent « renovate » ou « dependabot » ne sont pas jugées sur leur
+      préfixe — l'équipe ne les crée pas et ne peut pas les renommer. Elles restent
+      soumises aux contrôles d'âge.
+
+  - titre: Les préfixes de branche acceptés sont une liste fermée
+    effet: >-
+      feature/, feat/, feature_, fix/, bugfix/, hotfix/, release/, chore/. Tout le reste
+      est signalé. La liste est arbitraire et vient du code, pas d'une norme.
+
+  - titre: La CI n'est signalée qu'à partir de 30 % d'échecs
+    effet: >-
+      En dessous, l'échec est traité comme du bruit normal. Au-delà, le constat est que
+      l'équipe a cessé de regarder sa CI — ce qui est le vrai problème, plus que les
+      échecs eux-mêmes.
+
+  - titre: Les messages de commit ne sont jugés qu'au-delà de dix commits
+    effet: >-
+      Et seulement si plus de 70 % s'écartent du motif
+      `(feat|fix|docs|style|refactor|test|chore|build|ci)(scope)?:`. Trois commits « wip »
+      ne disent rien d'une pratique d'équipe.
+
+  - titre: Certains contrôles dépendent du NOMBRE de contributeurs
+    effet: >-
+      CONTRIBUTING.md n'est réclamé qu'au-delà de deux contributeurs, CODEOWNERS au-delà de
+      trois. Sur un dépôt tenu par une personne, ces documents n'ont pas d'objet.
+
+  - titre: Le « Bravo ! » n'apparaît qu'en l'absence de constat CRITIQUE
+    effet: >-
+      Pas en l'absence de tout constat. Un dépôt peut donc être félicité tout en portant
+      des points urgents — c'est le code, et il vaut mieux le savoir avant de citer ce
+      message.
+
+  - titre: Les commits hors horaires se lisent en heure LOCALE de l'affichage
+    effet: >-
+      Avant 8 h, après 20 h, ou le week-end, d'après l'heure de la machine qui affiche le
+      rapport. Deux personnes dans deux fuseaux verront deux pourcentages différents pour
+      le même dépôt.
+
+absence: >-
+  Un dépôt sans commit ne rend pas un rapport vide : il perd 40 points de Health Score et
+  le bus factor vaut 0 % sans nommer personne — ce qui ne déclenche AUCUN constat de
+  concentration, puisqu'il n'y a rien à concentrer. Une liste de quick wins vide signifie
+  « ces vingt-cinq contrôles-là ne trouvent rien », jamais « ce dépôt est sain » : la
+  couverture de tests, la qualité du code et la réalité des revues ne sont mesurées par
+  aucun d'eux.

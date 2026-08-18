@@ -97,6 +97,7 @@ contrats:
   - daily-report.yaml
   - devops-assessment.yaml
   - dora-insights.yaml
+  - repo-analyzer.yaml
 
 # ── CE QUI A ÉTÉ EXAMINÉ SANS DONNER DE CONTRAT ──────────────────────────────
 #

@@ -36,6 +36,11 @@ const sain = (sur = {}) => rapportDepot({
   mrsOuvertes: [{ numero: 1, titre: 'Un correctif', auteur: 'a.martin', ouvert: ilYA(1),
                   description: 'Corrige un arrondi au centime près.',
                   relecteurs: ['b.durand'], etiquettes: ['fix'], conflits: false }],
+  // Un dépôt sain FUSIONNE des merge requests : sans elles, « du travail arrive sur le
+  // tronc sans aucune revue » est un constat juste, et le jeu d'essai décrirait un dépôt
+  // qui n'a rien de sain.
+  mrsFusionnees: [{ numero: 2, titre: 'Précédent', cible: 'main',
+                    ouvert: ilYA(4), fusionne: ilYA(2) }],
   pipelines: Array.from({ length: 10 }, () => ({ statut: 'succes' })),
   maintenant: M, ...sur
 });
@@ -132,7 +137,17 @@ describe('ce que le module ne juge jamais', () => {
     const r = sain({ branches: [
       { name: 'main', default: true, protectee: true, quand: ilYA(1) },
       { name: 'develop', quand: ilYA(400) }, { name: 'master', quand: ilYA(400) }] });
-    assert.deepEqual(cles(r), []);
+    /*
+     * L'assertion porte sur les CONTRÔLES DE BRANCHE, pas sur l'absence totale de constat.
+     *
+     * Elle était `deepEqual(cles(r), [])`, et l'ajout du flow observé l'a fait rougir — à
+     * raison : cette fixture crée un `develop` vieux d'un an que personne ne cible, ce qui
+     * est exactement la situation que le nouveau constat existe pour signaler. Un test
+     * trop large finit par interdire d'ajouter ce qu'il n'avait pas prévu.
+     */
+    for (const interdit of ['branches_mortes', 'branches_stale', 'nommage_branches']) {
+      assert.ok(!cles(r).includes(interdit), `\`${interdit}\` ne doit pas juger un tronc`);
+    }
   });
 
   test('les branches de robots échappent au nommage', () => {
@@ -285,5 +300,99 @@ describe('les messages de commit', () => {
       message: 'wip', author: 'a', date: '2026-08-11T10:00:00Z' })) });
     assert.ok(!cles(r).includes('commits_non_standards'));
     assert.equal(SEUILS.commits_min, 10);
+  });
+});
+
+/* ── Le flow observé ──────────────────────────────────────────────────────── */
+
+describe('le flow déclaré et le flow pratiqué', () => {
+  test('une `develop` que personne ne cible est signalée', () => {
+    /*
+     * LE constat que la plateforme ne peut pas faire. `detectFlow()` regarde une seule
+     * chose — l'existence de la branche — et affiche « GitFlow bien appliqué ». Une équipe
+     * qui a cessé de la cibler depuis six mois voit donc un garde-fou qu'elle n'a plus.
+     */
+    const r = sain({
+      branches: [{ name: 'main', default: true, protectee: true, quand: ilYA(1) },
+                 { name: 'develop', quand: ilYA(200) }],
+      mrsFusionnees: Array.from({ length: 8 }, (_, i) => ({
+        numero: i, titre: 'x', cible: 'main', ouvert: ilYA(4), fusionne: ilYA(3) })) });
+    assert.ok(cles(r).includes('flow_declare_non_pratique'));
+    assert.equal(r.flow_observe.declare, 'gitflow');
+    assert.equal(r.flow_observe.pratique, 'feature-branching');
+    assert.equal(r.flow_observe.accord, false);
+  });
+
+  test('une `develop` réellement ciblée ne déclenche rien', () => {
+    const r = sain({
+      branches: [{ name: 'main', default: true, protectee: true, quand: ilYA(1) },
+                 { name: 'develop', quand: ilYA(2) }],
+      mrsFusionnees: Array.from({ length: 8 }, (_, i) => ({
+        numero: i, titre: 'x', cible: 'develop', ouvert: ilYA(4), fusionne: ilYA(3) })) });
+    assert.ok(!cles(r).includes('flow_declare_non_pratique'));
+    assert.equal(r.flow_observe.accord, true);
+  });
+
+  test('sans merge request du tout, on ne conclut RIEN sur le flow', () => {
+    // Un dépôt neuf n'a pas un mauvais flow : il n'a pas encore de flow. `null` plutôt
+    // qu'un verdict évite de conseiller sur une observation qui n'a pas eu lieu.
+    const r = sain({ mrsFusionnees: [], mrsOuvertes: [], commits: [] });
+    assert.equal(r.flow_observe.pratique, null);
+    assert.equal(r.flow_observe.accord, null);
+    assert.ok(!cles(r).includes('flow_declare_non_pratique'));
+  });
+
+  test('du travail sur le tronc SANS aucune fusion est un constat, le reste non', () => {
+    /*
+     * Ce constat a remplacé un premier, trop bruyant : « plus de la moitié des commits du
+     * tronc sans trace de fusion ». Il se déclenchait sur la configuration par défaut de
+     * GitLab, qui écrase les commits à la fusion sans référencer la merge request — donc
+     * sur des dépôts parfaitement sains.
+     *
+     * Celui-ci n'a pas d'ambiguïté : aucune merge request fusionnée du tout.
+     */
+    const sansRevue = sain({ mrsFusionnees: [] });
+    assert.ok(cles(sansRevue).includes('travail_sans_revue'));
+
+    // Avec des fusions, le mode de fusion peut tout expliquer : on se tait.
+    assert.ok(!cles(sain()).includes('travail_sans_revue'));
+  });
+
+  test('le pourcentage de traces reste une INFORMATION, avec son avertissement', () => {
+    const r = sain();
+    assert.equal(typeof r.flow_observe.tronc.part, 'number');
+    assert.match(r.texte, /MAJORANT/);
+    assert.match(r.texte, /mode de fusion/);
+  });
+
+  test('les constats ajoutés sont MARQUÉS, pas mêlés aux vingt-cinq', () => {
+    /*
+     * Sans la marque, un rapport mélangerait ce que la plateforme constate et ce que le
+     * registre observe en plus, sous la même autorité. Quelqu'un qui irait vérifier sur
+     * l'écran du Repo Analyzer ne retrouverait pas la moitié des constats et conclurait
+     * que le registre invente.
+     */
+    const r = sain({ mrsFusionnees: [] });
+    const ajoute = r.constats.find((c) => c.cle === 'travail_sans_revue');
+    assert.equal(ajoute.origine, 'observation');
+    assert.match(r.texte, /\[observé en plus\]/);
+
+    const extrait = sain({ branches: [{ name: 'main', default: true, protectee: false,
+                                        quand: ilYA(1) }] })
+      .constats.find((c) => c.cle === 'main_non_protegee');
+    assert.equal(extrait.origine, 'repo-analyzer');
+  });
+
+  test('la durée de vie d\'une branche est une MÉDIANE, sur au moins cinq fusions', () => {
+    // Une moyenne sur trois merge requests dont une de quarante jours décrirait une
+    // pratique qui n'existe pas.
+    const court = sain({ mrsFusionnees: Array.from({ length: 3 }, (_, i) => ({
+      numero: i, titre: 'x', cible: 'main', ouvert: ilYA(40), fusionne: ilYA(1) })) });
+    assert.ok(!cles(court).includes('branches_qui_vivent_trop'), 'trois fusions ne suffisent pas');
+
+    const long = sain({ mrsFusionnees: Array.from({ length: 6 }, (_, i) => ({
+      numero: i, titre: 'x', cible: 'main', ouvert: ilYA(40), fusionne: ilYA(1) })) });
+    assert.ok(cles(long).includes('branches_qui_vivent_trop'));
+    assert.equal(long.flow_observe.duree_vie_mediane_j, 39);
   });
 });

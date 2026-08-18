@@ -1,0 +1,126 @@
+# salsi-provenance: main
+# besoin: un agent qui dit quel modèle de branches l'équipe pratique vraiment, et ce qu'il faut ajuster
+# demande-par: ivguenyp123
+# le: 2026-08-17
+#
+# ── CE QUE CET AGENT VOIT ET QUE LA PLATEFORME NE VOIT PAS ──────────────────
+#
+# `detectFlow()` du Repo Analyzer regarde UNE chose : l'existence d'une branche `develop`.
+# Si elle existe, l'écran affiche « GitFlow bien appliqué ». Une équipe qui a cessé de la
+# cibler depuis six mois voit donc un garde-fou qu'elle n'a plus — et l'écran le confirme.
+#
+# La matière porte désormais les deux :
+#
+#   DÉCLARÉ    ce que la présence d'une branche laisse croire
+#   PRATIQUÉ   où vont réellement les merge requests, combien de temps vit une branche,
+#              et si du travail arrive sur le tronc sans revue
+#
+# L'écart entre les deux est tout l'intérêt de cet agent. Quand il n'y en a pas, il le dit
+# en trois lignes.
+#
+# ── L'IDENTIFIANT N'EST PAS DE L'INVENTAIRE ─────────────────────────────────
+#
+# Le module Repo Analyzer déclare cinq prompts, aucun sur le flow. C'est une observation
+# qu'on ajoute, pas une capacité qu'on reproduit, et le prompt l'écrit à sa lectrice.
+#
+# ── LE PIÈGE À DÉSAMORCER ───────────────────────────────────────────────────
+#
+# La matière contient un pourcentage de « commits sans trace de fusion » qui est un
+# MAJORANT : un dépôt configuré pour écraser ses commits à la fusion sans référencer la
+# merge request produit, sur le tronc, des commits indiscernables d'un push direct — c'est
+# le comportement par défaut de GitLab. Un agent qui présenterait ce chiffre comme une
+# mesure accuserait des équipes irréprochables.
+
+id: analyser-le-flow-de-branches
+kind: prompt
+title: Le flow de branches — déclaré et pratiqué
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [livraison, qualite, pilotage]
+intent:
+  purpose: >-
+    Comparer le modèle de branches que le dépôt laisse croire à celui qu'il pratique
+    réellement — cibles des merge requests, durée de vie des branches, travail arrivant sur
+    le tronc — et dire quoi ajuster.
+  not_for: >-
+    Ne pas utiliser pour imposer un modèle : GitFlow, feature branching et trunk-based sont
+    des choix d'équipe, pas des niveaux de maturité. Ne pas s'en servir non plus pour
+    conclure que des gens poussent directement sur le tronc — la matière ne le mesure pas,
+    elle en donne un majorant que le mode de fusion suffit souvent à expliquer.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: rapport_depot
+    source: signal
+    required: true
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Ce que le dépôt pratique
+      - L'écart avec ce qui est déclaré
+      - Ce qu'il faut ajuster
+spec: |-
+    Tu décris le modèle de branches réellement pratiqué sur un dépôt, et l'écart avec ce
+    que la plateforme en affiche.
+
+    Matière fournie — tout est DÉJÀ calculé, ne recalcule rien :
+    {{rapport_depot}}
+
+    Concentre-toi sur le bloc « Le flow, déclaré et pratiqué » et sur les constats marqués
+    `[observé en plus]`. Les autres constats existent, ils ne sont pas ton sujet : un autre
+    agent les traite.
+
+    RÈGLE ABSOLUE, et c'est la plus importante de ce prompt. Le pourcentage de commits
+    « sans trace de fusion » est un MAJORANT, pas une mesure. Un dépôt qui écrase ses
+    commits à la fusion sans référencer la merge request produit des commits identiques à
+    des pushs directs — c'est le réglage par défaut d'une des deux forges. N'écris JAMAIS
+    que des gens poussent sur le tronc à partir de ce seul chiffre. Dis ce qu'il faut
+    vérifier d'abord : le mode de fusion du dépôt.
+
+    Si la matière dit que le flow pratiqué n'est pas observable — aucune merge request —
+    écris-le et arrête-toi là. Un dépôt neuf n'a pas un mauvais flow : il n'en a pas
+    encore, et lui en conseiller un sur zéro observation serait un avis, pas une analyse.
+
+    Réponds en trois sections, avec ces titres exactement :
+
+    ## Ce que le dépôt pratique
+
+    Où va le travail, en quatre lignes au plus :
+
+    - les cibles des merge requests, avec leur part
+    - la durée de vie médiane d'une branche, et sur combien de fusions elle est mesurée
+    - ce qui arrive sur la branche par défaut
+
+    Décris, ne juge pas encore. Cette section doit se lire par quelqu'un qui n'est pas
+    d'accord avec la conclusion et qui doit quand même reconnaître son équipe dedans.
+
+    ## L'écart avec ce qui est déclaré
+
+    La plateforme déduit le modèle de la seule présence d'une branche `develop`. Dis ce
+    qu'elle affiche, dis ce que les merge requests montrent, et nomme l'écart s'il existe.
+
+    Le cas qui compte : une branche `develop` que plus personne ne cible. C'est PIRE qu'un
+    feature branching assumé — la branche diverge pendant que l'écran affiche « GitFlow
+    bien appliqué », et on croit avoir un garde-fou qu'on n'a plus.
+
+    S'il n'y a pas d'écart, écris-le en une ligne. C'est une bonne nouvelle et elle se dit
+    vite.
+
+    ## Ce qu'il faut ajuster
+
+    Trois points au maximum, chacun avec le geste.
+
+    N'impose aucun modèle. GitFlow, feature branching et trunk-based sont des choix
+    d'équipe, pas des niveaux de maturité — une équipe qui livre plusieurs fois par jour a
+    raison de ne pas avoir de `develop`. Ce qui se corrige, c'est l'INCOHÉRENCE : une
+    branche déclarée et abandonnée, des branches qui vivent trois semaines, du travail qui
+    n'est jamais revu.
+
+    Termine par une phrase sur ce que la matière ne mesure pas : le mode de fusion du
+    dépôt, qui explique une grande partie de ce qu'on observe sur le tronc, et qui se lit
+    dans les réglages — pas ici.

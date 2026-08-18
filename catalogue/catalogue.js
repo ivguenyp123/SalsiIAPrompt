@@ -1169,18 +1169,25 @@ const CONFIGS_CI = ['.gitlab-ci.yml', '.github/workflows/ci.yml', '.github/workf
  */
 async function matiereDepot(depot) {
   const ref = await brancheDe(depot);
-  const [info, branches, chemins, commits, mrsOuvertes, pipelines] = await Promise.all([
-    forge.projectInfo(depot).catch(() => ({})),
-    branchesDatees(depot).catch(() => []),
-    arbre(depot).catch(() => []),
-    forge.listCommits(depot, undefined, { perPage: FENETRE, ref }).catch(() => []),
-    forge.listPullRequests(depot, { etat: 'ouvertes', perPage: MAX_MR_DAILY }).catch(() => []),
-    forge.listRuns(depot, { perPage: MAX_PIPELINES_DAILY }).catch(() => [])
-  ]);
+  const [info, branches, chemins, commits, mrsOuvertes, mrsFusionnees, pipelines] =
+    await Promise.all([
+      forge.projectInfo(depot).catch(() => ({})),
+      branchesDatees(depot).catch(() => []),
+      arbre(depot).catch(() => []),
+      forge.listCommits(depot, undefined, { perPage: FENETRE, ref }).catch(() => []),
+      forge.listPullRequests(depot, { etat: 'ouvertes', perPage: MAX_MR_DAILY }).catch(() => []),
+      /*
+       * Les MR FUSIONNÉES, sans filtre de date, et c'est ce qui rend le flow observable :
+       * elles disent où va vraiment le travail, combien de temps vit une branche, et si
+       * la `develop` détectée par la plateforme sert encore à quelque chose.
+       */
+      forge.listPullRequests(depot, { etat: 'fusionnees', perPage: MAX_MR_DAILY }).catch(() => []),
+      forge.listRuns(depot, { perPage: MAX_PIPELINES_DAILY }).catch(() => [])
+    ]);
 
   return rapportDepot({
     depot, info: { defaut: info.defaultBranch || ref, visibilite: info.visibility || '' },
-    branches, chemins, commits, mrsOuvertes, pipelines,
+    branches, chemins, commits, mrsOuvertes, mrsFusionnees, pipelines,
     maintenant: new Date().toISOString(),
     tronque: {
       commits: commits.length >= FENETRE,
