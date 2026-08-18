@@ -43,6 +43,8 @@
  * Module PUR : ni forge, ni DOM, ni horloge implicite (`now` est passé). Testable.
  */
 import { lint, ERROR, WARN } from '../lint/index.js';
+import { verdict as verdictIsolement, phrase as phraseIsolement,
+         preuvesPlateforme } from '../lib/executeur.js';
 
 /** Échelle de sensibilité, ordonnée. Comparer des rangs, pas des chaînes. */
 export const SENSIBILITES = ['public', 'interne', 'confidentiel', 'secret'];
@@ -379,6 +381,52 @@ function P008(artifact, ctx) {
   return out;
 }
 
+/* ── P009 ─────────────────────────────────────────────────────────────────── */
+/**
+ * L'isolement déclaré est-il TENU, là, maintenant ? 🔴
+ *
+ * L'artefact transporte une EXIGENCE (`isolement: conteneur-sans-reseau`), jamais un
+ * verdict. Le verdict se recalcule ICI, à chaque lancement, avec le registre et les
+ * attestations du jour — parce que les deux bougent : une attestation périme, un
+ * registre s'enrichit. Un verdict transporté serait le `applicable: true` écrit à la
+ * main sous une autre forme, figé dans un fichier pendant que le monde change.
+ *
+ * Et c'est le contrôle AUTO-RESSERRANT et AUTO-DESSERRANT à la fois : le jour où
+ * l'attestation de l'administrateur des runners entre au registre, le même artefact
+ * passe — sans retoucher ni l'artefact ni ce code. Le jour où elle périme, il re-refuse.
+ *
+ * Un artefact SANS le champ est muet ici, comme un budget absent laisse P008 muet : les
+ * artefacts nés avant ce champ sont des prompts sans exécution, et les faire tous
+ * refuser au nom d'une exigence qu'ils n'ont jamais déclarée serait un mur, pas une
+ * porte. Un isolement INCONNU du registre, en revanche, refuse : `non résolu` ne vaut
+ * jamais `satisfait`.
+ */
+function P009(artifact, ctx) {
+  const exige = artifact?.isolement;
+  if (!exige) return [];
+
+  const isolements = ctx?.registres?.isolements || [];
+  const iso = isolements.find((i) => i.id === exige);
+  if (!iso) {
+    return [constat('P009', ERROR,
+      `L'artefact exige l'isolement \`${exige}\`, inconnu du registre. Un isolement qui `
+      + 'n\'existe pas ne peut pas être tenu — et `non résolu` ne vaut jamais `satisfait`.',
+      'isolement')];
+  }
+
+  const v = verdictIsolement(iso, {
+    etablies: preuvesPlateforme({ artefact: artifact, outils: ctx?.registres?.tools || [],
+                                  ci: ctx?.ci }),
+    attestations: ctx?.attestations || new Map()
+  });
+  if (v.tenable) return [];
+
+  return [constat('P009', ERROR,
+    `${phraseIsolement(iso, v)} Rien ne part tant que ces preuves ne sont pas établies — `
+    + `manquent : ${v.manque.map((m) => `\`${m.id}\``).join(', ')}.`,
+    'isolement')];
+}
+
 /* ── Le pré-vol ───────────────────────────────────────────────────────────── */
 
 const CONTROLES = [
@@ -389,7 +437,8 @@ const CONTROLES = [
   { code: 'P005', fn: P005, titre: 'Certification présente et valide' },
   { code: 'P006', fn: P006, titre: 'Niveau suffisant pour la criticité' },
   { code: 'P007', fn: P007, titre: 'Écriture : confirmation humaine requise' },
-  { code: 'P008', fn: P008, titre: 'Dépense de la fenêtre sous le plafond' }
+  { code: 'P008', fn: P008, titre: 'Dépense de la fenêtre sous le plafond' },
+  { code: 'P009', fn: P009, titre: 'L\'isolement déclaré est tenu' }
 ];
 
 /**

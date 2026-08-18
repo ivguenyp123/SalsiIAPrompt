@@ -44,6 +44,7 @@ import { ajouter as ajouterAuJournal, lire as lireLeJournal,
          echec as echecJournal, MAX_LIGNES } from './runtime/journal-exec.js';
 import { serie, palmares, resume, PAS } from './lib/executions.js';
 import { depense as depenseBudget, etat as etatBudget, plafondsDe } from './lib/budget.js';
+import { attestationsPar } from './lib/executeur.js';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 
@@ -163,8 +164,17 @@ function dependances() {
     tools: lire('registries/tools.yaml').tools,
     targets: lire('registries/targets.yaml').targets,
     entrees: lire('entrees/index.yaml'),
+    // Les isolements et leurs preuves : P009 recalcule la ténabilité à chaque lancement.
+    isolements: lire('registries/isolements.yaml').isolements,
     validateArtifact: makeValidator(JSON.parse(readFileSync(join(ROOT, 'schema/artifact.schema.json'), 'utf8')))
   };
+  /*
+   * Les attestations sont RELUES À CHAQUE APPEL, pas au démarrage : c'est leur
+   * péremption qui fait la sécurité, et un serveur qui tourne trois mois avec une liste
+   * figée en mémoire lancerait sur la foi d'attestations mortes depuis longtemps.
+   */
+  const attestationsDuJour = () =>
+    attestationsPar(lire('attestations/index.yaml').attestations || [], new Date());
   const registreModeles = lire('registries/models.yaml');
   const models = registreModeles.models;
   /*
@@ -177,6 +187,7 @@ function dependances() {
   const fournisseurs = registreModeles.fournisseurs || {};
   return {
     registres, models, fournisseurs,
+    attestations: attestationsDuJour,
     banque: registres.entrees,
     // L'identifiant vient de la requête : il ne sert qu'à choisir un fichier dans une
     // liste de dossiers connus, jamais à composer un chemin.

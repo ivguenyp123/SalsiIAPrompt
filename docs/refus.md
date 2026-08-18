@@ -349,6 +349,18 @@ ni la longueur de la réponse ni le taux de cache avant d'appeler, et estimer re
 poser un chiffre inventé devant un contrôle budgétaire. Le dernier appel peut donc
 franchir la limite — d'au plus un appel.
 
+**`P009` 🔴 — L'isolement qu'exige cet artefact n'est pas tenu.**
+
+L'artefact déclare une **exigence** d'isolement, et le pré-vol **recalcule à chaque
+lancement** si elle est tenue — preuves lisibles par la plateforme d'un côté,
+attestations en vigueur de l'autre. Rien n'est figé : une attestation qui périme fait
+re-refuser le même artefact qui passait la veille. Et « non vérifiable » refuse autant
+que « non tenu » : ce qu'on ne sait pas ne se lance pas.
+
+→ *Le message liste les preuves manquantes. Pour un artefact qui n'exécute rien,
+`aucune-execution` suffit. Pour un conteneur : le job de CI épinglé par digest ET une
+attestation fraîche dans `attestations/` — une MR, avec un nom de personne.*
+
 ---
 
 ## La clé de lecture : refuser ce qu'on sait, demander ce qu'on ignore

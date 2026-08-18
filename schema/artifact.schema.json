@@ -246,6 +246,11 @@
       ],
       "description": "Palier demandé. La version exacte du modèle de certification est DÉRIVÉE (octroyée après passage du banc), pas déclarée ici."
     },
+    "isolement": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "description": "L'EXIGENCE d'isolement de la capacité — jamais le verdict. L'identifiant doit exister dans `registries/isolements.yaml` ; le pré-vol (P009) RECALCULE à chaque lancement si l'exigence est tenue, avec le registre et les attestations du jour. Transporter un verdict serait le `applicable: true` écrit à la main sous une autre forme : figé dans un fichier pendant que les attestations périment. Facultatif : les artefacts existants, nés avant ce champ, sont des prompts sans exécution — leur silence ne bloque rien."
+    },
     "classification": {
       "type": "object",
       "additionalProperties": false,

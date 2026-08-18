@@ -45,7 +45,7 @@ Visé contre atteint, le banc d'essai, et pourquoi une certification expire.
 Palier, niveau visé, certification, cas d'or, périmètre. Cinq minutes.
 
 **Ça refuse et vous ne savez pas quoi faire.** → [Quand ça refuse](refus.md)
-Le catalogue complet des refus, les 36 codes un par un, avec la manœuvre à faire.
+Le catalogue complet des refus, les 37 codes un par un, avec la manœuvre à faire.
 
 ## Les deux choses à savoir avant tout le reste
 

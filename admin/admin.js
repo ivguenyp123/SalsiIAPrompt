@@ -791,6 +791,16 @@ function montrerVue(id) {
   if (id === 'journal' && !jvue.charge) chargerJournal();
   if (id === 'parc' && !pvue.charge) chargerParc();
   if (id === 'executions' && !chargeEs()) chargerExecutions();
+  /*
+   * La file de validation, elle, se RECHARGE à chaque venue — pas de garde `charge`.
+   *
+   * Défaut vu en montant la démonstration d'import : on dépose une capacité depuis
+   * l'écran d'import, on clique l'onglet « À valider »… et la file est vide. `load()` ne
+   * tournait qu'au démarrage du module ; revenir sur la vue par un bouton ne la
+   * rafraîchissait pas. Et c'est justement la vue dont le sens est « ce qui attend
+   * MAINTENANT » : la seule dont une donnée périmée ment sur une décision en attente.
+   */
+  if (id === 'valider') load();
 }
 
 // Le pack se lit sur demande : pas de chargement à l'ouverture de la vue, parce qu'aucun

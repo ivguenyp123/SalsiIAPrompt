@@ -50,9 +50,13 @@ describe('l\'exécution lit LE REGISTRE, pas une copie', () => {
       .then((r) => {
         assert.notEqual(r.status, 404, 'ne doit plus répondre « introuvable »');
         assert.equal(demande.id, 'export-rapport-dora');
-        // Les deux dossiers du registre sont proposés, dans cet ordre : le validé
-        // d'abord, ce qui attend en revue ensuite.
-        assert.deepEqual(demande.dossiers, DOSSIERS);
+        /*
+         * Le chargement se fait maintenant DOSSIER PAR DOSSIER : l'exécution doit savoir
+         * d'où vient ce qu'elle a trouvé pour refuser `pending/` et `retires/` en le
+         * disant. L'agent est validé, donc trouvé au premier dossier — et le chargeur
+         * n'est plus jamais interrogé sur les suivants.
+         */
+        assert.deepEqual(demande.dossiers, [DOSSIERS[0]]);
       });
   });
 

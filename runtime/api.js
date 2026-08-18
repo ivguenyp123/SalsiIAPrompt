@@ -38,8 +38,33 @@ import { toYaml } from '../studio/to-yaml.js';
 import { relire } from './coherence.js';
 import { ligne as ligneJournal } from '../lib/executions.js';
 
-/** Les dossiers où un artefact peut vivre. Aucun chemin ne vient de la requête. */
+/*
+ * Les dossiers où un artefact peut VIVRE — et le seul d'où il peut être LANCÉ.
+ *
+ * ── LE TROU QUE CETTE DISTINCTION FERME ─────────────────────────────────────
+ *
+ * Les trois dossiers ont servi de liste de recherche à l'exécution depuis le premier
+ * commit de cette route. Conséquence restée invisible dix jours : `POST /executer` avec
+ * l'identifiant d'un artefact EN ATTENTE le trouvait et le lançait. Le catalogue ne
+ * montre pas `pending/`, mais c'est une porte d'écran — quelqu'un qui connaît l'id (il
+ * est dans la MR de dépôt) contournait la validation humaine avec un curl. « En attente
+ * de validation » était une phrase, pas une règle.
+ *
+ * On cherche donc dans les trois — pour pouvoir NOMMER le refus — et on ne lance que
+ * depuis le premier. Un 403 qui dit « attend une validation humaine » vaut mieux qu'un
+ * 404 qui déguise un refus en absence : l'un se comprend, l'autre se débogue.
+ */
 export const DOSSIERS = ['artifacts', 'artifacts/pending', 'artifacts/retires'];
+export const LANCABLE = 'artifacts';
+
+const REFUS_DOSSIER = {
+  'artifacts/pending':
+    'attend une validation humaine dans l\'Admin. Rien de ce qui est en attente ne se '
+    + 'lance : la file de validation est une porte, pas un dossier.',
+  'artifacts/retires':
+    'a été retiré du catalogue. Un artefact retiré ne se lance plus — le réactiver est '
+    + 'un geste d\'Admin, pas un paramètre d\'appel.'
+};
 
 /** Un identifiant d'artefact : le même motif que le schéma, appliqué à l'entrée. */
 export const ID_VALIDE = /^[a-z][a-z0-9-]{0,63}$/;
@@ -111,7 +136,7 @@ export async function executer(requete = {}, deps = {}) {
 /** Le travail réel. `trace` recueille ce que le journal ne peut pas lire dans la sortie. */
 async function conduire(requete = {}, deps = {}, trace = {}) {
   const { charger, banque, registres, models = [], fournisseurs = {}, creerVertex, lireEntree,
-          derive = null, briques = [], budget = null } = deps;
+          derive = null, briques = [], budget = null, attestations = null, ci } = deps;
   const id = String(requete.id || '');
 
   if (!ID_VALIDE.test(id)) {
@@ -126,10 +151,23 @@ async function conduire(requete = {}, deps = {}, trace = {}) {
    * et c'est ce qui permet aux deux de fournir le MÊME `charger` sans que ce module ait
    * à savoir lequel il a.
    */
-  const artifact = await charger(id, DOSSIERS);
+  /*
+   * Dossier par dossier, avec le MÊME `charger` injecté : sa signature ne bouge pas,
+   * mais on sait maintenant D'OÙ vient ce qu'on a trouvé — et c'est ce qui permet de
+   * refuser en nommant la raison au lieu de lancer ou de mentir « introuvable ».
+   */
+  let artifact = null;
+  let dossier = null;
+  for (const d of DOSSIERS) {
+    artifact = await charger(id, [d]);
+    if (artifact) { dossier = d; break; }
+  }
   trace.artifact = artifact;
   if (!artifact) {
     return { status: 404, corps: { erreur: `Artefact \`${id}\` introuvable au registre.` } };
+  }
+  if (dossier !== LANCABLE) {
+    return { status: 403, corps: { erreur: `\`${id}\` ${REFUS_DOSSIER[dossier]}` } };
   }
 
   /*
@@ -179,7 +217,22 @@ async function conduire(requete = {}, deps = {}, trace = {}) {
      * `budget` absent — un appelant qui n'a pas de journal à lire, le banc, un test —
      * laisse P008 muet plutôt que de refuser sur une ignorance.
      */
-    budget: typeof budget === 'function' ? budget(artifact.owner?.scope || '') : budget
+    budget: typeof budget === 'function' ? budget(artifact.owner?.scope || '') : budget,
+    /*
+     * Les attestations du jour, pour P009 — une FONCTION côté serveur, relue à chaque
+     * appel : la péremption est ce qui fait leur sécurité, et une liste figée au
+     * démarrage lancerait sur la foi d'attestations mortes. Absentes, P009 recalcule
+     * quand même : sans attestation, un isolement attesté sort « non vérifiable », ce
+     * qui est exactement la vérité.
+     */
+    attestations: typeof attestations === 'function' ? attestations() : (attestations || new Map()),
+    /*
+     * Le fichier de CI du dépôt cible, pour la preuve `job_ci_declare` de P009. Une
+     * fonction côté serveur (elle va lire chez la forge), une valeur dans un test.
+     * ABSENT (`undefined`) veut dire « pas regardé » — et P009 rend alors « non
+     * vérifiable » sur cette preuve, jamais « pas de CI ».
+     */
+    ci: typeof ci === 'function' ? ci(requete.depot) : ci
   };
 
   /*
@@ -551,4 +604,4 @@ export async function coherence(requete = {}, deps = {}) {
   }
 }
 
-export default { executer, etat, rediger, composer, coherence, DOSSIERS, ID_VALIDE, PHRASE_MAX };
+export default { executer, etat, rediger, composer, coherence, DOSSIERS, LANCABLE, ID_VALIDE, PHRASE_MAX };

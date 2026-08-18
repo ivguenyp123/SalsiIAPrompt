@@ -50,6 +50,10 @@ describe('classer une exécution', () => {
     assert.equal(issueDe(409, { refuse: true, raison: 'P001' }), 'refus');
     assert.equal(ISSUES.refus.jugee, false, 'un refus est hors dénominateur');
     assert.equal(ISSUES.refus.reussie, false);
+
+    // Un 403 — lancer ce qui attend une validation, ou un artefact retiré — est un refus
+    // de PORTE, pas une panne. Il ne doit jamais peser dans le taux d'échec.
+    assert.equal(issueDe(403, { erreur: 'attend une validation humaine' }), 'refus');
   });
 
   test('une coupure passe AVANT le contrat', () => {
