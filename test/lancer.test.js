@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url';
 import yaml from '../lib/yaml.js';
 import { makeValidator } from '../lib/schema.js';
 import { resoudre, satisfait, postvol, RESOLVABLES } from '../runtime/resolveurs.js';
-import { lancer, rendre, trous, valeursDepuisContexte } from '../runtime/lancer.js';
+import { lancer, rendre, trous, valeursDepuisContexte, resoluesDepuisContexte } from '../runtime/lancer.js';
 import { chemin } from '../lib/entrees.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -66,8 +66,24 @@ describe('le spec devient un prompt', () => {
     assert.deepEqual(trous(rendre('{{a}} et {{b}}', { a: 'x' })), ['b']);
   });
 
-  test('une valeur vide compte comme absente', () => {
-    assert.deepEqual(trous(rendre('{{a}}', { a: '' })), ['a']);
+  test('une valeur vide est une VALEUR : c\'est la clé absente qui fait le trou', () => {
+    /*
+     * Ce test disait l'inverse — « une valeur vide compte comme absente ». Le banc d'essai,
+     * joué pour la première fois, a montré ce que ça coûtait : `expliquer-un-code` porte un
+     * cas d'or sur un fichier VIDE, tiré de la banque, et son spec porte la règle « si le
+     * fichier est vide, dis-le et arrête-toi ». Le prompt ressortait avec `{{code}}` intact
+     * et le lancement était refusé « prompt à trou ».
+     *
+     * La seule règle du spec qu'on tenait vraiment à certifier — celle qui empêche un
+     * modèle d'inventer quand il n'a rien à lire — était donc la seule que le banc ne
+     * pouvait pas jouer.
+     *
+     * La provenance décide, jamais le contenu : clé absente = trou, clé présente = valeur.
+     */
+    assert.deepEqual(trous(rendre('{{a}}', { a: '' })), [], 'une clé présente remplit');
+    assert.equal(rendre('[{{a}}]', { a: '' }), '[]');
+    assert.deepEqual(trous(rendre('{{a}}', {})), ['a'], 'une clé absente laisse le trou');
+    assert.deepEqual(trous(rendre('{{a}}', { a: null })), ['a'], '`null` n\'est pas une valeur');
     assert.deepEqual(trous(rendre('{{a}}', { a: 0 })), []);
   });
 });
@@ -386,5 +402,33 @@ describe('lancer un artefact', () => {
     const r = await lancer(lecture(), { vertex: v, valeurs: valeursOk, contexte: contexteOk(), models });
     assert.equal(typeof r.cout, 'number');
     assert.deepEqual(r.jetons, { entree: 100, sortie: 50 });
+  });
+});
+
+/* ── Ce que le premier passage du banc a révélé ───────────────────────────── */
+
+describe('« vide » n\'est pas « absent » — la provenance décide', () => {
+  /*
+   * Ces trois tests verrouillent le défaut le plus profond trouvé en jouant le banc.
+   *
+   * `expliquer-un-code`, `decouper-une-user-story` et `optimiser-une-requete-sql` portent
+   * chacun un cas d'or sur l'entrée VIDE — `gc-05-vide`, `gc-04-enonce-vide`,
+   * `gc-04-entree-vide`. C'est le cas le plus utile du catalogue : celui où un modèle sans
+   * matière se met à en inventer, et où le spec dit « dis que c'est vide et arrête-toi ».
+   *
+   * Les trois étaient injouables. Le lint les validait, le pré-vol les refusait.
+   */
+  test('une clé PRÉSENTE au contexte est résolue, même vide', () => {
+    assert.deepEqual(resoluesDepuisContexte({ story: ' ' }), ['story']);
+  });
+
+  test('une clé de FIXTURE résout la nature qu\'elle remplit, pas son propre nom', () => {
+    // `code_fixture: vide` ne remplit pas `{{code_fixture}}` : il remplit `{{code}}`.
+    // C'est ce nom-là que P003 va chercher.
+    assert.deepEqual(resoluesDepuisContexte({ code_fixture: 'vide' }), ['code']);
+  });
+
+  test('un contexte vide ne résout rien', () => {
+    assert.deepEqual(resoluesDepuisContexte({}), []);
   });
 });

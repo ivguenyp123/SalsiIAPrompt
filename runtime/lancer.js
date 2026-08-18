@@ -39,8 +39,24 @@ export const TROU = /\{\{\s*([a-z][a-z0-9_]*)\s*\}\}/g;
  * qui suit puisse la voir et refuser.
  */
 export function rendre(spec, valeurs = {}) {
+  /*
+   * ── UNE VALEUR VIDE EST UNE VALEUR, ET ELLE SE SUBSTITUE ──────────────────
+   *
+   * `''` était traité comme `undefined` : le trou restait, et `trous()` refusait le
+   * départ « prompt à trou : code ». C'est le même défaut que dans P003, un étage plus
+   * bas, et il est resté caché derrière lui — P003 refusait d'abord, on n'arrivait jamais
+   * ici. Le banc, en jouant `gc-05-vide`, les a fait tomber l'un après l'autre.
+   *
+   * Le test porte désormais sur la PRÉSENCE DE LA CLÉ, pas sur son contenu. Absente,
+   * personne n'a rien fourni : le trou reste, `trous()` refuse, et c'est ce qu'on veut.
+   * Présente et vide, une source a répondu — l'agent recevra un champ vide, ce que son
+   * spec sait traiter (« si le fichier est vide, dis qu'il est vide »).
+   *
+   * Le chemin interactif ne bouge pas : `runtime/api.js` n'entre dans `valeurs` que ce
+   * qui n'est ni vide ni nul, donc un champ laissé blanc à l'écran reste un trou.
+   */
   return String(spec || '').replace(TROU, (tout, nom) =>
-    (valeurs[nom] === undefined || valeurs[nom] === null || valeurs[nom] === '')
+    (!Object.hasOwn(valeurs, nom) || valeurs[nom] === undefined || valeurs[nom] === null)
       ? tout : String(valeurs[nom]));
 }
 
@@ -69,6 +85,50 @@ export function valeursDepuisContexte(contexte = {}, banque = null, lireEntree =
     out[nature] = lireEntree(e);
   }
   return out;
+}
+
+/**
+ * Les entrées qu'un contexte de cas d'or a RÉSOLUES depuis la banque.
+ *
+ * ── LE DÉFAUT QUE CETTE FONCTION EXISTE POUR CORRIGER ───────────────────────
+ *
+ * Trouvé en jouant le banc pour la première fois. `expliquer-un-code` porte un cas d'or
+ * `gc-05-vide` : un fichier VIDE, tiré de la banque, dont l'origine déclare « fichier
+ * vide, volontairement ». Son spec porte la règle correspondante : « si le fichier est
+ * vide, dis qu'il est vide et arrête-toi ».
+ *
+ * P003 refusait le départ. Sa règle est juste — une variable requise vide fait partir un
+ * prompt à trou — mais elle confondait deux choses qui n'ont rien à voir :
+ *
+ *   NON RÉSOLUE   personne n'a rempli le champ. C'est un trou, et P003 a raison.
+ *   RÉSOLUE VIDE  la banque a rendu un fichier, il se trouve qu'il est vide. C'est une
+ *                 VALEUR, et c'est même la plus intéressante à tester : c'est le cas où
+ *                 un modèle invente, faute d'avoir quoi que ce soit à lire.
+ *
+ * Conséquence : la seule règle du spec qu'on tenait vraiment à certifier était la seule
+ * que le banc ne pouvait pas jouer. Et le défaut était invisible tant que personne ne
+ * lançait le banc — trois règles de lint validaient ce cas d'or, et le pré-vol le
+ * refusait à l'exécution.
+ *
+ * C'est la même distinction que partout ailleurs ici : `N/A` n'est pas zéro, et « vide »
+ * n'est pas « absent ». La provenance décide, jamais le contenu.
+ */
+export function resoluesDepuisContexte(contexte = {}) {
+  /*
+   * Une clé PRÉSENTE au contexte est résolue, quelle que soit sa valeur.
+   *
+   * Deux formes, et les deux comptent :
+   *   `code_fixture: vide`   la banque a répondu, sa réponse est un fichier vide
+   *   `story: " "`           l'auteur a écrit l'entrée vide, exprès
+   *
+   * `optimiser-une-requete-sql` et `decouper-une-user-story` portent la seconde forme, et
+   * le banc les refusait toutes les deux — sur des cas nommés `gc-04-entree-vide` et
+   * `gc-04-enonce-vide`, dont l'intention ne laisse pourtant aucun doute.
+   *
+   * C'est la même règle que dans `rendre()` : la PRÉSENCE de la clé décide, jamais son
+   * contenu. Absente, personne n'a rien fourni et le trou reste un trou.
+   */
+  return Object.keys(contexte).map((cle) => natureDeCle(cle) || cle);
 }
 
 /**

@@ -32,6 +32,31 @@ describe('l\'attente d\'un cas d\'or', () => {
     assert.equal(attente('output.sections', 'Risques', TARGETS).op, 'contains');
   });
 
+  test('UN BOOLÉEN veut dire `exists`, parce qu\'on ne « contient » pas `true`', () => {
+    /*
+     * Le défaut le plus coûteux trouvé au premier passage du banc, et il était
+     * IRRATTRAPABLE : `expect: { output.sections: true }` se lisait « la liste des
+     * sections contient `true` ». Aucune sortie ne peut satisfaire ça, jamais. Deux cas
+     * d'or de `expliquer-un-code` étaient rouges par construction, cinq fois sur cinq —
+     * l'agent ne pouvait donc jamais atteindre le niveau qu'il visait.
+     *
+     * Le lint ne pouvait pas le voir : il contrôle qu'une cible existe et qu'un opérateur
+     * est autorisé, jamais qu'une attente est ATTEIGNABLE. Il fallait jouer.
+     */
+    assert.equal(attente('output.sections', true, TARGETS).op, 'exists');
+    assert.equal(attente('output.sections', 'Risques', TARGETS).op, 'contains');
+
+    const cas = { id: 'gc', expect: { 'output.sections': true } };
+    assert.equal(jugerRun(cas, '## Résumé\ndu texte', { targets: TARGETS }).reussi, true);
+    assert.equal(jugerRun(cas, 'du texte sans aucun titre', { targets: TARGETS }).reussi, false);
+  });
+
+  test('un booléen sur une cible qui ne sait PAS `exists` garde son opérateur', () => {
+    // `output.contains_secret` déclare `ops: [eq]`. Le rattrapage ne doit pas déborder
+    // sur elle : `eq false` est exactement ce que `false` veut dire là-bas.
+    assert.equal(attente('output.contains_secret', false, TARGETS).op, 'eq');
+  });
+
   test('« 900 » sur output.length veut dire « tient en 900 caractères »', () => {
     const cas = { id: 'gc', expect: { 'output.length': 900 } };
     assert.equal(jugerRun(cas, 'x'.repeat(500), { targets: TARGETS }).reussi, true);
@@ -157,6 +182,37 @@ describe('la dérivation du niveau', () => {
 
 describe('la certification', () => {
   const bon = { id: 'gc-1', passe: true, runs: 3, indecis: 0, erreurs: 0 };
+
+  test('UN CAS NON JUGÉ n\'est pas accusé d\'être un cas raté', () => {
+    /*
+     * Vu au premier passage du banc, sur `prep-delivery` : « 1 cas d'or en échec
+     * (gc-03-conflits) », alors que la ligne du dessus affichait « 3 non concluant(s) ».
+     * Le cas porte des cibles de classe `state` — `branch.mergeable`, `pipeline.status` —
+     * que rien ne résout hors d'un dépôt jetable. L'agent n'avait rien raté : personne ne
+     * l'avait mesuré.
+     *
+     * Les deux refusent la certification, et c'est juste dans les deux cas. Mais accuser
+     * un agent d'un échec qu'il n'a pas commis est la faute que ce dépôt combat, retournée
+     * contre lui : `non évalué` ne vaut pas `satisfait`, et ne vaut pas `violé` non plus.
+     */
+    const r = certifier({ artifact: { id: 'x' },
+      cas: [bon, { id: 'gc-2', passe: false, runs: 3, indecis: 3, erreurs: 0 }],
+      modele: 'm', fournisseur: 'f', date: '2026-08-07' });
+
+    assert.equal(r.certification, null, 'un doute ne se certifie pas');
+    assert.match(r.raison, /non concluant/);
+    assert.match(r.raison, /pas un échec de l'agent/);
+    assert.doesNotMatch(r.raison, /cas d'or en échec/);
+  });
+
+  test('un VRAI échec reste annoncé comme un échec', () => {
+    // Le rattrapage ne doit pas adoucir le cas qu'il faut vraiment voir : un agent qui a
+    // répondu, et mal.
+    const r = certifier({ artifact: { id: 'x' },
+      cas: [{ id: 'gc-2', passe: false, runs: 3, indecis: 0, erreurs: 0 }],
+      modele: 'm', fournisseur: 'f', date: '2026-08-07' });
+    assert.match(r.raison, /1 cas d'or en échec \(gc-2\)/);
+  });
 
   test('n\'est décernée qu\'à un passage complet et sans échec', () => {
     const { certification } = certifier({ artifact: { id: 'x' }, cas: [bon, { ...bon, id: 'gc-2' }],

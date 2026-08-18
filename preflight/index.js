@@ -147,11 +147,38 @@ function P002(artifact, ctx) {
  */
 function P003(artifact, ctx) {
   const valeurs = ctx.valeurs || {};
+  /*
+   * ── « VIDE » N'EST PAS « ABSENT », ET SEULE LA PROVENANCE LE DIT ──────────
+   *
+   * Défaut trouvé en jouant le banc d'essai pour la PREMIÈRE fois.
+   *
+   * `expliquer-un-code` porte un cas d'or `gc-05-vide` : un fichier vide, tiré de la
+   * banque d'entrées, dont l'origine déclare « fichier vide, volontairement ». Le spec de
+   * l'agent porte la règle correspondante — « si le fichier est vide, dis qu'il est vide
+   * et arrête-toi ». Trois règles de lint validaient ce cas d'or. Et P003 le refusait à
+   * l'exécution : la seule règle qu'on tenait vraiment à certifier était la seule que le
+   * banc ne pouvait pas jouer.
+   *
+   * Deux situations que le CONTENU ne distingue pas :
+   *
+   *   NON RÉSOLUE   personne n'a rempli le champ. Trou. P003 a raison de refuser.
+   *   RÉSOLUE VIDE  une source a répondu, et sa réponse est vide. C'est une VALEUR — et
+   *                 la plus intéressante à éprouver, puisque c'est exactement là qu'un
+   *                 modèle sans matière se met à en inventer.
+   *
+   * `ctx.resolues` porte les noms qu'une source a réellement remplis. Sans lui, rien ne
+   * change : l'écran, la CLI et l'API ne le fournissent pas, et une chaîne vide y reste
+   * un refus. C'est le banc — qui SAIT ce que la banque lui a rendu — qui l'apporte.
+   *
+   * Même distinction que partout ailleurs ici : `N/A` n'est pas zéro.
+   */
+  const resolues = new Set(ctx.resolues || []);
   return (artifact?.variables || [])
     .filter((v) => v.required !== false)
     .filter((v) => {
       const val = valeurs[v.name];
-      return val === undefined || val === null || String(val).trim() === '';
+      if (val === undefined || val === null) return true;
+      return String(val).trim() === '' && !resolues.has(v.name);
     })
     .map((v) => constat('P003', ERROR,
       `Variable requise \`${v.name}\` non résolue (source déclarée : \`${v.source}\`). ` +

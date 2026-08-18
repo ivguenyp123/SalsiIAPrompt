@@ -74,13 +74,37 @@ const cibleRef = (cible, targets) => (targets || []).find((t) => t.target === ci
 /** L'attente normalisée d'une entrée de `expect`. */
 export function attente(cible, brut, targets = []) {
   const ref = cibleRef(cible, targets);
-  const defaut = (ref?.ops || [])[0] || 'eq';
-
+  const ops = ref?.ops || [];
   const explicite = brut && typeof brut === 'object' && !Array.isArray(brut) && 'value' in brut;
+  const attendu = explicite ? brut.value : brut;
+
+  /*
+   * ── UN BOOLÉEN SUR UNE CIBLE DE LISTE VEUT DIRE `exists` ──────────────────
+   *
+   * Défaut trouvé au premier passage du banc, et il rendait des cas d'or DÉFINITIVEMENT
+   * irrattrapables.
+   *
+   * `output.sections` déclare `ops: [contains, exists]`. L'opérateur implicite étant le
+   * premier de la liste, `expect: { output.sections: true }` se lisait « la liste des
+   * sections CONTIENT `true` » — ce qu'aucune sortie ne peut satisfaire, jamais, quelle
+   * que soit la réponse du modèle. Deux cas d'or de `expliquer-un-code` étaient rouges
+   * par construction, cinq fois sur cinq, depuis toujours.
+   *
+   * Personne ne pouvait le voir : le lint contrôle que la cible existe et que l'opérateur
+   * est autorisé, pas qu'une attente est ATTEIGNABLE. Il fallait jouer.
+   *
+   * La règle est sans ambiguïté : on ne « contient » pas un booléen. Quand l'attendu est
+   * un booléen et que la cible sait faire `exists`, l'auteur voulait dire « il y en a ».
+   * On ne devine rien — on écarte la seule lecture qui n'a aucun sens.
+   */
+  const defaut = (typeof attendu === 'boolean' && ops.includes('exists'))
+    ? 'exists'
+    : (ops[0] || 'eq');
+
   return {
     cible,
     op: explicite && brut.op ? brut.op : defaut,
-    attendu: explicite ? brut.value : brut,
+    attendu,
     implicite: !(explicite && brut.op)
   };
 }
@@ -261,16 +285,33 @@ export function certifier({ artifact, cas = [], modele, fournisseur, date,
 
   if (cas.length === 0) return refus('Aucun cas d\'or joué : il n\'y a rien à certifier.');
 
-  const rates = cas.filter((c) => !c.passe);
+  /*
+   * ── UN CAS NON JUGÉ N'EST PAS UN CAS RATÉ, ET LE DIRE COMPTE ──────────────
+   *
+   * Les deux refusent la certification, et c'est juste dans les deux cas. Mais l'ordre du
+   * test les confondait : `!passe` attrape aussi bien l'agent qui a mal répondu que le cas
+   * qu'on n'a pas su juger, et le premier message sortait pour les deux.
+   *
+   * Vu au premier passage du banc, sur `prep-delivery` : « 1 cas d'or en échec
+   * (gc-03-conflits) », alors que la ligne du dessus affichait « 3 non concluant(s) ». Le
+   * cas porte des cibles de classe `state` — `branch.mergeable`, `pipeline.status` — que
+   * rien ne résout hors d'un dépôt jetable. L'agent n'a rien raté : personne ne l'a mesuré.
+   *
+   * Accuser un agent d'un échec qu'il n'a pas commis est exactement la faute que ce dépôt
+   * combat, retournée contre lui : `non évalué` ne vaut jamais `satisfait`, et il ne vaut
+   * pas `violé` non plus.
+   */
+  const flous = cas.filter((c) => c.indecis > 0 || c.erreurs > 0);
+  const rates = cas.filter((c) => !c.passe && !flous.includes(c));
+
   if (rates.length) {
     return refus(`${rates.length} cas d'or en échec (${rates.map((c) => c.id).join(', ')}).`);
   }
 
-  const flous = cas.filter((c) => c.indecis > 0 || c.erreurs > 0);
   if (flous.length) {
     return refus(`${flous.length} cas non concluant(s) (${flous.map((c) => c.id).join(', ')}) — `
-               + 'attente non résolue, ou appel sans réponse. Une certification se décerne sur '
-               + 'une mesure, pas sur un doute.');
+               + 'attente non résolue, ou appel sans réponse. Ce n\'est pas un échec de '
+               + 'l\'agent. Une certification se décerne sur une mesure, pas sur un doute.');
   }
 
   const debut = new Date(date);

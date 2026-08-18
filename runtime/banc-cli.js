@@ -33,7 +33,7 @@ import { ERROR } from '../lint/index.js';
 import { chemin } from '../lib/entrees.js';
 import { cout, VertexError } from './vertex.js';
 import { createMoteur } from './moteur.js';
-import { rendre, trous, valeursDepuisContexte } from './lancer.js';
+import { rendre, trous, valeursDepuisContexte, resoluesDepuisContexte } from './lancer.js';
 import { passer, plan, certifier, casRetenus, depense, runsDe } from './banc.js';
 import { CHEMIN, entree, fusionner, serialiser } from './etat-derive.js';
 
@@ -194,6 +194,15 @@ for (const artifact of lot) {
     return { cas, valeurs, lecture, avant: prevol(artifact, {
       registres,
       valeurs,
+      /*
+       * Ce que la BANQUE a rempli, y compris quand sa réponse est vide.
+       *
+       * Un fichier vide tiré de la banque est une valeur, pas un trou — et c'est le cas
+       * d'or le plus utile de tout le catalogue : celui où un modèle sans matière se met
+       * à en inventer. Sans cette ligne, P003 le refusait, et la seule règle du spec
+       * qu'on tenait à certifier était la seule qu'on ne pouvait pas jouer.
+       */
+      resolues: resoluesDepuisContexte(cas.context),
       depot: { path: 'local/banc', scope: artifact.owner?.scope, sensibilite: 'interne' },
       criticite: 'test',
       modele: moteur.modele(artifact.model_tier)
