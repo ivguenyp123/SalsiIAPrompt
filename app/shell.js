@@ -60,8 +60,18 @@ const TABS = [
   // Le guide est en queue de barre, jamais en tête : on l'ouvre quand quelque chose
   // coince, pas au démarrage. Mais il est DANS la barre, visible depuis tous les écrans —
   // une aide qu'il faut chercher est une aide que personne ne lit.
-  { id: 'guide', label: '📖 Guide', href: 'guide' },
-  { id: 'maquette', label: '✨ Maquette', href: 'maquette' }
+  { id: 'guide', label: '📖 Guide', href: 'guide' }
+  /*
+   * ── « MAQUETTE » EST RETIRÉE ────────────────────────────────────────────────
+   *
+   * `maquette.html` est le dessin d'origine du produit : des écrans qui ont l'air de
+   * marcher et qui ne vérifient rien. L'avoir dans la barre à côté des écrans réels était
+   * défendable au début — on montrait d'où l'on partait. Ça ne l'est plus : cinq écrans
+   * font désormais le travail, et un onglet de plus qui ouvre une imitation est le
+   * meilleur moyen qu'on juge le produit sur elle.
+   *
+   * Le fichier reste au dépôt. C'est le LIEN qu'on retire, pas l'archive.
+   */
 ];
 
 /**
@@ -75,8 +85,7 @@ export function mountShell({ active = '', session, base = '', onLogout }) {
                  catalogue: `${base}catalogue/index.html`,
                  miens: `${base}catalogue/index.html?filtre=miens`,
                  studio: `${base}studio/index.html`,
-                 admin: `${base}admin/index.html`, guide: `${base}guide/index.html`,
-                 maquette: `${base}maquette.html` };
+                 admin: `${base}admin/index.html`, guide: `${base}guide/index.html` };
 
   const bar = document.createElement('div');
   bar.className = 'tabs';

@@ -10,109 +10,233 @@
 <link rel="stylesheet" href="./app.css">
 <style>
   /*
-   * L'ACCUEIL PART DE L'INTENTION, PAS DE LA STRUCTURE.
+   * L'ACCUEIL EST CELUI DU DEVOPS HUB, ET C'EST UNE DÉCISION DE PRODUIT.
    *
-   * Il présentait le produit : un titre de registre, un paragraphe de gouvernance, un
-   * formulaire à deux dépôts, puis des cartes décrivant LES ÉCRANS de l'application.
-   * Quelqu'un qui arrive avec un travail à faire devait comprendre l'architecture avant
-   * de savoir où cliquer.
+   * ── POURQUOI PAS DE BARRE D'ONGLETS ICI ─────────────────────────────────────
    *
-   * Ici : une question — « qu'est-ce que tu veux faire ? » — et des réponses à la première
-   * personne. Le vocabulaire du dépôt (artefact, périmètre, porte, registre) n'apparaît
-   * nulle part ; il vit dans le Guide, pour qui veut comprendre le fonctionnement.
+   * La barre d'onglets est une navigation de TRAVAIL : on l'utilise quand on sait déjà
+   * où l'on va. En tête d'un accueil, elle propose les cinq mêmes destinations que la
+   * page elle-même, en douze pixels de haut et sans dire ce qu'il y a derrière. Deux
+   * navigations concurrentes pour le même choix, dont la plus pauvre est la plus visible.
    *
-   * ET LE RÉGLAGE S'EFFACE QUAND IL EST FAIT. Choisir ses dépôts est nécessaire une fois ;
-   * en faire la première chose qu'on voit à chaque visite fait payer à tout le monde le
-   * prix d'un réglage initial.
+   * Le Hub DevOps tranche depuis toujours : pas de menu, quatre grosses cartes. Les gens
+   * de la plateforme les connaissent par cœur — reprendre la même géométrie, c'est
+   * supprimer un apprentissage plutôt qu'en ajouter un.
+   *
+   * ── CE QUI EST REPRIS À L'IDENTIQUE ─────────────────────────────────────────
+   *
+   * Les valeurs viennent de `css/hub.css` du hub, sans arrondi : rayon 24px, padding 32,
+   * icône 56 sur fond d'accent, `cubic-bezier(0.16, 1, 0.3, 1)` sur 0.4s, translation de
+   * -4px au survol, halo radial en `::before` qui monte à 0.5, pastilles qui s'éclaircissent,
+   * flèche qui glisse de 4px. Reproduire « à peu près » aurait donné deux produits qui se
+   * ressemblent au lieu d'un seul.
+   *
+   * La palette aussi : violet analytique, cyan action, orange vigilance, rose humain — et
+   * un bleu pour la cinquième carte, le Hub n'en ayant que quatre.
    */
-  main{max-width:1080px;margin:30px auto 80px;padding:0 22px}
 
-  /* ── Le bandeau de contexte : où l'on travaille, en un coup d'œil ── */
-  .contexte{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:32px}
-  .puce{display:inline-flex;align-items:center;gap:8px;padding:7px 13px;border-radius:999px;
-        border:1px solid var(--line2);background:rgba(0,0,0,.25);color:var(--ts);
-        font-size:13px;font-weight:600}
-  .puce b{color:var(--tp);font-weight:700}
-  .contexte button{font-size:12px;padding:6px 12px;border-radius:999px}
+  /* ── Le fond du Hub : halos colorés flous, puis un bruit très léger ────────── */
+  body.accueil::before{
+    content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:
+      radial-gradient(ellipse 900px 620px at 18% 6%, rgba(124,92,255,.28), transparent 58%),
+      radial-gradient(ellipse 800px 560px at 82% 16%, rgba(45,212,191,.18), transparent 58%),
+      radial-gradient(ellipse 760px 640px at 35% 96%, rgba(251,146,60,.14), transparent 60%),
+      radial-gradient(ellipse 700px 560px at 92% 88%, rgba(244,114,182,.16), transparent 60%);
+  }
+  body.accueil::after{
+    content:'';position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.04;
+    background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+  }
 
-  /* ── L'accroche ── */
-  h1{font-family:var(--fd);font-size:38px;line-height:1.12;margin:0 0 10px;letter-spacing:-.02em}
-  @media(max-width:640px){h1{font-size:29px}}
-  .sous{color:var(--ts);font-size:15px;line-height:1.65;margin:0 0 30px;max-width:60ch}
+  .hub{max-width:1280px;margin:0 auto;padding:32px 40px 80px;position:relative;z-index:2}
+  @media(max-width:640px){.hub{padding:20px 18px 60px}}
+
+  /* ── L'en-tête : la marque, le projet, qui tu es. Aucune navigation. ──────── */
+  .tete{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;
+        padding:16px 0;margin-bottom:44px;border-bottom:1px solid var(--line)}
+  .marque{display:flex;align-items:center;gap:10px;font-family:var(--fd);font-size:22px;
+          font-weight:700;letter-spacing:-.01em;color:var(--tp);text-decoration:none}
+  .marque .pastille{width:32px;height:32px;border-radius:10px;flex:none;
+                    background:linear-gradient(135deg,#7c5cff,#2dd4bf);
+                    box-shadow:0 8px 24px -6px rgba(124,92,255,.6)}
+  .marque small{color:var(--tm);font-weight:600;font-size:11.5px;font-family:var(--fb);
+                letter-spacing:0}
+  @media(max-width:720px){.marque small{display:none}}
+
+  .actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .pilule{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:999px;
+          border:1px solid var(--line);background:var(--bg-card);color:var(--ts);
+          font:600 13px var(--fb);cursor:pointer;transition:all .2s}
+  .pilule:hover{background:var(--bg-card-h);border-color:var(--line2);color:var(--tp)}
+  .pilule b{color:var(--tp);font-weight:700}
+  .pilule img{width:22px;height:22px;border-radius:50%}
+  .pilule.qui{cursor:default}
+  .pilule.qui:hover{background:var(--bg-card);border-color:var(--line);color:var(--ts)}
+  .pilule.sortir{border-color:rgba(251,113,133,.3);color:#fb7185}
+  .pilule.sortir:hover{color:#fb7185;border-color:rgba(251,113,133,.55)}
+
+  /* ── L'accroche ───────────────────────────────────────────────────────────── */
+  h1{font-family:var(--fd);font-size:44px;line-height:1.08;margin:0 0 12px;letter-spacing:-.025em}
+  @media(max-width:640px){h1{font-size:31px}}
+  .sous{color:var(--ts);font-size:16px;line-height:1.65;margin:0 0 40px;max-width:62ch}
+
+  .titre-section{font-family:var(--fd);font-size:15px;font-weight:700;color:var(--tm);
+                 text-transform:uppercase;letter-spacing:.08em;margin:0 0 18px}
 
   /* ── La bande contextuelle ──
-     Elle porte le dégradé le plus fort de l'écran : quand elle est là, c'est qu'un fait
-     s'est produit, et c'est la chose la plus utile du moment. Quand elle n'est pas là,
-     la carte principale reprend ce rôle. */
-  .reco{border:1px solid rgba(251,191,36,.45);border-radius:18px;padding:20px 22px;
-        margin-bottom:20px;
+     Elle n'existe QUE s'il y a un fait. Une bande qui s'affiche toujours devient un décor
+     qu'on cesse de lire. */
+  .reco{border:1px solid rgba(251,191,36,.45);border-radius:24px;padding:24px 26px;
+        margin-bottom:32px;position:relative;z-index:2;
         background:linear-gradient(135deg,rgba(251,191,36,.14),rgba(124,92,252,.12))}
   .reco .quand{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;
-               color:#fbbf24;margin-bottom:7px;display:flex;align-items:center;gap:8px;
+               color:#fbbf24;margin-bottom:8px;display:flex;align-items:center;gap:8px;
                flex-wrap:wrap}
-  .reco h2{font-family:var(--fd);font-size:21px;line-height:1.25;margin:0 0 8px;color:var(--tp)}
+  .reco h2{font-family:var(--fd);font-size:23px;line-height:1.25;margin:0 0 8px;color:var(--tp)}
   @media(max-width:640px){.reco h2{font-size:18px}}
-  .reco .pourquoi{font-size:12.5px;color:var(--ts);line-height:1.6;margin:0 0 15px;max-width:66ch}
-  .reco .actes{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .reco .pourquoi{font-size:13px;color:var(--ts);line-height:1.6;margin:0 0 16px;max-width:66ch}
+  .reco .actes{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
   .reco .actes a.go{background:linear-gradient(135deg,#7c5cfc,#2dd4bf);color:#fff;
-                    font-weight:700;font-size:14px;padding:10px 18px;border-radius:11px;
+                    font-weight:700;font-size:14px;padding:11px 20px;border-radius:12px;
                     text-decoration:none;border:0}
   .reco .actes a.go:hover{filter:brightness(1.08)}
   .reco .actes a.voir{font-size:12.5px;color:var(--ts);text-decoration:none;
                       border-bottom:1px solid rgba(184,174,216,.35)}
   .reco .actes a.voir:hover{color:var(--tp)}
-  .reco .autres{margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.1);
-                display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px}
+  .reco .autres{margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.1);
+                display:flex;gap:18px;flex-wrap:wrap;font-size:12.5px}
   .reco .autres a{color:var(--tm);text-decoration:none}
   .reco .autres a:hover{color:var(--tp)}
 
-  /* ── Les intentions ── */
-  .intentions{display:grid;gap:13px;grid-template-columns:1fr}
-  @media(min-width:720px){.intentions{grid-template-columns:1fr 1fr}}
+  /* ══ LES CARTES ═══════════════════════════════════════════════════════════════
+     Géométrie et transitions reprises telles quelles de `css/hub.css`. */
+  .chemins{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;margin-bottom:44px}
+  @media(max-width:860px){.chemins{grid-template-columns:1fr}}
 
-  .intention{display:flex;gap:15px;align-items:flex-start;padding:19px 21px;border-radius:17px;
-             border:1px solid var(--line);background:var(--bg-card);text-decoration:none;
-             color:inherit;transition:transform .14s ease, border-color .14s ease, background .14s ease}
-  .intention:hover{transform:translateY(-2px);border-color:rgba(167,139,250,.55);
-                   background:var(--bg-card-h)}
-  .intention .ic{font-size:26px;line-height:1;flex:none;margin-top:1px}
-  .intention b{display:block;font-family:var(--fd);font-size:17px;color:var(--tp);
-               line-height:1.3;margin-bottom:5px}
-  .intention .quoi{display:block;font-size:13px;color:var(--ts);line-height:1.6}
+  .chemin{
+    background:var(--bg-card);backdrop-filter:blur(20px);
+    border:1px solid var(--line);border-radius:24px;padding:32px;
+    text-decoration:none;color:inherit;display:block;
+    position:relative;overflow:hidden;cursor:pointer;
+    transition:all .4s cubic-bezier(.16,1,.3,1);
+    /*
+     * `backwards`, et surtout PAS `forwards` — un écart assumé avec le Hub.
+     *
+     * Le Hub écrit `opacity: 0; animation: fadeInUp .6s ease forwards`. Une animation
+     * remplie en `forwards` garde sa dernière image et bat les déclarations normales :
+     * le `transform: translateY(0)` de fin l'emporte sur le `translateY(-4px)` du survol,
+     * définitivement. Les cartes du Hub ne se soulèvent donc jamais, alors que le CSS le
+     * demande — mesuré au navigateur, la matrice reste l'identité.
+     *
+     * En `backwards`, la carte prend l'état de départ pendant son délai, l'animation ne
+     * remplit rien après, et le survol reprend la main. Même apparition, et le
+     * soulèvement en plus.
+     */
+    animation:monte .6s ease backwards;
+  }
+  .chemin:nth-child(1){animation-delay:.08s}
+  .chemin:nth-child(2){animation-delay:.15s}
+  .chemin:nth-child(3){animation-delay:.22s}
+  .chemin:nth-child(4){animation-delay:.29s}
+  .chemin:nth-child(5){animation-delay:.36s}
 
-  /* La principale est plus large et porte le dégradé : un écran a UNE action dominante. */
-  .intention.forte{border-color:rgba(167,139,250,.5);
-                   background:linear-gradient(135deg,rgba(124,92,252,.22),rgba(45,212,191,.10))}
-  @media(min-width:720px){.intention.forte{grid-column:1 / -1}}
-  .intention.forte b{font-size:19px}
+  /* Le halo qui s'allume au survol : c'est lui, le « vivant ». */
+  .chemin::before{
+    content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;
+    background:radial-gradient(circle at center,var(--halo),transparent 50%);
+    opacity:0;transition:opacity .5s;pointer-events:none;
+  }
+  .chemin:hover{
+    transform:translateY(-4px);
+    border-color:var(--teinte);
+    background:var(--bg-card-h);
+    box-shadow:0 24px 60px -20px var(--halo);
+  }
+  .chemin:hover::before{opacity:.5}
 
-  /* ── Le réglage, replié quand il est fait ── */
-  .reglage{margin-top:34px;border:1px solid var(--line);border-radius:16px;
-           background:var(--bg-card);padding:18px 21px}
+  .chemin .ic{
+    width:56px;height:56px;border-radius:16px;
+    display:flex;align-items:center;justify-content:center;font-size:28px;
+    margin-bottom:24px;background:var(--teinte);
+    box-shadow:0 12px 32px -8px var(--halo);
+    position:relative;z-index:1;
+  }
+  .chemin .nom{font-family:var(--fd);font-size:28px;font-weight:700;letter-spacing:-.02em;
+               line-height:1.1;margin-bottom:10px;color:var(--tp);position:relative;z-index:1}
+  @media(max-width:640px){.chemin .nom{font-size:23px}}
+  .chemin .quoi{font-size:16px;color:var(--ts);line-height:1.5;font-weight:400;
+                margin-bottom:24px;position:relative;z-index:1}
+  .chemin .puces{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px;position:relative;z-index:1}
+  .chemin .puce{font-size:12px;font-weight:500;padding:5px 11px;border-radius:100px;
+                background:rgba(255,255,255,.06);border:1px solid var(--line);
+                color:var(--ts);transition:all .2s}
+  .chemin:hover .puce{background:rgba(255,255,255,.10);border-color:var(--line2);color:var(--tp)}
+  .chemin .cta{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600;
+               color:var(--teinte);position:relative;z-index:1}
+  .chemin .cta .fleche{transition:transform .3s}
+  .chemin:hover .cta .fleche{transform:translateX(4px)}
+
+  /*
+   * Cinq cartes dans une grille à deux colonnes laissent un orphelin. La cinquième —
+   * l'administration — prend donc toute la largeur, en bande : c'est l'écran depuis lequel
+   * on regarde les quatre autres, et il se lit bien comme un socle sous eux.
+   */
+  .chemin.bande{grid-column:1 / -1;display:flex;align-items:center;gap:28px;padding:26px 32px}
+  .chemin.bande .ic{margin-bottom:0;flex:none}
+  .chemin.bande .corps{flex:1;min-width:0}
+  .chemin.bande .nom{font-size:23px;margin-bottom:6px}
+  .chemin.bande .quoi{font-size:14.5px;margin-bottom:14px}
+  .chemin.bande .puces{margin-bottom:0}
+  .chemin.bande .cta{flex:none}
+  @media(max-width:860px){
+    .chemin.bande{display:block;padding:32px}
+    .chemin.bande .ic{margin-bottom:24px}
+    .chemin.bande .puces{margin-bottom:24px}
+  }
+
+  /* La palette du Hub, plus un bleu pour la cinquième. */
+  .t-fabriquer{--teinte:#2dd4bf;--halo:rgba(45,212,191,.4)}
+  .t-agents   {--teinte:#7c5cff;--halo:rgba(124,92,255,.4)}
+  .t-miens    {--teinte:#f472b6;--halo:rgba(244,114,182,.4)}
+  .t-studio   {--teinte:#fb923c;--halo:rgba(251,146,60,.4)}
+  .t-admin    {--teinte:#60a5fa;--halo:rgba(96,165,250,.4)}
+
+  @keyframes monte{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+  @media(prefers-reduced-motion:reduce){
+    .chemin{animation:none}
+    .chemin:hover{transform:none}
+  }
+
+  /* ── Le réglage, replié quand il est fait ─────────────────────────────────── */
+  .reglage{border:1px solid var(--line);border-radius:24px;background:var(--bg-card);
+           padding:26px 30px;position:relative;z-index:2}
   .reglage.aFaire{border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.06)}
-  .reglage > h2{font-family:var(--fd);font-size:16px;margin:0 0 4px;color:var(--tp)}
-  .reglage > p{font-size:13px;color:var(--ts);line-height:1.6;margin:0 0 15px;max-width:64ch}
+  .reglage > h2{font-family:var(--fd);font-size:19px;margin:0 0 6px;color:var(--tp)}
+  .reglage > p{font-size:13.5px;color:var(--ts);line-height:1.6;margin:0 0 18px;max-width:64ch}
   .reglage label{display:block;font-size:11px;font-weight:800;text-transform:uppercase;
                  letter-spacing:.05em;color:var(--tm);margin:0 0 6px}
-  .duo{display:grid;gap:15px}
+  .duo{display:grid;gap:16px}
   @media(min-width:660px){.duo{grid-template-columns:1fr 1fr}}
   .duo select{width:100%}
   .duo .note{font-size:11.5px;color:var(--tm);line-height:1.55;margin-top:6px}
-
-  /* ── Le pied : pour qui veut comprendre ── */
-  .pied{margin-top:38px;padding-top:20px;border-top:1px solid var(--line);
-        display:flex;gap:20px;flex-wrap:wrap;font-size:13px}
-  .pied a{color:var(--tm);text-decoration:none}
-  .pied a:hover{color:var(--tp)}
 </style>
 </head>
-<body>
+<body class="accueil">
 
-<main>
-  <div class="contexte" id="contexte" hidden>
-    <span class="puce">📦 <b id="nomTravail">—</b></span>
-    <button id="changer">Changer de projet</button>
-  </div>
+<div class="hub">
+  <header class="tete">
+    <a class="marque" href="./index.html">
+      <span class="pastille"></span>
+      SalsiIAPrompt
+      <small>des agents IA, relus avant d'être partagés</small>
+    </a>
+    <div class="actions">
+      <button class="pilule" id="changer" hidden>📦 <b id="nomTravail">—</b></button>
+      <span class="pilule qui" id="qui" hidden></span>
+      <button class="pilule sortir" id="sortir">🚪 Se déconnecter</button>
+    </div>
+  </header>
 
   <h1>Qu'est-ce que tu veux faire ?</h1>
   <p class="sous">Des agents IA prêts à l'emploi, relus par quelqu'un avant d'être proposés
@@ -124,52 +248,79 @@
   -->
   <section class="reco" id="reco" hidden></section>
 
-  <div class="intentions">
-    <a class="intention forte" href="../catalogue/index.html">
-      <span class="ic">🧰</span>
-      <span>
-        <b>Je cherche un agent qui fait déjà le travail</b>
-        <span class="quoi">Expliquer un code, résumer un incident, relire un changement,
-          préparer une livraison… Cherche, ouvre, lance-le sur ton projet.</span>
-      </span>
+  <h2 class="titre-section">Les cinq chemins</h2>
+
+  <section class="chemins">
+    <a class="chemin t-fabriquer" href="../composer/index.html">
+      <div class="ic">🧩</div>
+      <div class="nom">Fabriquer</div>
+      <div class="quoi">Prends des morceaux tout prêts, assemble-les. Garde-le pour toi,
+        ou propose-le aux autres.</div>
+      <div class="puces">
+        <span class="puce">Morceaux tout prêts</span>
+        <span class="puce">Aucun modèle</span>
+        <span class="puce">Conforme par construction</span>
+      </div>
+      <div class="cta">Assembler un agent <span class="fleche">→</span></div>
     </a>
 
-    <a class="intention" href="../demande/index.html">
-      <span class="ic">✨</span>
-      <span>
-        <b>Il me faut quelque chose qui n'existe pas</b>
-        <span class="quoi">Dis-le en une phrase, comme à un collègue. L'agent est écrit
-          pour toi, puis quelqu'un le relit.</span>
-      </span>
+    <a class="chemin t-agents" href="../catalogue/index.html">
+      <div class="ic">🧰</div>
+      <div class="nom">Les agents</div>
+      <div class="quoi">Expliquer un code, relire une merge request, préparer une livraison…
+        Cherche, ouvre, lance-le sur ton projet.</div>
+      <div class="puces">
+        <span class="puce">Matière calculée</span>
+        <span class="puce">Pré-vol sur ton dépôt</span>
+        <span class="puce">Contrat vérifié</span>
+        <span class="puce">Coût affiché</span>
+      </div>
+      <div class="cta">Ouvrir le catalogue <span class="fleche">→</span></div>
     </a>
 
-    <a class="intention" href="../composer/index.html">
-      <span class="ic">🧩</span>
-      <span>
-        <b>Je veux le fabriquer moi-même</b>
-        <span class="quoi">Prends des morceaux tout prêts, assemble-les. Garde-le pour toi,
-          ou propose-le aux autres.</span>
-      </span>
+    <a class="chemin t-miens" href="../catalogue/index.html?filtre=miens">
+      <div class="ic">💾</div>
+      <div class="nom">Mes agents</div>
+      <div class="quoi">Ce que tu as fabriqué et gardé chez toi. Relançable comme les autres,
+        visible de toi seul tant que tu ne le proposes pas.</div>
+      <div class="puces">
+        <span class="puce">Chez toi</span>
+        <span class="puce">Relançable</span>
+        <span class="puce">Partagé si tu le décides</span>
+      </div>
+      <div class="cta">Voir les miens <span class="fleche">→</span></div>
     </a>
 
-    <a class="intention" href="../admin/index.html">
-      <span class="ic">✅</span>
-      <span>
-        <b>Je dois relire ce qu'on m'a proposé</b>
-        <span class="quoi">Ce que les équipes envoient attend ta décision. Personne d'autre
-          ne le voit avant que tu l'aies accepté.</span>
-      </span>
+    <a class="chemin t-studio" href="../studio/index.html">
+      <div class="ic">🛠️</div>
+      <div class="nom">Studio</div>
+      <div class="quoi">L'établi complet, pour qui veut tout régler à la main — ou dicter une
+        phrase et laisser le modèle écrire le brouillon.</div>
+      <div class="puces">
+        <span class="puce">Dictée</span>
+        <span class="puce">Les règles en direct</span>
+        <span class="puce">Cas d'or</span>
+        <span class="puce">Banc d'essai</span>
+      </div>
+      <div class="cta">Ouvrir l'établi <span class="fleche">→</span></div>
     </a>
 
-    <a class="intention" href="../studio/index.html">
-      <span class="ic">🛠️</span>
-      <span>
-        <b>J'écris un agent en détail</b>
-        <span class="quoi">L'établi complet, pour qui veut tout régler à la main. Les
-          vérifications tournent pendant que tu écris.</span>
-      </span>
+    <a class="chemin bande t-admin" href="../admin/index.html">
+      <div class="ic">📊</div>
+      <div class="corps">
+        <div class="nom">Admin</div>
+        <div class="quoi">Ce que les équipes proposent attend ta décision. Et le parc, et ce
+          que tout ça consomme.</div>
+        <div class="puces">
+          <span class="puce">À relire</span>
+          <span class="puce">Le parc</span>
+          <span class="puce">Exécutions &amp; coût</span>
+          <span class="puce">Journal des décisions</span>
+        </div>
+      </div>
+      <div class="cta">Ouvrir l'administration <span class="fleche">→</span></div>
     </a>
-  </div>
+  </section>
 
   <section class="reglage" id="reglage">
     <h2>Où tu travailles</h2>
@@ -190,17 +341,11 @@
       </div>
     </div>
   </section>
-
-  <div class="pied">
-    <a href="../guide/index.html">📖 Comment ça marche</a>
-    <a href="../maquette.html">✨ La maquette d'origine</a>
-  </div>
-</main>
+</div>
 
 <script type="module">
 import { requireSession, clear } from './session.js';
 import { createForge } from './forge.js';
-import { mountShell } from './shell.js';
 import { observer } from './signaux.js';
 import { recommander } from '../lib/reco.js';
 import yaml from '../lib/yaml.js';
@@ -214,21 +359,38 @@ const KEYS = { registry: 'salsi_ia_registry_repo', work: 'salsi_ia_project',
 
 const session = requireSession('./login.html');
 if (session) {
-  mountShell({ session, base: '../', onLogout: () => { clear(); location.replace('./login.html'); } });
+  /*
+   * PAS DE `mountShell` ICI, ET C'EST LE POINT DE CETTE PAGE.
+   *
+   * La barre d'onglets reste sur tous les écrans de travail : on l'utilise quand on sait
+   * déjà où l'on va. Sur l'accueil elle proposait les cinq mêmes destinations que les
+   * cartes, en douze pixels de haut et sans dire ce qu'il y a derrière — deux navigations
+   * concurrentes pour le même choix, dont la plus pauvre était la plus visible.
+   */
+  const qui = $('qui');
+  if (session.avatar) {
+    const img = document.createElement('img');
+    img.alt = ''; img.src = session.avatar;
+    qui.append(img);
+  }
+  qui.append(`${session.name} · ${new URL(session.gitlabUrl).host}`);
+  qui.hidden = false;
+
+  $('sortir').onclick = () => { clear(); location.replace('./login.html'); };
 
   /*
    * Le réglage ne s'impose qu'une fois.
    *
    * Tant qu'il manque quelque chose, la section est ouverte et signalée. Dès que les deux
-   * sont choisis, elle se replie derrière une pastille discrète : ce qui est réglé ne doit
-   * plus occuper le haut de l'écran.
+   * sont choisis, elle se replie et le projet remonte dans l'en-tête, à la place qu'il
+   * occupe dans le Hub : ce qui est réglé ne doit plus occuper le corps de l'écran.
    */
   function majContexte() {
     const travail = localStorage.getItem(KEYS.workPath) || '';
     const registre = localStorage.getItem(KEYS.registry) || '';
     const complet = Boolean(travail && registre);
 
-    $('contexte').hidden = !complet;
+    $('changer').hidden = !complet;
     $('reglage').hidden = complet;
     $('reglage').classList.toggle('aFaire', !complet);
     $('nomTravail').textContent = travail;
