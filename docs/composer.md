@@ -99,7 +99,7 @@ chez soi n'engage personne — et quatre choses rendent ça tenable :
 
 - un agent assemblé **ne déclare aucun outil**. Il lit ce que vous lui donnez, il rend du
   texte. Il ne peut écrire nulle part ;
-- **les 27 règles ont déjà tourné** : le bouton ne s'active pas avant que la porte soit
+- **les 28 règles ont déjà tourné** : le bouton ne s'active pas avant que la porte soit
   franchie ;
 - **le pré-vol tourne quand même** à chaque lancement, où que vive le fichier — `P002` sur
   la sensibilité du dépôt, `P003` sur les entrées, `P007` sur l'écriture ;
@@ -128,7 +128,7 @@ C'est le point à comprendre, et il tient en une phrase :
 
 Concrètement :
 
-- **rien n'est hérité au partage.** Un agent partagé repasse par les 27 règles *et* par
+- **rien n'est hérité au partage.** Un agent partagé repasse par les 28 règles *et* par
   une validation humaine, comme n'importe quel prompt écrit à la main. Pas de raccourci
   pour du texte que personne n'a lu — ce serait la faille par laquelle n'importe quoi
   entrerait au registre, en l'assemblant à partir de morceaux bénis ;
@@ -142,7 +142,7 @@ Concrètement :
 ## Ce que ça ne demande pas
 
 **Aucune clé, aucun appel, aucun jeton dépensé.** Assembler du texte est mécanique. Vous
-composez, les 27 règles vous jugent à la frappe comme au Studio, et ça part en validation
+composez, les 28 règles vous jugent à la frappe comme au Studio, et ça part en validation
 — sans qu'un modèle intervienne à aucun moment.
 
 ---

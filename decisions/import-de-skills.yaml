@@ -125,8 +125,29 @@ contraintes:
 # de ce registre — c'est pourquoi « 0 mesurée » devra rester la ligne la plus visible de
 # l'écran d'import.
 #
-# Le chantier qui fait vraiment mal n'est pas là non plus. Les skills de Mantis partagent un
-# RÉPERTOIRE DE TRAVAIL mutable — `workspace/findings/*.json`, `learnings.jsonl`, `kb/` —
-# là où notre modèle est « une matière en entrée, un texte en sortie, un contrat évalué
-# dessus ». C'est le seul morceau qui ne se découpe pas : on peut livrer trois opérations
-# mécaniques sur treize, on ne peut pas livrer un demi-workspace.
+# ── LE RÉPERTOIRE DE TRAVAIL : CE QUI A ÉTÉ FAIT, ET CE QUI NE L'A PAS ÉTÉ ──
+#
+# Le chantier annoncé comme le plus dur : les skills de Mantis partagent un RÉPERTOIRE DE
+# TRAVAIL mutable — `workspace/findings/*.json`, `learnings.jsonl`, `kb/` — là où notre
+# modèle est « une matière en entrée, un texte en sortie, un contrat évalué dessus ».
+#
+# CE QUI EXISTE MAINTENANT : `lib/atelier.js`, et il ne ressemble pas à un workspace.
+# C'est un espace de noms PLAT de cases déclarées d'avance dans la chaîne, sans dossiers ni
+# chemins — un chemin est une capacité, et un espace plat n'a pas de traversée à empêcher.
+# Une étape écrit une case et une seule : sa sortie. L'atelier naît vide à chaque passage
+# et meurt avec lui. `L028` refuse avant le premier appel la lecture d'une case que
+# personne n'a remplie et le double remplacement d'une même case.
+#
+# Ce qui le rend acceptable n'est pas sa forme : c'est qu'on puisse en dire quelque chose
+# SANS L'EXÉCUTER. Un état mutable dont on ne peut rien affirmer avant de le faire tourner
+# est un état non gouverné.
+#
+# CE QUI N'EXISTE PAS, ET NE VIENDRA PAS DE CE CÔTÉ : les états STRUCTURÉS multi-fichiers
+# que les skills de Mantis écrivent par des scripts Python — `findings/{id}.json` produit
+# par `append_review.py`. Un atelier ne porte que du texte accumulé par des étapes.
+#
+# CONSÉQUENCE, et il faut la dire plutôt que la laisser découvrir : une capacité importée
+# qui suppose vraiment ces fichiers donnera une brique qui PARLE d'un fichier qu'aucun code
+# n'écrit. Elle sera cohérente, elle passera la porte, et elle décrira une méthode dont la
+# moitié des étapes n'a pas de support. C'est exactement le genre de chose que I005 refuse
+# de maquiller : ça se déclare, ça ne se contourne pas.

@@ -29,6 +29,8 @@
  * à un tableau de sorties écrites à la main.
  */
 import { resoudreEntrees } from '../lib/chaine.js';
+import { ouvrir as ouvrirAtelier, ecrire as ecrireAtelier,
+         resume as resumeAtelier } from '../lib/atelier.js';
 import { postvol } from './resolveurs.js';
 
 /**
@@ -48,6 +50,17 @@ export async function derouler(artefact, { parId = new Map(), jouer, valeurs = {
   const sorties = {};
   let arretee = null;
 
+  /*
+   * L'ATELIER NAÎT ICI, VIDE, ET MEURT AVEC CE PASSAGE.
+   *
+   * Pas de persistance, et ce n'est pas une simplification : un atelier partagé entre
+   * deux passages rendrait le résultat d'une chaîne dépendant de ce qu'une autre y a
+   * laissé la veille. « Qu'est-ce que l'agent a vu ce jour-là ? » est la question à
+   * laquelle cette plateforme doit pouvoir répondre, et un état qui survit lui retire
+   * sa réponse.
+   */
+  const atelier = ouvrirAtelier(artefact?.atelier || []);
+
   for (const etape of artefact?.steps || []) {
     const cible = parId.get(etape.artefact);
 
@@ -59,7 +72,7 @@ export async function derouler(artefact, { parId = new Map(), jouer, valeurs = {
       break;
     }
 
-    const entrees = resoudreEntrees(etape, valeurs, sorties);
+    const entrees = resoudreEntrees(etape, valeurs, sorties, atelier);
     sur({ type: 'depart', etape: etape.id, artefact: cible.id, titre: cible.title });
 
     let reponse;
@@ -91,6 +104,21 @@ export async function derouler(artefact, { parId = new Map(), jouer, valeurs = {
       conforme: verdict.conforme,
       erreur: ''
     };
+    /*
+     * L'ÉCRITURE DANS L'ATELIER SE FAIT AVANT LE VERDICT DE CONTRAT.
+     *
+     * Une étape qui viole son contrat arrête la chaîne — mais ce qu'elle a produit a bien
+     * été produit, et l'effacer de l'atelier ferait mentir le journal du passage sur ce
+     * qui s'est réellement passé. On écrit, on inscrit, et c'est le verdict qui arrête.
+     * Un écran qui montre l'atelier après un arrêt doit montrer l'état RÉEL.
+     */
+    if (etape.ecrit?.cle) {
+      const w = ecrireAtelier(atelier, { cle: etape.ecrit.cle, texte: ligne.sortie,
+                                         etape: etape.id, mode: etape.ecrit.mode || 'ajoute' });
+      ligne.atelier = { cle: etape.ecrit.cle, ecrit: w.ecrit, refus: w.refus,
+                        octets: w.octets, caviarde: w.caviarde || [] };
+    }
+
     journal.push(ligne);
     sur({ type: 'etape', resultat: ligne });
 
@@ -115,6 +143,10 @@ export async function derouler(artefact, { parId = new Map(), jouer, valeurs = {
     // exactement le tuyau qu'on refuse.
     sortie: arretee ? null : (derniere?.sortie ?? ''),
     conforme: !arretee,
+    // L'atelier tel qu'il est à la fin, arrêt compris : c'est ce que l'écran montre, et
+    // c'est la réponse à « qu'est-ce que les étapes se sont passé ».
+    atelier: resumeAtelier(atelier),
+    atelierJournal: atelier.journal,
     arretee,
     raison: arretee ? `Chaîne arrêtée à l'étape \`${arretee.etape}\` : ${arretee.raison}` : ''
   };

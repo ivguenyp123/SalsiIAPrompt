@@ -33,7 +33,7 @@ C'est **d'engager les autres**. Sauver chez vous n'engage personne :
 - l'agent n'apparaît **pas au catalogue** des autres ;
 - il ne peut **pas servir de brique** à une suite — `L024` exige le registre ;
 - il ne déclare **aucun outil** ;
-- il a franchi **les 27 règles** avant que le bouton s'active ;
+- il a franchi **les 28 règles** avant que le bouton s'active ;
 - et **le pré-vol tourne quand même** à chaque lancement.
 
 Le jour où vous voulez qu'il serve aux autres, le bouton **📮 Partager** l'envoie en

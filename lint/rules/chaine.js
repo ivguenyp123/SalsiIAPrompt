@@ -28,6 +28,7 @@
  */
 import { finding, ERROR, WARN, indexBy } from '../core.js';
 import { renvoisImpossibles, entreesManquantes, entreesInconnues } from '../../lib/chaine.js';
+import { conflits as conflitsAtelier } from '../../lib/atelier.js';
 
 /**
  * L024 — Une chaîne enchaîne des artefacts qui existent. 🔴
@@ -146,4 +147,48 @@ export function L025(artifact, ctx) {
   });
 
   return out;
+}
+
+/*
+ * L028 — l'atelier d'une chaîne est cohérent AVANT le premier appel.
+ *
+ * ── POURQUOI UNE RÈGLE, ET PAS UN CONTRÔLE À L'EXÉCUTION ────────────────────
+ *
+ * L'atelier est de l'état mutable partagé — la chose que ce dépôt refuse partout
+ * ailleurs. Il n'entre ici que parce qu'aucune chaîne réelle ne s'en passe : trois étapes
+ * qui ajoutent chacune leurs constats à une même liste, qu'une quatrième relit entière.
+ *
+ * Ce qui le rend acceptable n'est pas sa forme, c'est le fait qu'on puisse en dire
+ * quelque chose SANS L'EXÉCUTER. Un état mutable dont on ne peut rien affirmer avant de
+ * le faire tourner est un état non gouverné, et le seul moyen de le savoir serait de
+ * payer les appels pour découvrir que l'étape 4 lisait du vide.
+ *
+ * ── LES DEUX FAUTES QU'ON NE VOIT PAS AUTREMENT ─────────────────────────────
+ *
+ * DEUX ÉTAPES QUI REMPLACENT LA MÊME CASE. La seconde efface le travail de la première.
+ * Rien ne rate, rien ne remonte : le résultat est simplement incomplet, et l'écart ne se
+ * voit que si quelqu'un connaissait le compte attendu.
+ *
+ * LIRE UNE CASE AVANT QUE QUICONQUE Y AIT ÉCRIT. L'étape reçoit « case vide » — le module
+ * a la politesse de le dire — mais la chaîne a été écrite en croyant qu'elle recevrait
+ * des constats. C'est la même faute que L025 sur les sorties d'étapes, sur l'autre canal.
+ *
+ * ── ERREUR OU AVERTISSEMENT ─────────────────────────────────────────────────
+ *
+ * Bloquant quand le câblage est FAUX : case non déclarée, lecture prématurée, double
+ * remplacement, étape nommée `atelier`. Simple avertissement quand il est seulement
+ * INUTILE : une case que personne n'écrit, une case que personne ne lit. Une chaîne en
+ * construction passe forcément par là, et refuser l'enregistrement d'un travail en cours
+ * ferait écrire les chaînes ailleurs.
+ */
+export function L028(artifact) {
+  if (artifact?.kind !== 'chain') return [];
+
+  const INUTILE = /aucune étape n'y écrit|aucune étape ne la lit/;
+  return conflitsAtelier(artifact).map((c) => finding(
+    'L028',
+    INUTILE.test(c.message) ? WARN : ERROR,
+    c.etape ? `Étape \`${c.etape}\` : ${c.message}` : c.message,
+    c.etape ? `steps[${(artifact.steps || []).findIndex((e) => e.id === c.etape)}]` : 'atelier'
+  ));
 }

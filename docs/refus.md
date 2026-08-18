@@ -25,7 +25,7 @@ sait. Voir « refuser ce qu'on sait » en bas de page — c'est la clé de lectu
 
 ---
 
-## La porte — les 27 règles
+## La porte — les 28 règles
 
 ### Structure et propriété
 
@@ -143,6 +143,19 @@ pour ça que rien ne l'attrapait avant.
 
 → *Pour exiger des clés dans une sortie JSON, utilisez `output.json_keys` et non
 `output.sections`.*
+
+**`L028` 🔴🟡 — L'atelier de votre chaîne ne tient pas debout.**
+
+Une chaîne peut déclarer un **atelier** : des cases nommées où ses étapes accumulent de
+l'état. Le registre n'accepte cet état mutable que parce qu'on peut en dire quelque chose
+**sans l'exécuter**. Cette règle est ce « quelque chose ».
+
+Elle bloque sur quatre fautes : une case **non déclarée** ; une case **lue avant que
+quiconque y ait écrit** ; **deux étapes qui remplacent la même case**, la seconde
+effaçant le travail de la première sans que rien ne le dise ; une étape nommée `atelier`.
+
+→ *Déclarez la case dans `atelier`, ou remettez l'étape qui l'écrit avant celle qui la
+lit. Pour deux étapes qui alimentent la même case, `mode: ajoute` — c'est le défaut.*
 
 **`L027` 🟡 — Une entrée porte un nom que la plateforme ne connaît pas.**
 

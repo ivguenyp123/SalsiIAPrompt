@@ -292,6 +292,49 @@
           "titre": {
             "type": "string",
             "description": "Ce que cette étape apporte, en une ligne. Facultatif."
+          },
+          "ecrit": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["cle"],
+            "description": "La case de l'atelier où va la SORTIE de cette étape. Une étape écrit une case et une seule : sa sortie est un texte, pas trois. Une étape qui doit alimenter deux cases est deux étapes — plus long à écrire, et ça se relit.",
+            "properties": {
+              "cle": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]*$",
+                "description": "Doit être déclarée dans `atelier` (L028)."
+              },
+              "mode": {
+                "enum": ["ajoute", "remplace"],
+                "default": "ajoute",
+                "description": "`ajoute` accumule, `remplace` efface ce qui était là. Deux étapes qui remplacent la même case sont refusées au lint : la seconde effacerait le travail de la première sans que rien ne le dise."
+              }
+            }
+          }
+        }
+      }
+    },
+    "atelier": {
+      "type": "array",
+      "description": "Les cases d'état qu'une chaîne accumule entre ses étapes (`kind: chain`). CE N'EST PAS UN SYSTÈME DE FICHIERS : pas de dossiers, pas de chemins, pas de motifs — un espace de noms PLAT, où ce qui n'est pas déclaré n'existe pas. Un chemin est une capacité ; un espace plat n'a pas de traversée à empêcher. L'atelier naît vide à chaque passage et meurt avec lui : un état partagé entre deux passages rendrait le résultat d'une chaîne dépendant de ce qu'une autre y a laissé la veille, donc irreproductible.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["cle"],
+        "properties": {
+          "cle": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "description": "Le nom de la case. Les étapes la lisent par `{{atelier.<cle>}}`."
+          },
+          "forme": {
+            "enum": ["texte", "lignes"],
+            "default": "texte",
+            "description": "Comment les écritures se joignent, et comment la case se rend. Une case sans forme serait un blob : ni vérifiable, ni montrable."
+          },
+          "titre": {
+            "type": "string",
+            "description": "Ce que cette case contient, en une ligne."
           }
         }
       }
