@@ -1,0 +1,58 @@
+# Les plafonds de dépense — ce qui dit STOP.
+#
+# ── POURQUOI UN REGISTRE ET PAS UNE VARIABLE D'ENVIRONNEMENT ─────────────────
+#
+# Un plafond est une décision de gouvernance, pas un réglage de déploiement. Il se relit,
+# se discute et s'historise comme les autres : qui a relevé l'enveloppe de l'équipe Data,
+# quand, et de combien, est exactement le genre de question qu'un comité posera. Dans une
+# variable d'environnement, la réponse est « regarde la console du serveur ».
+#
+# ── LE PLUS PETIT L'EMPORTE, ET LES DEUX S'APPLIQUENT ────────────────────────
+#
+# Le plafond global et le plafond d'équipe ne se remplacent pas, ils se cumulent :
+#   · l'équipe Data ne dépasse pas son enveloppe même si le global a de la marge ;
+#   · personne ne dépasse le global même si son équipe en a.
+# Les deux sont évalués. En choisir un aurait laissé l'autre déclaré et inappliqué.
+#
+# ── CE QUE LE PLAFOND NE PROMET PAS ──────────────────────────────────────────
+#
+# Il porte sur ce qui a DÉJÀ été dépensé. On ne connaît ni la longueur de la réponse ni le
+# taux de cache avant d'appeler : une estimation serait un chiffre inventé posé devant un
+# contrôle budgétaire. Le dernier appel peut donc franchir la limite, d'au plus un appel.
+#
+# ── ET UN APPEL SANS TARIF N'EST PAS UN APPEL GRATUIT ────────────────────────
+#
+# `large` chez DeepSeek n'a pas de tarif relevé : son coût est `null`. Ces appels sont
+# COMPTÉS À PART, jamais à zéro — sinon le plafond se contournerait en choisissant le
+# palier dont on ignore le prix. Tant qu'il y en a dans la fenêtre, la dépense affichée
+# est un minorant, et le pré-vol le dit.
+#
+# ── LES MONTANTS ─────────────────────────────────────────────────────────────
+#
+# En dollars, comme les tarifs du registre des modèles : convertir ici ferait entrer un
+# taux de change dans un calcul qui n'en a pas besoin.
+#
+# Ceux qui suivent sont des VALEURS DE DÉPART, posées pour que le contrôle existe et se
+# voie. Ils ne sortent d'aucun budget voté — c'est à l'équipe plateforme de les fixer.
+# Ordre de grandeur pour situer : un passage complet du banc d'essai coûte environ 0,20 $,
+# et 85 appels d'usage réel ont coûté 0,14 $.
+
+devise: USD
+
+# Sans plafond, aucun contrôle : `P008` se tait plutôt que d'inventer une limite.
+global:
+  jour: 5.00
+  mois: 50.00
+
+# Par périmètre, avec les mêmes noms que `app/scopes.js`. Un périmètre absent d'ici n'a
+# pas d'enveloppe propre — seul le global s'applique à lui.
+scopes:
+  Plateforme:
+    jour: 3.00
+    mois: 30.00
+  Data:
+    jour: 1.00
+    mois: 10.00
+  Securite:
+    jour: 1.00
+    mois: 10.00

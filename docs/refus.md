@@ -310,6 +310,32 @@ Cet agent écrit quelque part. Il ne part pas sans que vous le disiez.
 → *Cochez la confirmation. Ce n'est pas une formalité : c'est le dernier point où un
 humain voit ce qui va être modifié.*
 
+**`P008` 🔴 — Le plafond de dépense est atteint.**
+
+La fenêtre — 24 heures ou 30 jours — a consommé l'enveloppe déclarée dans
+`registries/budget.yaml`, celle de votre périmètre ou la globale. Les deux s'appliquent :
+votre équipe ne dépasse pas son enveloppe même si le global a de la marge, et personne ne
+dépasse le global même si son équipe en a.
+
+→ *Attendez que la fenêtre s'écoule, ou faites relever le plafond au registre. C'est une
+décision de gouvernance — elle se discute et s'historise, elle ne se contourne pas.*
+
+**`P008` 🟡 — Des appels de la fenêtre n'ont pas de tarif.**
+
+Le montant affiché est un **plancher**, pas un total : certains paliers n'ont pas de tarif
+relevé au registre des modèles, et leur coût vaut `null`. On ne les compte pas pour zéro —
+sinon le plafond se contournerait en choisissant justement le palier dont on ignore le
+prix. La dépense réelle est donc au-dessus de ce qui s'affiche, et de combien, personne ne
+le sait.
+
+→ *Confirmez si vous acceptez de partir dans le flou, ou faites relever le tarif manquant.
+Le pré-vol ne refuse pas sur une supposition — il vous passe la décision.*
+
+Une limite à connaître : le plafond porte sur ce qui a **déjà** été dépensé. On ne connaît
+ni la longueur de la réponse ni le taux de cache avant d'appeler, et estimer reviendrait à
+poser un chiffre inventé devant un contrôle budgétaire. Le dernier appel peut donc
+franchir la limite — d'au plus un appel.
+
 ---
 
 ## La clé de lecture : refuser ce qu'on sait, demander ce qu'on ignore

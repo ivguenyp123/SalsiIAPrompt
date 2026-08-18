@@ -111,7 +111,7 @@ export async function executer(requete = {}, deps = {}) {
 /** Le travail réel. `trace` recueille ce que le journal ne peut pas lire dans la sortie. */
 async function conduire(requete = {}, deps = {}, trace = {}) {
   const { charger, banque, registres, models = [], fournisseurs = {}, creerVertex, lireEntree,
-          derive = null, briques = [] } = deps;
+          derive = null, briques = [], budget = null } = deps;
   const id = String(requete.id || '');
 
   if (!ID_VALIDE.test(id)) {
@@ -170,7 +170,16 @@ async function conduire(requete = {}, deps = {}, trace = {}) {
     derive,
     depot: { path: requete.depot || 'local/execution', scope: artifact.owner?.scope,
              sensibilite: requete.sensibilite || undefined },
-    criticite: requete.criticite || 'test'
+    criticite: requete.criticite || 'test',
+    /*
+     * La dépense de la fenêtre, pour P008. Le PÉRIMÈTRE VIENT DE L'ARTEFACT, jamais de
+     * la requête : sinon n'importe qui choisirait l'enveloppe d'une autre équipe en
+     * changeant un mot dans un POST.
+     *
+     * `budget` absent — un appelant qui n'a pas de journal à lire, le banc, un test —
+     * laisse P008 muet plutôt que de refuser sur une ignorance.
+     */
+    budget: typeof budget === 'function' ? budget(artifact.owner?.scope || '') : budget
   };
 
   /*

@@ -313,6 +313,72 @@ function P007(artifact) {
     'tools', true)];
 }
 
+/* ── P008 ─────────────────────────────────────────────────────────────────── */
+/**
+ * La dépense de la fenêtre est-elle sous le plafond ? 🔴
+ *
+ * ── POURQUOI CE CONTRÔLE EST AU PRÉ-VOL, ET NULLE PART AILLEURS ─────────────
+ *
+ * Le journal sait combien on a dépensé. L'Admin le trace. Le registre porte les tarifs.
+ * Tout ça dit COMBIEN ÇA A COÛTÉ — rien ne disait STOP. Une plateforme qui découvre la
+ * facture à la fin du mois a le problème de celles qui arrêtent l'IA parce que c'est trop
+ * cher, avec de plus jolis graphiques.
+ *
+ * Le pré-vol est l'endroit exact : c'est le seul contrôle qui tombe AVANT le premier jeton
+ * dépensé, et un plafond qui refuserait après l'appel aurait laissé payer l'appel.
+ *
+ * ── SILENCIEUX SANS CHIFFRE, COMME LES AUTRES ──────────────────────────────
+ *
+ * Sans `ctx.budget`, le contrôle se tait — l'appelant n'a pas lu le journal, et refuser
+ * sur une ignorance serait un mur. Sans plafond déclaré au registre, il se tait aussi :
+ * on n'invente pas une limite. C'est la même règle que L023 sans la banque et L027 sans
+ * le vocabulaire.
+ *
+ * ── ET « JE NE SAIS PAS » DEMANDE UN HUMAIN, IL NE REFUSE PAS ──────────────
+ *
+ * Trois issues, et elles suivent la règle du pré-vol — refuser quand on sait que c'est
+ * non, demander quand on ne sait pas :
+ *
+ *   FRANCHI     la dépense connue dépasse le plafond. C'est non.
+ *   MINORANT    des appels de la fenêtre n'ont pas de tarif au registre. La dépense
+ *               affichée est un plancher : la vraie peut déjà être au-dessus. On ne
+ *               refuse pas sur une supposition, on demande à quelqu'un.
+ *   APPROCHÉ    au-delà de 80 %. On prévient pendant qu'il est encore temps de décider :
+ *               découvrir la limite au moment où elle tombe, en pleine démonstration,
+ *               n'aide personne.
+ */
+function P008(artifact, ctx) {
+  const b = ctx?.budget;
+  if (!b || !Array.isArray(b.etats) || b.etats.length === 0) return [];
+
+  const out = [];
+  for (const e of b.etats) {
+    if (!e?.etat?.declare) continue;
+    const ou = e.portee === 'scope' ? `du périmètre \`${e.nom}\`` : 'global';
+    const quand = e.fenetre === 'jour' ? 'sur 24 h' : 'sur 30 jours';
+
+    if (e.etat.franchi) {
+      out.push(constat('P008', ERROR,
+        `Plafond ${ou} ${quand} atteint. ${e.etat.raison} Rien ne part tant qu'il n'est pas `
+        + 'relevé au registre, ou que la fenêtre ne s\'est pas écoulée.',
+        'budget'));
+      continue;
+    }
+    if (e.etat.inconnus > 0) {
+      out.push(constat('P008', WARN,
+        `Plafond ${ou} ${quand} : ${e.etat.raison} La plateforme ne sait donc pas où elle `
+        + 'en est — quelqu\'un doit décider de partir quand même.',
+        'budget', true));
+      continue;
+    }
+    if (e.etat.alerte) {
+      out.push(constat('P008', WARN,
+        `Plafond ${ou} ${quand} : ${e.etat.raison}`, 'budget'));
+    }
+  }
+  return out;
+}
+
 /* ── Le pré-vol ───────────────────────────────────────────────────────────── */
 
 const CONTROLES = [
@@ -322,7 +388,8 @@ const CONTROLES = [
   { code: 'P004', fn: P004, titre: 'Outils autorisés pour le périmètre du dépôt cible' },
   { code: 'P005', fn: P005, titre: 'Certification présente et valide' },
   { code: 'P006', fn: P006, titre: 'Niveau suffisant pour la criticité' },
-  { code: 'P007', fn: P007, titre: 'Écriture : confirmation humaine requise' }
+  { code: 'P007', fn: P007, titre: 'Écriture : confirmation humaine requise' },
+  { code: 'P008', fn: P008, titre: 'Dépense de la fenêtre sous le plafond' }
 ];
 
 /**

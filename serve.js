@@ -43,6 +43,7 @@ import { createForge } from './app/forge.js';
 import { ajouter as ajouterAuJournal, lire as lireLeJournal,
          echec as echecJournal, MAX_LIGNES } from './runtime/journal-exec.js';
 import { serie, palmares, resume, PAS } from './lib/executions.js';
+import { depense as depenseBudget, etat as etatBudget, plafondsDe } from './lib/budget.js';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 
@@ -227,7 +228,36 @@ function dependances() {
      * affirme sur ses jetons, ses coûts et ses verdicts. Elle est confinée à `derive/`,
      * là où vit déjà tout ce qui est MESURÉ plutôt que déclaré.
      */
-    journaliser: (ligne) => ajouterAuJournal(ligne)
+    journaliser: (ligne) => ajouterAuJournal(ligne),
+
+    /*
+     * ── CE QUI DONNE À P008 DE QUOI TRANCHER ──────────────────────────────
+     *
+     * Le pré-vol est PUR : il ne lit ni fichier ni horloge. Il ne peut donc pas aller
+     * compter lui-même ce qui a été dépensé — c'est ici qu'on lui apporte le chiffre,
+     * comme on lui apporte déjà la sensibilité du dépôt et l'état dérivé.
+     *
+     * Le périmètre vient de l'ARTEFACT, jamais de la requête : sinon n'importe qui
+     * choisirait l'enveloppe d'une autre équipe en changeant un mot dans un POST.
+     */
+    budget: (scope) => {
+      const config = lire('registries/budget.yaml');
+      const plafonds = plafondsDe(config, { scope });
+      if (plafonds.length === 0) return null;
+
+      // `lire()` rend une ENVELOPPE — lignes, total, tronqué, illisibles — et non un
+      // tableau. La confondre avec sa charge coûtait un 502 « lignes is not iterable ».
+      const { lignes } = lireLeJournal();
+      const maintenant = new Date();
+      return {
+        etats: plafonds.map((p) => ({
+          ...p,
+          etat: etatBudget(p.montant, depenseBudget(lignes, {
+            fenetre: p.fenetre, jusqua: maintenant,
+            scope: p.portee === 'scope' ? p.nom : '' }))
+        }))
+      };
+    }
   };
 }
 
