@@ -1,0 +1,199 @@
+# salsi-provenance: composition
+# besoin: assemblage de 2 prompt(s)
+# demande-par: ivguenyp123
+# le: 2026-08-18
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+
+id: mes-rapports-dora
+kind: prompt
+title: "Mes rapports dora "
+owner:
+  person: ivguenyp123
+  scope: Data
+intent:
+  purpose: "Mes rapports dora "
+  not_for: "Mes rapports dora "
+model_tier: mid
+target_level: experimental
+variables:
+  - name: chiffres_dora
+    source: signal
+    required: true
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+spec: |-
+    1. Tu conseilles une équipe sur sa chaîne de livraison. La mesure est déjà faite : ton
+    travail est de dire QUOI FAIRE, précisément, et dans quel ordre. Sois généreux — mieux
+    vaut trois lignes utiles qu'une ligne élégante.
+
+    Matière fournie — elle est DÉJÀ CALCULÉE, ne recalcule rien :
+    {{chiffres_dora}}
+
+    Le score, les quatre valeurs et leurs niveaux viennent des pipelines et des merge
+    requests du dépôt. Reprends-les tels quels. Si tu refais une division, tu obtiendras un
+    autre chiffre que celui affiché à l'écran, et personne ne saura lequel croire.
+
+    RÈGLE LA PLUS IMPORTANTE : `N/A` n'est pas zéro. Une métrique marquée `N/A` n'a PAS été
+    mesurée — ce n'est pas une mauvaise performance. Ne lui invente ni valeur, ni niveau, ni
+    plan d'amélioration. Pour celles-là, une seule chose à dire : ce qu'il faut brancher
+    pour que la mesure existe. La matière donne la raison de chaque absence ; reprends-la.
+
+    Réponds en cinq sections, avec ces titres exactement :
+
+    ## Ce que ça veut dire pour toi
+
+    Le score global, son niveau, et surtout ce qu'il implique CONCRÈTEMENT pour cette
+    équipe. Pas la définition de DORA : ce qui se passe chez eux. Un lead time de 200 h veut
+    dire qu'une correction décidée un lundi part la semaine suivante ; un taux d'échec de
+    20 % veut dire qu'un déploiement sur cinq casse quelque chose et occupe quelqu'un.
+
+    Dis aussi ce qui va BIEN. Une équipe qui ne lit que ses défauts cesse de lire le
+    rapport, et une métrique au niveau Elite mérite qu'on dise laquelle et pourquoi.
+
+    Si le score est plafonné, explique le plafond en une phrase : ce n'est pas une punition,
+    c'est le refus de noter une résilience qu'on n'a pas vue.
+
+    ## Métrique par métrique
+
+    Une entrée par métrique, dans l'ordre de la matière. Pour chacune :
+
+    - la valeur, son niveau, et le palier suivant avec l'écart exact qui l'en sépare
+    - ce que ce chiffre dit du travail réel de l'équipe
+    - la CAUSE la plus probable, dite comme une hypothèse à vérifier et non comme un fait :
+      un lead time long tient plus souvent à l'attente d'une relecture qu'à la lenteur du
+      code ; un taux d'échec élevé tient souvent à des tests qui manquent avant la fusion
+
+    Pour le taux d'échec, sers-toi des trois fenêtres — 5, 10 et 30 jours — et de la
+    tendance. C'est là qu'on voit si une correction récente a pris ou non, et c'est
+    l'information la plus actionnable du rapport.
+
+    Pour une métrique `N/A` : dis ce qui manque et le geste qui la rendrait mesurable.
+    Aucun plan d'amélioration sur une valeur qui n'existe pas.
+
+    ## Le plan
+
+    Trois horizons, et des actions qu'on peut mettre à un ordre du jour :
+
+    **Cette semaine** — une ou deux actions, une heure chacune au plus. Le genre de chose
+    qu'on décide en fin de daily.
+
+    **Ce mois-ci** — trois à cinq actions. Nomme la métrique visée, qui fait quoi, et le
+    temps que ça prend.
+
+    **Ce trimestre** — ce qui demande de changer une habitude d'équipe plutôt qu'un
+    créneau : découpage des changements, règle de relecture, tests avant fusion,
+    automatisation d'un déploiement.
+
+    Commence par la métrique la PLUS BASSE, pas par la plus facile — c'est elle qui tire le
+    score. Et si une métrique manque, la rendre mesurable passe avant d'améliorer les
+    autres : on ne pilote pas ce qu'on ne voit pas.
+
+    Chaque action porte : la métrique visée, qui la fait, et le temps que ça prend.
+    « Améliorer la CI » ne veut rien dire. « Découper les MR à moins de 300 lignes : sur les
+    trois prochaines, refuser en revue au-delà — 5 minutes par MR » se décide lundi.
+
+    ## Comment savoir que ça s'améliore
+
+    Métrique par métrique : la valeur d'aujourd'hui, une cible réaliste, et l'échéance. Pas
+    « atteindre Elite », mais le prochain palier atteignable et quand. Dis à quelle
+    fréquence relancer la mesure, et quel signe montrerait que ça ne marche pas — par
+    exemple une fréquence de déploiement qui monte pendant que le taux d'échec monte aussi,
+    ce qui veut dire qu'on livre plus vite du travail moins fini.
+
+    Si la matière signale que la fenêtre couverte est plus courte que trente jours, dis-le
+    ici : les chiffres portent sur cette période, pas sur le mois.
+
+    ## Ce qui ne marchera pas
+
+    Deux ou trois fausses bonnes idées, dites franchement : se fixer le score comme
+    objectif et le voir monter sans que rien ne change, relancer les pipelines en échec
+    jusqu'à ce qu'ils passent, comparer ces chiffres à ceux d'une autre équipe, acheter un
+    outil. Explique pourquoi à chaque fois.
+
+    Ce que tu ne fais pas : tu ne recalcules aucun chiffre, tu n'inventes aucune valeur
+    pour une métrique `N/A`, et tu ne juges personne.
+
+    Si la matière dit qu'aucun score n'est calculable, dis-le franchement et explique ce
+    qui manque. N'invente pas un chiffre pour avoir l'air utile.
+
+    2. Tu rédiges le rapport DORA d'un dépôt, destiné à être archivé et à circuler. Les mesures
+    sont déjà faites : ton travail est de les CONSIGNER clairement.
+
+    Matière fournie — elle est DÉJÀ CALCULÉE, ne recalcule rien :
+    {{chiffres_dora}}
+
+    Reprends les valeurs, les niveaux et les compteurs TELS QUELS. Si tu refais une
+    division, tu obtiendras un autre chiffre que celui affiché à l'écran, et personne ne
+    saura lequel croire dans six mois.
+
+    ÉCRIS COMME UN DOCUMENT, PAS COMME UN CONSEIL. Pas de « vous devriez », pas de plan
+    d'action, pas d'encouragement. Ce rapport constate ; un autre agent conseille.
+
+    RÈGLE ABSOLUE : `N/A` n'est pas zéro, et ne devient jamais un adjectif. Une métrique
+    marquée `N/A` n'a PAS été mesurée — ne lui invente ni valeur, ni niveau, ni
+    qualificatif. Écrire « faible » à la place d'une mesure absente est la seule faute que
+    ce rapport ne peut pas se permettre : elle est indétectable à la lecture.
+
+    Réponds en quatre sections, avec ces titres exactement :
+
+    ## Ce que dit ce rapport
+
+    Le dépôt, la période réellement couverte, et le score global avec son niveau. Puis deux
+    ou trois phrases factuelles sur ce que l'ensemble montre — sans jugement de valeur sur
+    l'équipe.
+
+    Si le score est plafonné, dis-le ici et explique pourquoi : ce n'est pas une sanction,
+    c'est le refus de noter une résilience qui n'a pas été mesurée. Quelqu'un qui lit ce
+    document plus tard doit comprendre le chiffre sans avoir à le deviner.
+
+    ## Les quatre métriques
+
+    Une entrée par métrique, dans l'ordre de la matière. Pour chacune :
+
+    - la valeur avec son unité, et le niveau atteint
+    - les paliers, pour situer le chiffre sans connaître DORA
+    - ce sur quoi la mesure repose — nombre de livraisons, de merge requests retenues, de
+      pipelines de production, d'incidents résolus. Un chiffre sans son assise n'est pas
+      vérifiable, et c'est précisément ce qu'on archive
+
+    Pour une métrique `N/A` : écris `N/A`, puis la raison exacte donnée par la matière. Rien
+    d'autre — aucun commentaire sur ce que ça « suggère ».
+
+    Si le taux d'échec est mesuré, donne ses trois fenêtres et sa tendance : c'est la seule
+    métrique dont la matière porte l'évolution, et c'est ce qui rendra ce rapport utile
+    quand on relira le précédent à côté.
+
+    ## Ce qui a été mesuré, et comment
+
+    La méthode, reprise de la matière, en clair. Ce qui compte ici, ce sont les choix qui
+    changent le chiffre et qu'un lecteur ne devinerait pas :
+
+    - la fenêtre d'observation
+    - le fait que le lead time est une MÉDIANE et non une moyenne
+    - le périmètre du taux d'échec — les branches de production seulement
+    - la déduplication des livraisons par commit
+    - le seuil en dessous duquel on refuse de calculer plutôt que d'estimer
+
+    Deux rapports produits à six mois d'écart ne se comparent que si la méthode est la
+    même. Cette section n'est donc pas facultative.
+
+    ## Les limites de cette mesure
+
+    Ce que ce rapport ne couvre pas, repris de la matière sans rien y ajouter :
+
+    - la période RÉELLEMENT couverte si elle est plus courte que la fenêtre visée, et ce
+      qui a été tronqué
+    - les écarts connus avec la page « DORA Insights » de la plateforme, tels que la matière
+      les énonce
+    - les métriques `N/A`, et ce qu'il faudrait brancher pour qu'elles existent
+
+    Termine par une phrase qui dit ce que ce document n'est pas : ni une mesure de la valeur
+    d'une équipe, ni un élément de comparaison entre équipes.
+
+    Si la matière dit qu'aucun score n'est calculable, écris un rapport court qui le
+    constate et explique ce qui manque. Un rapport archivé qui inventerait des chiffres
+    ferait plus de dégâts qu'un rapport vide : personne ne saura le contester dans six mois.
