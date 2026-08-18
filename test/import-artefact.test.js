@@ -295,6 +295,19 @@ describe('le formulaire refuse ce qui n\'est pas rempli', () => {
     // Chaque refus porte son pourquoi : « isolement manquant » ne fait remplir personne.
     for (const p of r.refus) assert.ok(p.detail.length > 30, p.quoi);
   });
+
+  test('UN CHAMP VIDE ET UN CONFLIT NE SE PEIGNENT PAS PAREIL', () => {
+    /*
+     * Défaut vu à l'écran : les cinq champs non remplis se répétaient en bas de carte,
+     * mot pour mot, sous les champs qui portaient déjà la même phrase. La page doublait
+     * et les vrais problèmes — un outil hors registre, une écriture sans outil pour
+     * écrire — se noyaient dedans. `genre` les sépare : `vide` tient sur une ligne,
+     * `conflit` se déplie, parce qu'un conflit ne se lit nulle part ailleurs.
+     */
+    assert.ok(faire({}).refus.every((p) => p.genre === 'vide'));
+    const r = faire({ ...DECISIONS, outils: ['docker'] });
+    assert.deepEqual([...new Set(r.refus.map((p) => p.genre))], ['conflit']);
+  });
 });
 
 /* ── L'artefact produit ───────────────────────────────────────────────────── */

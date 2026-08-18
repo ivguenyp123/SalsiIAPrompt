@@ -450,7 +450,26 @@ function rendreVerdict(c) {
   const { artefact, refus: problemes } = fabriquer(c, d);
   const bloquants = problemes.filter((p) => p.bloquant);
 
-  for (const p of problemes) {
+  /*
+   * Les champs pas encore remplis tiennent sur UNE ligne.
+   *
+   * Leur raison est déjà écrite au-dessus, sur le champ lui-même. La répéter en bas
+   * doublait la hauteur de chaque carte et noyait les vrais problèmes — un outil hors
+   * registre, une écriture sans outil pour écrire — sous cinq blocs qui ne disaient rien
+   * de neuf. Ce qui se lit deux fois ne se lit pas.
+   */
+  const vides = problemes.filter((p) => p.genre === 'vide');
+  const conflits = problemes.filter((p) => p.genre !== 'vide');
+
+  if (vides.length) {
+    const box = el('div', { className: 'coherence flou' });
+    box.append(el('b', { textContent: `${vides.length} champ(s) à décider ci-dessus` }),
+      document.createTextNode('Tant qu\'il en reste un, la capacité n\'est pas gouvernable — '
+        + 'et ce qui n\'est pas gouvernable ne se dépose pas.'));
+    hote.append(box);
+  }
+
+  for (const p of conflits) {
     const box = el('div', { className: `coherence ${p.bloquant ? 'flou' : 'ko'}` });
     box.append(el('b', { textContent: p.quoi }), document.createTextNode(p.detail));
     hote.append(box);
