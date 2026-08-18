@@ -26,7 +26,9 @@ import { lancer } from '../runtime/lancer.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const lireY = (p) => yaml.load(readFileSync(join(ROOT, p), 'utf8'));
-const models = lireY('registries/models.yaml').models;
+const registreModeles = lireY('registries/models.yaml');
+const models = registreModeles.models;
+const fournisseurs = registreModeles.fournisseurs || {};
 
 const ENV = { DEEPSEEK_API_KEY: 'sk-secrete' };
 
@@ -173,8 +175,50 @@ describe('brancher un fournisseur n\'a touché à aucune règle', () => {
     // Le tarif vit sous le fournisseur. Au niveau du palier, il facturerait un appel
     // DeepSeek au prix de Gemini — un coût faux, affiché avec l'aplomb d'un coût mesuré.
     const jetons = { entree: 1_000_000, sortie: 100_000 };
-    assert.equal(typeof cout({ tier: 'mid', jetons, fournisseur: 'vertex' }, models), 'number');
-    assert.equal(cout({ tier: 'mid', jetons, fournisseur: 'deepseek' }, models), null);
+    const v = cout({ tier: 'mid', jetons, fournisseur: 'vertex' }, models);
+    const d = cout({ tier: 'mid', jetons, fournisseur: 'deepseek' }, models);
+    assert.equal(typeof v, 'number');
+    assert.equal(typeof d, 'number');
+    assert.notEqual(v, d, 'deux fournisseurs, deux additions');
+  });
+
+  test('un palier dont le tarif n\'a PAS été relevé rend `null`, pas zéro', () => {
+    /*
+     * `large` répond par `deepseek-reasoner`, dont le tarif n'a pas été lu : sur la
+     * capture de la grille officielle, l'en-tête des colonnes était hors cadre. Il aurait
+     * fallu le DÉDUIRE, et un tarif déduit dans un registre bancaire est exactement le
+     * genre de nombre plausible et faux que ce dépôt existe pour empêcher.
+     *
+     * Absent, l'écran affiche « tarif inconnu ». Zéro afficherait « gratuit ».
+     */
+    assert.equal(cout({ tier: 'large', jetons: { entree: 1e6, sortie: 1e6 },
+                        fournisseur: 'deepseek' }, models), null);
+  });
+
+  test('l\'heure de l\'appel change le tarif, et sans heure on prend le plus cher', () => {
+    /*
+     * DeepSeek facture le DOUBLE en heures pleines — 01:00-04:00 et 06:00-10:00 UTC. Un
+     * tarif unique se serait trompé d'un facteur deux la moitié du temps.
+     *
+     * Sans heure — une estimation avant lancement, un plan de banc — on applique le
+     * plein : majorant, jamais minorant. Un coût annoncé sous la réalité dans un outil
+     * qui se vend sur le FinOps est pire qu'un coût absent.
+     */
+    const j = { entree: 1e6, sortie: 1e6 };
+    const arg = (quand) => cout({ tier: 'mid', jetons: j, fournisseur: 'deepseek', quand },
+                                 models, fournisseurs);
+    const plein = arg(new Date('2026-08-18T02:00:00Z'));
+    const creux = arg(new Date('2026-08-18T14:00:00Z'));
+
+    assert.equal(plein, 0.44 + 1.32);
+    assert.equal(creux, 0.22 + 0.66);
+    assert.equal(creux, plein / 2, 'le creux est la moitié du plein, comme la grille le dit');
+    assert.equal(arg(null), plein, 'sans heure, le majorant');
+
+    // 04:00 pile n'est plus une heure pleine : « 01:00 - 04:00 » a une borne haute
+    // exclue, sinon deux plages contiguës compteraient deux fois la même heure.
+    assert.equal(arg(new Date('2026-08-18T04:00:00Z')), creux);
+    assert.equal(arg(new Date('2026-08-18T09:59:00Z')), plein);
   });
 
   test('un tarif inconnu ne devient pas zéro le jour où on le déclare', () => {

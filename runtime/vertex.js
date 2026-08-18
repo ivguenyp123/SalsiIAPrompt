@@ -226,11 +226,50 @@ export function createVertex({ env = process.env, models = [], fetchImpl = globa
  * d'un coût mesuré. `null` quand le tarif n'est pas déclaré : l'écran dit alors « tarif
  * inconnu », ce qui est exact, plutôt que zéro, qui serait une mesure.
  */
-export function cout({ tier, jetons, fournisseur = 'vertex' }, models = []) {
+export function cout({ tier, jetons, fournisseur = 'vertex', quand = null },
+                     models = [], fournisseurs = {}) {
   const tarif = models.find((m) => m.tier === tier)?.tarifs?.[fournisseur];
   if (!tarif || !jetons) return null;
-  return (jetons.entree / 1e6) * (tarif.entree_mtok || 0)
-       + (jetons.sortie / 1e6) * (tarif.sortie_mtok || 0);
+
+  const g = enCreux(quand, fournisseurs?.[fournisseur]?.heures_pleines_utc)
+    ? (tarif.creux || tarif)
+    : tarif;
+
+  return (jetons.entree / 1e6) * (g.entree_mtok || 0)
+       + (jetons.sortie / 1e6) * (g.sortie_mtok || 0);
 }
 
-export default { createVertex, identifiants, signer, modelePour, cout, VertexError };
+/**
+ * L'appel tombe-t-il HORS des heures pleines du fournisseur ?
+ *
+ * ── POURQUOI L'HEURE ENTRE DANS UN CALCUL DE COÛT ───────────────────────────
+ *
+ * DeepSeek facture le DOUBLE en heures pleines : « Off-peak rates are half of the peak
+ * rates. Peak hours are 01:00 - 04:00 and 06:00 - 10:00 UTC ». Un tarif unique se serait
+ * donc trompé d'un facteur deux la moitié du temps — dans un sens ou dans l'autre selon
+ * le nombre retenu, et sans jamais le dire.
+ *
+ * On ne moyenne pas : une moyenne serait fausse à chaque appel pris isolément, et c'est
+ * appel par appel que le journal enregistre. L'heure est une donnée qu'on a ; le calcul
+ * la lit.
+ *
+ * ── ET SANS HEURE, ON PREND LE PLEIN ────────────────────────────────────────
+ *
+ * `quand` absent — une estimation avant lancement, un plan de banc — rend `false` : le
+ * tarif plein s'applique. Majorant, jamais minorant. Un coût annoncé sous la réalité,
+ * dans un outil qui se vend sur le FinOps, est pire qu'un coût absent.
+ *
+ * En UTC, jamais en heure locale : c'est le fournisseur qui facture, pas le poste de
+ * celui qui lance.
+ */
+export function enCreux(quand, plages) {
+  if (!quand || !Array.isArray(plages) || plages.length === 0) return false;
+  const d = quand instanceof Date ? quand : new Date(quand);
+  if (Number.isNaN(d.getTime())) return false;
+  const h = d.getUTCHours();
+  // Bornes : `[1, 4]` couvre 01:00 à 03:59. À 04:00 le tarif creux reprend — c'est ce que
+  // « 01:00 - 04:00 » veut dire d'une plage horaire.
+  return !plages.some(([debut, fin]) => h >= debut && h < fin);
+}
+
+export default { createVertex, identifiants, signer, modelePour, cout, enCreux, VertexError };

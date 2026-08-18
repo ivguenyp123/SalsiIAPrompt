@@ -110,7 +110,7 @@ export async function executer(requete = {}, deps = {}) {
 
 /** Le travail réel. `trace` recueille ce que le journal ne peut pas lire dans la sortie. */
 async function conduire(requete = {}, deps = {}, trace = {}) {
-  const { charger, banque, registres, models = [], creerVertex, lireEntree,
+  const { charger, banque, registres, models = [], fournisseurs = {}, creerVertex, lireEntree,
           derive = null, briques = [] } = deps;
   const id = String(requete.id || '');
 
@@ -186,7 +186,7 @@ async function conduire(requete = {}, deps = {}, trace = {}) {
    * et son propre contrat, et celui qui viole le sien arrête tout.
    */
   if (artifact.kind === 'chain') {
-    return await deroulerChaine(artifact, { valeurs, contexte, vertex, models, briques,
+    return await deroulerChaine(artifact, { valeurs, contexte, vertex, models, fournisseurs, briques,
                                             assume: requete.assume === true, cas: joue });
   }
 
@@ -194,7 +194,8 @@ async function conduire(requete = {}, deps = {}, trace = {}) {
   try {
     // `assume` n'a pas de valeur par défaut permissive : c'est la case cochée par un
     // humain, transmise telle quelle. Sans elle, P007 refuse et c'est le but.
-    r = await lancer(artifact, { vertex, valeurs, contexte, models, assume: requete.assume === true });
+    r = await lancer(artifact, { vertex, valeurs, contexte, models, fournisseurs,
+                                 assume: requete.assume === true });
   } catch (error) {
     // Une erreur Vertex porte son statut : la relayer permet à l'écran de distinguer
     // un quota d'une clé refusée, au lieu d'afficher « échec » pour les deux.
@@ -282,7 +283,7 @@ function prevolDesEtapes(artefact, parId, contexte) {
            raisons: constats.filter((c) => c.confirme) };
 }
 
-async function deroulerChaine(artefact, { valeurs, contexte, vertex, models, briques,
+async function deroulerChaine(artefact, { valeurs, contexte, vertex, models, fournisseurs = {}, briques,
                                           assume, cas }) {
   const parId = new Map(briques.map((a) => [a.id, a]));
 
@@ -316,7 +317,7 @@ async function deroulerChaine(artefact, { valeurs, contexte, vertex, models, bri
     }
     const rep = await vertex.generer({ prompt, tier: cible.model_tier || 'mid' });
     return { sortie: rep.texte, jetons: rep.jetons, modele: rep.modele,
-             cout: cout(rep, models), motifArret: rep.motifArret };
+             cout: cout({ ...rep, quand: new Date() }, models, fournisseurs), motifArret: rep.motifArret };
   };
 
   let passage;

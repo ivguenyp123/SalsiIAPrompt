@@ -63,7 +63,9 @@ const registres = {
   entrees: load('entrees/index.yaml'),
   validateArtifact: makeValidator(JSON.parse(readFileSync(join(ROOT, 'schema/artifact.schema.json'), 'utf8')))
 };
-const models = load('registries/models.yaml').models;
+const registreModeles = load('registries/models.yaml');
+const models = registreModeles.models;
+const fournisseurs = registreModeles.fournisseurs || {};
 
 /*
  * L'état dérivé EXISTANT est relu avant de partir : le passage doit s'y AJOUTER. Écraser
@@ -244,7 +246,8 @@ for (const artifact of lot) {
 
     try {
       const r = await moteur.generer({ prompt, tier: artifact.model_tier || 'mid' });
-      return { sortie: r.texte, jetons: r.jetons, modele: r.modele, cout: cout(r, models) };
+      return { sortie: r.texte, jetons: r.jetons, modele: r.modele,
+               cout: cout({ ...r, quand: new Date() }, models, fournisseurs) };
     } catch (error) {
       return { erreur: `${error.message}${error instanceof VertexError && error.status ? ` (HTTP ${error.status})` : ''}` };
     }

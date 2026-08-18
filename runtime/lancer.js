@@ -144,7 +144,8 @@ export function resoluesDepuisContexte(contexte = {}) {
  * @returns {{prevol, prompt, sortie, postvol, cout, modele, jetons}}
  */
 export async function lancer(artifact, { vertex, valeurs = {}, contexte = {},
-                                         models = [], assume = false } = {}) {
+                                         models = [], fournisseurs = {},
+                                         assume = false } = {}) {
   /*
    * Le pré-vol AVANT le premier jeton dépensé. C'est toute sa raison d'être : refuser
    * après l'appel coûterait le prix de l'appel et aurait laissé le prompt partir.
@@ -238,7 +239,12 @@ export async function lancer(artifact, { vertex, valeurs = {}, contexte = {},
     modele: reponse.modele,
     jetons: reponse.jetons,
     motifArret: reponse.motifArret,
-    cout: cout(reponse, models),
+    /*
+     * L'heure de l'appel entre dans le coût : DeepSeek facture le double en heures
+     * pleines. Sans elle, on afficherait le tarif plein en permanence — faux d'un
+     * facteur deux la moitié du temps, et faux dans le sens qui rassure.
+     */
+    cout: cout({ ...reponse, quand: new Date() }, models, fournisseurs),
     postvol: apres
   };
 }

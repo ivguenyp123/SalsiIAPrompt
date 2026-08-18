@@ -164,9 +164,18 @@ function dependances() {
     entrees: lire('entrees/index.yaml'),
     validateArtifact: makeValidator(JSON.parse(readFileSync(join(ROOT, 'schema/artifact.schema.json'), 'utf8')))
   };
-  const models = lire('registries/models.yaml').models;
+  const registreModeles = lire('registries/models.yaml');
+  const models = registreModeles.models;
+  /*
+   * Les heures pleines du fournisseur voyagent à côté des paliers.
+   *
+   * DeepSeek facture le double entre 01:00-04:00 et 06:00-10:00 UTC. Sans cette
+   * déclaration, `cout()` applique le tarif plein en permanence — un majorant honnête,
+   * mais faux d'un facteur deux la moitié du temps.
+   */
+  const fournisseurs = registreModeles.fournisseurs || {};
   return {
-    registres, models,
+    registres, models, fournisseurs,
     banque: registres.entrees,
     // L'identifiant vient de la requête : il ne sert qu'à choisir un fichier dans une
     // liste de dossiers connus, jamais à composer un chemin.

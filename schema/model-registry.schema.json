@@ -83,8 +83,28 @@
                   "sortie_mtok": {
                     "type": "number",
                     "minimum": 0
+                  },
+                  "creux": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "entree_mtok",
+                      "sortie_mtok"
+                    ],
+                    "description": "Le tarif HORS heures pleines — DeepSeek le divise par deux. Absent, le tarif plein s'applique en permanence : majorant honnête, mais faux d'un facteur deux la moitié du temps. Déclaré ici et non chez Vertex, qui ne pratique pas de tarif horaire : une clé inutilisée dans un registre finit par être remplie au hasard.",
+                    "properties": {
+                      "entree_mtok": {
+                        "type": "number",
+                        "minimum": 0
+                      },
+                      "sortie_mtok": {
+                        "type": "number",
+                        "minimum": 0
+                      }
+                    }
                   }
-                }
+                },
+                "description": "Tarif au million de jetons chez DeepSeek. L'entrée est celle du CACHE MISS : notre couche ne sait pas si le cache a servi, et un coût affiché sous la réalité est pire qu'un coût absent."
               }
             }
           },
@@ -96,6 +116,38 @@
           }
         },
         "description": "Un palier, et le modèle réel derrière chez chaque fournisseur. Les colonnes de coût ne sont renseignées que là où le tarif a été vérifié : un coût inventé s'afficherait avec l'aplomb d'un coût mesuré."
+      }
+    },
+    "fournisseurs": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Ce qui appartient au FOURNISSEUR et non au palier. Un tarif horaire ne se déclare pas quatre fois — une par palier — sous peine de diverger au premier changement de grille.",
+      "properties": {
+        "deepseek": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "releve_le": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "Date du relevé de la grille officielle. Un tarif se périme ; sans date, personne ne sait s'il faut le revérifier."
+            },
+            "heures_pleines_utc": {
+              "type": "array",
+              "description": "Les plages où le fournisseur facture le tarif plein, en heures UTC [début, fin[. Hors de ces plages, `tarifs.deepseek.creux` s'applique. En UTC parce que c'est le fournisseur qui facture, pas le poste de celui qui lance.",
+              "items": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 24
+                }
+              }
+            }
+          }
+        }
       }
     }
   }

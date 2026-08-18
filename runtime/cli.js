@@ -57,7 +57,9 @@ const registres = {
   entrees: load('entrees/index.yaml'),
   validateArtifact: makeValidator(JSON.parse(readFileSync(join(ROOT, 'schema/artifact.schema.json'), 'utf8')))
 };
-const models = load('registries/models.yaml').models;
+const registreModeles = load('registries/models.yaml');
+const models = registreModeles.models;
+const fournisseurs = registreModeles.fournisseurs || {};
 
 /* ── Les valeurs : du cas d'or, ou de la ligne de commande ─────────────────── */
 
@@ -117,7 +119,7 @@ console.log(`  via       ${moteur.fournisseur} · ${moteur.ou}`);
 
 let r;
 try {
-  r = await lancer(artifact, { vertex: moteur, valeurs, contexte, models,
+  r = await lancer(artifact, { vertex: moteur, valeurs, contexte, models, fournisseurs,
                                assume: options.assume === true || options.assume === 'oui' });
 } catch (error) {
   const detail = error instanceof VertexError && error.status ? ` (HTTP ${error.status})` : '';

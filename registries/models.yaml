@@ -17,9 +17,39 @@
 # Un tarif au niveau du palier serait applique a n'importe qui : un appel DeepSeek
 # facture au tarif Vertex afficherait un coût faux avec l'aplomb d'un coût mesuré.
 #
-# `tarifs.deepseek` est donc ABSENT, volontairement : je n'ai pas vérifié ces prix.
-# Tant qu'il manque, l'écran affiche « tarif inconnu » — ce qui est exact. Deux nombres
-# pris dans la console DeepSeek suffisent à le remplir, et le coût apparaîtra seul.
+# `tarifs.deepseek` est RENSEIGNÉ depuis la grille officielle, relevée le 2026-08-18 dans
+# la console du compte. Deux précautions, parce qu'un tarif DeepSeek n'est pas UN nombre :
+#
+#   CACHE HIT / CACHE MISS  l'entrée coûte trente fois moins cher quand le préfixe est
+#                           déjà en cache (0,014 contre 0,44 le million). On retient le
+#                           CACHE MISS : notre couche ne sait pas si le cache a servi, et
+#                           un coût affiché sous la réalité, dans un outil qui se vend sur
+#                           le FinOps, est pire qu'un coût absent.
+#   PLEIN / CREUX           le tarif est DIVISÉ PAR DEUX hors heures pleines. Les deux
+#                           sont déclarés : `cout()` lit l'heure de l'appel et applique le
+#                           bon. Sans heure, il applique le plein — majorant, jamais
+#                           minorant.
+#
+# `large` reste sans tarif DeepSeek, et c'est délibéré : sur la capture d'écran de la
+# grille, l'en-tête des colonnes était hors cadre. Le tarif de `deepseek-reasoner` n'a donc
+# pas été LU, il aurait été déduit. Il manque, l'écran dira « tarif inconnu » pour ce
+# palier, et c'est exact.
+
+# ── LES HEURES PLEINES, TELLES QUE LA GRILLE LES DÉCLARE ─────────────────────
+#
+# « Off-peak rates are half of the peak rates. Peak hours are 01:00 - 04:00 and
+#   06:00 - 10:00 UTC (all other hours are off-peak). »
+#
+# En UTC, jamais en heure locale : c'est le fournisseur qui facture, pas nous.
+fournisseurs:
+  deepseek:
+    # Entre guillemets : notre analyseur YAML rend une chaîne là où js-yaml rend un
+    # objet Date, et `test/conformance.test.js` compare les deux lectures. Une date de
+    # relevé est de toute façon une étiquette, pas un instant à calculer.
+    releve_le: "2026-08-18"
+    heures_pleines_utc:
+      - [1, 4]
+      - [6, 10]
 
 # ── LE PLAFOND DE SORTIE APPARTIENT AU PALIER ────────────────────────────────
 #
@@ -44,6 +74,11 @@ models:
     description: Classer, extraire, reformater. Aucun raisonnement attendu.
     tarifs:
       vertex: { entree_mtok: 0.10, sortie_mtok: 0.40 }
+      # deepseek-chat. Entrée en CACHE MISS. `creux` = hors heures pleines, moitié prix.
+      deepseek:
+        entree_mtok: 0.44
+        sortie_mtok: 1.32
+        creux: { entree_mtok: 0.22, sortie_mtok: 0.66 }
 
   - tier: small
     max_sortie: 4096
@@ -52,6 +87,11 @@ models:
     description: Rédiger court, résumer, expliquer un morceau de code isolé.
     tarifs:
       vertex: { entree_mtok: 0.30, sortie_mtok: 2.50 }
+      # deepseek-chat. Entrée en CACHE MISS. `creux` = hors heures pleines, moitié prix.
+      deepseek:
+        entree_mtok: 0.44
+        sortie_mtok: 1.32
+        creux: { entree_mtok: 0.22, sortie_mtok: 0.66 }
 
   - tier: mid
     max_sortie: 8192
@@ -62,6 +102,11 @@ models:
       se joue la majorité du catalogue.
     tarifs:
       vertex: { entree_mtok: 0.30, sortie_mtok: 2.50 }
+      # deepseek-chat. Entrée en CACHE MISS. `creux` = hors heures pleines, moitié prix.
+      deepseek:
+        entree_mtok: 0.44
+        sortie_mtok: 1.32
+        creux: { entree_mtok: 0.22, sortie_mtok: 0.66 }
 
   - tier: large
     max_sortie: 16384
