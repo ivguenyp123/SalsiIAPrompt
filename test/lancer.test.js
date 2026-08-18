@@ -297,12 +297,12 @@ describe('lancer un artefact', () => {
     const ecrit = load('artifacts/prep-delivery.yaml');
     const v = faux('ok');
     const sans = await lancer(ecrit, { vertex: v, models,
-      valeurs: { repo: 'demo', stack: 'java' }, contexte: contexteOk() });
+      valeurs: { plan_de_livraison: 'Plan de livraison — demo' }, contexte: contexteOk() });
     assert.equal(sans.refuse, true);
     assert.match(sans.raison, /confirmation humaine/);
 
     const avec = await lancer(ecrit, { vertex: v, models, assume: true,
-      valeurs: { repo: 'demo', stack: 'java' }, contexte: contexteOk() });
+      valeurs: { plan_de_livraison: 'Plan de livraison — demo' }, contexte: contexteOk() });
     assert.equal(avec.refuse, false);
   });
 

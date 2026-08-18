@@ -113,7 +113,7 @@ describe('aucun contrôle ne saute parce qu\'on passe par l\'API', () => {
     // C'est LE test. Si l'API contournait P007, il suffirait d'appeler l'API au lieu de
     // cliquer, et « l'humain valide » redeviendrait une intention.
     const req = { id: 'prep-delivery', sensibilite: 'interne', criticite: 'test',
-                  valeurs: { repo: 'demo', stack: 'java' } };
+                  valeurs: { plan_de_livraison: 'Plan de livraison — demo' } };
     const sans = await executer(req, deps());
     assert.equal(sans.status, 409);
     assert.equal(sans.corps.refuse, true);
@@ -127,7 +127,7 @@ describe('aucun contrôle ne saute parce qu\'on passe par l\'API', () => {
   test('`assume` n\'a aucune valeur par défaut permissive', async () => {
     // Une chaîne, un 1, un objet : rien d'autre que `true` ne doit ouvrir la porte.
     const req = { id: 'prep-delivery', sensibilite: 'interne',
-                  valeurs: { repo: 'demo', stack: 'java' } };
+                  valeurs: { plan_de_livraison: 'Plan de livraison — demo' } };
     for (const valeur of ['oui', 'true', 1, {}, [], 'assume']) {
       const r = await executer({ ...req, assume: valeur }, deps());
       assert.equal(r.status, 409, `assume=${JSON.stringify(valeur)} a ouvert la porte`);

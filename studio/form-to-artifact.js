@@ -42,6 +42,21 @@ function asType(value, type) {
     const n = Number(value);
     return Number.isNaN(n) ? value : n;                // on laisse passer : L009 tranchera
   }
+  /*
+   * `array` manquait, et son absence cassait l'aller-retour d'édition.
+   *
+   * Une cible de type `array` — `output.sections`, `output.json_keys` — ressortait du
+   * formulaire en chaîne, L009 refusait « attendu array, reçu string », et l'artefact
+   * était BLOQUÉ par une republication où l'on n'avait rien changé. Une ligne par élément,
+   * symétrique de ce qu'écrit `artifact-to-form`.
+   *
+   * Les lignes vides sautent : elles viennent d'un retour à la ligne de trop dans un champ
+   * de saisie, jamais d'une section qui s'appellerait « ».
+   */
+  if (type === 'array') {
+    if (Array.isArray(value)) return value;
+    return String(value ?? '').split('\n').map((l) => l.trim()).filter(Boolean);
+  }
   return typeof value === 'string' ? value : String(value ?? '');
 }
 

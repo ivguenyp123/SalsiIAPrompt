@@ -36,6 +36,50 @@ export const FICHIERS_CI = ['.gitlab-ci.yml', '.gitlab-ci.yaml', '.github/workfl
 
 export const BUMPS = ['major', 'minor', 'patch'];
 
+/*
+ * ── L'ENVIRONNEMENT, ET POURQUOI IL EST LU PLUTÔT QUE SAISI ──────────────────
+ *
+ * Le module d'origine liste ses overlays EN DUR :
+ *
+ *     'Manifests/overlays/development/kustomization.yaml',
+ *     'Manifests/overlays/uat/kustomization.yaml'
+ *
+ * Deux environnements, écrits une fois pour toutes. Une équipe qui ajoute `preprod` voit
+ * sa CI bumpée et son overlay laissé derrière — l'incohérence la plus chère, parce
+ * qu'elle ne se voit qu'au déploiement.
+ *
+ * Ici les overlays sont DÉCOUVERTS dans l'arbre, et leur environnement se lit dans leur
+ * chemin. La liste proposée à l'écran est donc celle du dépôt, pas la nôtre : personne
+ * n'a à taper un nom d'environnement, et personne ne peut en taper un qui n'existe pas.
+ *
+ * On ne reconnaît QUE la convention `overlays/<env>/`. Un dépôt qui range autrement n'a
+ * pas d'environnement nommé, l'écran le dit, et le filtre reste inerte — plutôt que de
+ * deviner qu'un répertoire quelconque serait un environnement et de filtrer sur ce
+ * pressentiment.
+ */
+const SEGMENT_OVERLAYS = /^overlays?$/i;
+
+/** L'environnement d'un overlay : `Manifests/overlays/uat/kustomization.yaml` → `uat`. */
+export function environnementDe(chemin) {
+  const bouts = String(chemin || '').split('/');
+  for (let i = 0; i < bouts.length - 1; i++) {
+    if (SEGMENT_OVERLAYS.test(bouts[i]) && bouts[i + 1] && !KUSTOMIZATION_RX.test(bouts[i + 1])) {
+      return bouts[i + 1];
+    }
+  }
+  return '';                              // base, racine, ou toute autre disposition
+}
+
+/** Les environnements présents dans une liste de chemins, dédoublonnés et triés. */
+export function environnements(chemins = []) {
+  const vus = new Set();
+  for (const c of chemins) {
+    const e = environnementDe(c);
+    if (e) vus.add(e);
+  }
+  return [...vus].sort();
+}
+
 /**
  * Incrémente une version SemVer.
  * @returns {string} la version cible, ou '' si l'entrée n'est pas du SemVer
@@ -81,12 +125,15 @@ export function reecrireOverlay(contenu, cible) {
  *   @param {string} entree.branche       branche source
  *   @param {string} entree.brancheCible  branche de destination (défaut du dépôt)
  *   @param {string} entree.bump          major | minor | patch
+ *   @param {string} entree.environnement  ne bumper que cet environnement ; '' = tous
  *   @param {{path:string, content:string}|null} entree.ci       le fichier de CI trouvé
  *   @param {Array<{path:string, content:string}>} entree.overlays  les kustomization lus
  * @returns {{ok, raison, courante, cible, fichiers, message, titreMR}}
  */
-export function planifier({ branche, brancheCible = 'main', bump = 'patch', ci, overlays = [] } = {}) {
-  const refus = (raison) => ({ ok: false, raison, fichiers: [], courante: '', cible: '' });
+export function planifier({ branche, brancheCible = 'main', bump = 'patch', environnement = '',
+                            ci, overlays = [] } = {}) {
+  const refus = (raison) => ({ ok: false, raison, fichiers: [], courante: '', cible: '',
+                               environnement, ecartes: [] });
 
   if (!branche) return refus('Aucune branche source choisie.');
   if (branche === brancheCible) {
@@ -107,10 +154,35 @@ export function planifier({ branche, brancheCible = 'main', bump = 'patch', ci, 
   const nouveauCI = reecrireCI(ci.content, cible);
   if (nouveauCI !== ci.content) fichiers.push({ path: ci.path, content: nouveauCI, quoi: 'IMAGE_TAG' });
 
+  /*
+   * Ce que le filtre laisse de côté est COMPTÉ, jamais escamoté.
+   *
+   * Livrer `uat` seul laisse le `newTag` de `production` à l'ancienne version. C'est le
+   * réglage qui le veut — mais un plan qui montrerait « 2 fichiers » sans dire que trois
+   * overlays existent laisserait croire à une livraison complète. Le nom des écartés
+   * remonte donc jusqu'au texte que lit l'humain, et jusqu'à celui que lit l'agent.
+   */
+  const ecartes = [];
   for (const o of overlays) {
     const nouveau = reecrireOverlay(o.content, cible);
     // Seuls les fichiers réellement modifiés entrent au commit.
-    if (nouveau !== o.content) fichiers.push({ path: o.path, content: nouveau, quoi: 'overlay' });
+    const changerait = nouveau !== o.content;
+
+    if (environnement && environnementDe(o.path) !== environnement) {
+      /*
+       * « Laissé en arrière » veut dire QUELQUE CHOSE, et il faut que ça reste vrai.
+       *
+       * Un `kustomization` de base ne porte ni `newTag` ni `APP_VERSION` : il ne serait
+       * pas modifié même sans filtre. Le compter parmi les écartés faisait dire au plan
+       * « 3 overlays gardent l'ancienne version » là où deux étaient concernés — une
+       * alarme sur un fichier que la livraison n'aurait de toute façon pas touché.
+       *
+       * Vu à l'écran, sur un dépôt d'essai rangé en `base/` + `overlays/`.
+       */
+      if (changerait) ecartes.push(o.path);
+      continue;
+    }
+    if (changerait) fichiers.push({ path: o.path, content: nouveau, quoi: 'overlay' });
   }
 
   /*
@@ -127,8 +199,12 @@ export function planifier({ branche, brancheCible = 'main', bump = 'patch', ci, 
     courante,
     cible,
     fichiers,
-    message: `[Livraison] Bump IMAGE_TAG → ${cible}`,
-    titreMR: `release ${cible}`,
+    environnement,
+    ecartes,
+    message: environnement
+      ? `[Livraison] Bump IMAGE_TAG → ${cible} (${environnement})`
+      : `[Livraison] Bump IMAGE_TAG → ${cible}`,
+    titreMR: environnement ? `release ${cible} — ${environnement}` : `release ${cible}`,
     overlaysTouches: fichiers.filter((f) => f.quoi === 'overlay').length
   };
 }
@@ -136,9 +212,12 @@ export function planifier({ branche, brancheCible = 'main', bump = 'patch', ci, 
 /** Résumé d'une ligne, pour la confirmation humaine. */
 export function resumer(plan, { branche, brancheCible }) {
   if (!plan.ok) return plan.raison;
+  const portee = plan.environnement ? ` · ${plan.environnement} seul` : '';
+  const laisses = plan.ecartes?.length ? ` · ${plan.ecartes.length} overlay(s) laissé(s) en arrière` : '';
   return `${branche} → ${brancheCible} · IMAGE_TAG ${plan.courante} → ${plan.cible} · `
-       + `${plan.fichiers.length} fichier(s), dont ${plan.overlaysTouches} overlay(s)`;
+       + `${plan.fichiers.length} fichier(s), dont ${plan.overlaysTouches} overlay(s)${portee}${laisses}`;
 }
 
 export default { bumpVersion, versionCourante, reecrireCI, reecrireOverlay, planifier, resumer,
+                 environnementDe, environnements,
                  BUMPS, FICHIERS_CI, IMAGE_TAG_RX, KUSTOMIZATION_RX };

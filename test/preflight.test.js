@@ -26,14 +26,14 @@ const registres = {
   validateArtifact: makeValidator(JSON.parse(readFileSync(join(ROOT, 'schema/artifact.schema.json'), 'utf8')))
 };
 
-/** `prep-delivery` : officiel, Plateforme, 2 variables requises, 2 outils d'écriture. */
+/** `prep-delivery` : officiel, Plateforme, une matière calculée, 2 outils d'écriture. */
 const officiel = () => loadYaml(join(ROOT, 'artifacts/prep-delivery.yaml'));
 
 /** Un contexte d'exécution qui passe : c'est de lui qu'on fera varier une chose à la fois. */
 const contexteOk = (extra = {}) => ({
   registres,
   depot: { path: 'plateforme/demo-spring', scope: 'Plateforme', sensibilite: 'interne' },
-  valeurs: { repo: 'demo-spring', stack: 'java' },
+  valeurs: { plan_de_livraison: 'Plan de livraison — demo-spring\n1.4.2 → 1.4.3' },
   criticite: 'test',
   ...extra
 });
@@ -128,12 +128,12 @@ describe('P002 — la sensibilité est le contrôle qui ne peut exister qu\'ici'
 
 describe('P003 — une variable manquante coûte moins cher avant qu\'après', () => {
   test('une variable requise non résolue refuse le départ', () => {
-    const r = prevol(officiel(), contexteOk({ valeurs: { repo: 'demo-spring' } }));  // `stack` manque
+    const r = prevol(officiel(), contexteOk({ valeurs: {} }));  // `plan_de_livraison` manque
     assert.ok(codes(r, ERROR).includes('P003'));
   });
 
   test('une chaîne vide ne compte pas comme une valeur', () => {
-    const r = prevol(officiel(), contexteOk({ valeurs: { repo: 'demo-spring', stack: '   ' } }));
+    const r = prevol(officiel(), contexteOk({ valeurs: { plan_de_livraison: '   ' } }));
     assert.ok(codes(r, ERROR).includes('P003'));
   });
 

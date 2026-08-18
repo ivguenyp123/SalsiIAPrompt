@@ -19,6 +19,7 @@ import { SOURCES, sourceProbable, estUnIdentifiant, chercher as chercherFichier,
 import { rendre as rendreMd, ressembleADuMarkdown, lienSur } from '../lib/md.js';
 import { rapportHtml, nomFichier } from '../lib/rapport.js';
 import { sait as saitCalculer, surPlusieursDepots, surUneMr, listeDeChoix, zonesDepuisArbre,
+         reglagesDe, reglagesComplets,
          repartitionContributions, inventaireBranches, resumeCourt, resumeBranches,
          FENETRE, MAX_ZONES_INTERROGEES } from '../lib/signaux-matiere.js';
 import { fichierSuspect, MAX_FICHIERS_LUS, rapportSecrets, resumeSecrets,
@@ -42,8 +43,11 @@ import { BRANCHE as BRANCHE_CORRECTIFS, fichiersAProposer, aProposer,
 import { indexer, chercher, etiquettes, porteEtiquettes } from '../lib/recherche.js';
 import { ETAPES, VU, jouables, placer } from '../lib/tour.js';
 import { niveau, pastille } from '../lib/niveau.js';
-import { BUMPS } from '../runtime/livraison.js';
-import { preparer as preparerLivraison, executer as executerLivraison } from '../runtime/executer.js';
+import { planDeLivraison, resumeLivraison,
+         MAX_RUNS as MAX_RUNS_LIVRAISON } from '../lib/signaux-livraison.js';
+import { BUMPS, environnements as environnementsDe, KUSTOMIZATION_RX } from '../runtime/livraison.js';
+import { preparer as preparerLivraison, executer as executerLivraison,
+         lireLivraison } from '../runtime/executer.js';
 import { knownScopes, guessScope } from '../app/scopes.js';
 import { contexteDepot } from '../lib/repos.js';
 import { dossier as dossierMien } from '../lib/mien.js';
@@ -916,9 +920,9 @@ async function arbre(depot) {
  * `app/forge.js` : rien ici ne connaît GitHub ni GitLab, et c'est ce qui garantit que ça
  * marchera sur l'un comme sur l'autre.
  */
-async function matiereCalculee(nom, depot) {
+async function matiereCalculee(nom, depot, reglages = {}) {
   const calcul = CALCULS[nom];
-  return calcul ? calcul(depot) : null;
+  return calcul ? calcul(depot, reglages) : null;
 }
 
 /*
@@ -946,7 +950,16 @@ const CALCULS = {
    */
   activite_du_jour: (depot) => matiereDaily(depot, FENETRES.semaine),
   rapport_depot: (depot) => matiereDepot(depot),
-  parc_securite: (depots) => matiereParc(depots)
+  parc_securite: (depots) => matiereParc(depots),
+  /*
+   * Le seul signal qui reçoit un SECOND argument : ce que l'humain a décidé de livrer.
+   *
+   * Les neuf autres ne dépendent que du dépôt — deux personnes qui les lancent sur le même
+   * dépôt obtiennent la même matière. Une livraison, non : la même branche livrée en
+   * `major` ou en `patch` n'est pas la même livraison, et le même dépôt livré sur `uat`
+   * ou sur `production` ne touche pas les mêmes fichiers.
+   */
+  plan_de_livraison: (depot, reglages) => matiereLivraison(depot, reglages)
 };
 
 /** Le résumé d'une ligne, par signal. Sans entrée ici, l'écran n'afficherait rien. */
@@ -959,7 +972,8 @@ const RESUMES = {
   chiffres_dora: resumeDora,
   activite_du_jour: resumeDaily,
   rapport_depot: resumeDepot,
-  parc_securite: resumeParc
+  parc_securite: resumeParc,
+  plan_de_livraison: resumeLivraison
 };
 
 async function matiereContributions(depot) {
@@ -1147,6 +1161,9 @@ async function matiereDora(depot) {
 const MAX_RUNS_LISTES = 60;
 const MAX_ECHECS_LISTES = 12;
 
+/** Combien de déploiements on lit pour en montrer cinq — voir `matiereLivraison`. */
+const LIRE_DEPLOIEMENTS = 100;
+
 /*
  * Où vit la configuration de CI, selon la forge.
  *
@@ -1289,6 +1306,59 @@ async function matiereDaily(depot, fenetreJours = 7) {
 }
 
 /**
+ * Le plan d'une livraison, sur la branche et l'environnement que l'humain a choisis.
+ *
+ * ── LE MÊME CODE QUE LE BOUTON « 🚚 LIVRER », ET C'EST TOUT L'INTÉRÊT ────────
+ *
+ * `preparerLivraison` est la fonction que le module d'écriture appelle avant de commiter.
+ * On l'appelle ICI aussi, telle quelle, pour construire la matière de l'agent. Le plan que
+ * l'agent explique est donc, à la lecture près, le plan que le module exécutera.
+ *
+ * Réimplémenter le bump pour la démonstration aurait produit deux vérités : celle que
+ * l'agent raconte et celle qui part dans le dépôt. Elles auraient tenu quelques semaines,
+ * puis divergé sur un détail — un overlay de plus, un format de tag — et l'agent aurait
+ * continué à décrire avec aplomb une livraison qui n'a pas lieu.
+ *
+ * Le reste — merge request, pipelines, déploiements, écosystèmes — est du CONTEXTE : ce
+ * qu'un relecteur regarderait avant de dire oui, et que le module n'a pas à connaître pour
+ * écrire un tag.
+ */
+async function matiereLivraison(depot, { branche = '', environnement = '', bump = 'patch' } = {}) {
+  /*
+   * Le contexte est lu en parallèle du dépôt, et chaque lecture peut échouer SEULE.
+   *
+   * Une forge qui refuse les déploiements — c'est le cas d'un GitLab sans environnements
+   * déclarés — ne doit pas emporter le plan avec elle. Ce qui manque est dit dans le
+   * texte ; ce qui manque ET fait tout échouer ne dit rien du tout.
+   */
+  const [lu, mrs, runs, deploiements, chemins] = await Promise.all([
+    lireLivraison(forge, depot, { branche }),
+    forge.listPullRequests(depot, { etat: 'ouvertes' }).catch(() => []),
+    forge.listRuns(depot, { perPage: MAX_RUNS_LIVRAISON }).catch(() => []),
+    /*
+     * On en LIT plus qu'on n'en montre, et c'est voulu : filtrer sur un environnement
+     * dans une page de cinq déploiements rendrait « aucun déploiement sur uat » dès que
+     * cinq déploiements de production les précèdent. Le tri se fait après la lecture.
+     */
+    forge.listDeployments(depot, { perPage: LIRE_DEPLOIEMENTS }).catch(() => []),
+    arbre(depot).catch(() => [])
+  ]);
+
+  return planDeLivraison({
+    depot,
+    branche,
+    brancheCible: lu.brancheCible,
+    bump,
+    environnement,
+    ci: lu.ci,
+    overlays: lu.overlays,
+    mrs, runs, deploiements,
+    stack: [...new Set(chemins.map(ecosysteme).filter(Boolean))],
+    maintenant: new Date()
+  });
+}
+
+/**
  * La conformité CIS — trois lectures, et l'aveu de ce qu'on ne peut pas voir.
  *
  * `pom.xml` n'est lu que s'il existe : une lecture de plus sur un dépôt Java, aucune
@@ -1397,6 +1467,58 @@ const LISTES = {
   }
 };
 
+/*
+ * ── LES RÉGLAGES, ET D'OÙ VIENNENT LEURS OPTIONS ─────────────────────────────
+ *
+ * Un signal déclare CE QU'IL FAUT DÉCIDER (`reglages`, dans lib/signaux-*.js) ; cette table
+ * dit OÙ TROUVER les choix possibles. La séparation n'est pas une politesse d'architecture :
+ * les modules de `lib/` sont purs et ne connaissent pas la forge, alors que la moitié des
+ * réglages n'ont de sens qu'avec elle. Une liste d'environnements écrite dans `lib/` serait
+ * NOTRE liste ; celle-ci est celle du dépôt.
+ *
+ * `genre: 'choix'` est le seul cas où les options sont déclarées : `major | minor | patch`
+ * ne se lit nulle part, c'est la règle SemVer elle-même.
+ */
+const REGLAGES = {
+  /** Les branches du dépôt, moins la branche cible : la livrer vers elle-même n'a pas de sens. */
+  branche: {
+    invite: '— choisir la branche à livrer —',
+    vide: 'Aucune branche livrable : ce dépôt n\'a que sa branche par défaut.',
+    options: async (depot) => {
+      const [info, branches] = await Promise.all([
+        forge.projectInfo(depot).catch(() => ({})),
+        forge.listBranches(depot)
+      ]);
+      const cible = info.defaultBranch || '';
+      return branches
+        .filter((b) => b.name !== cible)
+        .map((b) => ({ valeur: b.name, texte: b.name + (b.protectee ? ' (protégée)' : '') }));
+    }
+  },
+
+  /*
+   * Les environnements RÉELLEMENT présents dans l'arbre.
+   *
+   * Un champ libre aurait laissé taper `preprod` à un dépôt qui n'en a pas : le filtre
+   * aurait alors écarté TOUS les overlays, et le plan serait ressorti « 1 fichier
+   * modifié » — techniquement exact, et parfaitement trompeur.
+   */
+  environnement: {
+    invite: '— tous les environnements —',
+    vide: 'Aucun environnement nommé : ce dépôt ne range pas ses overlays en `overlays/<env>/`.',
+    options: async (depot) => environnementsDe(
+      (await arbre(depot)).filter((c) => KUSTOMIZATION_RX.test(c))
+    ).map((e) => ({ valeur: e, texte: e }))
+  },
+
+  /** Les options sont déclarées par le signal : SemVer ne se lit pas dans un dépôt. */
+  choix: {
+    invite: '',
+    vide: '',
+    options: async (_depot, reglage) => (reglage.options || []).map((o) => ({ valeur: o, texte: o }))
+  }
+};
+
 /** Une date lisible dans une liste déroulante — le jour et l'heure, rien de plus. */
 function dateCourte(iso) {
   const d = new Date(iso);
@@ -1440,11 +1562,41 @@ function champCalcule(variable, { surEtat = () => {} } = {}) {
   const choixMr = el('select', { hidden: !liste2 });
   let mrs = [];
 
+  /*
+   * LES RÉGLAGES — ce qui se DÉCIDE, et qui ne se lit nulle part.
+   *
+   * Neuf signaux sur dix ne dépendent que du dépôt : deux personnes qui les lancent sur le
+   * même dépôt obtiennent la même matière, et c'est ce qui les rend contestables. Une
+   * livraison échappe à cette règle par nature — la même branche livrée en `major` ou en
+   * `patch` n'est pas la même livraison, et le même dépôt livré sur `uat` ou sur
+   * `production` ne touche pas les mêmes fichiers.
+   *
+   * On aurait pu choisir à la place de l'utilisateur : la première branche venue, en
+   * patch, sur tous les environnements. Ç'aurait marché — et ç'aurait été la reprise exacte
+   * du défaut que ce produit combat, une valeur posée d'autorité parce qu'il fallait bien
+   * afficher quelque chose. Ici l'écran DEMANDE, et ne calcule qu'une fois qu'on a répondu.
+   */
+  const reglages = reglagesDe(variable.name);
+  const choisis = {};
+  const listesReglages = {};
+  const barre = el('div', { className: 'reglages', hidden: reglages.length === 0 });
+
+  for (const r of reglages) {
+    const sel = el('select');
+    listesReglages[r.nom] = sel;
+    // Le défaut déclaré vaut choix : `patch` est le cas courant, et forcer un clic dessus
+    // à chaque livraison serait une cérémonie, pas une décision.
+    if (r.defaut) choisis[r.nom] = r.defaut;
+    sel.onchange = () => { choisis[r.nom] = sel.value; calculerSiPret(dernierChoix); };
+    barre.append(el('label', { className: 'reglage' },
+      el('span', { textContent: r.libelle + (r.requis ? '' : ' · facultatif') }), sel));
+  }
+
   const noeud = el('div', { className: 'mat calc' },
     el('div', { className: 'mat-tete' },
       el('label', { textContent: SIGNAL_LISIBLE[variable.name] || `{{${variable.name}}}` }),
       refaire),
-    choixMr, etat, detail);
+    choixMr, barre, etat, detail);
 
   const dire = (texte, classe = '') => {
     etat.textContent = texte;
@@ -1456,6 +1608,85 @@ function champCalcule(variable, { surEtat = () => {} } = {}) {
 
   let enCours = 0;
   let dernier = null;
+
+  /**
+   * Remplit les listes de réglages avec ce que le dépôt offre RÉELLEMENT.
+   *
+   * Un réglage sans aucune option n'est pas une panne : il est sans objet — un dépôt qui ne
+   * range pas ses overlays en `overlays/<env>/` n'a pas d'environnement à viser. On le
+   * laisse alors VISIBLE et désactivé, avec la raison écrite dedans. Le cacher ferait
+   * croire que l'écran a changé d'avis sur ce qu'il fallait décider ; le laisser vide et
+   * actif ferait chercher longtemps.
+   */
+  async function remplirReglages(depot, mien) {
+    for (const r of reglages) {
+      const R = REGLAGES[r.genre];
+      const sel = listesReglages[r.nom];
+      const options = R ? await R.options(depot, r) : [];
+      if (mien !== enCours) return;
+
+      sel.textContent = '';
+      if (!options.length) {
+        sel.append(el('option', { value: '', textContent: R?.vide || 'aucune option' }));
+        sel.disabled = true;
+        choisis[r.nom] = '';
+        continue;
+      }
+      sel.disabled = false;
+      if (R?.invite) sel.append(el('option', { value: '', textContent: R.invite }));
+      for (const o of options) sel.append(el('option', { value: o.valeur, textContent: o.texte }));
+
+      /*
+       * Le choix précédent survit au changement de dépôt s'il y existe aussi.
+       *
+       * Passer d'un dépôt à l'autre en gardant `uat` quand les deux l'ont est ce qu'on
+       * attend. Le garder quand le nouveau ne l'a PAS enverrait filtrer sur un
+       * environnement absent : tous les overlays écartés, un plan à un seul fichier, et
+       * rien à l'écran pour dire pourquoi.
+       */
+      const possibles = new Set(options.map((o) => o.valeur));
+      const garde = possibles.has(choisis[r.nom]) ? choisis[r.nom]
+        : (possibles.has(r.defaut) ? r.defaut : '');
+      choisis[r.nom] = garde;
+      sel.value = garde;
+    }
+    barre.hidden = false;
+  }
+
+  /** Calcule dès que les réglages requis sont posés — et pas une seconde avant. */
+  async function calculerSiPret(depot) {
+    if (!depot) return;
+
+    if (!reglagesComplets(variable.name, choisis)) {
+      zone.value = '';
+      detail.hidden = true;
+      const manque = reglages.filter((r) => r.requis && !choisis[r.nom])
+        .map((r) => r.libelle.toLowerCase());
+      dire(`Il reste à choisir : ${manque.join(', ')}.`);
+      return;
+    }
+
+    const mien = ++enCours;
+    zone.value = '';
+    detail.hidden = true;
+    dire('Lecture du dépôt et calcul du plan…', 'attente');
+    surEtat(true);
+    try {
+      const r = await matiereCalculee(variable.name, depot, { ...choisis });
+      if (mien !== enCours) return;
+      dernier = r;
+      zone.value = r.texte;
+      detail.hidden = false;
+      dire(`✔ ${(RESUMES[variable.name] || (() => 'matière calculée'))(r)}`, 'ok');
+    } catch (error) {
+      if (mien !== enCours) return;
+      dire(`Impossible de calculer : ${error.message}`, 'ko');
+      detail.hidden = false;
+    } finally {
+      surEtat(false);
+    }
+  }
+
   async function calculer(depot) {
     const mien = ++enCours;
     /*
@@ -1481,10 +1712,35 @@ function champCalcule(variable, { surEtat = () => {} } = {}) {
 
     if (vide) {
       if (liste2) { choixMr.hidden = true; mrs = []; }
+      if (reglages.length) barre.hidden = true;
       dire(liste ? 'Coche les dépôts à auditer ci-dessus.' : 'Choisis un dépôt ci-dessus.');
       surEtat(false);
       return;
     }
+
+    /*
+     * Quand le signal se règle, choisir le dépôt ne calcule rien non plus : il remplit les
+     * listes de réglages. Le calcul attend qu'on ait décidé — et il attend VRAIMENT, y
+     * compris si l'utilisateur ne décide jamais. Un calcul lancé « en attendant », sur une
+     * branche prise au hasard, aurait rempli le champ d'une matière que personne n'a
+     * demandée, et que rien à l'écran n'aurait signalée comme telle.
+     */
+    if (reglages.length) {
+      dire(`Lecture des branches et des overlays de ${depot}…`, 'attente');
+      surEtat(true);
+      try {
+        await remplirReglages(depot, mien);
+        if (mien !== enCours) return;
+        await calculerSiPret(depot);
+      } catch (error) {
+        if (mien !== enCours) return;
+        dire(`Réglages illisibles : ${error.message}`, 'ko');
+      } finally {
+        surEtat(false);
+      }
+      return;
+    }
+
     /*
      * Quand il y a un second choix, choisir le dépôt ne calcule rien : il REMPLIT la
      * liste. C'est la sélection qui déclenche la lecture coûteuse.
@@ -1635,7 +1891,8 @@ const SIGNAL_LISIBLE = {
   job_en_echec: 'Le pipeline en échec à expliquer — choisi dans la liste',
   rapport_depot: 'L\'état du dépôt et ses corrections à faire — 25 contrôles',
   parc_securite: 'La conformité du parc — auditée sur les dépôts cochés',
-  revue_mr: 'La merge request à relire — choisie dans la liste'
+  revue_mr: 'La merge request à relire — choisie dans la liste',
+  plan_de_livraison: 'Ce que la livraison changerait — calculé sur le dépôt'
 };
 
 /**
@@ -2769,9 +3026,29 @@ function ouvrirLancement(entry) {
     bump.append(b);
   }
 
+  /*
+   * L'ENVIRONNEMENT, ici aussi — et c'est le point qui compte.
+   *
+   * Le signal `plan_de_livraison` a gagné ce réglage pour que l'agent explique la bonne
+   * livraison. Si le module d'écriture ne l'avait pas, l'agent décrirait une livraison sur
+   * `uat` et le bouton d'à côté en écrirait une sur tous les environnements. Deux écrans
+   * sur la même fiche, le même vocabulaire, deux effets différents : la sorte de piège dont
+   * on ne se relève qu'après un déploiement.
+   *
+   * La liste se remplit avec les overlays du dépôt, comme celle du signal — et pour la
+   * même raison : personne ne doit pouvoir viser un environnement qui n'existe pas.
+   */
+  const env = el('select');
+  env.append(el('option', { value: '', textContent: '— choisis une branche —' }));
+  // Une flèche, et pas `oublierPlan` directement : il est déclaré en `const` plus bas, et
+  // lire la référence ici tombe dans la zone morte temporelle. Le panneau entier s'ouvrait
+  // alors VIDE — un `ReferenceError` avant le premier `append`, et aucun message à l'écran.
+  env.onchange = () => oublierPlan();
+
   const champ = (libelle, controle) => el('div', {}, el('label', { textContent: libelle }), controle);
   form.append(el('div', { className: 'champs' },
-    champ('Dépôt cible', depot.champ), champ('Branche à livrer', branche)));
+    champ('Dépôt cible', depot.champ), champ('Branche à livrer', branche),
+    champ('Environnement', env)));
   form.append(champ('Incrément de version', bump));
 
   const preparer_ = el('button', { className: 'primary', textContent: 'Préparer la livraison' });
@@ -2798,11 +3075,50 @@ function ouvrirLancement(entry) {
   const oublierPlan = () => { planCourant = null; livrer.hidden = true; plan.hidden = true; };
   const consommerPlan = () => { planCourant = null; livrer.hidden = true; };
 
-  branche.onchange = oublierPlan;
+  branche.onchange = () => { oublierPlan(); chargerEnvironnements(); };
+
+  /**
+   * Les environnements de la branche choisie.
+   *
+   * Ils dépendent de la BRANCHE, pas seulement du dépôt : une branche peut ajouter un
+   * overlay que la branche par défaut n'a pas — c'est même un cas courant quand on prépare
+   * un nouvel environnement. Les charger au choix du dépôt aurait proposé la liste d'une
+   * autre branche que celle qu'on livre.
+   */
+  async function chargerEnvironnements() {
+    const repoCible = depot.valeur();
+    env.textContent = '';
+    if (!repoCible || !branche.value) {
+      env.append(el('option', { value: '', textContent: '— choisis une branche —' }));
+      env.disabled = true;
+      return;
+    }
+    env.append(el('option', { value: '', textContent: '— lecture… —' }));
+    env.disabled = true;
+    try {
+      const trouves = environnementsDe(
+        (await forge.listTree(repoCible, branche.value)).filter((c) => KUSTOMIZATION_RX.test(c)));
+      env.textContent = '';
+      if (!trouves.length) {
+        // Sans objet, pas en panne : ce dépôt ne range pas ses overlays en `overlays/<env>/`,
+        // le filtre n'a rien à filtrer, et la livraison portera sur tout ce qu'elle trouve.
+        env.append(el('option', { value: '',
+          textContent: 'aucun environnement nommé — tout sera bumpé' }));
+        return;
+      }
+      env.append(el('option', { value: '', textContent: '— tous les environnements —' }));
+      for (const e of trouves) env.append(el('option', { value: e, textContent: e }));
+      env.disabled = false;
+    } catch (error) {
+      env.textContent = '';
+      env.append(el('option', { value: '', textContent: `— illisible : ${error.message} —` }));
+    }
+  }
 
   async function chargerBranches() {
     const repoCible = depot.valeur();
     branche.textContent = '';
+    chargerEnvironnements();
     if (!repoCible) {
       branche.append(el('option', { value: '', textContent: '— choisis un dépôt —' }));
       return;
@@ -2833,7 +3149,8 @@ function ouvrirLancement(entry) {
     preparer_.disabled = true;
     dire('Lecture du dépôt…');
     try {
-      const r = await preparerLivraison(forge, repoCible, { branche: branche.value, bump: bumpChoisi });
+      const r = await preparerLivraison(forge, repoCible,
+        { branche: branche.value, bump: bumpChoisi, environnement: env.value });
       brancheCible = r.brancheCible;
       planCourant = r.plan;
 
@@ -2853,6 +3170,7 @@ function ouvrirLancement(entry) {
         ['Branche', `${branche.value} → ${r.brancheCible}`],
         ['Commit', r.plan.message],
         ['Merge request', r.plan.titreMR],
+        ['Environnement', env.value || `tous (${r.environnementsTrouves.join(', ') || 'aucun nommé'})`],
         ['Overlays lus', `${r.overlaysLus} · ${r.plan.overlaysTouches} modifié(s)`]
       ]) dl.append(el('dt', { textContent: k }), el('dd', { textContent: v }));
       plan.append(dl);
@@ -2862,6 +3180,24 @@ function ouvrirLancement(entry) {
         ul.append(el('li', {}, el('code', { textContent: f.path }), ` — ${f.quoi}`));
       }
       plan.append(el('h4', { textContent: `Fichiers modifiés (${r.plan.fichiers.length})` }), ul);
+
+      /*
+       * Ce que le filtre laisse en arrière, DANS l'écran de confirmation.
+       *
+       * C'est le moment où quelqu'un s'apprête à écrire dans un dépôt. Lui montrer
+       * « 2 fichiers modifiés » sans lui dire que deux overlays gardent l'ancienne version
+       * lui ferait confirmer une livraison partielle en croyant la faire complète.
+       */
+      if (r.plan.ecartes.length) {
+        const laisses = el('ul', { className: 'constats' });
+        for (const c of r.plan.ecartes) laisses.append(el('li', {}, el('code', { textContent: c })));
+        plan.append(
+          el('h4', { textContent: `Laissés en arrière par « ${env.value} » (${r.plan.ecartes.length})` }),
+          laisses,
+          el('p', { className: 'note', textContent:
+            `Leur newTag reste à ${r.plan.courante} : ces environnements ne seront PAS à jour. `
+            + 'C\'est le réglage qui le veut — choisis « tous les environnements » pour les inclure.' }));
+      }
 
       livrer.hidden = false;
       dire(`✔ Plan prêt — ${r.resume}`);
@@ -2874,7 +3210,11 @@ function ouvrirLancement(entry) {
   livrer.onclick = async () => {
     if (!planCourant?.ok) return;
     if (!confirm(`Livrer ${planCourant.cible} ?\n\n${planCourant.fichiers.length} fichier(s) commités sur ${branche.value},`
-               + `\npuis une merge request vers ${brancheCible}.\n\nLe merge déclenchera la livraison.`)) return;
+               + `\npuis une merge request vers ${brancheCible}.`
+               + (env.value ? `\n\nEnvironnement : ${env.value} SEUL.` : '')
+               + (planCourant.ecartes?.length
+                   ? `\n${planCourant.ecartes.length} overlay(s) gardent la version ${planCourant.courante}.` : '')
+               + '\n\nLe merge déclenchera la livraison.')) return;
 
     livrer.disabled = true;
     dire('Écriture…');

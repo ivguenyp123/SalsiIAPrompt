@@ -211,6 +211,16 @@
   .mat-info button{font-size:10.5px;padding:2px 8px}
   .mat-info.gros{color:#fcd34d}
 
+  /* Les réglages d'un signal : ce qui se DÉCIDE avant de calculer (branche, environnement,
+     incrément). Une rangée qui se replie sur les petits écrans, chaque réglage portant son
+     libellé au-dessus — un `select` seul ne dit pas ce qu'il règle. */
+  .reglages{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 8px}
+  .reglages .reglage{display:flex;flex-direction:column;gap:4px;flex:1;min-width:150px}
+  .reglages .reglage span{font-size:10.5px;color:var(--tm);text-transform:uppercase;
+                          letter-spacing:.05em;font-weight:700}
+  .reglages select{font-size:12px;padding:7px 9px;width:100%}
+  .reglages select:disabled{opacity:.55;cursor:not-allowed}
+
   .picker{margin-top:8px;border:1px solid rgba(251,191,36,.35);border-radius:12px;
           background:rgba(0,0,0,.28);padding:12px}
   .picker .rangee{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}

@@ -3,6 +3,21 @@
 # Ce fichier ne contient QUE du déclaré. Tout ce que la plateforme calcule — statut,
 # usages, taux de réussite, corrections humaines, coût, certification — vit dans l'état
 # dérivé, jamais ici. Le linter refuse un bloc `derived` (L001).
+#
+# ── LE DERNIER AGENT À AVOIR RECU SA MATIÈRE, ET LE PREMIER DU REGISTRE ──────
+#
+# Il déclarait deux variables à taper à la main : `repo` et `stack`. Deux lignes vides, et
+# un modèle à qui l'on demandait ensuite d'« orienter une livraison ». Il ne pouvait donc
+# produire qu'une livraison RACONTÉE — il n'avait lu ni le fichier de CI, ni les overlays,
+# ne connaissait ni la version courante ni la version cible.
+#
+# L'écart était d'autant plus net que cet artefact avait DÉJÀ son module déterministe : le
+# bouton « 🚚 Livrer » lit le vrai dépôt et écrit les vrais fichiers. Deux chemins sur la
+# même fiche, l'un mesuré, l'autre inventé.
+#
+# `plan_de_livraison` remplace les deux variables. Il est calculé par le MÊME code que
+# celui qui écrira — `runtime/livraison.js` — et il porte les réglages de celui qui livre :
+# quelle branche, quel environnement, majeur / mineur / correctif.
 
 id: prep-delivery
 kind: agent
@@ -24,25 +39,51 @@ intent:
     sans overlays Kustomize.
 
 spec: |
-  Tu orientes une livraison en préproduction.
-  Tu N'EXÉCUTES PAS les écritures : le module Livraison le fait après
-  confirmation humaine.
+  Tu relis une livraison qu'un module déterministe a déjà préparée, et tu dis
+  s'il faut la lancer.
 
-  À partir du dépôt {{repo}} (stack {{stack}}) :
-  1. vérifie que la branche est à jour et mergeable
-  2. propose le bump IMAGE_TAG et la synchro des overlays Kustomize
-  3. déclenche le scan de vulnérabilités et la vérification des tests
-  4. rédige l'explication des changements pour la merge request
+  Tu N'EXÉCUTES RIEN. Le bump du tag, la synchro des overlays et l'ouverture de
+  la merge request sont faits par le module Livraison, après confirmation
+  humaine. Ton travail est de dire ce que cette livraison change et ce qui
+  devrait retenir la main.
+
+  Le plan est ci-dessous. Il est CALCULÉ : versions, fichiers, état de la
+  branche et des pipelines viennent du dépôt, lus à l'instant.
+
+  {{plan_de_livraison}}
+
+  Règles, et la première prime sur tout le reste :
+
+  - N'AJOUTE AUCUN CHIFFRE qui ne soit dans le plan. Pas de version, pas de
+    nombre de fichiers, pas de nom d'environnement qui n'y figure pas. Si une
+    information manque, la bonne réponse est de dire qu'elle manque.
+  - La section « ce qui n'a pas été regardé » du plan dit ce que la plateforme
+    n'a PAS mesuré. N'écris jamais qu'il n'y a pas de vulnérabilité : personne
+    ne les a cherchées.
+  - Des overlays « laissés en arrière » veulent dire que ces environnements
+    resteront à l'ANCIENNE version. Si le plan en signale, c'est le point le
+    plus important à dire, avant tout le reste.
+  - « Aucun conflit signalé » n'est pas « fusion garantie », et « aucun pipeline
+    lu » n'est pas « CI verte ».
+  - Si le plan dit que la livraison ne peut pas être préparée, explique la
+    raison et ce qu'il faut corriger. N'invente pas une livraison de secours.
+
+  Rends exactement ces sections :
+
+  ## Ce que cette livraison change
+  ## Ce qu'il faut vérifier avant de fusionner
+  ## Ce qui devrait retenir la main
+  ## Ce que je n'ai pas pu juger
 
 variables:
-  - name: repo
-    source: repo
+  - name: plan_de_livraison
+    source: signal
     required: true
-    description: Dépôt cible de la livraison.
-  - name: stack
-    source: repo
-    required: true
-    description: Stack technique détectée, pour adapter les vérifications.
+    description: >-
+      Le plan calculé sur le dépôt : version courante et cible, fichiers
+      touchés, overlays écartés, état de la branche, des pipelines et des
+      déploiements. Réglé par la branche, l'environnement et l'incrément
+      choisis.
 
 tools:
   - id: check_branch
@@ -62,70 +103,304 @@ tools:
     executor: module        # imposé par l'invariant L005
 
 # Contrat de runtime, évalué au post-vol sur chaque exécution.
+#
+# ── LES DEUX PREMIERS SONT LES SEULS RÉELLEMENT CALCULÉS ────────────────────
+#
+# `output.contains_secret` et `output.sections` portent sur la SORTIE : un résolveur les
+# évalue à chaque exécution. Ils n'existaient pas — cet agent déclarait cinq critères et
+# n'en faisait vérifier aucun. Un contrat entier sur le papier, et pas une ligne évaluée.
+#
+# ── LES SUIVANTS PORTENT SUR L'ÉTAT DU MONDE, ET C'EST ASSUMÉ ───────────────
+#
+# `branch.mergeable`, `kustomize.image_tag`, `pipeline.status` décrivent le dépôt après
+# coup. Les résoudre demanderait un dépôt jetable et une CI isolée : le banc d'essai, pas
+# une fonction. Le post-vol les compte donc en « non évalués », jamais en satisfaits — voir
+# runtime/resolveurs.js. La matière, elle, les DIT désormais : le plan porte l'état de la
+# branche et du dernier pipeline, et l'agent doit s'en servir.
+#
+# ── UNE CONTRADICTION TROUVÉE EN BRANCHANT LA MATIÈRE, ET CORRIGÉE ──────────
+#
+# Ce critère exigeait `^v[0-9]+\.[0-9]+\.[0-9]+$` — un tag PRÉFIXÉ d'un `v`. Or le module
+# qui exécute la livraison lit la version avec `/^(\d+)\.(\d+)\.(\d+)/` : sur `v1.4.2` il
+# rend une chaîne vide et refuse le plan, « non SemVer ». Un dépôt qui satisfaisait ce
+# critère ne pouvait donc JAMAIS être livré par le module censé le servir.
+#
+# Personne ne l'avait vu parce que le critère n'était évalué nulle part et que l'agent
+# n'avait jamais rencontré un vrai tag. Le critère suit maintenant le module — c'est le
+# code qui écrit qui fait foi, pas la déclaration.
+#
+# ── ET UN CRITÈRE RETIRÉ, PARCE QU'IL NE MESURAIT RIEN ──────────────────────
+#
+# `vulnerabilities.critical: 0` est parti. La plateforme scanne les secrets exposés et les
+# dépendances déclarées, jamais les CVE : ce critère n'aurait pu être satisfait qu'en
+# croyant un modèle sur parole. Le plan écrit désormais noir sur blanc que les
+# vulnérabilités n'ont pas été regardées, ce qui est vrai et utile — là où le critère
+# donnait à un silence l'allure d'un feu vert.
+#
+# `output.files_touched` est parti pour une autre raison : l'agent ne rend plus de patch,
+# il rend une relecture. Le résolveur y trouvait toujours zéro fichier, et un critère
+# toujours satisfait ne protège de rien.
 criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Ce que cette livraison change
+      - Ce qu'il faut vérifier avant de fusionner
+      - Ce qui devrait retenir la main
+      - Ce que je n'ai pas pu juger
   - target: branch.mergeable
     op: eq
     value: true
   - target: kustomize.image_tag
     op: matches
-    value: "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
-  - target: vulnerabilities.critical
-    op: eq
-    value: 0
+    value: "^[0-9]+\\.[0-9]+\\.[0-9]+$"
   - target: pipeline.status
     op: eq
     value: success
-  - target: output.files_touched
-    op: lte
-    value: 20
 
 # Tests de développement, joués au banc d'essai. `runs`/`pass_at_least` parce qu'un
 # LLM n'est pas reproductible : un cas joué une fois est un tirage, pas une porte.
 #
-# Quatre de ces cinq cas décrivent DÉLIBÉRÉMENT une exécution que les critères ci-dessus
-# refusent : branche non mergeable, vulnérabilité critique, pipeline en échec, volume
-# excessif. C'est ce qu'on attend d'une bonne suite — elle teste ce qui doit échouer
-# autant que ce qui doit passer. `expects_violation` le dit, sans quoi L022 signalerait
-# quatre contradictions et elle aurait raison : rien ne distinguait l'intention de
-# l'étourderie.
+# ── CES CAS NE SONT PLUS DES DÉCORS, ILS SONT DE LA MATIÈRE ─────────────────
+#
+# Ils portaient un contexte de trois mots — `{ repo, stack, branch }` — et le banc jouait
+# donc l'agent sur des variables vides : il testait la capacité du modèle à broder, pas la
+# capacité de l'agent à rendre compte.
+#
+# Chaque `plan_de_livraison` ci-dessous est maintenant la SORTIE RÉELLE de
+# `lib/signaux-livraison.js` sur la situation décrite. Il n'est pas écrit à la main : il
+# est produit par le même code que celui qui tournera en production, sur des entrées que
+# le commentaire de chaque cas déclare. Le banc juge donc ce que l'agent fera vraiment.
+#
+# Les situations, elles, sont choisies — ce sont des cas de développement, pas des mesures
+# prises chez quelqu'un. Deux d'entre elles décrivent DÉLIBÉRÉMENT une livraison que les
+# critères refusent ; `expects_violation` le dit, sans quoi L022 signalerait une
+# contradiction et elle aurait raison : rien ne distinguerait l'intention de l'étourderie.
 golden_cases:
+  # Le chemin heureux : deux overlays, un pipeline vert, rien à signaler.
   - id: gc-01-nominal
-    context: { repo: demo-spring, stack: java, branch: feat/refunds }
-    expect: { branch.mergeable: true, pipeline.status: success }
-    runs: 5
-    pass_at_least: 5
+    context:
+      plan_de_livraison: |
+        Plan de livraison — plateforme/demo-spring
+        Lu le 18/08/2026 09:00.
 
-  - id: gc-02-conflits
-    context: { repo: demo-spring, stack: java, branch: feat/conflict }
-    expect: { branch.mergeable: false }
-    runs: 5
-    pass_at_least: 5
-    expects_violation: true
+        RÉGLAGES CHOISIS
+          Branche à livrer : feat/refunds → main
+          Incrément        : patch (correctif)
+          Environnement    : tous les environnements trouvés
 
-  - id: gc-03-vuln
-    context: { repo: demo-vuln, stack: java, branch: main }
-    expect: { vulnerabilities.critical: 1 }
-    runs: 5
-    pass_at_least: 4
-    expects_violation: true
+        LE BUMP
+          IMAGE_TAG 1.4.2 → 1.4.3, lu dans `.gitlab-ci.yml` sur `feat/refunds`.
 
-  - id: gc-04-sans-overlays
-    context: { repo: demo-no-kustomize, stack: java, branch: main }
-    expect: { pipeline.status: failed }
+        FICHIERS QUE LA LIVRAISON MODIFIERAIT (3)
+          .gitlab-ci.yml  — IMAGE_TAG
+          Manifests/overlays/development/kustomization.yaml  — overlay
+          Manifests/overlays/uat/kustomization.yaml  — overlay
+
+        OVERLAYS
+          Lus dans l'arbre : 2.
+          Environnements trouvés (2) : development, uat.
+
+        ÉTAT DE LA BRANCHE `feat/refunds`
+          Aucune merge request ouverte depuis cette branche.
+          Ce n'est pas une anomalie : c'est la livraison qui en ouvrira une.
+          Pipelines lus sur cette branche : 1.
+          Dernier pipeline : succès · 18/08/2026 08:40 · a1b2c3d
+
+        DÉPLOIEMENTS RÉCENTS
+          uat · 17/08/2026 16:00 · main
+
+        ÉCOSYSTÈMES DÉTECTÉS DANS L'ARBRE
+          ci, docker, maven.
+
+        CE QUI N'A PAS ÉTÉ REGARDÉ
+          Les vulnérabilités : la plateforme scanne les secrets exposés et les dépendances
+          déclarées, jamais les CVE. `vulnerabilities.critical` est donc N/A — pas zéro.
+          Les tests : leur résultat n'est connu qu'à travers le statut du pipeline ci-dessus.
+          Le contenu du changement : cette matière décrit une LIVRAISON, pas un diff. Ce que
+          la version embarque se lit dans les commits, qui ne sont pas ici.
+    expect:
+      output.contains_secret: false
+    runs: 3
+    pass_at_least: 3
+
+  # Le réglage d'environnement, et le piège qu'il pose. Deux overlays gardent l'ANCIENNE
+  # version. Un agent qui écrit « la livraison met le dépôt à jour » a tort pour deux
+  # environnements sur trois — c'est ce que ce cas vérifie.
+  - id: gc-02-un-seul-environnement
+    context:
+      plan_de_livraison: |
+        Plan de livraison — plateforme/demo-spring
+        Lu le 18/08/2026 09:00.
+
+        RÉGLAGES CHOISIS
+          Branche à livrer : feat/refunds → main
+          Incrément        : patch (correctif)
+          Environnement    : uat
+
+        LE BUMP
+          IMAGE_TAG 1.4.2 → 1.4.3, lu dans `.gitlab-ci.yml` sur `feat/refunds`.
+
+        FICHIERS QUE LA LIVRAISON MODIFIERAIT (2)
+          .gitlab-ci.yml  — IMAGE_TAG
+          Manifests/overlays/uat/kustomization.yaml  — overlay
+
+        OVERLAYS
+          Lus dans l'arbre : 3.
+          Environnements trouvés (3) : development, production, uat.
+          Laissés en arrière par le réglage « uat » (2) :
+            Manifests/overlays/development/kustomization.yaml
+            Manifests/overlays/production/kustomization.yaml
+          Leur `newTag` reste à 1.4.2 : ces environnements ne seront PAS à jour.
+          C'est le réglage qui le veut, pas un oubli — mais il faut le dire.
+
+        ÉTAT DE LA BRANCHE `feat/refunds`
+          Aucune merge request ouverte depuis cette branche.
+          Ce n'est pas une anomalie : c'est la livraison qui en ouvrira une.
+          Pipelines lus sur cette branche : 1.
+          Dernier pipeline : succès · 18/08/2026 08:40 · a1b2c3d
+
+        DÉPLOIEMENTS RÉCENTS — uat
+          Aucun déploiement lu sur ce dépôt.
+
+        ÉCOSYSTÈMES DÉTECTÉS DANS L'ARBRE
+          ci, docker, maven.
+
+        CE QUI N'A PAS ÉTÉ REGARDÉ
+          Les vulnérabilités : la plateforme scanne les secrets exposés et les dépendances
+          déclarées, jamais les CVE. `vulnerabilities.critical` est donc N/A — pas zéro.
+          Les tests : leur résultat n'est connu qu'à travers le statut du pipeline ci-dessus.
+          Le contenu du changement : cette matière décrit une LIVRAISON, pas un diff. Ce que
+          la version embarque se lit dans les commits, qui ne sont pas ici.
+    expect:
+      output.contains_secret: false
+    runs: 3
+    pass_at_least: 3
+
+  # Deux raisons de ne pas livrer, dans la même matière : conflits déclarés et dernier
+  # pipeline en échec. Le plan reste calculable ; c'est la livraison qui ne devrait pas
+  # partir. Le contrat le refuse par `branch.mergeable` et `pipeline.status`.
+  - id: gc-03-conflits
+    context:
+      plan_de_livraison: |
+        Plan de livraison — plateforme/demo-spring
+        Lu le 18/08/2026 09:00.
+
+        RÉGLAGES CHOISIS
+          Branche à livrer : feat/conflict → main
+          Incrément        : minor (mineur)
+          Environnement    : tous les environnements trouvés
+
+        LE BUMP
+          IMAGE_TAG 1.4.2 → 1.5.0, lu dans `.gitlab-ci.yml` sur `feat/conflict`.
+
+        FICHIERS QUE LA LIVRAISON MODIFIERAIT (2)
+          .gitlab-ci.yml  — IMAGE_TAG
+          Manifests/overlays/uat/kustomization.yaml  — overlay
+
+        OVERLAYS
+          Lus dans l'arbre : 1.
+          Environnements trouvés (1) : uat.
+
+        ÉTAT DE LA BRANCHE `feat/conflict`
+          Merge request #41 « Remboursements partiels » → main · m.dubois
+          Conflits : OUI, déclarés par la forge. La fusion échouera en l'état.
+          Relecteurs : aucun demandé.
+          Pipelines lus sur cette branche : 1.
+          Dernier pipeline : échec · 18/08/2026 07:10 · ff00aa1
+
+        DÉPLOIEMENTS RÉCENTS
+          Aucun déploiement lu sur ce dépôt.
+
+        ÉCOSYSTÈMES DÉTECTÉS DANS L'ARBRE
+          maven.
+
+        CE QUI N'A PAS ÉTÉ REGARDÉ
+          Les vulnérabilités : la plateforme scanne les secrets exposés et les dépendances
+          déclarées, jamais les CVE. `vulnerabilities.critical` est donc N/A — pas zéro.
+          Les tests : leur résultat n'est connu qu'à travers le statut du pipeline ci-dessus.
+          Le contenu du changement : cette matière décrit une LIVRAISON, pas un diff. Ce que
+          la version embarque se lit dans les commits, qui ne sont pas ici.
+    expect:
+      output.contains_secret: false
+      # L'état du monde que la matière décrit — et que les critères refusent. C'est le but
+      # du cas : vérifier que le contrat rattrape une livraison qui ne devrait pas partir.
+      branch.mergeable: false
+      pipeline.status: failed
     runs: 3
     pass_at_least: 3
     expects_violation: true
 
-  # Chemin d'échec, et il est DÉCLARÉ : sur un gros refactoring l'agent touche 47
-  # fichiers, ce que le critère `output.files_touched lte 20` refuse. C'est le but du
-  # cas — vérifier que le contrat rattrape bien le débordement. Sans `expects_violation`,
-  # L022 signalerait la contradiction, et elle aurait raison de le faire.
-  - id: gc-05-volume
-    context: { repo: demo-spring, stack: java, branch: feat/large-refactor }
-    expect: { output.files_touched: 47 }
+  # Le plan est REFUSÉ, et c'est un résultat. L'agent doit expliquer pourquoi et ce qu'il
+  # faut faire — jamais inventer une livraison de secours.
+  - id: gc-04-sans-fichier-de-ci
+    context:
+      plan_de_livraison: |
+        Plan de livraison — plateforme/demo-no-kustomize
+        Lu le 18/08/2026 09:00.
+
+        RÉGLAGES CHOISIS
+          Branche à livrer : feat/x → main
+          Incrément        : patch (correctif)
+          Environnement    : tous les environnements trouvés
+
+        LA LIVRAISON NE PEUT PAS ÊTRE PRÉPARÉE
+          Aucun fichier de CI trouvé sur `feat/x` (cherché : .gitlab-ci.yml, .gitlab-ci.yaml, .github/workflows/deploy.yml).
+          Overlays Kustomize lus : 0.
+
+        ÉTAT DE LA BRANCHE `feat/x`
+          Aucune merge request ouverte depuis cette branche.
+          Ce n'est pas une anomalie : c'est la livraison qui en ouvrira une.
+          Pipelines lus sur cette branche : 0.
+          Aucun pipeline lu sur cette branche : son état de CI est INCONNU, pas vert.
+
+        CE QUI N'A PAS ÉTÉ REGARDÉ
+          Les vulnérabilités : la plateforme scanne les secrets exposés et les dépendances
+          déclarées, jamais les CVE. `vulnerabilities.critical` est donc N/A — pas zéro.
+          Les tests : leur résultat n'est connu qu'à travers le statut du pipeline ci-dessus.
+          Le contenu du changement : cette matière décrit une LIVRAISON, pas un diff. Ce que
+          la version embarque se lit dans les commits, qui ne sont pas ici.
+    expect:
+      output.contains_secret: false
     runs: 3
-    pass_at_least: 2
-    expects_violation: true
+    pass_at_least: 3
+
+  # Le cas qui a révélé la contradiction du contrat : `v1.4.2` passait l'ancien critère
+  # `^v[0-9]+…` et le module le refuse. La matière le dit noir sur blanc.
+  - id: gc-05-tag-non-semver
+    context:
+      plan_de_livraison: |
+        Plan de livraison — plateforme/demo-legacy
+        Lu le 18/08/2026 09:00.
+
+        RÉGLAGES CHOISIS
+          Branche à livrer : release/2026-08 → main
+          Incrément        : patch (correctif)
+          Environnement    : tous les environnements trouvés
+
+        LA LIVRAISON NE PEUT PAS ÊTRE PRÉPARÉE
+          Version courante `v1.4.2` non SemVer (x.y.z) : le bump est impossible sans deviner.
+          Overlays Kustomize lus : 0.
+
+        ÉTAT DE LA BRANCHE `release/2026-08`
+          Aucune merge request ouverte depuis cette branche.
+          Ce n'est pas une anomalie : c'est la livraison qui en ouvrira une.
+          Pipelines lus sur cette branche : 0.
+          Aucun pipeline lu sur cette branche : son état de CI est INCONNU, pas vert.
+
+        CE QUI N'A PAS ÉTÉ REGARDÉ
+          Les vulnérabilités : la plateforme scanne les secrets exposés et les dépendances
+          déclarées, jamais les CVE. `vulnerabilities.critical` est donc N/A — pas zéro.
+          Les tests : leur résultat n'est connu qu'à travers le statut du pipeline ci-dessus.
+          Le contenu du changement : cette matière décrit une LIVRAISON, pas un diff. Ce que
+          la version embarque se lit dans les commits, qui ne sont pas ici.
+    expect:
+      output.contains_secret: false
+    runs: 3
+    pass_at_least: 3
 
 target_level: officiel
 model_tier: mid

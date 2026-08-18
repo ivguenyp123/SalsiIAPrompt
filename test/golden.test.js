@@ -188,17 +188,29 @@ describe('les cas d\'or se modifient au lieu d\'être transportés', () => {
     const form = artifactToForm(doc);
 
     assert.equal(form.goldenCases.length, 5);
-    assert.deepEqual(form.goldenCases[0], {
-      id: 'gc-01-nominal',
-      // `stack` est declaree requise par l'artefact : sans elle, le cas d'or ne se joue
-      // pas. Il y manquait, et la liste figee de `lancer.test.js` ne pouvait pas le voir.
-      context: [{ key: 'repo', value: 'demo-spring' }, { key: 'stack', value: 'java' },
-                { key: 'branch', value: 'feat/refunds' }],
-      expect: [{ target: 'branch.mergeable', value: 'true' },
-               { target: 'pipeline.status', value: 'success' }],
-      runs: '5', passAtLeast: '5',
-      expectsViolation: false
-    });
+
+    /*
+     * Le contexte porte désormais LA MATIÈRE, et non plus trois mots.
+     *
+     * `{ repo, stack, branch }` DÉCRIVAIT une situation ; le banc jouait donc l'agent sur
+     * des variables que rien ne remplissait. Le contexte contient maintenant le plan
+     * calculé lui-même — exactement ce que l'agent recevra en production.
+     *
+     * On n'assertit pas le texte entier : il changerait à chaque retouche de formulation
+     * et le test deviendrait un frein plutôt qu'un garde-fou. On vérifie qu'il y a UNE
+     * entrée, qu'elle porte le nom de la variable déclarée, et qu'elle contient bien le
+     * plan — dépôt et bump, les deux choses qu'un texte vide n'aurait pas.
+     */
+    const g = form.goldenCases[0];
+    assert.equal(g.id, 'gc-01-nominal');
+    assert.equal(g.context.length, 1);
+    assert.equal(g.context[0].key, 'plan_de_livraison');
+    assert.match(g.context[0].value, /^Plan de livraison — plateforme\/demo-spring/);
+    assert.match(g.context[0].value, /IMAGE_TAG 1\.4\.2 → 1\.4\.3/);
+    assert.deepEqual(g.expect, [{ target: 'output.contains_secret', value: 'false' }]);
+    assert.equal(g.runs, '3');
+    assert.equal(g.passAtLeast, '3');
+    assert.equal(g.expectsViolation, false);
   });
 
   test('retirer un cas d\'or fait vraiment retomber le niveau', () => {
@@ -271,11 +283,11 @@ describe('L022 — un cas d\'or qui contredit les critères de l\'artefact', () 
     // chaque republication — et l'auteur redéclarerait indéfiniment la même intention.
     const doc = loadYaml(join(ROOT, 'artifacts/prep-delivery.yaml'));
     const form = artifactToForm(doc);
-    const gc05 = form.goldenCases.find((g) => g.id === 'gc-05-volume');
+    const gc05 = form.goldenCases.find((g) => g.id === 'gc-03-conflits');
     assert.equal(gc05.expectsViolation, true);
 
     const apres = formToArtifact(form, ctx);
-    assert.equal(apres.golden_cases.find((g) => g.id === 'gc-05-volume').expects_violation, true);
+    assert.equal(apres.golden_cases.find((g) => g.id === 'gc-03-conflits').expects_violation, true);
     assert.ok(!codes(apres, WARN).includes('L022'));
   });
 

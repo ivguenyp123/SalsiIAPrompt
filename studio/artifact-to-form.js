@@ -57,10 +57,24 @@ export function artifactToForm(artifact = {}) {
     // Le formulaire ne saisit que l'identifiant : mode et executor viennent du registre.
     tools: (artifact.tools || []).map((t) => ({ id: t.id })),
 
-    // Les valeurs redeviennent du texte : c'est ce que contient un champ de saisie, et
-    // formToArtifact les retypera d'après le registre des cibles.
+    /*
+     * Les valeurs redeviennent du texte : c'est ce que contient un champ de saisie, et
+     * formToArtifact les retypera d'après le registre des cibles.
+     *
+     * ── UNE LISTE, UNE LIGNE PAR ÉLÉMENT — ET C'EST UN CORRECTIF ────────────
+     *
+     * `String(['a','b'])` rend `"a,b"`, et rien ne pouvait plus reconstituer la liste :
+     * `formToArtifact` rendait la chaîne telle quelle, L009 refusait « attendu array, reçu
+     * string », et l'artefact ressortait BLOQUÉ d'une republication où l'on n'avait rien
+     * touché. Deux artefacts du registre portent une cible de type `array`
+     * (`output.sections`) : les ouvrir au Studio et les republier les cassait.
+     *
+     * Une ligne par élément, et pas une virgule : une virgule est légitime dans un titre
+     * de section, et « Risques, et ce qu'on en fait » se serait scindé en deux.
+     */
     criteria: (artifact.criteria || []).map((c) => ({
-      target: c.target, op: c.op, value: String(c.value)
+      target: c.target, op: c.op,
+      value: Array.isArray(c.value) ? c.value.join('\n') : String(c.value)
     })),
 
     // Cas d'or : les dictionnaires deviennent des lignes, les nombres des chaînes —

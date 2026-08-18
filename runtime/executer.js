@@ -15,16 +15,20 @@
  * request s'ouvre — tout est déterministe. Le LLM, lui, aura sa place à côté : rédiger
  * l'explication des changements pour la revue. Il ne décide de rien.
  */
-import { planifier, resumer, FICHIERS_CI, KUSTOMIZATION_RX } from './livraison.js';
+import { planifier, resumer, environnements, FICHIERS_CI, KUSTOMIZATION_RX } from './livraison.js';
 
 /**
- * Lit le dépôt et calcule le plan. N'écrit rien.
+ * LA LECTURE, séparée du plan — et cette séparation a un second usage.
  *
- * @param {object} forge   client de forge (voir app/forge.js)
- * @param {string} repo    identifiant du projet
- * @param {object} choix   { branche, bump, brancheCible }
+ * Elle servait déjà à `preparer`. Elle sert désormais aussi au signal `plan_de_livraison`,
+ * qui construit la matière de l'agent : mêmes emplacements sondés, mêmes overlays
+ * découverts, même branche cible. Deux lecteurs différents auraient fini par diverger, et
+ * l'agent aurait alors décrit une livraison que le module n'exécute pas — le pire des
+ * défauts possibles ici, parce qu'il est invisible jusqu'au déploiement.
+ *
+ * @returns {{ci, overlays, brancheCible}}
  */
-export async function preparer(forge, repo, { branche, bump = 'patch', brancheCible } = {}) {
+export async function lireLivraison(forge, repo, { branche, brancheCible } = {}) {
   const info = brancheCible ? { defaultBranch: brancheCible } : await forge.projectInfo(repo);
   const cible = brancheCible || info.defaultBranch || 'main';
 
@@ -49,9 +53,31 @@ export async function preparer(forge, repo, { branche, bump = 'patch', brancheCi
     }
   }
 
-  const plan = planifier({ branche, brancheCible: cible, bump, ci, overlays });
+  return { ci, overlays, brancheCible: cible };
+}
+
+/**
+ * Lit le dépôt et calcule le plan. N'écrit rien.
+ *
+ * @param {object} forge   client de forge (voir app/forge.js)
+ * @param {string} repo    identifiant du projet
+ * @param {object} choix   { branche, bump, environnement, brancheCible }
+ */
+export async function preparer(forge, repo, { branche, bump = 'patch', environnement = '',
+                                              brancheCible } = {}) {
+  const { ci, overlays, brancheCible: cible } =
+    await lireLivraison(forge, repo, { branche, brancheCible });
+
+  const plan = planifier({ branche, brancheCible: cible, bump, environnement, ci, overlays });
   return { plan, brancheCible: cible, resume: resumer(plan, { branche, brancheCible: cible }),
-           overlaysLus: overlays.length };
+           overlaysLus: overlays.length,
+           /*
+            * Les environnements RÉELLEMENT trouvés, rendus même quand le plan échoue.
+            * L'écran s'en sert pour proposer un choix qui existe : une liste écrite à la
+            * main proposerait `preprod` à un dépôt qui n'en a pas, et le filtre écarterait
+            * alors tous les overlays sans que ce soit une erreur visible.
+            */
+           environnementsTrouves: environnements(overlays.map((o) => o.path)) };
 }
 
 /**

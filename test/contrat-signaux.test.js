@@ -33,6 +33,7 @@ import { parcSecurite } from '../lib/signaux-parc.js';
 import { revueMr } from '../lib/signaux-revue.js';
 import { jobEnEchec } from '../lib/signaux-ci.js';
 import { rapportDepot } from '../lib/signaux-depot.js';
+import { planDeLivraison } from '../lib/signaux-livraison.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const MAINTENANT = '2026-08-17T18:00:00Z';
@@ -121,7 +122,24 @@ const INVOCATIONS = {
     jobs: [{ nom: 'unit', etape: 'test', statut: 'echec', secondes: 12 }],
     job: { nom: 'unit', etape: 'test', statut: 'echec', secondes: 12 },
     log: 'npm ERR! le test a échoué\nERROR: Job failed: exit code 1',
-    configCi: 'unit:\n  script: npm test\n', cheminConfig: '.gitlab-ci.yml' })
+    configCi: 'unit:\n  script: npm test\n', cheminConfig: '.gitlab-ci.yml' }),
+
+  /*
+   * Le seul signal du lot qui reçoive des RÉGLAGES.
+   *
+   * L'invocation en pose donc de vrais : sans branche, `planifier` refuse, et le contrat
+   * serait vérifié sur un texte d'échec — qui le satisfait pourtant, puisqu'un refus
+   * nomme lui aussi le dépôt. C'est la même chausse-trape que `parc_securite` plus haut :
+   * une mauvaise invocation ne jette pas, elle produit un texte plausible qui ne parle
+   * de rien.
+   */
+  plan_de_livraison: () => planDeLivraison({
+    depot: DEPOT, branche: 'feat/x', brancheCible: 'main', bump: 'patch',
+    ci: { path: '.gitlab-ci.yml', content: 'variables:\n  IMAGE_TAG: "1.4.2"\n' },
+    overlays: [{ path: 'Manifests/overlays/uat/kustomization.yaml',
+                 content: 'images:\n  - newTag: "1.4.2"\n' }],
+    mrs: [], runs: [], deploiements: [], stack: ['maven'],
+    maintenant: new Date(MAINTENANT) })
 };
 
 /* ── Le contrat ───────────────────────────────────────────────────────────── */
