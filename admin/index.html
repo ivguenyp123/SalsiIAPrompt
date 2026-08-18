@@ -284,10 +284,18 @@
 
   .empty{padding:34px;text-align:center;color:var(--tm);border:1px dashed var(--line2);border-radius:16px}
   .empty b{color:var(--tp);display:block;margin-bottom:6px;font-family:var(--fd);font-size:15px}
-  #flash{display:none;margin:0 0 16px;padding:11px 14px;border-radius:10px;font-size:13px;font-weight:700}
-  #flash.show{display:block}
-  #flash.ok{color:#6ee7b7;background:rgba(52,211,153,.14)}
-  #flash.err{color:#fca5a5;background:rgba(248,113,113,.14)}
+  #flash,#imflash{display:none;margin:0 0 16px;padding:11px 14px;border-radius:10px;
+                  font-size:13px;font-weight:700}
+  #flash.show,#imflash.show{display:block}
+  #flash.ok,#imflash.ok{color:#6ee7b7;background:rgba(52,211,153,.14)}
+  #flash.err,#imflash.err{color:#fca5a5;background:rgba(248,113,113,.14)}
+
+  /* ── Import : la grille de chiffres, comme celle des exécutions ──
+     `auto-fit` et pas quatre colonnes : il y en a six, et une grille figée à quatre
+     laisserait les deux derniers — dont « avec des scripts » — seuls sur une ligne. */
+  #vue-import .chiffres{grid-template-columns:repeat(auto-fit,minmax(158px,1fr))}
+  #vue-import .row h3 .pill{margin-left:2px}
+  #vue-import .contra{margin-top:8px}
 </style>
 </head>
 <body>
@@ -411,6 +419,35 @@
     <div id="es-journal"></div>
     <p class="note-bas">Les chiffres et les verdicts sont conservés ; les prompts et les
       réponses ne le sont pas.</p>
+  </section>
+
+  <!-- Vue 5 : lire un pack de compétences venu d'ailleurs -->
+  <section id="vue-import" hidden>
+    <h2>Importer un pack</h2>
+    <!--
+      LE TEXTE DIT NON AVANT QUE L'ÉCRAN NE MONTRE OUI.
+
+      Un écran d'import donne envie de cliquer : c'est sa nature. Celui-ci lit un dépôt de
+      compétences — Mantis et les autres — et rend le formulaire de la plateforme rempli de
+      ce que ces fichiers DÉCLARENT. Sur un pack réel, deux champs sur onze. Le reste vit
+      dans de la prose anglaise, et une prose n'accorde pas un droit.
+    -->
+    <p class="hint" style="margin:8px 0 20px;font-size:13.5px">Lire un dépôt de compétences et
+      voir ce que ses fichiers déclarent vraiment. <b>Rien n'est écrit ici</b> : l'écran ne
+      crée aucun agent et n'en rend aucun lançable. Il montre, capacité par capacité, ce
+      qu'il faudra décider à la main — parce que ce qui n'est pas déclaré ne se devine pas.</p>
+
+    <div class="toolbar">
+      <input class="search" id="imdepot" placeholder="dépôt du pack, par exemple google/mantis"
+             autocomplete="off">
+      <input class="search" id="imref" style="flex:0 1 150px;min-width:120px"
+             placeholder="branche ou tag" value="main" autocomplete="off">
+      <button class="btn on" id="imbtn">Lire le pack</button>
+    </div>
+
+    <div class="meta"><span id="imetat"></span></div>
+    <div id="imflash"></div>
+    <div id="imcorps"></div>
   </section>
 </main>
 

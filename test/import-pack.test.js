@@ -23,7 +23,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 
 import { CHAMPS, fiable, decouper, indicesDe, lireCapacite, lirePack,
-         resumePack, MAX_INDICES } from '../lib/import-pack.js';
+         resumePack, skillsDansArbre, MAX_INDICES, MAX_CAPACITES } from '../lib/import-pack.js';
 
 const sha = (t) => createHash('sha256').update(t, 'utf8').digest('hex');
 
@@ -273,5 +273,42 @@ describe('le formulaire est le garde-fou, pas une doc', () => {
     // rendre facultatifs ferait de l'oubli le chemin le plus permissif.
     const requis = CHAMPS.filter((c) => c.requis).map((c) => c.nom);
     for (const n of ['outils', 'isolement', 'ecrit', 'empreinte']) assert.ok(requis.includes(n), n);
+  });
+});
+
+/* ── Ce que l'écran va chercher, et ce qu'il renonce à chercher ───────────── */
+
+describe('choisir les fichiers à lire dans une arborescence', () => {
+  const arbre = (n) => Array.from({ length: n }, (_, i) => `skills/s${String(i).padStart(3, '0')}/SKILL.md`);
+
+  test('seuls les `SKILL.md` sont retenus, où qu\'ils soient', () => {
+    const r = skillsDansArbre(['README.md', 'a/SKILL.md', 'a/helpers/x.py',
+                               'b/c/SKILL.md', 'skill.md.bak']);
+    assert.deepEqual(r.chemins, ['a/SKILL.md', 'b/c/SKILL.md']);
+    assert.equal(r.total, 2);
+    assert.equal(r.coupes, 0);
+  });
+
+  test('LA COUPE EST RENDUE, jamais silencieuse', () => {
+    /*
+     * Un écran qui annonce « 40 capacités découvertes » sur un pack qui en porte 96 ment
+     * sur la taille de ce qu'on adopte — et c'est précisément le chiffre qu'un comité
+     * regarde. Le nombre total et le nombre non lu sortent tous les deux.
+     */
+    const r = skillsDansArbre(arbre(MAX_CAPACITES + 12));
+    assert.equal(r.chemins.length, MAX_CAPACITES);
+    assert.equal(r.total, MAX_CAPACITES + 12);
+    assert.equal(r.coupes, 12);
+  });
+
+  test('l\'ordre est stable : deux lectures du même pack donnent la même coupe', () => {
+    const melange = ['z/SKILL.md', 'a/SKILL.md', 'm/SKILL.md'];
+    assert.deepEqual(skillsDansArbre(melange, 2).chemins, ['a/SKILL.md', 'm/SKILL.md']);
+    assert.deepEqual(skillsDansArbre([...melange].reverse(), 2).chemins,
+                     ['a/SKILL.md', 'm/SKILL.md']);
+  });
+
+  test('un arbre sans compétence rend zéro, pas une erreur', () => {
+    assert.deepEqual(skillsDansArbre(['README.md']), { chemins: [], total: 0, coupes: 0 });
   });
 });

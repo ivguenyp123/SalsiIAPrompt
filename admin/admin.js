@@ -40,6 +40,7 @@ import { niveau } from '../lib/niveau.js';
 import { carte } from '../runtime/etat-derive.js';
 import { lire as lireProvenance } from '../lib/provenance.js';
 import { chargerExecutions, monterPas, chargeEs } from './executions.js';
+import { lireLePack } from './import.js';
 
 /*
  * `cache: 'no-cache'` sur les référentiels — pas une coquetterie.
@@ -809,8 +810,17 @@ const jvue = { evenements: [], filtre: 'tout', charge: false };
  * Elle vit dans `executions.js` : mettre ses graphiques ici aurait ajouté trois cents
  * lignes à un fichier qui en fait déjà mille, pour un métier qui n'est pas le sien.
  */
+/*
+ * Une CINQUIÈME : lire un pack de compétences venu d'ailleurs.
+ *
+ * Elle est en dernier, et c'est voulu. Ce n'est pas le geste courant — on administre un
+ * parc tous les jours, on adopte un pack tiers trois fois par an — et surtout, la mettre
+ * en avant reviendrait à promettre un import qu'elle ne fait pas : elle lit, elle montre
+ * ce qui manque, elle n'écrit rien.
+ */
 const VUES = [['parc', '📦 Le parc'], ['valider', '✅ À valider'],
-              ['executions', '📊 Exécutions'], ['journal', '📜 Journal']];
+              ['executions', '📊 Exécutions'], ['journal', '📜 Journal'],
+              ['import', '📥 Importer un pack']];
 const VUE_DEFAUT = 'parc';
 
 /** Le compte d'attente, sur son bouton. Vide tant que la file n'est pas connue. */
@@ -826,6 +836,10 @@ function montrerVue(id) {
   if (id === 'parc' && !pvue.charge) chargerParc();
   if (id === 'executions' && !chargeEs()) chargerExecutions();
 }
+
+// Le pack se lit sur demande : pas de chargement à l'ouverture de la vue, parce qu'aucun
+// dépôt n'est choisi tant que personne ne l'a écrit.
+$('imbtn').onclick = () => lireLePack(forge);
 
 for (const [id, label] of VUES) {
   const b = el('button', { textContent: label });
