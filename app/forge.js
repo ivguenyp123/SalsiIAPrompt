@@ -888,15 +888,72 @@ function github(session, fetchImpl) {
       }
     },
 
-    commitFiles: async () => {
-      throw new ForgeError(
-        'La livraison vise GitLab. Sur GitHub, un commit atomique de plusieurs fichiers '
-        + 'demande de reconstruire un arbre git à la main — non implémenté ici, faute '
-        + 'd\'usage réel. Connecte-toi au GitLab cible pour exécuter.', 501);
+    /*
+     * ── POSER DES FICHIERS SUR GITHUB : NON ATOMIQUE, ET C'EST DIT ────────────
+     *
+     * Cette opération levait un 501, avec une raison exacte : GitLab commet plusieurs
+     * fichiers en UNE transaction, GitHub non. Un commit atomique y demande de reconstruire
+     * un arbre git à la main — trois appels de plus, et une gestion d'erreur qui n'a
+     * d'intérêt que pour une vraie livraison.
+     *
+     * Mais l'usage réel est arrivé, et il est plus modeste : poser deux à cinq fichiers
+     * NEUFS sur une branche neuve, pour une merge request que personne ne fusionnera sans
+     * la lire. Là, l'atomicité ne protège de rien — une branche à moitié écrite se
+     * supprime, et la MR n'est pas encore ouverte.
+     *
+     * On écrit donc les fichiers UN PAR UN, et la limite est déclarée plutôt que masquée :
+     * chaque fichier fait son propre commit, et un échec au troisième laisse les deux
+     * premiers sur la branche. L'appelant reçoit l'erreur avec le nom du fichier fautif.
+     *
+     * `depuis` est le pendant du `start_branch` de GitLab : la branche est créée à partir
+     * de là si elle n'existe pas encore.
+     */
+    commitFiles: async (repo, { branch, message, files = [], depuis = '' } = {}) => {
+      const base = depuis || (await call(`/repos/${repo}`)).default_branch;
+
+      // La branche : créée si absente, réutilisée si elle est déjà là — ce qui rend
+      // l'opération rejouable au lieu d'échouer au second passage.
+      try {
+        const tete = await call(`/repos/${repo}/git/ref/heads/${encodeURIComponent(base)}`);
+        await call(`/repos/${repo}/git/refs`, {
+          method: 'POST', body: { ref: `refs/heads/${branch}`, sha: tete.object.sha }
+        });
+      } catch (error) {
+        // 422 : la référence existe déjà. Tout autre code est une vraie panne.
+        if (error.status !== 422) throw error;
+      }
+
+      /*
+       * `{ path, content }` — la MÊME forme que côté GitLab, avec un contenu en clair.
+       *
+       * GitLab accepte le texte tel quel, GitHub exige du base64 : la conversion est ici,
+       * pas chez l'appelant. Deux formes de fichier selon la forge auraient obligé chaque
+       * appelant à savoir à qui il parle — soit exactement ce que cette couche existe pour
+       * éviter.
+       */
+      let dernier = null;
+      for (const f of files) {
+        try {
+          dernier = await call(`/repos/${repo}/contents/${f.path}`, {
+            method: 'PUT',
+            body: { message, branch, content: toBase64(f.content) }
+          });
+        } catch (error) {
+          throw new ForgeError(
+            `Écriture de \`${f.path}\` impossible : ${error.message} — les fichiers `
+            + `déjà posés restent sur la branche \`${branch}\`, qui se supprime.`,
+            error.status || 0);
+        }
+      }
+      return { sha: dernier?.commit?.sha || '', url: dernier?.commit?.html_url || '' };
     },
 
-    createMergeRequest: async () => {
-      throw new ForgeError('La livraison vise GitLab : la création de merge request n\'est pas implémentée sur GitHub.', 501);
+    createMergeRequest: async (repo, { source, target, title, description = '' }) => {
+      const pr = await call(`/repos/${repo}/pulls`, {
+        method: 'POST',
+        body: { title, head: source, base: target, body: description }
+      });
+      return { number: pr.number, url: pr.html_url };
     },
 
     listCommits: async (repo, path, { perPage = 50, ref = 'main' } = {}) => {

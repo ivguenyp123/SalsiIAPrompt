@@ -20,8 +20,11 @@ import assert from 'node:assert/strict';
 
 import { parcSecurite, resumeParc, groupeDe, MAX_DEPOTS } from '../lib/signaux-parc.js';
 import { rapportConformite } from '../lib/signaux-securite.js';
-import { BRANCHE, CORRIGEABLES, OU_REGLER, securiteMd, codeowners, fichiersAProposer,
-         aProposer, descriptionMr, titreMr, messageCommit } from '../lib/correctifs.js';
+import { BRANCHE, BRANCHE as BRANCHE_CIS, CORRIGEABLES, OU_REGLER, securiteMd, codeowners,
+         fichiersAProposer, aProposer, descriptionMr, titreMr, messageCommit,
+         BRANCHE_DEPOT, fichiersDepotAProposer, aProposerDepot, descriptionMrDepot,
+         titreMrDepot, messageCommitDepot } from '../lib/correctifs.js';
+import { rapportDepot, PREFIXES_ACCEPTES } from '../lib/signaux-depot.js';
 import { sait, SIGNAUX, surPlusieursDepots } from '../lib/signaux-matiere.js';
 
 const MAINTENANT = '2026-08-17T12:00:00Z';
@@ -207,5 +210,124 @@ describe('la description de la merge request', () => {
     const nu = descriptionMr({ depot: 'x/y', conformite: c, fichiers: [] });
     assert.ok(!/Ce que cette MR ajoute/.test(nu));
     assert.match(nu, /NE corrige PAS/);
+  });
+});
+
+/* ── Les correctifs d'un rapport de dépôt ─────────────────────────────────── */
+
+describe('la merge request d\'hygiène de dépôt', () => {
+  const M = '2026-08-17T18:00:00Z';
+  const nu = (sur = {}) => rapportDepot({
+    depot: 'lcl/paiement', info: { defaut: 'main' },
+    branches: [{ name: 'main', default: true, protectee: false, quand: M }],
+    chemins: ['src/a.js'],
+    commits: Array.from({ length: 12 }, (_, i) => ({ message: 'wip', author: `a${i % 4}`, date: M })),
+    mrsOuvertes: [{ numero: 1, titre: 'x', ouvert: M, description: '', relecteurs: [], etiquettes: [] }],
+    mrsFusionnees: [{ numero: 2, titre: 'y', cible: 'main', ouvert: M, fusionne: M }],
+    pipelines: [], maintenant: M, ...sur });
+
+  test('SEULS les constats réparables par un fichier produisent un fichier', () => {
+    /*
+     * LE test de ce bloc, et c'est une question de confiance, pas de fonctionnalité.
+     *
+     * Sur vingt-cinq contrôles, CINQ s'écrivent. Les autres sont des réglages de projet,
+     * des suppressions de branche ou des gestes sur une merge request. Une MR qui
+     * prétendrait « corriger » la protection de `main` mentirait à l'équipe qui la relit —
+     * et cette équipe cesserait de relire les suivantes.
+     */
+    const r = nu();
+    const chemins = fichiersDepotAProposer(r).map((f) => f.chemin);
+    assert.ok(chemins.includes('README.md'));
+    assert.ok(chemins.includes('CODEOWNERS'));
+    assert.ok(!chemins.some((c) => /protect|branch|pipeline/i.test(c)),
+      'aucun fichier ne doit prétendre corriger un réglage');
+
+    // Et le constat le plus grave du dépôt — `main` non protégée — n'est PAS dans les
+    // fichiers, mais IL EST dans la description.
+    const d = descriptionMrDepot({ rapport: r, fichiers: fichiersDepotAProposer(r) });
+    assert.match(d, /ne corrige PAS/);
+    assert.match(d, /Protéger la branche/);
+  });
+
+  test('chaque fichier porte le constat qui le justifie', () => {
+    // Un fichier posé sans raison lisible s'appelle une pollution. L'équipe doit pouvoir
+    // remonter de chaque fichier au constat, dans la description.
+    for (const f of fichiersDepotAProposer(nu())) {
+      assert.ok(f.pourquoi && f.pourquoi.length > 15, `\`${f.chemin}\` sans justification`);
+      assert.match(descriptionMrDepot({ rapport: nu(), fichiers: [f] }),
+        new RegExp(f.chemin.replace('.', '\\.')));
+    }
+  });
+
+  test('le modèle de merge request va au bon endroit selon la forge', () => {
+    // `.gitlab/merge_request_templates/` et `.github/pull_request_template.md` ne sont pas
+    // interchangeables : posé au mauvais endroit, le fichier n'est jamais lu par personne.
+    const chemin = (forge) => fichiersDepotAProposer(nu(), { forge })
+      .find((f) => /template/.test(f.chemin))?.chemin;
+    assert.match(chemin('gitlab'), /^\.gitlab\/merge_request_templates\//);
+    assert.equal(chemin('github'), '.github/pull_request_template.md');
+  });
+
+  test('un dépôt qui a déjà tout ne propose RIEN', () => {
+    // Le bouton ne doit pas apparaître. Un bouton qui promet ce qu'il ne peut pas tenir se
+    // paie au premier clic.
+    const complet = nu({ chemins: ['README.md', 'CONTRIBUTING.md', '.gitignore', 'CODEOWNERS',
+                                   '.gitlab/merge_request_templates/defaut.md', 'src/a.js'] });
+    assert.deepEqual(fichiersDepotAProposer(complet), []);
+    assert.equal(aProposerDepot(complet), false);
+  });
+
+  test('le `.gitignore` proposé annonce lui-même qu\'il est incomplet', () => {
+    /*
+     * C'est le correctif le plus délicat : il dépend de la technologie du projet, que la
+     * matière ne connaît pas — on lit un arbre de fichiers, pas un langage. Poser un
+     * `.gitignore` Node sur un dépôt Java donnerait l'impression que la question est
+     * réglée.
+     */
+    const f = fichiersDepotAProposer(nu()).find((x) => x.chemin === '.gitignore');
+    assert.match(f.contenu, /MINIMAL et incomplet/);
+    /*
+     * Un fragment COURT, sur une seule ligne. Viser « ils ne se devinent pas » a échoué
+     * deux fois : le fichier retourne à la ligne au milieu, avec un `#` de commentaire
+     * devant la suite. Un test qui dépend de l'endroit où une phrase se coupe casse au
+     * premier reformatage, pour une raison qui n'a rien à voir avec ce qu'il vérifie.
+     */
+    assert.match(f.contenu, /restent à compléter/);
+    assert.match(f.contenu, /\.env/, 'le cas qui justifie le fichier doit y être');
+  });
+
+  test('les squelettes DISENT qu\'ils sont à compléter', () => {
+    // Un README généré qui aurait l'air fini est pire que pas de README : il coche une
+    // case et personne ne le reprend.
+    for (const f of fichiersDepotAProposer(nu())) {
+      /*
+       * Le vocabulaire varie d'un fichier à l'autre — « à compléter », « POINT DE
+       * DÉPART », « incomplet » — et c'est très bien : chacun dit la chose dans ses
+       * propres mots. Ce qui compte est qu'AUCUN n'ait l'air fini.
+       */
+      assert.match(f.contenu, /complét|incomplet|POINT DE DÉPART/i,
+        `\`${f.chemin}\` ne dit pas qu'il est un squelette`);
+    }
+  });
+
+  test('le CONTRIBUTING cite la convention RÉELLEMENT contrôlée', () => {
+    // Réécrite à côté, la liste des préfixes divergerait du contrôle qui la vérifie — et
+    // le dépôt se ferait reprocher de ne pas suivre une règle que sa propre documentation
+    // n'énonce pas.
+    const f = fichiersDepotAProposer(nu()).find((x) => x.chemin === 'CONTRIBUTING.md');
+    for (const p of PREFIXES_ACCEPTES) assert.ok(f.contenu.includes(p), `${p} manquant`);
+  });
+
+  test('la branche d\'hygiène n\'est PAS celle de la conformité CIS', () => {
+    // Deux propositions de nature différente sur le même dépôt ne doivent pas se marcher
+    // dessus : la seconde écraserait la première sans que personne le voie.
+    assert.notEqual(BRANCHE_DEPOT, BRANCHE_CIS);
+  });
+
+  test('le titre et le commit annoncent une PROPOSITION, pas une correction', () => {
+    const f = fichiersDepotAProposer(nu());
+    assert.match(titreMrDepot(nu(), f), /proposé/i);
+    assert.match(messageCommitDepot(f), /proposes/i);
+    assert.match(messageCommitDepot(f), /ne corrige NI/);
   });
 });

@@ -36,7 +36,9 @@ import { revueMr, resumeRevue } from '../lib/signaux-revue.js';
 import { jobEnEchec, resumeCi } from '../lib/signaux-ci.js';
 import { rapportDepot, resumeDepot } from '../lib/signaux-depot.js';
 import { BRANCHE as BRANCHE_CORRECTIFS, fichiersAProposer, aProposer,
-         descriptionMr, titreMr, messageCommit } from '../lib/correctifs.js';
+         descriptionMr, titreMr, messageCommit,
+         BRANCHE_DEPOT, CORRIGEABLES_DEPOT, fichiersDepotAProposer, aProposerDepot,
+         descriptionMrDepot, titreMrDepot, messageCommitDepot } from '../lib/correctifs.js';
 import { indexer, chercher, etiquettes, porteEtiquettes } from '../lib/recherche.js';
 import { ETAPES, VU, jouables, placer } from '../lib/tour.js';
 import { niveau, pastille } from '../lib/niveau.js';
@@ -2262,6 +2264,81 @@ function ouvrirExecution(entry) {
    *   par un. Un bouton qui écrit chez les autres sans montrer quoi ni où n'a rien à faire
    *   dans un produit qui prétend gouverner.
    */
+  /**
+   * « Veux-tu que je te prépare une merge request avec ces corrections ? »
+   *
+   * ── L'AGENT AGIT, LE DERNIER MOT RESTE AU DÉVELOPPEUR ────────────────────────
+   *
+   * Deux garde-fous, et ils ne sont pas décoratifs :
+   *
+   *   · on montre la liste EXACTE des fichiers avant d'écrire quoi que ce soit, et le
+   *     nombre de constats qui ne seront PAS corrigés. Un « oui » donné sans savoir ce
+   *     qu'on accepte n'est pas un accord ;
+   *   · rien n'est jamais fusionné. La merge request est ouverte, l'équipe la relit,
+   *     l'ajuste, la ferme si elle veut. C'est son dépôt.
+   *
+   * Sur vingt-cinq contrôles, CINQ se réparent en écrivant un fichier. Les autres sont des
+   * réglages de projet, des suppressions de branche ou des gestes sur une merge request :
+   * aucun commit ne les change, et la description le dit plutôt que de laisser croire que
+   * fusionner suffira.
+   */
+  function boutonHygiene(rapport) {
+    const b = el('button', { className: 'export', type: 'button',
+      textContent: '📮 Préparer une MR avec ces corrections' });
+
+    b.onclick = async () => {
+      const fichiers = fichiersDepotAProposer(rapport, { forge: forge.kind });
+      const restants = (rapport.constats || [])
+        .filter((c) => !CORRIGEABLES_DEPOT.has(c.cle)).length;
+
+      if (!confirm(
+        `Ouvrir une merge request sur \`${rapport.depot}\`, branche « ${BRANCHE_DEPOT} ».\n\n`
+        + `${fichiers.map((f) => `  + ${f.chemin}\n      ${f.pourquoi}`).join('\n')}\n\n`
+        + `Ces fichiers sont des SQUELETTES à compléter.\n\n`
+        + `${restants} autre(s) constat(s) ne seront PAS corrigés : ce sont des réglages de `
+        + 'projet, des suppressions de branche ou des gestes sur des merge requests. La '
+        + 'description les liste.\n\n'
+        + 'Rien ne sera fusionné : c\'est une proposition.\n\nContinuer ?')) return;
+
+      b.disabled = true;
+      const suivi = el('div', { className: 'constats' });
+      zone.append(el('h4', { textContent: 'La merge request proposée' }), suivi);
+      const ligne = el('div', { textContent: `⏳ ${rapport.depot}…` });
+      suivi.append(ligne);
+
+      try {
+        const cible = await brancheDe(rapport.depot);
+        await forge.commitFiles(rapport.depot, {
+          branch: BRANCHE_DEPOT, depuis: cible,
+          message: messageCommitDepot(fichiers),
+          files: fichiers.map((f) => ({ path: f.chemin, content: f.contenu }))
+        });
+
+        const mr = await forge.createMergeRequest(rapport.depot, {
+          source: BRANCHE_DEPOT, target: cible,
+          title: titreMrDepot(rapport, fichiers),
+          description: descriptionMrDepot({ rapport, fichiers })
+        });
+        ligne.textContent = `✔ ${fichiers.length} fichier(s) proposé(s) — `;
+        ligne.append(el('a', { href: mr.url, target: '_blank', rel: 'noopener',
+                              textContent: `merge request #${mr.number}` }));
+      } catch (error) {
+        /*
+         * 409 / 422 : une merge request est déjà ouverte depuis cette branche. Ce n'est pas
+         * un échec — c'est l'idempotence qui fait son travail, et la branche vient d'être
+         * mise à jour. Le dire comme une panne ferait recommencer pour rien.
+         */
+        ligne.textContent = (error.status === 409 || error.status === 422)
+          ? `✔ ${rapport.depot} — une merge request est déjà ouverte depuis `
+            + `\`${BRANCHE_DEPOT}\` ; ses fichiers viennent d'être mis à jour.`
+          : `✕ ${rapport.depot} — ${error.message}`;
+        b.disabled = false;
+      }
+    };
+
+    return b;
+  }
+
   function boutonCorrectifs() {
     const b = el('button', { className: 'export', type: 'button',
       textContent: '📮 Proposer les correctifs' });
@@ -2552,6 +2629,21 @@ function ouvrirExecution(entry) {
     if (surParc && calcules.some((c) => (c.dernier()?.lignes || []).some((d) => aProposer(d.conformite)))) {
       tete.append(boutonCorrectifs());
     }
+
+    /*
+     * Le même geste, sur un rapport de dépôt.
+     *
+     * L'agent vient de dire les cinq choses à corriger ; le détour naturel — ouvrir la
+     * forge, créer une branche, écrire cinq fichiers à la main — est exactement celui qui
+     * fait qu'on ne le fait pas. Le bouton propose, l'équipe décide : rien n'est fusionné.
+     *
+     * Il n'apparaît que si un FICHIER est concerné. Sur un dépôt dont tous les constats
+     * sont des réglages ou des suppressions, une merge request n'aurait rien à porter — et
+     * un bouton qui promet ce qu'il ne peut pas tenir se paie au premier clic.
+     */
+    const surDepot = calcules.map((c) => c.dernier()).find((r) => r?.constats && r?.compte);
+    if (surDepot && aProposerDepot(surDepot)) tete.append(boutonHygiene(surDepot));
+
     zone.append(tete);
 
     // Les gestes de merge request, quand l'agent en a relu une : la revue n'a d'intérêt
