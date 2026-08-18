@@ -2646,11 +2646,15 @@ function ouvrirExecution(entry) {
 
     zone.append(tete);
 
-    // Les gestes de merge request, quand l'agent en a relu une : la revue n'a d'intérêt
-    // que si elle débouche sur une décision, et aller la reporter à la main sur la forge
-    // est exactement le détour qui fait qu'on ne le fait pas.
+    /*
+     * Les gestes de merge request : la revue n'a d'intérêt que si elle débouche sur une
+     * décision, et aller la reporter à la main sur la forge est exactement le détour qui
+     * fait qu'on ne le fait pas.
+     *
+     * Ils sont AJOUTÉS PLUS BAS, après la relecture et le verdict — voir la fin de cette
+     * fonction. Ici on ne fait que les préparer.
+     */
     const surMr = calcules.map((c) => c.dernier()).find((r) => r?.pr);
-    if (surMr) zone.append(gestesDeMr(surMr, corps));
 
     /*
      * UNE RÉPONSE COUPÉE LE DIT, ET C'EST LE PLUS IMPORTANT DE CET ÉCRAN.
@@ -2700,6 +2704,21 @@ function ouvrirExecution(entry) {
         c.pourquoi ? el('small', { style: 'display:block;color:var(--tm)', textContent: c.pourquoi }) : ''));
     }
     zone.append(liste);
+
+    /*
+     * ── LES GESTES VONT À LA FIN, ET C'EST LE RETOUR D'USAGE QUI L'A DIT ──────
+     *
+     * Ils étaient en haut, juste sous le titre de la sortie. Techniquement présents,
+     * pratiquement introuvables : on lit une relecture de merge request jusqu'au bout —
+     * c'est même tout l'intérêt — et au moment de décider, les boutons étaient trois
+     * écrans plus haut. Le retour a été « je n'ai pas les boutons », sur un écran qui les
+     * affichait.
+     *
+     * La décision se prend APRÈS la lecture. Les boutons doivent donc être là où le
+     * regard arrive, pas là où la section commence.
+     */
+    if (surMr) zone.append(gestesDeMr(surMr, corps));
+
     zone.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
