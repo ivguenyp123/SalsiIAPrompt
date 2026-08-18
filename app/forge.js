@@ -17,6 +17,7 @@
  *   deleteFile(repo, path, { message, branch })        → supprime
  *   moveFile(repo, from, to, { message, branch })      → déplace (copie puis supprime)
  *   listCommits(repo, path, { perPage, ref })          → [{ sha, message, author, date }]
+ *   comparer(repo, base, tete)                         → { enAvance, enRetard, commits, fichiers }
  *
  * Matière (moment 5) — aller chercher ce qu'un agent doit LIRE, dans le dépôt de
  * l'utilisateur, avec son jeton, depuis son navigateur :
@@ -604,8 +605,50 @@ function gitlab(session, fetchImpl) {
         if (error.status === 404) return [];
         throw error;
       }
+    },
+
+    /*
+     * ── LA DIVERGENCE DEMANDE DEUX APPELS ICI, ET UN SEUL CHEZ GITHUB ────────
+     *
+     * GitHub rend `ahead_by` et `behind_by` d'un coup. GitLab ne rend que les commits
+     * d'un sens : pour savoir de combien la branche est EN RETARD, il faut comparer dans
+     * l'autre sens. On fait donc deux appels plutôt que de rendre `null` — parce que le
+     * retard est justement le chiffre qui prédit le conflit, et qu'un agent à qui il
+     * manque conclura que tout va bien.
+     */
+    comparer: async (repo, base, tete) => {
+      const cmp = (from, to) => call(`/projects/${encodeURIComponent(repo)}/repository/compare`,
+        { params: { from, to } });
+      const [avance, retard] = await Promise.all([cmp(base, tete), cmp(tete, base)]);
+
+      return {
+        enAvance: (avance.commits || []).length,
+        enRetard: (retard.commits || []).length,
+        commits: (avance.commits || []).map((c) => ({
+          sha: c.id,
+          message: c.message || [c.title, c.description].filter(Boolean).join('\n\n'),
+          author: c.author_name || c.author_email || '',
+          date: c.committed_date || c.created_at
+        })),
+        fichiers: (avance.diffs || []).map((d) => ({
+          chemin: d.new_path || d.old_path || '',
+          // GitLab ne compte pas les lignes : le patch est là, on le compte nous-mêmes
+          // plutôt que de rendre `null` là où GitHub rend un nombre.
+          ajouts: compterLignes(d.diff, '+'),
+          retraits: compterLignes(d.diff, '-'),
+          statut: d.new_file ? 'ajoute' : (d.deleted_file ? 'supprime' : 'modifie')
+        }))
+      };
     }
   };
+}
+
+/** Les lignes d'un patch qui commencent par un signe — sans compter l'en-tête `+++`. */
+function compterLignes(patch, signe) {
+  if (!patch) return 0;
+  const entete = signe.repeat(3);
+  return String(patch).split('\n')
+    .filter((l) => l.startsWith(signe) && !l.startsWith(entete)).length;
 }
 
 /* ── GitHub — où vit le prototype ──────────────────────────────────────────── */
@@ -971,6 +1014,28 @@ function github(session, fetchImpl) {
         if (error.status === 404) return [];
         throw error;
       }
+    },
+
+    /** Un seul appel : GitHub rend l'avance ET le retard, et compte les lignes. */
+    comparer: async (repo, base, tete) => {
+      const r = await call(`/repos/${repo}/compare/${encodeURIComponent(base)}...${encodeURIComponent(tete)}`);
+      return {
+        enAvance: r.ahead_by || 0,
+        enRetard: r.behind_by || 0,
+        commits: (r.commits || []).map((c) => ({
+          sha: c.sha,
+          message: c.commit?.message || '',
+          author: c.author?.login || c.commit?.author?.name || '',
+          date: c.commit?.author?.date || c.commit?.committer?.date
+        })),
+        fichiers: (r.files || []).map((f) => ({
+          chemin: f.filename || '',
+          ajouts: f.additions || 0,
+          retraits: f.deletions || 0,
+          statut: f.status === 'added' ? 'ajoute'
+                : (f.status === 'removed' ? 'supprime' : 'modifie')
+        }))
+      };
     }
   };
 }

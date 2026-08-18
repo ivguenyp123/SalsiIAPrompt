@@ -46,6 +46,7 @@ import { niveau, pastille } from '../lib/niveau.js';
 import { planDeLivraison, resumeLivraison,
          MAX_RUNS as MAX_RUNS_LIVRAISON } from '../lib/signaux-livraison.js';
 import { analyseFichier, resumeCode } from '../lib/signaux-code.js';
+import { etatBranche, resumeBranche } from '../lib/signaux-branche.js';
 import { BUMPS, environnements as environnementsDe, KUSTOMIZATION_RX } from '../runtime/livraison.js';
 import { preparer as preparerLivraison, executer as executerLivraison,
          lireLivraison } from '../runtime/executer.js';
@@ -961,7 +962,8 @@ const CALCULS = {
    * ou sur `production` ne touche pas les mêmes fichiers.
    */
   plan_de_livraison: (depot, reglages) => matiereLivraison(depot, reglages),
-  analyse_fichier: (depot, reglages) => matiereAnalyseFichier(depot, reglages)
+  analyse_fichier: (depot, reglages) => matiereAnalyseFichier(depot, reglages),
+  etat_branche: (depot, reglages) => matiereEtatBranche(depot, reglages)
 };
 
 /** Le résumé d'une ligne, par signal. Sans entrée ici, l'écran n'afficherait rien. */
@@ -976,7 +978,8 @@ const RESUMES = {
   rapport_depot: resumeDepot,
   parc_securite: resumeParc,
   plan_de_livraison: resumeLivraison,
-  analyse_fichier: resumeCode
+  analyse_fichier: resumeCode,
+  etat_branche: resumeBranche
 };
 
 async function matiereContributions(depot) {
@@ -1377,6 +1380,25 @@ async function matiereAnalyseFichier(depot, { fichier = '' } = {}) {
 }
 
 /**
+ * L'état d'une branche, comparée à la branche par défaut.
+ *
+ * La comparaison est LE calcul de ce signal : elle donne l'avance, le retard, les fichiers
+ * et leurs lignes en une opération de forge. Le reste — merge request ouverte, pipelines —
+ * est du contexte, lu en parallèle et sans pouvoir emporter le tout s'il échoue.
+ */
+async function matiereEtatBranche(depot, { branche = '' } = {}) {
+  const defaut = await brancheDe(depot);
+  const [comparaison, mrs, runs] = await Promise.all([
+    forge.comparer(depot, defaut, branche),
+    forge.listPullRequests(depot, { etat: 'ouvertes' }).catch(() => []),
+    forge.listRuns(depot, { perPage: MAX_RUNS_LIVRAISON }).catch(() => [])
+  ]);
+
+  return etatBranche({ depot, branche, brancheDefaut: defaut, comparaison, mrs, runs,
+                       maintenant: new Date().toISOString() });
+}
+
+/**
  * La conformité CIS — trois lectures, et l'aveu de ce qu'on ne peut pas voir.
  *
  * `pom.xml` n'est lu que s'il existe : une lecture de plus sur un dépôt Java, aucune
@@ -1500,8 +1522,15 @@ const LISTES = {
 const REGLAGES = {
   /** Les branches du dépôt, moins la branche cible : la livrer vers elle-même n'a pas de sens. */
   branche: {
-    invite: '— choisir la branche à livrer —',
-    vide: 'Aucune branche livrable : ce dépôt n\'a que sa branche par défaut.',
+    /*
+     * Libellé NEUTRE, et c'est un correctif. Il disait « la branche à livrer » et « aucune
+     * branche livrable » — écrit pour la livraison, alors qu'il sert désormais aussi
+     * l'analyse de branche. Le réglage porte son propre libellé (`Branche à analyser`,
+     * `Branche à livrer`) ; l'invite de la liste, elle, est partagée et ne doit donc rien
+     * supposer du signal qui l'emploie.
+     */
+    invite: '— choisir une branche —',
+    vide: 'Ce dépôt n\'a que sa branche par défaut : il n\'y a rien d\'autre à choisir.',
     options: async (depot) => {
       const [info, branches] = await Promise.all([
         forge.projectInfo(depot).catch(() => ({})),
@@ -1996,7 +2025,8 @@ const SIGNAL_LISIBLE = {
   parc_securite: 'La conformité du parc — auditée sur les dépôts cochés',
   revue_mr: 'La merge request à relire — choisie dans la liste',
   plan_de_livraison: 'Ce que la livraison changerait — calculé sur le dépôt',
-  analyse_fichier: 'Le fichier, scanné avant lecture — secrets et chaîne d\'appro'
+  analyse_fichier: 'Le fichier, scanné avant lecture — secrets et chaîne d\'appro',
+  etat_branche: 'Où en est cette branche — divergence, dispersion, âge'
 };
 
 /**

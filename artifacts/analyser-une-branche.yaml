@@ -1,0 +1,113 @@
+# salsi-provenance: main
+# besoin: où en est ma branche, et qu'est-ce qui va coincer au merge
+# demande-par: ivguenyp123
+# le: 2026-08-18
+#
+# ── LE MOMENT QU'AUCUN AGENT NE COUVRAIT ────────────────────────────────────
+#
+# `relire-une-mr` relit une merge request : elle existe, son diff est assemblé, un
+# relecteur l'attend. C'est la FIN du travail. Une branche en cours — celle où l'on est
+# depuis trois jours, ou celle qu'on a laissée il y a six semaines — n'avait aucun agent.
+#
+# C'est pourtant là que les questions coûtent le moins cher à traiter : diverger de trente
+# commits se rattrape en un rebase le jour même, et en une semaine de conflits un mois plus
+# tard.
+#
+# ── ET CE QU'IL N'A PAS LE DROIT DE DIRE ────────────────────────────────────
+#
+# Sa matière ne contient AUCUNE ligne de diff. Divergence, dispersion, âge, conventions,
+# état de CI — l'état d'une branche, pas ce que son code fait. Un modèle à qui l'on montre
+# une branche sans constat écrira volontiers « prête à fusionner » : c'est la phrase la
+# plus dangereuse qu'il puisse produire ici, parce qu'elle porte sur un contenu qu'il n'a
+# jamais vu.
+#
+# La consigne le lui interdit nommément, et la matière porte sa propre section « ce qui n'a
+# pas été regardé ». Deux ceintures, parce qu'une seule se détend.
+
+id: analyser-une-branche
+kind: prompt
+title: Où en est cette branche
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [git, revue, pilotage]
+intent:
+  purpose: >-
+    Dire à quelqu'un qui travaille sur une branche où elle en est : ce qui va coincer au
+    merge, si elle se disperse, si elle dort, et quel est le geste le plus rentable
+    maintenant.
+  not_for: >-
+    Ne pas utiliser pour relire un changement : cette matière ne contient aucune ligne de
+    code. Pour juger ce que le code vaut, il y a `relire-une-mr`, dont la matière porte le
+    diff. Ne pas l'utiliser non plus comme feu vert de fusion — aucun de ses constats ne
+    porte sur la correction de ce qui est écrit.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: etat_branche
+    source: signal
+    required: true
+    description: >-
+      L'état calculé de la branche : avance et retard en commits sur la branche par
+      défaut, fichiers et zones touchés, âge et silence, conventions de nommage et de
+      commit, merge request ouverte et dernier pipeline.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Où en est cette branche
+      - Ce qui va coincer
+      - Le geste le plus rentable maintenant
+      - Ce que je n'ai pas pu juger
+spec: |-
+  Tu parles à quelqu'un qui travaille sur cette branche, ou qui vient de la retrouver.
+
+  L'état ci-dessous est CALCULÉ : les chiffres viennent d'une comparaison avec la branche
+  par défaut, lue à l'instant.
+
+  {{etat_branche}}
+
+  Rends exactement ces sections, avec ces titres :
+
+  ## Où en est cette branche
+  ## Ce qui va coincer
+  ## Le geste le plus rentable maintenant
+  ## Ce que je n'ai pas pu juger
+
+  Ce qu'on attend dans chacune :
+
+  OÙ EN EST CETTE BRANCHE
+  Trois phrases maximum, en français, pour quelqu'un qui a la tête ailleurs. Ce qu'elle
+  apporte, depuis quand, et si elle est encore vivante.
+
+  CE QUI VA COINCER
+  Reprends les constats mesurés et dis ce qu'ils PRODUIRONT concrètement — un rebase
+  douloureux, une revue que personne ne lira, une note de version incomplète. Classe par
+  ce qui coûtera le plus cher, pas par gravité déclarée.
+
+  Si aucun seuil n'est franchi, dis-le en une ligne et n'invente pas de problème.
+
+  LE GESTE LE PLUS RENTABLE MAINTENANT
+  UN seul geste, celui qui coûte le moins et évite le plus. Rebaser, découper, ouvrir la
+  merge request, ou abandonner la branche. Dis pourquoi celui-là plutôt qu'un autre.
+
+  CE QUE JE N'AI PAS PU JUGER
+  Ce que la matière ne contient pas et qui pèserait sur ta réponse.
+
+  Règles, et les deux premières priment sur tout le reste :
+
+  - NE DIS JAMAIS QUE CETTE BRANCHE EST PRÊTE À FUSIONNER, ni qu'elle est correcte, ni
+    qu'elle est sûre, ni que « tout va bien ». Tu n'as pas lu une seule ligne de son code :
+    ni ce qu'il fait, ni ses tests, ni ce qu'il casse. Tu peux dire qu'elle diverge, qu'elle
+    se disperse, qu'elle dort, ou que sa CI est rouge — rien sur ce que son code vaut.
+  - N'AJOUTE AUCUN CHIFFRE qui ne soit dans l'état ci-dessus. Pas de nombre de commits, pas
+    de jours, pas de fichiers qui n'y figurent pas. Si une information manque, dis qu'elle
+    manque.
+  - « Retard INCONNU » ne veut pas dire « aucun retard ». C'est une mesure que la forge n'a
+    pas rendue, et le risque de conflit est alors indéterminé — dis-le.
+  - « Aucun pipeline lu » ne veut pas dire « CI verte ».
+  - Ne reproche pas à quelqu'un l'état d'une branche. Une branche qui diverge de trente
+    commits décrit un rythme d'intégration, pas une faute.

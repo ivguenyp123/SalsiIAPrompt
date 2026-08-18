@@ -35,6 +35,7 @@ import { jobEnEchec } from '../lib/signaux-ci.js';
 import { rapportDepot } from '../lib/signaux-depot.js';
 import { planDeLivraison } from '../lib/signaux-livraison.js';
 import { analyseFichier } from '../lib/signaux-code.js';
+import { etatBranche } from '../lib/signaux-branche.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const MAINTENANT = '2026-08-17T18:00:00Z';
@@ -154,7 +155,23 @@ const INVOCATIONS = {
     depot: DEPOT, chemin: 'package.json',
     contenu: '{\n  "name": "x",\n  "dependencies": { "lodash": "^4.17.0" },\n'
            + '  "_token": "glpat-AbCdEfGhIjKlMnOpQrSt"\n}\n',
-    maintenant: new Date(MAINTENANT) })
+    maintenant: new Date(MAINTENANT) }),
+
+  /*
+   * La branche DIVERGE dans l'invocation, exprès.
+   *
+   * Une branche à jour, sans fichier et sans retard produit un texte parfaitement valide
+   * qui ne dit rien — et le contrat passerait dessus. Même chausse-trape que partout
+   * ailleurs dans ce fichier : une invocation trop sage ne jette pas, elle rassure.
+   */
+  etat_branche: () => etatBranche({
+    depot: DEPOT, branche: 'feat/x', brancheDefaut: 'main',
+    comparaison: {
+      enAvance: 3, enRetard: 27,
+      commits: [{ sha: 'a1', message: 'wip', author: 'a.b', date: MAINTENANT }],
+      fichiers: [{ chemin: 'src/a/x.js', ajouts: 10, retraits: 2, statut: 'modifie' }]
+    },
+    mrs: [], runs: [], maintenant: MAINTENANT })
 };
 
 /* ── Le contrat ───────────────────────────────────────────────────────────── */
