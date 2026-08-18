@@ -15,8 +15,8 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { analyseFichier, resumeCode, SIGNAUX_CODE,
-         MAX_LIGNES, MAX_LARGEUR } from '../lib/signaux-code.js';
+import { analyseFichier, resumeCode, analyseBranche, resumeBrancheCode, SIGNAUX_CODE,
+         MAX_LIGNES, MAX_LARGEUR, MAX_LIGNES_BRANCHE } from '../lib/signaux-code.js';
 import { sait, reglagesDe, reglagesComplets } from '../lib/signaux-matiere.js';
 
 const M = new Date('2026-08-18T09:00:00Z');
@@ -191,5 +191,83 @@ describe('le résumé tient sur une ligne', () => {
   test('il annonce la coupe quand il y en a une', () => {
     const r = sur(Array.from({ length: MAX_LIGNES + 5 }, () => 'x').join('\n'));
     assert.match(resumeCode(r), /5 ligne\(s\) non montrées$/);
+  });
+});
+
+/* ══ LE CODE D'UNE BRANCHE ═══════════════════════════════════════════════════ */
+
+describe('le code qu\'une branche a changé', () => {
+  const f = (chemin, contenu, ajouts = 5) =>
+    ({ chemin, contenu, ajouts, retraits: 1, statut: 'modifie' });
+
+  const surBranche = (fichiers, extra = {}) => analyseBranche({
+    depot: DEPOT, branche: 'feat/x', brancheDefaut: 'main',
+    fichiers, touches: fichiers.length, nonLus: [], maintenant: M, ...extra });
+
+  test('LE SCAN PORTE SUR TOUS LES FICHIERS LUS, même ceux qu\'on ne montre pas', () => {
+    /*
+     * Le budget de lignes est global : un fichier peut sortir entièrement coupé. Son
+     * contenu n'est alors pas montré — mais son secret doit remonter, sinon le plafond
+     * devient une façon de cacher une fuite.
+     */
+    const gros = f('src/gros.js', Array.from({ length: MAX_LIGNES_BRANCHE + 50 }, () => 'x').join('\n'), 999);
+    const petit = f('src/conf.js', `const t = "${JETON}";\n`, 1);
+    const r = surBranche([gros, petit]);
+
+    const dernier = r.fichiers.find((x) => x.chemin === 'src/conf.js');
+    assert.equal(dernier.montrees, 0, 'le budget est épuisé par le gros fichier');
+    assert.equal(r.secrets.length, 1, 'et son secret remonte quand même');
+    assert.equal(r.secrets[0].fichier, 'src/conf.js');
+  });
+
+  test('le budget de lignes est GLOBAL, pas par fichier', () => {
+    // Vingt fichiers de neuf cents lignes feraient dix-huit mille lignes. C'est le total
+    // qui coûte, donc c'est le total qu'on borne.
+    const lot = Array.from({ length: 5 }, (_, i) =>
+      f(`src/a${i}.js`, Array.from({ length: 400 }, () => 'x').join('\n')));
+    const r = surBranche(lot);
+    assert.equal(r.lignesMontrees, MAX_LIGNES_BRANCHE);
+    assert.ok(r.lignesCoupees > 0);
+  });
+
+  test('le plus changé passe en premier — c\'est là que le travail a eu lieu', () => {
+    const r = surBranche([f('src/petit.js', 'a\n', 2), f('src/gros.js', 'b\n', 200)]);
+    assert.equal(r.fichiers[0].chemin, 'src/gros.js');
+  });
+
+  test('les secrets sont caviardés dans l\'extrait, tronqués dans les constats', () => {
+    const r = surBranche([f('src/conf.js', `const t = "${JETON}";\n`)]);
+    assert.ok(!r.texte.includes(JETON), 'le jeton entier ne part pas');
+    assert.match(r.texte, /\[secret caviardé\]/);
+    assert.match(r.texte, /src\/conf\.js:1 +SECRET/);
+  });
+
+  test('PLAFOND et ILLISIBLE sont deux raisons distinctes', () => {
+    /*
+     * Vu à l'écran : le rapport annonçait « 1 fichier NON LU — plafond de 20 » alors que
+     * le fichier était simplement illisible. Le lecteur en conclut qu'il suffit de relever
+     * le plafond — ce qui ne changerait rien.
+     */
+    const r = surBranche([f('src/a.js', 'a\n')], { touches: 3, nonLus: ['assets/logo.png'] });
+    assert.match(r.texte, /1 fichier\(s\) non lus — plafond de/);
+    assert.match(r.texte, /1 illisible\(s\), et ce n'est pas le plafond : assets\/logo\.png/);
+  });
+
+  test('sans coupe ni illisible, aucune des deux lignes n\'apparaît', () => {
+    const r = surBranche([f('src/a.js', 'a\n')]);
+    assert.ok(!/plafond de/.test(r.texte));
+    assert.ok(!/illisible/.test(r.texte));
+  });
+
+  test('un lot sans constat n\'est pas un lot sain, et le texte le dit', () => {
+    const r = surBranche([f('src/a.js', 'const a = 1;\n')]);
+    assert.match(r.texte, /Ce n'est PAS « ce changement est sain »/);
+    assert.match(r.texte, /CE QUI N'A PAS ÉTÉ CHERCHÉ/);
+  });
+
+  test('le résumé annonce ce qui manque, pas seulement ce qu\'on a', () => {
+    const r = surBranche([f('src/a.js', 'a\n')], { touches: 9, nonLus: ['x.png'] });
+    assert.match(resumeBrancheCode(r), /1\/9 fichier\(s\)/);
+    assert.match(resumeBrancheCode(r), /non lus/);
   });
 });

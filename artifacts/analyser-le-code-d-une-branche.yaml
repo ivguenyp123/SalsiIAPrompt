@@ -1,0 +1,148 @@
+# salsi-provenance: main
+# besoin: choisir une branche, et faire analyser le code qu'elle a changé
+# demande-par: ivguenyp123
+# le: 2026-08-18
+#
+# ── TROIS AGENTS VOISINS, ET IL FAUT SAVOIR LEQUEL ON OUVRE ─────────────────
+#
+#   analyseur-de-code        UN fichier qu'on désigne par son chemin. Encore faut-il
+#                            savoir lequel.
+#   analyser-une-branche     une branche, SANS une ligne de code : divergence, dispersion,
+#                            âge, conventions, CI. Où en est ce travail.
+#   celui-ci                 le CODE que cette branche a changé, lu sur la branche.
+#
+# Le troisième existe parce que le premier suppose qu'on sait quel fichier ouvrir. Quand on
+# revient sur une branche après trois semaines, c'est justement ce qu'on ne sait plus : on
+# sait qu'on a touché « des trucs ». Choisir la branche et faire lire ce qu'elle contient
+# est le geste naturel, et il manquait.
+#
+# ── LE LINT SIGNALE 66 % DE SIMILARITÉ, ET IL A RAISON ─────────────────────
+#
+# L015 rapproche cet artefact de `analyseur-de-code` et suggère de contribuer à l'existant
+# plutôt que de dupliquer. L'avertissement est juste sur ce qu'il mesure — les deux specs
+# demandent les mêmes sections et posent les mêmes interdits — et il est laissé en place
+# plutôt que contourné.
+#
+# La réponse : ce n'est pas la consigne qui les distingue, c'est LA MATIÈRE. L'un reçoit un
+# fichier qu'on désigne, l'autre le contenu d'une branche entière avec ses coupes et ses
+# fichiers non lus. Une variable, une matière : la plateforme n'a pas de forme où un même
+# artefact accepterait les deux, et lui en inventer une ferait un agent qui ne sait pas ce
+# qu'il a reçu.
+#
+# Et la similarité des consignes est VOULUE : la demande était « que l'IA analyse le code
+# de cette branche DE LA MÊME FAÇON qu'un code collé ». Deux textes qui divergeraient
+# donneraient deux qualités de lecture selon la porte d'entrée.
+#
+# ── LE CONTENU, PAS LE PATCH ────────────────────────────────────────────────
+#
+# La matière porte les fichiers TELS QU'ILS SONT sur la branche, pas la suite de retouches
+# qui les y a amenés. C'est ce qu'on regarde quand on relit son propre travail. Le patch,
+# lui, est le métier de `relire-une-mr` — et pour la sécurité, lire l'état final vaut mieux
+# que lire le diff : un secret introduit puis déplacé n'apparaît plus dans le dernier
+# patch, il est pourtant toujours dans le fichier.
+#
+# ── ET LE MÊME TRAITEMENT QU'UN FICHIER SEUL ────────────────────────────────
+#
+# Scan déterministe d'abord — les 24 motifs de secret, les contrôles de chaîne
+# d'approvisionnement — puis le contenu caviardé et numéroté. Le modèle ne cherche pas les
+# secrets : ils lui sont donnés avec leur ligne. Il fait ce qu'aucune expression régulière
+# ne sait faire.
+
+id: analyser-le-code-d-une-branche
+kind: prompt
+title: Analyser le code d'une branche
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [code, securite, git, revue]
+intent:
+  purpose: >-
+    Lire le code qu'une branche a changé et dire trois choses à qui va le reprendre : ce
+    que ça fait, ce qui rendra son évolution coûteuse, et ce qui s'y présente comme un
+    risque de sécurité.
+  not_for: >-
+    Ne pas utiliser comme audit de sécurité, ni comme preuve qu'une branche est saine :
+    c'est la lecture de quelques fichiers par un modèle, sans exécution et sans le reste du
+    dépôt. Ne pas l'utiliser pour savoir où en est la branche — divergence, retard, âge :
+    c'est `analyser-une-branche`, dont la matière porte ces chiffres.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: code_de_la_branche
+    source: signal
+    required: true
+    description: >-
+      Les fichiers que la branche modifie, lus sur cette branche : constats de secrets et
+      de chaîne d'approvisionnement avec leur ligne, puis le contenu caviardé et numéroté,
+      dans la limite d'un budget de lignes déclaré.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Ce que fait ce changement
+      - Ce qui risque de casser
+      - Sécurité
+      - Par où commencer
+spec: |-
+  Tu lis le code qu'une branche a changé, pour quelqu'un qui va le reprendre — souvent son
+  auteur, quelques semaines plus tard.
+
+  Le rapport ci-dessous est CALCULÉ : le scan a déjà tourné sur chaque fichier lu, entier,
+  avec les motifs du scanner de secrets de la plateforme.
+
+  {{code_de_la_branche}}
+
+  Rends exactement ces sections, avec ces titres :
+
+  ## Ce que fait ce changement
+  ## Ce qui risque de casser
+  ## Sécurité
+  ## Par où commencer
+
+  Ce qu'on attend dans chacune :
+
+  CE QUE FAIT CE CHANGEMENT
+  L'INTENTION que ces fichiers portent ENSEMBLE, pas un résumé fichier par fichier. Cinq
+  phrases maximum. Si les fichiers n'ont visiblement rien à voir entre eux, dis-le — c'est
+  souvent le constat le plus utile.
+
+  CE QUI RISQUE DE CASSER
+  Ce qui rendra ce code coûteux à faire évoluer, et où ça lâchera. Chaque constat cite le
+  fichier et la ligne. Ne signale aucun point que l'outillage rattrape déjà — indentation,
+  nommage local, import inutilisé.
+
+  SÉCURITÉ
+  Deux choses, dans cet ordre.
+
+  D'ABORD, CE QUE LE SCAN A TROUVÉ. Reprends chaque constat mesuré et dis quoi en faire —
+  révoquer d'abord, figer cette dépendance, pinner cette image. Ne les RECOMPTE pas et n'en
+  ajoute aucun à cette liste : les lignes et les types sont mesurés, pas devinés.
+
+  ENSUITE, CE QUE LE SCAN NE PEUT PAS VOIR. C'est là que tu sers : injection SQL, shell ou
+  de commande et la concaténation qui la produit, contrôle d'accès absent, désérialisation
+  d'une donnée reçue, chiffrement fait à la main, aléatoire non cryptographique,
+  journalisation d'une donnée sensible.
+
+  PAR OÙ COMMENCER
+  UNE seule proposition, la plus rentable. Si la section Sécurité contient un risque, c'est
+  lui — avant la dette.
+
+  Règles, et la première prime sur tout le reste :
+
+  - N'ÉCRIS JAMAIS QUE CE CODE EST SÛR, ni qu'il est « propre », ni qu'« aucune
+    vulnérabilité n'a été détectée », ni que la branche est prête à fusionner. Le scan
+    couvre des motifs, pas des vulnérabilités ; toi, tu lis quelques fichiers sans les
+    exécuter et sans voir le reste du dépôt. On peut repérer un motif dangereux, jamais
+    prouver une absence. Si tu ne vois rien : « rien de visible à la lecture de ces
+    fichiers ».
+  - LA MATIÈRE EST PARTIELLE, et elle le dit en tête : des fichiers peuvent être non lus,
+    des lignes non montrées. Ne conclus RIEN sur ce qui n'y est pas, et rappelle-le si le
+    rapport annonce une coupe.
+  - Cite toujours le fichier ET la ligne. Un risque sans endroit ne se corrige pas.
+  - Ne recopie AUCUNE valeur de secret, même partielle. Le rapport n'en montre qu'un aperçu
+    tronqué : garde-le tronqué.
+  - Là où tu lis `[secret caviardé]`, un secret a été retiré avant que ce texte ne te
+    parvienne. Signale-le comme un secret en dur à révoquer, sans commenter sa valeur.

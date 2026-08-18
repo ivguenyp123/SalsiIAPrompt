@@ -45,7 +45,8 @@ import { ETAPES, VU, jouables, placer } from '../lib/tour.js';
 import { niveau, pastille } from '../lib/niveau.js';
 import { planDeLivraison, resumeLivraison,
          MAX_RUNS as MAX_RUNS_LIVRAISON } from '../lib/signaux-livraison.js';
-import { analyseFichier, resumeCode } from '../lib/signaux-code.js';
+import { analyseFichier, resumeCode, analyseBranche, resumeBrancheCode,
+         MAX_FICHIERS_BRANCHE } from '../lib/signaux-code.js';
 import { etatBranche, resumeBranche } from '../lib/signaux-branche.js';
 import { BUMPS, environnements as environnementsDe, KUSTOMIZATION_RX } from '../runtime/livraison.js';
 import { preparer as preparerLivraison, executer as executerLivraison,
@@ -963,7 +964,8 @@ const CALCULS = {
    */
   plan_de_livraison: (depot, reglages) => matiereLivraison(depot, reglages),
   analyse_fichier: (depot, reglages) => matiereAnalyseFichier(depot, reglages),
-  etat_branche: (depot, reglages) => matiereEtatBranche(depot, reglages)
+  etat_branche: (depot, reglages) => matiereEtatBranche(depot, reglages),
+  code_de_la_branche: (depot, reglages) => matiereCodeBranche(depot, reglages)
 };
 
 /** Le résumé d'une ligne, par signal. Sans entrée ici, l'écran n'afficherait rien. */
@@ -979,7 +981,8 @@ const RESUMES = {
   parc_securite: resumeParc,
   plan_de_livraison: resumeLivraison,
   analyse_fichier: resumeCode,
-  etat_branche: resumeBranche
+  etat_branche: resumeBranche,
+  code_de_la_branche: resumeBrancheCode
 };
 
 async function matiereContributions(depot) {
@@ -1377,6 +1380,42 @@ async function matiereAnalyseFichier(depot, { fichier = '' } = {}) {
   const f = await forge.getFile(depot, fichier, ref);
   if (!f) throw new Error(`\`${fichier}\` est introuvable sur \`${ref}\`.`);
   return analyseFichier({ depot, chemin: fichier, contenu: f.content, maintenant: new Date() });
+}
+
+/**
+ * Le code qu'une branche a changé — lu sur la branche, scanné, caviardé.
+ *
+ * On lit le CONTENU des fichiers sur la branche, pas le patch. C'est ce qu'on regarde
+ * quand on revient sur son travail : le fichier tel qu'il est, pas la suite de retouches
+ * qui l'y a amené. Le patch est le métier de `revue_mr`.
+ *
+ * Les fichiers supprimés sont écartés — il n'y a rien à lire — et comptés comme non lus,
+ * plutôt que de disparaître : une branche qui supprime dix fichiers doit se voir.
+ */
+async function matiereCodeBranche(depot, { branche = '' } = {}) {
+  const defaut = await brancheDe(depot);
+  const comparaison = await forge.comparer(depot, defaut, branche);
+
+  const lisibles = (comparaison.fichiers || [])
+    .filter((f) => f.statut !== 'supprime' && !ILLISIBLE.test(f.chemin));
+  const retenus = [...lisibles]
+    .sort((a, b) => ((b.ajouts || 0) + (b.retraits || 0)) - ((a.ajouts || 0) + (a.retraits || 0)))
+    .slice(0, MAX_FICHIERS_BRANCHE);
+
+  const nonLus = [];
+  const fichiers = [];
+  for (const f of retenus) {
+    // Un fichier illisible ne fait pas échouer les autres : il est NOMMÉ dans la matière.
+    const lu = await forge.getFile(depot, f.chemin, branche).catch(() => null);
+    if (!lu) { nonLus.push(f.chemin); continue; }
+    fichiers.push({ ...f, contenu: lu.content });
+  }
+
+  return analyseBranche({
+    depot, branche, brancheDefaut: defaut, fichiers, nonLus,
+    touches: (comparaison.fichiers || []).length,
+    maintenant: new Date()
+  });
 }
 
 /**
@@ -2026,7 +2065,8 @@ const SIGNAL_LISIBLE = {
   revue_mr: 'La merge request à relire — choisie dans la liste',
   plan_de_livraison: 'Ce que la livraison changerait — calculé sur le dépôt',
   analyse_fichier: 'Le fichier, scanné avant lecture — secrets et chaîne d\'appro',
-  etat_branche: 'Où en est cette branche — divergence, dispersion, âge'
+  etat_branche: 'Où en est cette branche — divergence, dispersion, âge',
+  code_de_la_branche: 'Le code changé par cette branche — scanné avant lecture'
 };
 
 /**

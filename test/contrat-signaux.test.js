@@ -34,7 +34,7 @@ import { revueMr } from '../lib/signaux-revue.js';
 import { jobEnEchec } from '../lib/signaux-ci.js';
 import { rapportDepot } from '../lib/signaux-depot.js';
 import { planDeLivraison } from '../lib/signaux-livraison.js';
-import { analyseFichier } from '../lib/signaux-code.js';
+import { analyseFichier, analyseBranche } from '../lib/signaux-code.js';
 import { etatBranche } from '../lib/signaux-branche.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -171,7 +171,22 @@ const INVOCATIONS = {
       commits: [{ sha: 'a1', message: 'wip', author: 'a.b', date: MAINTENANT }],
       fichiers: [{ chemin: 'src/a/x.js', ajouts: 10, retraits: 2, statut: 'modifie' }]
     },
-    mrs: [], runs: [], maintenant: MAINTENANT })
+    mrs: [], runs: [], maintenant: MAINTENANT }),
+
+  /*
+   * Un fichier PORTEUR, et un lot INCOMPLET — les deux exprès.
+   *
+   * Un lot propre et complet produirait un texte valide qui ne prouve rien. On met donc un
+   * secret dans le contenu et on déclare plus de fichiers touchés que lus : c'est
+   * exactement l'état où la matière doit avouer sa coupe plutôt que de passer pour un
+   * changement entier.
+   */
+  code_de_la_branche: () => analyseBranche({
+    depot: DEPOT, branche: 'feat/x', brancheDefaut: 'main',
+    fichiers: [{ chemin: 'src/conf.js', ajouts: 12, retraits: 0, statut: 'modifie',
+                 contenu: 'const t = "glpat-AbCdEfGhIjKlMnOpQrSt";\nexport default t;\n' }],
+    touches: 4, nonLus: ['assets/logo.png'],
+    maintenant: new Date(MAINTENANT) })
 };
 
 /* ── Le contrat ───────────────────────────────────────────────────────────── */
