@@ -53,7 +53,22 @@ describe('ce qu\'il faudra faire pour remplir une entrée', () => {
     assert.equal(SOURCES_ENTREES.scores_maturite, 'signal');
     assert.equal(sait('scores_maturite'), false);
     assert.equal(etatEntree('scores_maturite', avec), 'introuvable');
-    assert.equal(etatEntree('rapport_depot', avec), 'introuvable');
+    assert.equal(etatEntree('rapport_vulnerabilites', avec), 'introuvable');
+  });
+
+  test('un signal qu\'on APPREND à produire cesse d\'être introuvable', () => {
+    /*
+     * L'autre moitié de la règle, et la raison pour laquelle le test ci-dessus a changé
+     * d'exemple.
+     *
+     * `rapport_depot` y servait d'illustration d'un signal déclaré et non produit. Il est
+     * désormais calculé — les vingt-cinq contrôles du Repo Analyzer — et le test est
+     * devenu rouge en le disant. C'est le bon sens de la panne : la liste des signaux
+     * introuvables doit RÉTRÉCIR, et chaque fois qu'elle rétrécit, un test doit le
+     * remarquer plutôt que de laisser un exemple périmé passer pour une vérité.
+     */
+    assert.equal(SOURCES_ENTREES.rapport_depot, 'signal');
+    assert.equal(etatEntree('rapport_depot', avec), 'calculee');
   });
 
   test('un nom hors vocabulaire est introuvable lui aussi', () => {

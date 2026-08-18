@@ -190,9 +190,18 @@ describe('les pull requests, des deux côtés', () => {
     const forge = createForge(session('https://github.com'), f.impl);
 
     const pulls = await forge.listPullRequests('moi/demo');
+    /*
+     * `deepEqual` sur la forme ENTIÈRE, et c'est délibéré : c'est ce qui a rendu ce test
+     * rouge le jour où quatre champs ont été ajoutés au mapping. Un `match` partiel aurait
+     * laissé les deux forges diverger en silence — l'une remontant la description, l'autre
+     * non — et le contrôle « merge request sans description » n'aurait trouvé que la
+     * moitié des cas, sur la moitié des forges.
+     */
     assert.deepEqual(pulls[0], { numero: 12, titre: 'fix(ff) : la colonne', branche: 'fix/ff',
                                  cible: 'main', auteur: 'ivguenyp123', url: 'https://x',
-                                 ouvert: '', fusionne: '' });
+                                 ouvert: '', fusionne: '',
+                                 description: '', conflits: false,
+                                 relecteurs: [], etiquettes: [] });
 
     const ch = await forge.pullRequestChanges('moi/demo', 12);
     assert.equal(ch[0].fichier, 'src/Foo.java');
@@ -214,7 +223,9 @@ describe('les pull requests, des deux côtés', () => {
     const pulls = await forge.listPullRequests('groupe/demo');
     assert.deepEqual(pulls[0], { numero: 7, titre: 'feat: endpoint', branche: 'feat/x',
                                  cible: 'main', auteur: 'moi', url: 'https://y',
-                                 ouvert: '', fusionne: '' });
+                                 ouvert: '', fusionne: '',
+                                 description: '', conflits: false,
+                                 relecteurs: [], etiquettes: [] });
 
     const ch = await forge.pullRequestChanges('groupe/demo', 7);
     assert.deepEqual(ch, [{ fichier: 'src/Foo.java', ancien: 'src/Foo.java',

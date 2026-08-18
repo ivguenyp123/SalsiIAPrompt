@@ -348,10 +348,27 @@ function gitlab(session, fetchImpl) {
           ...(depuis ? { updated_after: depuis } : {})
         }
       });
+      /*
+       * QUATRE CHAMPS DE PLUS, ET AUCUN APPEL SUPPLÉMENTAIRE.
+       *
+       * Description, conflits, relecteurs et étiquettes sont DÉJÀ dans la réponse qu'on
+       * reçoit ; ils étaient simplement jetés au mapping. Cinq des vingt-cinq contrôles du
+       * Repo Analyzer en dépendent — « cette MR n'a pas de relecteur », « celle-ci est en
+       * conflit » — et sans eux ces contrôles auraient dû être déclarés non mesurables sur
+       * une matière qui les contenait.
+       */
       return list.map((m) => ({ numero: m.iid, titre: m.title, branche: m.source_branch,
                                 cible: m.target_branch, auteur: m.author?.username || '',
                                 url: m.web_url || '',
-                                ouvert: m.created_at || '', fusionne: m.merged_at || '' }));
+                                ouvert: m.created_at || '', fusionne: m.merged_at || '',
+                                description: m.description || '',
+                                // `=== true` : GitLab rend `null` tant qu'il n'a pas
+                                // calculé la fusion. « Pas encore su » n'est pas « pas de
+                                // conflit », et compter ce null pour un conflit ferait
+                                // remonter une alerte sur une MR parfaitement saine.
+                                conflits: m.has_conflicts === true,
+                                relecteurs: (m.reviewers || []).map((r) => r.username || ''),
+                                etiquettes: m.labels || [] }));
     },
 
     pullRequestChanges: async (repo, numero) => {
@@ -692,7 +709,21 @@ function github(session, fetchImpl) {
         .map((p) => ({ numero: p.number, titre: p.title, branche: p.head?.ref || '',
                        cible: p.base?.ref || '', auteur: p.user?.login || '',
                        url: p.html_url || '',
-                       ouvert: p.created_at || '', fusionne: p.merged_at || '' }));
+                       ouvert: p.created_at || '', fusionne: p.merged_at || '',
+                       // Même forme que côté GitLab. GitHub dit `body` là où GitLab dit
+                       // `description`, et ses étiquettes sont des objets.
+                       description: p.body || '',
+                       /*
+                        * `mergeable === false` et pas `!p.mergeable` : GitHub rend `null`
+                        * tant qu'il n'a pas fini de calculer la fusion, et sur une liste
+                        * il rend TOUJOURS `null` — le champ n'est peuplé que sur la fiche
+                        * d'une PR. En pratique, les conflits sont donc rarement détectés
+                        * côté GitHub, et le signal doit le dire plutôt que d'annoncer
+                        * « aucun conflit ».
+                        */
+                       conflits: p.mergeable === false,
+                       relecteurs: (p.requested_reviewers || []).map((r) => r.login || ''),
+                       etiquettes: (p.labels || []).map((l) => l.name || '') }));
     },
 
     /*

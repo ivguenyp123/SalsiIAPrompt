@@ -1,0 +1,119 @@
+# salsi-provenance: main
+# besoin: un agent qui dit les cinq choses à corriger sur ce dépôt, par ordre de gravité
+# demande-par: ivguenyp123
+# le: 2026-08-17
+#
+# ── UN IDENTIFIANT QUI N'EST PAS DE L'INVENTAIRE, ET POURQUOI ───────────────
+#
+# Tous les agents de cette série reprennent l'identifiant que l'inventaire du hub donne au
+# prompt correspondant. Celui-ci n'en a pas : le module Repo Analyzer déclare cinq prompts,
+# dont `resumer-l-etat-d-un-depot` — « activité, contributeurs, langages, points de
+# friction ». C'est un RÉSUMÉ, et il recoupe trois agents qu'on démontre déjà séparément :
+# le bus factor, les branches mortes, la conformité CIS.
+#
+# Les Quick Wins, eux, ne sont dans aucun prompt de l'inventaire alors qu'ils sont la seule
+# chose que ce module produit et qu'aucun autre ne fait : vingt-cinq contrôles, quatre
+# niveaux de gravité, un geste par constat. L'identifiant est donc neuf, et il le dit.
+#
+# ── LE PIÈGE DE CE RAPPORT ──────────────────────────────────────────────────
+#
+# Il sort SEIZE constats sur un dépôt ordinaire. Un agent qui les récite tous produit une
+# liste que personne ne lit — et une liste qu'on ne lit pas ne corrige rien. Sa consigne la
+# plus importante est donc de COUPER : cinq points, pas seize.
+#
+# Le reste est dans la matière et reste consultable ; ce que l'agent produit est un ordre
+# de marche, pas un inventaire.
+
+id: prioriser-les-corrections-d-un-depot
+kind: prompt
+title: Les cinq choses à corriger sur ce dépôt
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [qualite, pilotage, securite]
+intent:
+  purpose: >-
+    Transformer les vingt-cinq contrôles d'un dépôt en un ordre de marche : les cinq
+    corrections qui comptent, de la plus grave à la moins grave, chacune avec le geste et
+    le temps que ça prend.
+  not_for: >-
+    Ne pas utiliser comme audit de conformité : ces contrôles décrivent l'hygiène d'un
+    dépôt, pas le respect d'un référentiel — pour ça il y a l'agent de conformité CIS. Ne
+    pas l'utiliser non plus pour évaluer une équipe : un dépôt hérité depuis six mois porte
+    les constats de ceux qui l'ont écrit avant.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: rapport_depot
+    source: signal
+    required: true
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - À faire cette semaine
+      - Le reste
+      - Ce qui n'a pas été regardé
+spec: |-
+    Tu transformes les contrôles d'un dépôt en un ordre de marche pour l'équipe qui y
+    travaille.
+
+    Matière fournie — les contrôles sont DÉJÀ passés, ne les refais pas :
+    {{rapport_depot}}
+
+    Reprends les constats, les comptes et les niveaux de gravité TELS QUELS. Ne juge pas
+    toi-même de la gravité : elle est calculée, et la changer ferait diverger ta réponse de
+    l'écran de la plateforme sans que personne sache lequel croire.
+
+    N'AJOUTE AUCUN CONSTAT que la matière ne porte pas. Ni tests manquants, ni couverture,
+    ni qualité du code, ni dette technique : rien de tout cela n'est mesuré ici, et un
+    constat inventé au milieu de constats mesurés les décrédibilise tous.
+
+    COUPE. La matière contient souvent quinze constats ou plus. Une liste de quinze points
+    ne se lit pas et ne se fait pas.
+
+    Réponds en trois sections, avec ces titres exactement :
+
+    ## À faire cette semaine
+
+    CINQ points au maximum, dans l'ordre de la matière — le plus grave d'abord.
+
+    Pour chacun, trois lignes au plus :
+
+    - le constat, avec son chiffre
+    - le geste, repris de la matière et rendu concret
+    - qui peut le faire, quand la matière nomme quelqu'un (l'auteur d'une merge request,
+      le contributeur principal)
+
+    Quand un constat porte sur des éléments nommés — des numéros de merge request, des noms
+    de branche — CITE-LES. « Trancher 3 merge requests abandonnées » n'est pas actionnable ;
+    « fermer les #12, #18 et #24, ouvertes depuis plus de 40 jours » l'est.
+
+    Si la matière ne porte AUCUN constat, écris-le en deux lignes, et rappelle que cela
+    veut dire « ces vingt-cinq contrôles-là ne trouvent rien », pas « ce dépôt est parfait ».
+
+    ## Le reste
+
+    Ce que tu n'as pas retenu, en une ligne chacun — juste le titre et la gravité, pour que
+    rien ne disparaisse. Si tu as tout retenu, écris-le.
+
+    Regroupe par niveau plutôt que d'énumérer : « quatre points d'amélioration : README,
+    .gitignore, modèle de MR, CODEOWNERS ».
+
+    ## Ce qui n'a pas été regardé
+
+    Les angles morts, repris de la matière sans rien y ajouter. En particulier :
+
+    - les approbations des merge requests fusionnées, qui ne sont PAS lues
+    - les branches sans date connue, s'il y en a
+    - les listes qui ont atteint un plafond de lecture
+
+    Rappelle aussi, en une phrase, que le score de santé de ce rapport N'EST PAS celui du
+    rapport quotidien : deux formules différentes, deux questions différentes. Le même
+    dépôt peut afficher deux chiffres, et les deux sont justes.
+
+    Termine par une phrase sur ce que ce document n'est pas : ni un audit de conformité, ni
+    une évaluation de l'équipe.

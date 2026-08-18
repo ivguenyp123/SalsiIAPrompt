@@ -34,6 +34,7 @@ import { parcSecurite, resumeParc, MAX_DEPOTS } from '../lib/signaux-parc.js';
 import { coupee } from '../lib/arret.js';
 import { revueMr, resumeRevue } from '../lib/signaux-revue.js';
 import { jobEnEchec, resumeCi } from '../lib/signaux-ci.js';
+import { rapportDepot, resumeDepot } from '../lib/signaux-depot.js';
 import { BRANCHE as BRANCHE_CORRECTIFS, fichiersAProposer, aProposer,
          descriptionMr, titreMr, messageCommit } from '../lib/correctifs.js';
 import { indexer, chercher, etiquettes, porteEtiquettes } from '../lib/recherche.js';
@@ -942,6 +943,7 @@ const CALCULS = {
    * extrait décrit.
    */
   activite_du_jour: (depot) => matiereDaily(depot, FENETRES.semaine),
+  rapport_depot: (depot) => matiereDepot(depot),
   parc_securite: (depots) => matiereParc(depots)
 };
 
@@ -954,6 +956,7 @@ const RESUMES = {
   rapport_conformite: resumeConformite,
   chiffres_dora: resumeDora,
   activite_du_jour: resumeDaily,
+  rapport_depot: resumeDepot,
   parc_securite: resumeParc
 };
 
@@ -1152,6 +1155,40 @@ const MAX_ECHECS_LISTES = 12;
 const CONFIGS_CI = ['.gitlab-ci.yml', '.github/workflows/ci.yml', '.github/workflows/main.yml',
                     '.github/workflows/build.yml', '.github/workflows/test.yml',
                     'Jenkinsfile', 'azure-pipelines.yml'];
+
+/**
+ * L'état d'un dépôt et ses corrections à faire — cinq lectures, toutes déjà connues.
+ *
+ * Aucune n'est neuve : branches datées, arbre, commits, merge requests ouvertes,
+ * pipelines. C'est la RECOMBINAISON qui produit les vingt-cinq contrôles, pas une lecture
+ * de plus — et c'est ce qui rend ce signal peu cher malgré son rendement.
+ *
+ * Les merge requests ouvertes sont lues SANS filtre de date, et c'est important : un
+ * contrôle qui cherche les MR abandonnées depuis plus de trente jours ne les trouverait
+ * jamais dans une fenêtre de trente jours.
+ */
+async function matiereDepot(depot) {
+  const ref = await brancheDe(depot);
+  const [info, branches, chemins, commits, mrsOuvertes, pipelines] = await Promise.all([
+    forge.projectInfo(depot).catch(() => ({})),
+    branchesDatees(depot).catch(() => []),
+    arbre(depot).catch(() => []),
+    forge.listCommits(depot, undefined, { perPage: FENETRE, ref }).catch(() => []),
+    forge.listPullRequests(depot, { etat: 'ouvertes', perPage: MAX_MR_DAILY }).catch(() => []),
+    forge.listRuns(depot, { perPage: MAX_PIPELINES_DAILY }).catch(() => [])
+  ]);
+
+  return rapportDepot({
+    depot, info: { defaut: info.defaultBranch || ref, visibilite: info.visibility || '' },
+    branches, chemins, commits, mrsOuvertes, pipelines,
+    maintenant: new Date().toISOString(),
+    tronque: {
+      commits: commits.length >= FENETRE,
+      mrs: mrsOuvertes.length >= MAX_MR_DAILY,
+      pipelines: pipelines.length >= MAX_PIPELINES_DAILY
+    }
+  });
+}
 
 /**
  * Le job qui a fait tomber un pipeline, et de quoi proposer un correctif.
@@ -1587,6 +1624,7 @@ const SIGNAL_LISIBLE = {
   chiffres_dora: 'Les quatre métriques DORA — mesurées sur 30 jours',
   activite_du_jour: 'L\'activité de la semaine et le Health Score — calculés sur 7 jours',
   job_en_echec: 'Le pipeline en échec à expliquer — choisi dans la liste',
+  rapport_depot: 'L\'état du dépôt et ses corrections à faire — 25 contrôles',
   parc_securite: 'La conformité du parc — auditée sur les dépôts cochés',
   revue_mr: 'La merge request à relire — choisie dans la liste'
 };

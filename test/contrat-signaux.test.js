@@ -32,6 +32,7 @@ import { chiffresDaily } from '../lib/signaux-daily.js';
 import { parcSecurite } from '../lib/signaux-parc.js';
 import { revueMr } from '../lib/signaux-revue.js';
 import { jobEnEchec } from '../lib/signaux-ci.js';
+import { rapportDepot } from '../lib/signaux-depot.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const MAINTENANT = '2026-08-17T18:00:00Z';
@@ -107,6 +108,13 @@ const INVOCATIONS = {
     depot: DEPOT,
     pr: { numero: 1, titre: 'Un titre', branche: 'feat/x', cible: 'main', auteur: 'a.b' },
     diff: '--- a/x.js\n+++ b/x.js\n@@\n+const a = 1;\n', fichiers: 1, binaires: [] }),
+
+  rapport_depot: () => rapportDepot({
+    depot: DEPOT, info: { defaut: 'main', visibilite: 'private' },
+    branches: [{ name: 'main', default: true, protectee: false, quand: MAINTENANT }],
+    chemins: ['src/a.js'],
+    commits: [{ message: 'wip', author: 'a.b', date: MAINTENANT }],
+    mrsOuvertes: [], mrsFusionnees: [], pipelines: [], maintenant: MAINTENANT }),
 
   job_en_echec: () => jobEnEchec({
     depot: DEPOT, run: { id: 7, branche: 'feat/x', quand: MAINTENANT, sha: 'abc1234' },
