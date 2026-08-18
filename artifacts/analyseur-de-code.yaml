@@ -51,12 +51,16 @@ intent:
 model_tier: mid
 target_level: experimental
 variables:
-  - name: repo
-    source: user
+  # UNE entrée, et la plateforme la calcule — la forme qui marche partout ailleurs.
+  # Elle porte le dépôt, le chemin, les constats du scan et le fichier caviardé : le
+  # `repo` séparé n'avait plus rien à dire que le rapport ne dise déjà.
+  - name: analyse_fichier
+    source: signal
     required: true
-  - name: code
-    source: repo
-    required: true
+    description: >-
+      Le fichier choisi, scanné avant lecture : motifs de secret avec leur ligne,
+      contrôles de chaîne d'approvisionnement du manifeste, ce qui n'a pas été
+      cherché, puis le contenu caviardé et numéroté.
 criteria:
   - target: output.contains_secret
     op: eq
@@ -71,7 +75,12 @@ criteria:
       - Sécurité
       - Par où commencer
 spec: |-
-  Tu lis un fichier du dépôt {{repo}} pour quelqu'un qui va y toucher.
+  Tu lis un fichier pour quelqu'un qui va y toucher.
+
+  Le rapport ci-dessous est CALCULÉ : le scan a déjà tourné sur le fichier entier,
+  avec les motifs du scanner de secrets de la plateforme.
+
+  {{analyse_fichier}}
 
   Rends exactement ces sections, avec ces titres :
 
@@ -94,27 +103,33 @@ spec: |-
   Si le fichier est court et clair, dis-le.
 
   SÉCURITÉ
-  Ce qui, DANS CE FICHIER, se présente comme un risque : entrée non validée, concaténation
-  dans une requête ou une commande, désérialisation d'une donnée reçue, contrôle d'accès
-  absent là où il en faudrait un, chiffrement fait à la main, aléatoire non
-  cryptographique, jeton ou identifiant écrit en dur, journalisation d'une donnée
-  sensible.
+  Deux choses, dans cet ordre.
+
+  D'ABORD, CE QUE LE SCAN A TROUVÉ. Reprends chaque constat mesuré et dis quoi en faire —
+  révoquer d'abord, ou figer cette dépendance, ou pinner cette image. Ne les RECOMPTE pas
+  et n'en ajoute aucun à cette liste : les lignes et les types sont mesurés, pas devinés.
+  Si le scan n'a rien trouvé, écris-le en une ligne et passe à la suite.
+
+  ENSUITE, CE QUE LE SCAN NE PEUT PAS VOIR. C'est là que tu sers, et c'est le plus
+  important de ta réponse : injection SQL, shell ou de commande et la concaténation qui la
+  produit, contrôle d'accès absent, désérialisation d'une donnée reçue, chiffrement fait à
+  la main, aléatoire non cryptographique, journalisation d'une donnée sensible, secret sans
+  forme reconnaissable.
 
   Quatre règles, et la première prime sur les autres :
 
-  - N'ÉCRIS JAMAIS QUE CE FICHIER EST SÛR. Tu lis un fichier, avec un modèle, sans
-    l'exécuter et sans voir le reste du dépôt. Tu peux repérer un motif dangereux ; tu ne
-    peux pas prouver une absence. Si tu ne vois rien, écris « rien de visible à la lecture
-    de ce seul fichier » — ce n'est pas la même phrase.
-  - Cite la ligne ou l'expression concernée. Un risque sans endroit ne se corrige pas.
+  - N'ÉCRIS JAMAIS QUE CE FICHIER EST SÛR, ni qu'il est « conforme », ni qu'« aucune
+    vulnérabilité n'a été détectée ». Le scan couvre des motifs, pas des vulnérabilités ;
+    toi, tu lis un fichier sans l'exécuter et sans voir le reste du dépôt. On peut repérer
+    un motif dangereux, jamais prouver une absence. Si tu ne vois rien, écris « rien de
+    visible à la lecture de ce seul fichier » — ce n'est pas la même phrase.
+  - Cite la ligne. Les numéros sont dans l'extrait ; un risque sans endroit ne se corrige
+    pas.
   - Ne recopie AUCUNE valeur de secret, même partielle, même si elle est sous tes yeux.
-  - Là où tu lis `[secret caviardé]`, un secret a été retiré avant que ce texte ne te
-    parvienne. Signale-le comme un secret en dur à révoquer, et ne commente pas sa valeur :
-    tu ne l'as pas vue.
+    Le rapport n'en montre qu'un aperçu tronqué : garde-le tronqué.
+  - Si l'extrait est coupé, tu n'as pas lu tout le fichier. Ne conclus rien sur ce qui n'y
+    est pas — le scan, lui, a porté sur le fichier entier.
 
   PAR OÙ COMMENCER
   UNE seule proposition, la plus rentable. Si la section Sécurité contient un risque, c'est
   lui — avant la dette.
-
-  Fichier :
-  {{code}}

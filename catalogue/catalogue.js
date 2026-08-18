@@ -45,6 +45,7 @@ import { ETAPES, VU, jouables, placer } from '../lib/tour.js';
 import { niveau, pastille } from '../lib/niveau.js';
 import { planDeLivraison, resumeLivraison,
          MAX_RUNS as MAX_RUNS_LIVRAISON } from '../lib/signaux-livraison.js';
+import { analyseFichier, resumeCode } from '../lib/signaux-code.js';
 import { BUMPS, environnements as environnementsDe, KUSTOMIZATION_RX } from '../runtime/livraison.js';
 import { preparer as preparerLivraison, executer as executerLivraison,
          lireLivraison } from '../runtime/executer.js';
@@ -959,7 +960,8 @@ const CALCULS = {
    * `major` ou en `patch` n'est pas la même livraison, et le même dépôt livré sur `uat`
    * ou sur `production` ne touche pas les mêmes fichiers.
    */
-  plan_de_livraison: (depot, reglages) => matiereLivraison(depot, reglages)
+  plan_de_livraison: (depot, reglages) => matiereLivraison(depot, reglages),
+  analyse_fichier: (depot, reglages) => matiereAnalyseFichier(depot, reglages)
 };
 
 /** Le résumé d'une ligne, par signal. Sans entrée ici, l'écran n'afficherait rien. */
@@ -973,7 +975,8 @@ const RESUMES = {
   activite_du_jour: resumeDaily,
   rapport_depot: resumeDepot,
   parc_securite: resumeParc,
-  plan_de_livraison: resumeLivraison
+  plan_de_livraison: resumeLivraison,
+  analyse_fichier: resumeCode
 };
 
 async function matiereContributions(depot) {
@@ -1359,6 +1362,21 @@ async function matiereLivraison(depot, { branche = '', environnement = '', bump 
 }
 
 /**
+ * Un fichier du dépôt, scanné AVANT que le modèle ne le lise.
+ *
+ * Une lecture, deux scans déterministes déjà écrits — `scannerSecrets` et
+ * `verifierManifeste`, extraits de `js/secrets-scanner.js` — et le fichier caviardé
+ * en dessous. Rien de neuf n'est inventé ici : on branche sur UN fichier ce qui ne
+ * tournait que sur le dépôt entier.
+ */
+async function matiereAnalyseFichier(depot, { fichier = '' } = {}) {
+  const ref = await brancheDe(depot);
+  const f = await forge.getFile(depot, fichier, ref);
+  if (!f) throw new Error(`\`${fichier}\` est introuvable sur \`${ref}\`.`);
+  return analyseFichier({ depot, chemin: fichier, contenu: f.content, maintenant: new Date() });
+}
+
+/**
  * La conformité CIS — trois lectures, et l'aveu de ce qu'on ne peut pas voir.
  *
  * `pom.xml` n'est lu que s'il existe : une lecture de plus sur un dépôt Java, aucune
@@ -1516,8 +1534,49 @@ const REGLAGES = {
     invite: '',
     vide: '',
     options: async (_depot, reglage) => (reglage.options || []).map((o) => ({ valeur: o, texte: o }))
+  },
+
+  /*
+   * UN FICHIER DU DÉPÔT — et une liste déroulante n'y suffit pas.
+   *
+   * Les autres réglages ont dix options : trois branches, quatre environnements, trois
+   * incréments. Un dépôt a des milliers de fichiers, et un `<select>` de trois mille
+   * lignes ne se choisit pas, il se subit.
+   *
+   * D'où `saisie: true` : le réglage devient un champ de texte adossé à un `<datalist>`.
+   * On tape « conf », le navigateur propose, on choisit. C'est le geste du sélecteur de
+   * fichiers de la zone de matière, sans en réécrire un second.
+   *
+   * On ne filtre PAS sur `fichierSuspect` : ce filtre sert à décider quels fichiers
+   * scanner sur un dépôt entier, et l'appliquer ici ne proposerait que les `.env` et les
+   * `credentials.json`. Ce qu'on veut analyser, c'est du code — on écarte donc ce qui ne
+   * se lit pas, et rien d'autre.
+   */
+  fichier: {
+    saisie: true,
+    invite: 'chemin du fichier — tape pour chercher',
+    vide: 'Arborescence illisible : aucun fichier à proposer.',
+    options: async (depot) => (await arbre(depot))
+      .filter((c) => !ILLISIBLE.test(c) && !HORS_SOURCE.test(c))
+      .slice(0, MAX_FICHIERS_PROPOSES)
+      .map((c) => ({ valeur: c, texte: c }))
   }
 };
+
+/** Ce qui ne se lit pas comme du texte : le proposer ferait perdre du temps. */
+const ILLISIBLE = /\.(png|jpe?g|gif|ico|svg|webp|woff2?|ttf|eot|mp[34]|mov|avi|zip|tar|gz|rar|7z|pdf|jar|war|class|so|dll|exe|bin|lock)$/i;
+
+/** Ce qui n'est pas du code du projet — dépendances installées, sorties de build. */
+const HORS_SOURCE = /(?:^|\/)(?:node_modules|vendor|dist|build|target|coverage|\.git|out|\.next|\.nuxt|\.cache|__pycache__|\.venv|venv)(?:\/|$)/;
+
+/*
+ * Combien de fichiers on propose à la complétion.
+ *
+ * Un `<datalist>` de trente mille entrées fige l'onglet. On plafonne, et le champ reste
+ * LIBRE : un chemin absent de la liste peut toujours être tapé, et le calcul ira le lire.
+ * Le plafond limite ce qu'on SUGGÈRE, jamais ce qu'on autorise.
+ */
+const MAX_FICHIERS_PROPOSES = 2000;
 
 /** Une date lisible dans une liste déroulante — le jour et l'heure, rien de plus. */
 function dateCourte(iso) {
@@ -1581,15 +1640,42 @@ function champCalcule(variable, { surEtat = () => {} } = {}) {
   const listesReglages = {};
   const barre = el('div', { className: 'reglages', hidden: reglages.length === 0 });
 
+  const listesOptions = {};
   for (const r of reglages) {
-    const sel = el('select');
+    /*
+     * Deux formes de réglage, et le genre décide.
+     *
+     * Une liste déroulante quand les options se comptent : branches, environnements,
+     * incréments. Un champ de saisie adossé à un `<datalist>` quand elles se comptent par
+     * milliers — un fichier du dépôt. Un `<select>` de trois mille lignes ne se choisit
+     * pas, il se subit.
+     */
+    const R = REGLAGES[r.genre];
+    const saisie = Boolean(R?.saisie);
+    const sel = saisie
+      ? el('input', { type: 'text', autocomplete: 'off', placeholder: R.invite || '' })
+      : el('select');
     listesReglages[r.nom] = sel;
+
+    if (saisie) {
+      const liste = el('datalist', { id: `dl-${variable.name}-${r.nom}` });
+      sel.setAttribute('list', liste.id);
+      listesOptions[r.nom] = liste;
+    }
+
     // Le défaut déclaré vaut choix : `patch` est le cas courant, et forcer un clic dessus
     // à chaque livraison serait une cérémonie, pas une décision.
     if (r.defaut) choisis[r.nom] = r.defaut;
-    sel.onchange = () => { choisis[r.nom] = sel.value; calculerSiPret(dernierChoix); };
+    /*
+     * `change` et non `input` : sur un champ de saisie, `input` déclencherait un calcul —
+     * donc une lecture de dépôt — à chaque touche frappée. `change` attend la validation
+     * ou la perte de focus, ce qui est exactement le moment où l'utilisateur a fini de
+     * désigner son fichier.
+     */
+    sel.onchange = () => { choisis[r.nom] = sel.value.trim(); calculerSiPret(dernierChoix); };
     barre.append(el('label', { className: 'reglage' },
-      el('span', { textContent: r.libelle + (r.requis ? '' : ' · facultatif') }), sel));
+      el('span', { textContent: r.libelle + (r.requis ? '' : ' · facultatif') }),
+      sel, listesOptions[r.nom] || ''));
   }
 
   const noeud = el('div', { className: 'mat calc' },
@@ -1624,6 +1710,23 @@ function champCalcule(variable, { surEtat = () => {} } = {}) {
       const sel = listesReglages[r.nom];
       const options = R ? await R.options(depot, r) : [];
       if (mien !== enCours) return;
+
+      /*
+       * Un champ de SAISIE ne se remplit pas comme une liste : ses options vivent dans un
+       * `<datalist>` à côté, et sa valeur reste libre. Vider le champ à chaque changement
+       * de dépôt est volontaire — un chemin d'un autre dépôt qui resterait affiché ferait
+       * lire un fichier qui n'existe pas ici, et l'erreur ne dirait pas pourquoi.
+       */
+      if (R?.saisie) {
+        const liste = listesOptions[r.nom];
+        liste.textContent = '';
+        for (const o of options) liste.append(el('option', { value: o.valeur }));
+        sel.disabled = options.length === 0;
+        sel.placeholder = options.length ? R.invite : (R.vide || '');
+        sel.value = '';
+        choisis[r.nom] = '';
+        continue;
+      }
 
       sel.textContent = '';
       if (!options.length) {
@@ -1892,7 +1995,8 @@ const SIGNAL_LISIBLE = {
   rapport_depot: 'L\'état du dépôt et ses corrections à faire — 25 contrôles',
   parc_securite: 'La conformité du parc — auditée sur les dépôts cochés',
   revue_mr: 'La merge request à relire — choisie dans la liste',
-  plan_de_livraison: 'Ce que la livraison changerait — calculé sur le dépôt'
+  plan_de_livraison: 'Ce que la livraison changerait — calculé sur le dépôt',
+  analyse_fichier: 'Le fichier, scanné avant lecture — secrets et chaîne d\'appro'
 };
 
 /**

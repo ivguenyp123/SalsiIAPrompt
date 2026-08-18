@@ -34,6 +34,7 @@ import { revueMr } from '../lib/signaux-revue.js';
 import { jobEnEchec } from '../lib/signaux-ci.js';
 import { rapportDepot } from '../lib/signaux-depot.js';
 import { planDeLivraison } from '../lib/signaux-livraison.js';
+import { analyseFichier } from '../lib/signaux-code.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const MAINTENANT = '2026-08-17T18:00:00Z';
@@ -139,6 +140,20 @@ const INVOCATIONS = {
     overlays: [{ path: 'Manifests/overlays/uat/kustomization.yaml',
                  content: 'images:\n  - newTag: "1.4.2"\n' }],
     mrs: [], runs: [], deploiements: [], stack: ['maven'],
+    maintenant: new Date(MAINTENANT) }),
+
+  /*
+   * Le fichier porte DÉLIBÉRÉMENT un secret et une dépendance non figée.
+   *
+   * Un fichier propre ferait passer le contrat sur un rapport vide — qui le satisfait
+   * pourtant, puisqu'il nomme le dépôt et rend du texte. C'est la chausse-trape de
+   * `parc_securite` et de `plan_de_livraison` : une invocation trop sage ne jette pas,
+   * elle produit un texte plausible qui ne prouve rien.
+   */
+  analyse_fichier: () => analyseFichier({
+    depot: DEPOT, chemin: 'package.json',
+    contenu: '{\n  "name": "x",\n  "dependencies": { "lodash": "^4.17.0" },\n'
+           + '  "_token": "glpat-AbCdEfGhIjKlMnOpQrSt"\n}\n',
     maintenant: new Date(MAINTENANT) })
 };
 
