@@ -1,0 +1,133 @@
+# salsi-provenance: main
+# besoin: un agent qui rédige le point de la semaine à partir de l'activité des sept derniers jours
+# demande-par: ivguenyp123
+# le: 2026-08-17
+#
+# Identifiant repris de l'inventaire du hub — module « Daily Report ». Cinq de ses prompts
+# se réclament de l'entrée `activite_du_jour` ; c'est celui-ci qui correspond exactement à
+# la fenêtre que la plateforme calcule sous le bouton « Semaine ».
+#
+# ── LE PIÈGE DE CE RAPPORT, ET LA RAISON DE SA CONSIGNE LA PLUS LONGUE ───────
+#
+# Le Health Score MÉLANGE DEUX PÉRIMÈTRES, et personne ne le devine en lisant le chiffre :
+#
+#   sur la semaine   le taux de succès des pipelines        −20 puis −15
+#   hors semaine     les branches dormantes depuis 90 j     −15
+#   hors semaine     les MR ouvertes depuis plus de 7 j     −10
+#
+# Une équipe peut donc perdre 25 points, sur un rapport intitulé « la semaine », pour une
+# dette qui n'a rien à voir avec la semaine écoulée. Sans la phrase qui le dit, elle passe
+# le lundi suivant à chercher ce qu'elle a raté — et ne trouve rien, parce qu'il n'y a
+# rien à trouver.
+#
+# ── ET LE ZÉRO QUI SE LIT COMME UN ÉCHEC ────────────────────────────────────
+#
+# Sans aucun pipeline, la plateforme écrit un taux de succès de 0 %. Ce 0 franchit les deux
+# bornes du Health Score, qui tombe à 65. Une semaine SANS AUCUN PIPELINE est donc notée
+# comme une semaine où tout a échoué. On reproduit le calcul — c'est celui de l'écran — et
+# on oblige le rapport à l'expliquer, parce qu'une note punitive pour un dépôt inactif
+# n'est ni fausse ni compréhensible.
+
+id: rediger-le-point-hebdomadaire
+kind: prompt
+title: Le point de la semaine
+owner:
+  person: ivguenyp123
+  scope: Data
+tags: [pilotage, restitution, livraison]
+intent:
+  purpose: >-
+    Rédiger le point hebdomadaire d'un dépôt à partir de l'activité mesurée sur sept
+    jours : le Health Score et ce qui l'a fait bouger, les six indicateurs, et ce qui
+    mérite un regard la semaine prochaine.
+  not_for: >-
+    Ne pas utiliser pour comparer deux équipes ni pour évaluer quelqu'un : ces chiffres
+    décrivent l'activité d'un dépôt, pas le travail des gens. Ne pas l'utiliser non plus
+    comme rapport DORA — le Health Score et les métriques DORA ne mesurent pas la même
+    chose et ne se substituent pas l'un à l'autre.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: activite_du_jour
+    source: signal
+    required: true
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - La semaine en un chiffre
+      - Ce qui s'est passé
+      - Ce qui mérite un regard
+      - Ce que ce rapport ne dit pas
+spec: |-
+    Tu rédiges le point hebdomadaire d'un dépôt, à destination de l'équipe qui y travaille.
+
+    Matière fournie — elle est DÉJÀ CALCULÉE, ne recalcule rien :
+    {{activite_du_jour}}
+
+    Reprends les valeurs, les moyennes et le score TELS QUELS. Si tu refais une division,
+    tu obtiendras un autre chiffre que celui affiché dans le hub, et l'équipe aura deux
+    versions du même rapport sans savoir laquelle est la bonne.
+
+    RÈGLE ABSOLUE : `N/A` n'est pas zéro. Un indicateur marqué `N/A` n'a PAS été mesuré —
+    ne lui invente ni valeur, ni tendance, ni commentaire. Écrire « aucun déploiement »
+    quand la matière dit `N/A` est une affirmation sur la production que rien ne soutient.
+
+    Réponds en quatre sections, avec ces titres exactement :
+
+    ## La semaine en un chiffre
+
+    Le Health Score, sur 100, et sa lecture. Puis CE QUI L'A FAIT DESCENDRE, retrait par
+    retrait, avec les points perdus et le fait constaté.
+
+    Si des retraits viennent de l'état actuel du dépôt plutôt que de la semaine — les
+    branches dormantes, les MR qui traînent — DIS-LE EXPLICITEMENT et donne le total de
+    points concerné. C'est la phrase la plus utile du rapport : sans elle, l'équipe cherche
+    dans sa semaine une cause qui n'y est pas.
+
+    Si le score est à 100, écris-le sans chercher un défaut : le calcul ne récompense rien,
+    il ne fait que retirer, donc 100 veut dire « aucun des quatre défauts n'a été
+    détecté » — et rien de plus flatteur que ça.
+
+    Si la matière indique un taux de succès à 0 % faute de pipeline, explique que le score
+    est puni pour une absence de mesure et non pour des échecs. La différence compte.
+
+    ## Ce qui s'est passé
+
+    Les six indicateurs, avec leur valeur et leur moyenne par jour quand elle existe.
+    Rappelle que la moyenne divise par les sept jours entiers, pas par les jours actifs :
+    un dépôt actif deux jours sur sept affiche une moyenne basse, et c'est voulu.
+
+    Puis deux ou trois phrases factuelles sur ce que l'ensemble montre. Pas de félicitations,
+    pas de reproche — l'équipe lira ce rapport toutes les semaines, et un rapport qui juge
+    cesse d'être lu.
+
+    ## Ce qui mérite un regard
+
+    Ce qui, dans la matière, appelle une action — et rien d'autre. Au maximum quatre points,
+    du plus coûteux au moins coûteux :
+
+    - les branches qui concentrent les échecs de pipeline, avec leur compte
+    - les merge requests qui traînent, avec leur âge et leur auteur
+    - les branches dormantes, si elles pèsent sur le score
+
+    Un point se rédige en deux temps : le fait, puis le geste. Un geste qu'une personne peut
+    faire dans la semaine, pas un chantier. Si la matière ne montre rien de tel, écris-le en
+    une ligne plutôt que de meubler.
+
+    ## Ce que ce rapport ne dit pas
+
+    Les angles morts, repris de la matière sans rien y ajouter : ce qui n'a pas pu être lu,
+    ce qui a été tronqué par un plafond de lecture, les branches sans date. Un compte
+    tronqué est un MINIMUM — écris-le avec ce mot, parce que « 100 pipelines » et « au
+    moins 100 pipelines » se lisent pareil et ne veulent pas dire la même chose.
+
+    Termine par une phrase qui dit ce que ce document n'est pas : ni une mesure de la
+    valeur de l'équipe, ni un élément de comparaison entre équipes.
+
+    Si la matière dit qu'il n'y a eu aucune activité, écris un point court qui le constate.
+    Une semaine vide se raconte en trois lignes ; la meubler ferait douter de toutes les
+    autres.

@@ -26,6 +26,10 @@ import { fichierSuspect, MAX_FICHIERS_LUS, rapportSecrets, resumeSecrets,
          rapportConformite, resumeConformite } from '../lib/signaux-securite.js';
 import { chiffresDora, resumeDora, FENETRE_JOURS,
          MAX_PIPELINES, MAX_MR } from '../lib/signaux-dora.js';
+import { chiffresDaily, resumeDaily,
+         MAX_PIPELINES as MAX_PIPELINES_DAILY, MAX_MR as MAX_MR_DAILY,
+         MAX_COMMITS as MAX_COMMITS_DAILY,
+         MAX_DEPLOIEMENTS as MAX_DEPLOIEMENTS_DAILY, FENETRES } from '../lib/signaux-daily.js';
 import { parcSecurite, resumeParc, MAX_DEPOTS } from '../lib/signaux-parc.js';
 import { coupee } from '../lib/arret.js';
 import { revueMr, resumeRevue } from '../lib/signaux-revue.js';
@@ -925,6 +929,18 @@ const CALCULS = {
   inventaire_dependances: (depot) => matiereDependances(depot),
   rapport_conformite: (depot) => matiereConformite(depot),
   chiffres_dora: (depot) => matiereDora(depot),
+  /*
+   * `activite_du_jour`, et non un nom neuf.
+   *
+   * C'est le nom que l'inventaire du hub donne déjà à l'entrée du module Daily Report —
+   * cinq prompts s'en réclament. En inventer un autre aurait laissé le catalogue dire
+   * « chiffres_daily » là où la plateforme dit « activite_du_jour », et l'écart se serait
+   * payé au premier rapprochement entre les deux.
+   *
+   * Fenêtre de 7 jours : c'est le bouton « Semaine » du hub, et la fenêtre que le contrat
+   * extrait décrit.
+   */
+  activite_du_jour: (depot) => matiereDaily(depot, FENETRES.semaine),
   parc_securite: (depots) => matiereParc(depots)
 };
 
@@ -936,6 +952,7 @@ const RESUMES = {
   inventaire_dependances: resumeDependances,
   rapport_conformite: resumeConformite,
   chiffres_dora: resumeDora,
+  activite_du_jour: resumeDaily,
   parc_securite: resumeParc
 };
 
@@ -971,7 +988,15 @@ async function matiereContributions(depot) {
  * Les branches sans date restent dans le rapport, comptées à part : les faire disparaître
  * laisserait croire que le dépôt est plus propre qu'il ne l'est.
  */
-async function matiereBranches(depot) {
+/*
+ * La datation elle-même, séparée de l'inventaire qui l'utilisait.
+ *
+ * Elle sert désormais à DEUX signaux — l'inventaire des branches et le rapport quotidien,
+ * dont une pénalité du Health Score compte les branches dormantes. La recopier aurait été
+ * la garantie que les deux divergent au premier ajustement du plafond, et qu'un rapport
+ * date ses branches autrement que l'écran qui les liste.
+ */
+async function branchesDatees(depot) {
   const brutes = await forge.listBranches(depot);
 
   const aDater = brutes.filter((b) => !b.quand).slice(0, MAX_BRANCHES_DATEES);
@@ -981,8 +1006,12 @@ async function matiereBranches(depot) {
     return [b.name, dernier?.date || ''];
   })));
 
-  const branches = brutes.map((b) => ({ ...b, quand: b.quand || dates.get(b.name) || '' }));
-  return inventaireBranches({ depot, branches, maintenant: new Date().toISOString() });
+  return brutes.map((b) => ({ ...b, quand: b.quand || dates.get(b.name) || '' }));
+}
+
+async function matiereBranches(depot) {
+  return inventaireBranches({ depot, branches: await branchesDatees(depot),
+                              maintenant: new Date().toISOString() });
 }
 
 /**
@@ -1099,6 +1128,57 @@ async function matiereDora(depot) {
     depot, pipelines, mrs, brancheDefaut: ref,
     maintenant: new Date().toISOString(),
     tronque: pipelines.length >= MAX_PIPELINES || mrs.length >= MAX_MR
+  });
+}
+
+/**
+ * Le rapport quotidien — cinq lectures, dont une qui a le droit d'échouer.
+ *
+ * ── POURQUOI LES DÉPLOIEMENTS SONT TRAITÉS À PART ────────────────────────────
+ *
+ * Les quatre autres lectures retombent sur une liste vide en cas d'échec, et c'est sans
+ * conséquence : zéro pipeline lu et zéro pipeline existant donnent le même rapport, parce
+ * qu'un dépôt sans pipeline est un cas réel qu'il faut savoir décrire.
+ *
+ * Les déploiements, non. La permission `deployments` du jeton est rarement cochée, et un
+ * 403 rendrait « 0 déploiement » — c'est-à-dire l'affirmation qu'on n'a rien mis en
+ * production. C'est le genre de phrase qui remonte en comité et qu'on ne peut pas
+ * rattraper. On distingue donc `null`, « pas lisible », de `[]`, « lisible et vide », et
+ * le signal écrit `N/A`.
+ *
+ * ── ET POURQUOI LES COMMITS SONT FILTRÉS ICI ─────────────────────────────────
+ *
+ * Cette couche n'expose pas de filtre de date sur `listCommits`. On demande donc une page
+ * et on coupe sur la fenêtre — en notant si la page était pleine, puisque le compte
+ * devient alors un minimum et non un total.
+ */
+async function matiereDaily(depot, fenetreJours = 7) {
+  const ref = await brancheDe(depot);
+  const debut = new Date();
+  debut.setDate(debut.getDate() - fenetreJours + 1);
+  debut.setHours(0, 0, 0, 0);
+  const depuis = debut.toISOString();
+
+  const [pipelines, mrsFusionnees, mrsOuvertes, commitsBruts, deploiements] = await Promise.all([
+    forge.listRuns(depot, { perPage: MAX_PIPELINES_DAILY, depuis }).catch(() => []),
+    forge.listPullRequests(depot, { etat: 'fusionnees', perPage: MAX_MR_DAILY, depuis }).catch(() => []),
+    forge.listPullRequests(depot, { etat: 'ouvertes', perPage: MAX_MR_DAILY }).catch(() => []),
+    forge.listCommits(depot, undefined, { perPage: MAX_COMMITS_DAILY, ref }).catch(() => []),
+    forge.listDeployments(depot, { perPage: MAX_DEPLOIEMENTS_DAILY, depuis }).catch(() => null)
+  ]);
+
+  const commits = commitsBruts.filter((c) => c.date && c.date >= depuis);
+  const branches = await branchesDatees(depot);
+
+  return chiffresDaily({
+    depot, fenetreJours, pipelines, mrsFusionnees, mrsOuvertes, commits, deploiements, branches,
+    maintenant: new Date().toISOString(),
+    tronque: {
+      pipelines: pipelines.length >= MAX_PIPELINES_DAILY,
+      mrs: mrsFusionnees.length >= MAX_MR_DAILY || mrsOuvertes.length >= MAX_MR_DAILY,
+      commits: commitsBruts.length >= MAX_COMMITS_DAILY,
+      deploiements: Array.isArray(deploiements) && deploiements.length >= MAX_DEPLOIEMENTS_DAILY
+    }
   });
 }
 
@@ -1380,6 +1460,7 @@ const SIGNAL_LISIBLE = {
   inventaire_dependances: 'Les dépendances déclarées — lues dans les manifestes',
   rapport_conformite: 'La conformité CIS — contrôlée sur le dépôt',
   chiffres_dora: 'Les quatre métriques DORA — mesurées sur 30 jours',
+  activite_du_jour: 'L\'activité de la semaine et le Health Score — calculés sur 7 jours',
   parc_securite: 'La conformité du parc — auditée sur les dépôts cochés',
   revue_mr: 'La merge request à relire — choisie dans la liste'
 };
@@ -1825,6 +1906,41 @@ function ouvrirExecution(entry) {
         + 'Sans serveur du tout, `node runtime/cli.js ' + artifact.id + '` fait la même chose.' }));
   });
 
+  /*
+   * Lire une réponse dont on n'est PAS sûr qu'elle contienne du JSON.
+   *
+   * ── LE MESSAGE QUE CECI REMPLACE ────────────────────────────────────────────
+   *
+   *   « Failed to execute 'json' on 'Response': Unexpected end of JSON input »
+   *
+   * C'est ce que rend `r.json()` sur un corps vide, et ça ne dit RIEN d'utile : ni qui n'a
+   * pas répondu, ni quel statut est revenu, ni s'il faut regarder son réseau, son jeton ou
+   * son serveur. On lit donc le texte D'ABORD, et on décide ensuite.
+   *
+   * Les deux cas qui arrivent vraiment :
+   *
+   *   · corps VIDE — le serveur a fermé la connexion sans répondre. Sur un lien qui
+   *     tousse, un appel au fournisseur qui traîne finit comme ça, et le seul endroit où
+   *     la cause est écrite est le terminal de `node serve.js` ;
+   *   · corps qui n'est PAS du JSON — typiquement la page « 404 » en texte brut que ce
+   *     serveur rend quand une route jette. Le corps est alors la meilleure indication
+   *     qu'on ait, et il faut le montrer plutôt que de le perdre dans un message d'erreur
+   *     de parseur.
+   */
+  async function enJson(r) {
+    const texte = await r.text();
+    if (!texte.trim()) {
+      throw new Error(`Le serveur a fermé la connexion sans répondre (statut ${r.status}). `
+        + 'Regarde le terminal où tourne `node serve.js` : la cause y est écrite. '
+        + 'Sur une connexion lente, c\'est souvent un appel au fournisseur qui n\'a pas abouti.');
+    }
+    try { return JSON.parse(texte); }
+    catch {
+      throw new Error(`Le serveur a répondu ${r.status} sans JSON : `
+        + `« ${texte.slice(0, 120).trim()} ».`);
+    }
+  }
+
   async function executer(avecAssume) {
     partir.disabled = true;
     partir.textContent = '… le modèle répond';
@@ -1843,7 +1959,7 @@ function ouvrirExecution(entry) {
                                sensibilite: sensibilite.value, criticite: criticite.value,
                                assume: avecAssume === true })
       });
-      corps = await r.json();
+      corps = await enJson(r);
     } catch (error) {
       zone.append(el('div', { className: 'verdict ko', textContent: `✕ ${error.message}` }));
       // `majDepart` et pas `disabled = false` : un recalcul a pu démarrer pendant l'appel,

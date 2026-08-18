@@ -22,6 +22,8 @@
  * l'utilisateur, avec son jeton, depuis son navigateur :
  *   listPullRequests(repo)                             → [{ numero, titre, branche, cible, auteur }]
  *   pullRequestChanges(repo, numero)                   → [{ fichier, ancien, patch, binaire }]
+ *   listRuns(repo, { perPage, depuis })                → [{ id, statut, branche, quand, sha, debut }]
+ *   listDeployments(repo, { perPage, depuis })         → [{ id, environnement, quand, branche }]
  *
  * Les deux forges rendent un patch PAR FICHIER : `lib/matiere.js` les recolle en diff
  * unifié. La forge transporte, elle ne met pas en forme.
@@ -411,6 +413,34 @@ function gitlab(session, fetchImpl) {
     },
 
     /*
+     * Les DÉPLOIEMENTS — le seul chiffre du rapport quotidien que la forge ne savait pas
+     * lire, et le seul qu'on ne pouvait pas déduire d'autre chose.
+     *
+     * Un déploiement n'est pas un pipeline en succès : un dépôt peut enchaîner cinquante
+     * pipelines verts sans rien mettre en production, et un autre déployer par un job
+     * manuel qui ne laisse pas de pipeline. Les confondre donnerait un chiffre qui a
+     * l'air juste et qui répond à une autre question.
+     *
+     * GitLab filtre les dates côté serveur (`updated_after`) ; GitHub ne le fait pas et
+     * le tri se fait ici. Même intention, deux écritures — c'est le rôle de cette couche.
+     */
+    listDeployments: async (repo, { perPage = 100, depuis = '' } = {}) => {
+      const list = await call(`/projects/${encodeURIComponent(repo)}/deployments`, {
+        params: { per_page: perPage, order_by: 'updated_at', sort: 'desc',
+                  ...(depuis ? { updated_after: depuis } : {}) }
+      });
+      return list.map((d) => ({
+        id: d.id,
+        environnement: d.environment?.name || '',
+        // GitLab dit `success`, GitHub n'a pas d'état sur le déploiement lui-même. On
+        // remonte ce qu'on a sans le normaliser : personne ne s'en sert pour compter.
+        statut: d.status || '',
+        quand: d.created_at || d.updated_at || '',
+        branche: d.ref || d.deployable?.ref || ''
+      }));
+    },
+
+    /*
      * GitLab donne la date du dernier commit avec la branche ; GitHub non — voir plus bas.
      * On la remonte quand elle est là plutôt que de l'ignorer des deux côtés : sans elle,
      * impossible de dire qu'une branche est morte.
@@ -685,6 +715,29 @@ function github(session, fetchImpl) {
         // incident du jour de sa réparation.
         sha: w.head_sha || '', debut: w.created_at || ''
       }));
+    },
+
+    /*
+     * Les déploiements. Même forme que côté GitLab, deux différences de fond :
+     *
+     *   · GitHub ne sait PAS filtrer les déploiements par date. Le tri se fait donc ici,
+     *     sur ce que la page a rendu — et si la page est pleine, le compte est un
+     *     MINIMUM, pas un total. Le signal le dira plutôt que d'afficher un chiffre bas
+     *     avec l'aplomb d'un chiffre complet ;
+     *   · l'API demande la permission `deployments` (ou `repo`). Sans elle, l'appel rend
+     *     403 : c'est à l'appelant de traiter l'absence de signal comme une absence.
+     */
+    listDeployments: async (repo, { perPage = 100, depuis = '' } = {}) => {
+      const list = await call(`/repos/${repo}/deployments`, { params: { per_page: perPage } });
+      return (list || [])
+        .map((d) => ({
+          id: d.id,
+          environnement: d.environment || '',
+          statut: '',
+          quand: d.created_at || d.updated_at || '',
+          branche: d.ref || ''
+        }))
+        .filter((d) => !depuis || (d.quand && d.quand >= depuis));
     },
 
     /*

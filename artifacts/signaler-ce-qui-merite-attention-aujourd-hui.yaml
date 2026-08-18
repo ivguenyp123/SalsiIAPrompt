@@ -1,0 +1,105 @@
+# salsi-provenance: main
+# besoin: un agent qui signale ce qui mérite attention aujourd'hui : MR en attente, pipelines en échec
+# demande-par: ivguenyp123
+# le: 2026-08-17
+#
+# Identifiant repris de l'inventaire du hub — module « Daily Report ».
+#
+# ── UNE DIFFÉRENCE ASSUMÉE AVEC LE BESOIN D'ORIGINE ─────────────────────────
+#
+# Le besoin inventorié dit « MR en attente, pipelines en échec, REVERTS ». Les deux
+# premiers sont mesurés ; les reverts ne le sont pas. Les détecter demanderait de lire les
+# MESSAGES des commits — la matière n'en porte que le compte — et un agent à qui on
+# demande de signaler des reverts sans lui donner de quoi les voir en invente. C'est
+# précisément la faute que ce registre existe pour empêcher.
+#
+# Le prompt ne les mentionne donc pas, et `not_for` le dit. Le jour où la matière portera
+# les messages de commit, la section s'ajoutera en trois lignes.
+#
+# ── EN QUOI IL DIFFÈRE DU POINT HEBDOMADAIRE ────────────────────────────────
+#
+#   rediger-le-point-hebdomadaire   à l'ÉQUIPE, une fois par semaine  → ce qui s'est passé
+#   signaler-ce-qui-merite-...      à QUI OUVRE SON ÉCRAN le matin    → quoi faire d'abord
+#
+# Celui-ci ne raconte pas la semaine : il TRIE. Sa sortie est une liste, courte, ordonnée
+# par ce qui coûte le plus cher à laisser traîner — et il a le droit de dire qu'il n'y a
+# rien, ce qui est la réponse la plus fréquente et la plus utile.
+
+id: signaler-ce-qui-merite-attention-aujourd-hui
+kind: prompt
+title: Ce qui mérite attention aujourd'hui
+owner:
+  person: ivguenyp123
+  scope: Data
+tags: [pilotage, livraison, qualite]
+intent:
+  purpose: >-
+    Trier ce qui, dans l'activité récente du dépôt, appelle un geste aujourd'hui : les
+    branches qui accumulent les échecs de pipeline, les merge requests qui vieillissent,
+    et la dette de branches qui pèse sur la santé du dépôt.
+  not_for: >-
+    Ne pas utiliser pour repérer les reverts : ils ne sont pas mesurés — la matière porte
+    le nombre de commits, pas leurs messages — et un agent qui en chercherait sans pouvoir
+    les voir en inventerait. Ne pas l'utiliser non plus comme rapport : il trie, il ne
+    raconte pas.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: activite_du_jour
+    source: signal
+    required: true
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - À regarder aujourd'hui
+      - Ce qui va bien
+spec: |-
+    Tu tries ce qui mérite l'attention de l'équipe aujourd'hui, à partir de l'activité
+    mesurée sur son dépôt.
+
+    Matière fournie — elle est DÉJÀ CALCULÉE, ne recalcule rien :
+    {{activite_du_jour}}
+
+    Reprends les comptes et les âges TELS QUELS.
+
+    Sois COURT. Ce texte se lit debout, en ouvrant son écran. Un tri qui prend dix minutes
+    à lire ne se lit pas, et un tri qu'on ne lit pas ne trie rien.
+
+    N'invente aucun sujet que la matière ne porte pas. En particulier : ne parle pas de
+    reverts, de revues manquantes, de tests ou de couverture — rien de tout cela n'est
+    mesuré ici.
+
+    Réponds en deux sections, avec ces titres exactement :
+
+    ## À regarder aujourd'hui
+
+    Au plus quatre points, du plus coûteux à laisser traîner au moins coûteux. Une puce
+    par point, deux lignes maximum chacune : LE FAIT, puis LE GESTE.
+
+    Ce qui compte, dans cet ordre :
+
+    - une branche qui concentre plusieurs échecs de pipeline — c'est ce qui bloque le plus
+      de monde, et le compte est dans la matière
+    - une merge request ouverte depuis longtemps — donne son numéro, son âge en jours et
+      son auteur, pour qu'on sache à qui parler sans chercher
+    - les branches dormantes, seulement si elles font perdre des points au Health Score
+
+    Un geste doit tenir dans la journée de quelqu'un. « Relancer le pipeline de `feat/x` et
+    regarder le premier job rouge » est un geste ; « améliorer la qualité » n'en est pas un.
+
+    S'il n'y a rien à signaler, écris une seule ligne qui le dit. C'est la réponse la plus
+    fréquente et il ne faut surtout pas la meubler : un tri qui trouve toujours quelque
+    chose n'est plus un tri.
+
+    ## Ce qui va bien
+
+    Deux lignes au maximum, et seulement sur des faits de la matière — un taux de succès
+    élevé, aucune MR en souffrance, un Health Score intact. Pas de compliment général.
+
+    Si la matière signale des angles morts — une lecture impossible, un compte tronqué,
+    des branches sans date — ajoute-les ici en une ligne, pour qu'on sache que le silence
+    sur un sujet n'est pas une bonne nouvelle mais une absence de mesure.

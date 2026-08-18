@@ -222,9 +222,39 @@ function dependances() {
   };
 }
 
+/*
+ * SÉRIALISER D'ABORD, ÉCRIRE L'EN-TÊTE ENSUITE.
+ *
+ * L'ordre inverse — `writeHead` puis `JSON.stringify` en argument de `end` — a l'air
+ * identique et ne l'est pas. Si la sérialisation jette (une référence circulaire, un
+ * `BigInt`, un `toJSON` qui lève), l'en-tête est DÉJÀ PARTI : la réponse ne peut plus être
+ * corrigée, le corps n'est jamais écrit, et le navigateur reçoit une réponse vide.
+ *
+ * Le symptôme, côté écran, est le pire qui soit :
+ *
+ *   « Failed to execute 'json' on 'Response': Unexpected end of JSON input »
+ *
+ * Un message de parseur, sur une requête qui a « réussi », pour une panne qui n'a rien à
+ * voir avec du JSON mal formé. On cherche alors dans son prompt, dans son réseau, dans son
+ * jeton — partout sauf ici.
+ *
+ * En sérialisant avant, un échec reste rattrapable : on répond 500 avec un vrai message.
+ */
 const json = (res, status, corps) => {
+  let texte;
+  try {
+    texte = JSON.stringify(corps);
+  } catch (error) {
+    console.error('[json] réponse non sérialisable :', error);
+    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ erreur: `Réponse non sérialisable : ${error.message}` }));
+    return;
+  }
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
-  res.end(JSON.stringify(corps));
+  // `?? 'null'` : `JSON.stringify(undefined)` rend `undefined`, pas une chaîne — et
+  // `res.end(undefined)` termine la réponse SANS CORPS. Même corps vide, même message
+  // illisible, par un chemin différent.
+  res.end(texte ?? 'null');
 };
 
 /** Le corps d'une requête, borné : une page ne doit pas pouvoir remplir la mémoire. */
@@ -257,8 +287,13 @@ const TYPES = {
 };
 
 createServer(async (req, res) => {
+  // Hors du `try` : le filet du bas doit savoir SI la requête visait une route d'API pour
+  // choisir entre répondre du JSON et servir la page 404. Déclaré dedans, il n'y avait
+  // pas accès — et un `ReferenceError` dans un gestionnaire d'erreur laisse la socket
+  // ouverte, ce qui produit exactement le corps vide qu'on cherche à éliminer.
+  let url = null;
   try {
-    const url = new URL(req.url, `http://localhost:${PORT}`);
+    url = new URL(req.url, `http://localhost:${PORT}`);
 
     // Rediriger plutôt que servir la page à la racine : sinon l'URL du document reste
     // `/` et toutes les URL relatives de la page (./studio.js, ../registries/…) se
@@ -439,8 +474,28 @@ createServer(async (req, res) => {
       let requete;
       try { requete = await corps(req); }
       catch (error) { json(res, 400, { erreur: error.message }); return; }
-      const { status, corps: sortie } = await executer(requete, dependances());
-      json(res, status, sortie);
+      /*
+       * L'APPEL AU FOURNISSEUR PEUT JETER, ET IL FAUT LE DIRE EN JSON.
+       *
+       * Défaut vécu, sur une connexion mobile : `vertex.generer()` lève quand le lien
+       * tousse — `fetch failed`, une socket coupée, une réponse tronquée. Rien ne
+       * l'attrapait ici, l'exception remontait jusqu'au `catch` générique tout en bas de
+       * ce fichier, celui qui sert les fichiers statiques… et le navigateur recevait
+       * « 404 » en TEXTE BRUT sur une requête où il attendait du JSON.
+       *
+       * L'écran affichait alors « Failed to execute 'json' on 'Response' » — un message
+       * de parseur, qui ne nomme ni le fournisseur, ni le réseau, ni rien de ce qu'il faut
+       * regarder. On cherche le défaut dans son prompt pendant vingt minutes.
+       *
+       * 502 : la panne est chez l'amont, pas dans la requête. Et le message part avec.
+       */
+      try {
+        const { status, corps: sortie } = await executer(requete, dependances());
+        json(res, status, sortie);
+      } catch (error) {
+        console.error('[api/lancer]', error);
+        json(res, 502, { erreur: `L'appel n'a pas abouti : ${error.message}` });
+      }
       return;
     }
 
@@ -475,7 +530,26 @@ createServer(async (req, res) => {
       'Cache-Control': 'no-store, must-revalidate'
     });
     res.end(await readFile(path));
-  } catch {
+  } catch (error) {
+    /*
+     * Ce filet attrape LE FICHIER INTROUVABLE — c'est son seul métier, et `stat()` qui
+     * jette est le cas normal. Deux gardes le rendent honnête pour tout le reste.
+     *
+     * `headersSent` : si une route a déjà répondu et que quelque chose jette après, un
+     * second `writeHead` lève à son tour. L'exception sort alors du gestionnaire, la
+     * socket reste ouverte, et le navigateur reçoit un CORPS VIDE — la panne la plus
+     * pénible à diagnostiquer, parce qu'elle ne ressemble à rien.
+     *
+     * `/api/` : une route d'API qui échoue doit répondre du JSON. Lui servir la page 404
+     * en texte brut faisait échouer le `JSON.parse` du navigateur, et le message affiché
+     * parlait alors du parseur au lieu de parler de la panne.
+     */
+    if (res.headersSent) { res.end(); return; }
+    if (url?.pathname?.startsWith('/api/')) {
+      console.error(`[${url.pathname}]`, error);
+      json(res, 500, { erreur: `Le serveur n'a pas pu traiter la requête : ${error.message}` });
+      return;
+    }
     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }).end('404');
   }
 }).listen(PORT, '127.0.0.1', () => {
