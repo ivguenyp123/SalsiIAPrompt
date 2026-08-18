@@ -1,0 +1,102 @@
+# Registre des isolements — ce qu'une capacité a le droit de faire tourner, et où.
+#
+# ── POURQUOI UN REGISTRE, ET PAS UN CHAMP LIBRE ─────────────────────────────
+#
+# I001 : « soit la correspondance préexiste dans un registre écrit par un humain, soit le
+# champ vaut `manquant` et bloque ». Un `isolement: "sandbox"` tapé à la main dans un
+# formulaire d'import n'est pas un droit — c'est un mot. Le vocabulaire est donc fermé, et
+# il vit ici.
+#
+# ── LA COLONNE QUI COMPTE EST `applicable` ──────────────────────────────────
+#
+# Elle dit si la plateforme sait AUJOURD'HUI faire respecter cet isolement. Trois valeurs
+# sont applicables parce qu'elles décrivent ce que la plateforme fait déjà : produire du
+# texte, lire par la forge, écrire par un outil `mode: write` sous confirmation humaine.
+#
+# Les deux formes conteneurisées ne le sont pas : il n'existe aucun exécuteur isolé. Les
+# déclarer applicables reviendrait à accorder un droit que rien ne fait respecter — une
+# capacité s'annoncerait « réseau coupé » et tournerait sans que personne ne coupe quoi que
+# ce soit. Elles sont donc listées, choisissables, et BLOQUANTES : une capacité qui les
+# exige entre au registre, s'y voit, et ne se lance pas.
+#
+# C'est volontairement inconfortable. Mantis exige la première ligne de ce qui n'est pas
+# applicable — « USE THIS ONLY IN ISOLATED, RESTRICTED ENVIRONMENTS », « host command
+# execution is strictly prohibited ». Un import qui rendrait ces capacités lançables
+# aujourd'hui les ferait tourner exactement là où leur auteur l'interdit.
+#
+# `applicable: false` disparaîtra le jour où l'exécuteur isolé existera. Pas avant, et pas
+# en changeant ce fichier.
+
+isolements:
+  - id: aucune-execution
+    applicable: true
+    titre: Aucune exécution
+    description: >-
+      La capacité produit du texte. Rien n'est exécuté, ni sur l'hôte, ni ailleurs. C'est
+      le cas de tous les prompts du registre aujourd'hui.
+    exige: []
+
+  - id: lecture-seule
+    applicable: true
+    titre: Lecture seule, par la forge
+    description: >-
+      La capacité lit des fichiers, des pipelines ou des merge requests via la couche de
+      forge, avec le jeton de l'utilisateur. Elle ne modifie rien.
+    exige: [outils_en_mode_read]
+
+  - id: ecriture-confirmee
+    applicable: true
+    titre: Écriture, sous confirmation humaine
+    description: >-
+      La capacité modifie un dépôt par un outil `mode: write`, donc `executor: module`,
+      donc `requires_confirmation: true`. Le chemin qui parle au modèle n'écrit jamais.
+    exige: [outils_en_mode_write, confirmation_humaine]
+
+  - id: conteneur-sans-reseau
+    applicable: false
+    titre: Conteneur, réseau coupé
+    description: >-
+      La capacité exécute du code dans un conteneur jetable, sans accès réseau. C'est ce
+      que Mantis exige de ses reproducteurs de crash.
+    exige: [executeur_isole, reseau_coupe]
+    manque: >-
+      Aucun exécuteur isolé n'existe dans la plateforme. Déclarer cet isolement décrit une
+      exigence, il ne la fait pas respecter.
+
+  - id: conteneur-avec-reseau
+    applicable: false
+    titre: Conteneur, réseau ouvert
+    description: >-
+      La capacité exécute du code dans un conteneur jetable et a besoin du réseau —
+      récupérer une dépendance, joindre un service.
+    exige: [executeur_isole]
+    manque: >-
+      Aucun exécuteur isolé n'existe dans la plateforme. Et un conteneur avec réseau est
+      la forme la plus permissive : elle ne s'accordera pas par un import.
+
+# ── Ce qu'une capacité MODIFIE. Vocabulaire fermé, pour la même raison. ──────
+#
+# `ecrit` décide si P007 exige une confirmation humaine. Un défaut permissif ici ferait
+# écrire dans un dépôt sans que personne ait rien coché — c'est pourquoi il n'y a pas de
+# défaut du tout.
+
+ecritures:
+  - id: rien
+    titre: Rien
+    description: La capacité produit une sortie et n'écrit nulle part.
+    confirmation: false
+
+  - id: depot
+    titre: Un dépôt
+    description: >-
+      Elle modifie des fichiers versionnés — commit, branche, merge request. Passe
+      obligatoirement par un outil `mode: write`.
+    confirmation: true
+
+  - id: etat-partage
+    titre: Un état partagé
+    description: >-
+      Elle écrit un état que d'autres capacités relisent — le `findings.json` de Mantis en
+      est un. Deux capacités qui écrivent le même état se marchent dessus sans qu'aucune
+      ne le sache.
+    confirmation: true

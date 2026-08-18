@@ -32,51 +32,14 @@ import { requireSession, clear } from '../app/session.js';
 import { createForge } from '../app/forge.js';
 import { mountShell } from '../app/shell.js';
 import { lint, ERROR } from '../lint/index.js';
-import { makeValidator } from '../lib/schema.js';
 import yaml from '../lib/yaml.js';
 import { depuisCommits, parJour, resume, horsParcours, ACTIONS } from './journal.js';
 import { STATUTS, DOSSIERS, dossiersDe, inventaireParc, compter, filtrer } from './parc.js';
 import { niveau } from '../lib/niveau.js';
-import { carte } from '../runtime/etat-derive.js';
 import { lire as lireProvenance } from '../lib/provenance.js';
 import { chargerExecutions, monterPas, chargeEs } from './executions.js';
 import { lireLePack } from './import.js';
-
-/*
- * `cache: 'no-cache'` sur les référentiels — pas une coquetterie.
- *
- * Le linter tranche à partir de CES fichiers. Un navigateur qui sert une version
- * périmée du manifeste des entrées fait refuser des artefacts parfaitement valides :
- * cinq erreurs `L023` sur « Explique-moi ce code » parce que la banque en cache ne
- * connaissait pas encore la nature `code`. L'auteur voit un artefact cassé, il ne l'est
- * pas, et rien à l'écran ne peut le lui dire.
- *
- * `no-cache` ne saute pas le cache : il le REVALIDE. Sur des fichiers inchangés, la
- * réponse est un 304 vide. Le coût est nul, le verdict cesse de dépendre de l'âge d'un
- * onglet.
-*/
-const FRAIS = { cache: 'no-cache' };
-
-/*
- * L'état DÉRIVÉ, s'il existe.
- *
- * C'est ce fichier qui fait basculer la pastille de « officiel — visé », en pointillés,
- * à « officiel » tout court. Il n'existe qu'après un passage au banc d'essai
- * (`node runtime/banc-cli.js <id> --go`) — donc pas du tout, tant que personne n'a joué
- * les cas d'or.
- *
- * Absent, il rend `null`, et c'est la bonne valeur : `null` fait taire L016, P005 et P006
- * au lieu de leur faire dire « jamais certifié » sur tout le catalogue. Une plateforme
- * sans mesure ne doit pas ressembler à une plateforme dont tout échoue.
- */
-async function etatDerive() {
-  try {
-    const r = await fetch('../derive/etat.json', FRAIS);
-    return r.ok ? carte(await r.json()) : null;
-  } catch {
-    return null;                            // pas de banc, pas de mesure : on ne devine pas
-  }
-}
+import { contexte } from './contexte.js';
 
 const session = requireSession('../app/login.html');
 if (!session) await new Promise(() => {});
@@ -121,16 +84,9 @@ async function load() {
   $('source').textContent = repo;
 
     
-  if (!ctx) {
-    const [tools, targets, entrees, schema, derive] = await Promise.all([
-      fetch('../registries/tools.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t).tools),
-      fetch('../registries/targets.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t).targets),
-      fetch('../entrees/index.yaml', FRAIS).then((r) => r.text()).then((t) => yaml.parse(t)),
-      fetch('../schema/artifact.schema.json', FRAIS).then((r) => r.json()),
-      etatDerive()
-    ]);
-    ctx = { tools, targets, entrees, derive, validateArtifact: makeValidator(schema) };
-  }
+  // Les référentiels vivent dans `contexte.js` : l'import s'en sert aussi, et deux
+  // chargements séparés donneraient deux verdicts sur le même fichier selon l'onglet.
+  if (!ctx) ctx = await contexte();
 
   let files;
   try {
@@ -839,7 +795,7 @@ function montrerVue(id) {
 
 // Le pack se lit sur demande : pas de chargement à l'ouverture de la vue, parce qu'aucun
 // dépôt n'est choisi tant que personne ne l'a écrit.
-$('imbtn').onclick = () => lireLePack(forge);
+$('imbtn').onclick = () => lireLePack(forge, { session, repo });
 
 for (const [id, label] of VUES) {
   const b = el('button', { textContent: label });

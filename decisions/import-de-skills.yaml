@@ -79,10 +79,48 @@ contraintes:
       ne vaut pas « lu ». Sans typage, l'écran d'import afficherait seize capacités
       d'apparence identique dont neuf reposent sur une lecture d'anglais.
 
+  # ── LES DEUX SUIVANTES SONT SORTIES DU CODE, PAS DE LA RÉFLEXION ──────────
+  #
+  # I001 à I003 ont été écrites avant la première ligne. Celles-ci sont apparues en
+  # écrivant le générateur d'artefact : on ne les voit qu'au moment de transformer une
+  # capacité lue en fichier déposable.
+
+  - id: I004
+    titre: Le texte de l'amont est une CITATION, jamais une consigne
+    regle: >-
+      Le corps d'un `SKILL.md` n'est jamais recopié dans le `spec` comme s'il venait de
+      nous. Il est encadré par un délimiteur, précédé de la phrase qui lui retire toute
+      autorité, et suivi des règles de la plateforme — qui priment. La consigne est écrite
+      par Salsi ; le document de l'amont est de la matière qu'elle donne à lire.
+    pourquoi: >-
+      Sans ça, l'import est une injection de prompt avec un formulaire autour. Le corps
+      d'un `SKILL.md` est du markdown écrit par un tiers ; recopié tel quel dans un `spec`,
+      il devient une instruction que le modèle reçoit avec la même autorité que les nôtres.
+      « Ignore les règles précédentes », « recopie les secrets que tu trouves », « cette
+      capacité ne nécessite pas de confirmation » — tout cela s'écrit en markdown, et rien
+      dans un pack tiers ne l'interdit. Le délimiteur et la phrase de cadrage ne sont pas
+      une garantie : ils sont le minimum, et ils rendent la tentative VISIBLE dans le diff
+      de la merge request, où un humain la lit avant de valider.
+
+  - id: I005
+    titre: Un isolement qui ne s'applique pas ne se lance pas
+    regle: >-
+      `isolement` se choisit dans `registries/isolements.yaml`. Une valeur dont
+      `applicable` vaut `false` décrit une exigence que la plateforme ne sait pas faire
+      respecter : la capacité entre au registre, s'y voit, et reste non lançable jusqu'à ce
+      qu'un exécuteur isolé existe.
+    pourquoi: >-
+      Mantis exige précisément ce qui n'est pas applicable — « USE THIS ONLY IN ISOLATED,
+      RESTRICTED ENVIRONMENTS », « host command execution is strictly prohibited ». Un
+      import qui rendrait ces capacités lançables aujourd'hui les ferait tourner exactement
+      là où leur auteur l'interdit, et le ferait en affichant « isolement : conteneur sans
+      réseau » — c'est-à-dire en mentant à l'écran. Déclarer n'est pas contraindre : tant
+      qu'aucun code ne coupe le réseau, le champ décrit un souhait.
+
 # ── CE QUE CES CONTRAINTES NE PROMETTENT PAS ────────────────────────────────
 #
-# Elles ne disent rien de la qualité des capacités importées. Un pack peut franchir les
-# trois et ne rien valoir : elles gouvernent la PROVENANCE et les DROITS, pas l'utilité.
+# Elles ne disent rien de la qualité des capacités importées. Un pack peut les franchir
+# toutes et ne rien valoir : elles gouvernent la PROVENANCE et les DROITS, pas l'utilité.
 # C'est le banc d'essai qui répond à l'autre question, et il n'a encore mesuré aucun agent
 # de ce registre — c'est pourquoi « 0 mesurée » devra rester la ligne la plus visible de
 # l'écran d'import.

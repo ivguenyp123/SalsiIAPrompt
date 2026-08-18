@@ -3,10 +3,14 @@
  *
  * ── CE QUE CET ÉCRAN N'EST PAS ───────────────────────────────────────────────
  *
- * Ce n'est pas un bouton « importer Mantis ». Il ne crée aucun artefact, n'écrit rien
- * dans le registre, ne rend rien lançable. Il LIT un pack et rend le formulaire de
+ * Ce n'est pas un bouton « importer Mantis ». Il LIT un pack, rend le formulaire de
  * `lib/import-pack.js` rempli de ce qui était déclaré — c'est-à-dire, sur un pack réel,
- * presque rien.
+ * presque rien — et laisse quelqu'un DÉCIDER le reste, champ par champ, en répondant de
+ * chaque décision.
+ *
+ * Ce qui en sort part en `artifacts/pending/`, à `experimental`, comme tout le reste. Le
+ * bouton s'appelle « Déposer en attente » et pas « Importer » : il n'y a pas d'import en
+ * un clic, il y a une soumission à relire.
  *
  * ── POURQUOI LA PREMIÈRE LIGNE EST « 0 MESURÉE » ─────────────────────────────
  *
@@ -25,12 +29,23 @@
  * différents, et une empreinte qui ne correspond à aucun commit.
  */
 import { skillsDansArbre, lirePack, CHAMPS, fiable, MAX_CAPACITES } from '../lib/import-pack.js';
+import { versArtefact, resteADecider, DOSSIER_IMPORTE,
+         NIVEAU_IMPORTE } from '../lib/import-artefact.js';
+import { contexte } from './contexte.js';
+import { knownScopes } from '../app/scopes.js';
+import { lint, ERROR } from '../lint/index.js';
+import { toYaml } from '../studio/to-yaml.js';
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, props = {}) => Object.assign(document.createElement(tag), props);
 
 /** Ce qui a été lu, pour ne pas relire à chaque rendu. */
-const vue = { pack: null, charge: false, coupes: 0, lus: 0 };
+const vue = { pack: null, charge: false, coupes: 0, lus: 0,
+              /* Le corps de chaque `SKILL.md` : c'est lui qui sera CITÉ dans le `spec`. */
+              corps: new Map(),
+              /* Ce que l'importeur a décidé, par capacité. Rien n'y est pré-rempli. */
+              decisions: new Map(),
+              ctx: null, session: null, repo: null, forge: null };
 
 export const chargeImport = () => vue.charge;
 
@@ -56,7 +71,8 @@ function flash(message, ok = false) {
 const effacerFlash = () => { $('imflash').className = ''; };
 
 /** Lire le pack, à un commit épinglé. */
-export async function lireLePack(forge) {
+export async function lireLePack(forge, { session, repo } = {}) {
+  if (session) { vue.session = session; vue.repo = repo; vue.forge = forge; }
   const depot = $('imdepot').value.trim();
   const ref = $('imref').value.trim() || 'main';
   if (!depot) return flash('Indique un dépôt, par exemple `google/mantis`.');
@@ -110,9 +126,14 @@ export async function lireLePack(forge) {
       // Un contenu absent de la table rend `null` — une empreinte fausse est pire qu'absente.
       hacher: (contenu) => sommes.get(contenu) ?? null
     });
+    // Le CORPS de chaque capacité, gardé pour la citation du `spec` (I004). Il ne
+    // transite jamais par `lirePack`, qui n'en a pas l'usage.
+    vue.corps = new Map(fichiers.map((f) => [f.chemin, decouperCorps(f.contenu)]));
+    vue.decisions = new Map();
     vue.coupes = coupes;
     vue.lus = fichiers.length;
     vue.charge = true;
+    vue.ctx = await contexte();
     rendre();
   } catch (error) {
     $('imetat').textContent = '';
@@ -179,6 +200,8 @@ function rendre() {
 
   corps.append(el('h3', { className: 'sous', textContent: 'Les capacités, et ce qui leur manque' }));
   for (const c of pack.capacites) corps.append(carteCapacite(c));
+  // Après insertion dans le document : `rendreVerdict` cherche son conteneur par sélecteur.
+  for (const c of pack.capacites) rendreVerdict(c);
 
   const note = el('p', { className: 'note-bas' });
   note.textContent = pack.schema
@@ -214,32 +237,22 @@ function carteCapacite(c) {
   row.append(facts);
 
   /*
-   * Les champs manquants, avec leur POURQUOI. C'est là que le formulaire fait son travail :
-   * « isolement : manquant » ne convainc personne de remplir quoi que ce soit ; « le déduire
-   * d'une phrase anglaise serait accorder un droit sur une lecture » convainc.
+   * LE FORMULAIRE. Chaque champ manquant devient un contrôle, précédé de son POURQUOI.
+   *
+   * « isolement : manquant » ne convainc personne de remplir quoi que ce soit ; « le
+   * déduire d'une phrase anglaise serait accorder un droit sur une lecture » convainc. La
+   * raison n'est pas une aide contextuelle qu'on replie : elle est au-dessus du champ,
+   * toujours visible, parce que c'est elle qui fait remplir sérieusement.
+   *
+   * RIEN N'EST PRÉ-REMPLI. Pas de valeur par défaut sur ce qui porte un droit — un défaut
+   * se valide sans être lu, et c'est exactement ce qu'on ne veut pas ici.
    */
+  const d = decisionsDe(c);
   const bloc = el('div', { className: 'bloc' });
-  bloc.append(el('h4', { textContent: 'Ce qu\'il faut décider avant de la lancer' }));
-  const liste = el('ul', { className: 'plain' });
-  for (const nom of c.manquants) {
-    const def = CHAMPS.find((x) => x.nom === nom);
-    const li = el('li');
-    li.append(el('b', { textContent: def.quoi }), document.createTextNode(` ${def.pourquoi}`));
-    const indices = c.champs[nom].indices || [];
-    if (indices.length) {
-      const ind = el('div', { className: 'contra' });
-      ind.append(el('div', { className: 'ou', textContent: 'indices dans le texte — à lire, pas à convertir' }));
-      for (const i of indices) {
-        ind.append(el('blockquote', { textContent: `ligne ${i.ligne} · ${i.quoi}\n${i.extrait}` }));
-      }
-      li.append(ind);
-    }
-    liste.append(li);
+  bloc.append(el('h4', { textContent: 'À décider — et c\'est toi qui en réponds' }));
+  for (const def of CHAMPS.filter((x) => x.requis && !fiable(c.champs[x.nom].origine))) {
+    bloc.append(controle(c, def, d));
   }
-  if (!c.manquants.length) {
-    liste.append(el('li', { textContent: 'Rien. Tous les champs qui portent un droit sont lus.' }));
-  }
-  bloc.append(liste);
   row.append(bloc);
 
   /*
@@ -285,5 +298,258 @@ function carteCapacite(c) {
     row.append(s);
   }
 
+  // Le verdict et le bouton vivent dans leur propre conteneur : ils se redessinent à
+  // chaque frappe, la carte non.
+  const verdict = el('div');
+  verdict.dataset.verdict = c.chemin;
+  row.append(verdict);
+
   return row;
+}
+
+/* ── Le formulaire ─────────────────────────────────────────────────────────── */
+
+/** Le corps d'un `SKILL.md` : tout ce qui suit le front-matter. */
+function decouperCorps(contenu = '') {
+  const m = /^---\r?\n[\s\S]*?\r?\n---\r?\n?([\s\S]*)$/.exec(String(contenu));
+  return m ? m[1] : String(contenu);
+}
+
+/** Les décisions de cette capacité, créées vides à la première visite. */
+function decisionsDe(c) {
+  if (!vue.decisions.has(c.chemin)) {
+    vue.decisions.set(c.chemin, { perimetre: perimetreParDefaut() });
+  }
+  return vue.decisions.get(c.chemin);
+}
+
+/*
+ * Le périmètre est le SEUL champ pré-rempli, et il mérite sa justification : il ne vient
+ * pas de l'amont et ne décrit pas la capacité — il dit qui, chez nous, en répond. Le
+ * pré-remplir avec le premier périmètre connu ferait attribuer une responsabilité par
+ * défaut, ce qui est précisément ce qu'on refuse ailleurs. Il reste donc VIDE si le
+ * registre en connaît plusieurs, et n'est rempli que s'il n'y a pas de choix à faire.
+ */
+function perimetreParDefaut() {
+  const connus = knownScopes(vue.ctx?.tools || []);
+  return connus.length === 1 ? connus[0] : '';
+}
+
+/** Un champ du formulaire : son pourquoi, ses indices, son contrôle. */
+function controle(c, def, d) {
+  const box = el('div', { className: 'champ' });
+  box.append(el('label', { textContent: def.quoi }));
+  box.append(el('p', { className: 'pourquoi', textContent: def.pourquoi }));
+
+  const indices = c.champs[def.nom].indices || [];
+  if (indices.length) {
+    const ind = el('div', { className: 'contra' });
+    ind.append(el('div', { className: 'ou',
+                           textContent: 'indices dans le texte — à lire, pas à convertir' }));
+    for (const i of indices) {
+      ind.append(el('blockquote', { textContent: `ligne ${i.ligne} · ${i.quoi}\n${i.extrait}` }));
+    }
+    box.append(ind);
+  }
+
+  box.append(champSaisie(c, def, d));
+  return box;
+}
+
+function champSaisie(c, def, d) {
+  const majAffichage = () => rendreVerdict(c);
+
+  if (def.nom === 'isolement') return selectIsolement(d, majAffichage);
+  if (def.nom === 'ecrit') return selectEcrit(d, majAffichage);
+  if (def.nom === 'outils') return casesOutils(d, majAffichage);
+
+  const t = el('textarea', { className: 'saisie', rows: 2, value: d[def.nom] || '' });
+  t.oninput = () => { d[def.nom] = t.value; majAffichage(); };
+  return t;
+}
+
+/*
+ * L'isolement : une liste FERMÉE, lue du registre.
+ *
+ * Ce qui n'est pas applicable est listé quand même, et étiqueté. Le masquer donnerait un
+ * menu où tout est possible et laisserait croire que la plateforme sait tout faire
+ * respecter — alors qu'elle ne sait en faire respecter aucun des deux qui comptent pour
+ * Mantis. Le voir barré est une information ; ne pas le voir est un mensonge par omission.
+ */
+function selectIsolement(d, maj) {
+  const s = el('select', { className: 'stsel large' });
+  s.append(el('option', { value: '', textContent: '— à choisir —' }));
+  for (const i of vue.ctx.isolements) {
+    s.append(el('option', {
+      value: i.id,
+      textContent: i.applicable ? i.titre : `${i.titre} — NON APPLICABLE aujourd'hui`
+    }));
+  }
+  s.value = d.isolement || '';
+  s.onchange = () => { d.isolement = s.value; maj(); };
+  return s;
+}
+
+function selectEcrit(d, maj) {
+  const s = el('select', { className: 'stsel large' });
+  s.append(el('option', { value: '', textContent: '— à choisir —' }));
+  for (const e of vue.ctx.ecritures) {
+    s.append(el('option', { value: e.id,
+      textContent: e.confirmation ? `${e.titre} — confirmation humaine à chaque appel` : e.titre }));
+  }
+  s.value = d.ecrit || '';
+  s.onchange = () => { d.ecrit = s.value; maj(); };
+  return s;
+}
+
+/*
+ * Les outils : des cases, et RIEN pour en taper un.
+ *
+ * I001, rendu par la forme du contrôle. Un champ de saisie libre inviterait à écrire
+ * « docker » — ce que Mantis utilise — et l'import serait refusé après coup, ce qui se
+ * lirait comme un bug. Des cases disent la vérité tout de suite : ce que la plateforme
+ * sait faire est cette liste, et ajouter `docker` est une décision qui se prend ailleurs.
+ */
+function casesOutils(d, maj) {
+  const box = el('div', { className: 'cases' });
+  d.outils = d.outils || [];
+  for (const t of vue.ctx.tools) {
+    const lab = el('label', { className: 'case' });
+    const cb = el('input', { type: 'checkbox', checked: d.outils.includes(t.id) });
+    cb.onchange = () => {
+      d.outils = cb.checked ? [...d.outils, t.id] : d.outils.filter((x) => x !== t.id);
+      maj();
+    };
+    lab.append(cb, el('code', { textContent: t.id }),
+               el('span', { className: `pill ${t.mode === 'write' ? 'write' : 'read'}`,
+                            textContent: t.mode }));
+    box.append(lab);
+  }
+  const note = el('p', { className: 'pourquoi',
+    textContent: 'Cette liste est le registre des outils. Il n\'y a pas de champ pour en '
+      + 'taper un autre : un outil qui n\'y est pas n\'est pas un droit qu\'un import peut '
+      + 'accorder.' });
+  box.append(note);
+  return box;
+}
+
+/* ── Le verdict, et le dépôt ───────────────────────────────────────────────── */
+
+/**
+ * Ce qui bloque, ce qui prévient, et le bouton.
+ *
+ * Recalculé à chaque frappe : découvrir les refus un par un à chaque tentative de dépôt
+ * ferait remplir le formulaire au hasard jusqu'à ce que ça passe.
+ */
+function rendreVerdict(c) {
+  const hote = document.querySelector(`[data-verdict="${cssEchappe(c.chemin)}"]`);
+  if (!hote) return;
+  hote.replaceChildren();
+
+  const d = decisionsDe(c);
+  const { artefact, refus: problemes } = fabriquer(c, d);
+  const bloquants = problemes.filter((p) => p.bloquant);
+
+  for (const p of problemes) {
+    const box = el('div', { className: `coherence ${p.bloquant ? 'flou' : 'ko'}` });
+    box.append(el('b', { textContent: p.quoi }), document.createTextNode(p.detail));
+    hote.append(box);
+  }
+
+  /* Le périmètre : qui, chez nous, en répond. Il n'est pas dans le formulaire des champs
+     lus parce qu'il ne vient pas de l'amont — c'est notre organisation, pas la leur. */
+  const pied = el('div', { className: 'acts' });
+  const per = el('select', { className: 'stsel' });
+  per.append(el('option', { value: '', textContent: '— périmètre —' }));
+  for (const s of knownScopes(vue.ctx.tools)) per.append(el('option', { value: s, textContent: s }));
+  per.value = d.perimetre || '';
+  per.onchange = () => { d.perimetre = per.value; rendreVerdict(c); };
+  pied.append(per);
+
+  const pal = el('select', { className: 'stsel' });
+  for (const t of vue.ctx.paliers) pal.append(el('option', { value: t, textContent: t }));
+  /* Le palier le moins cher par défaut. Aucun `SKILL.md` n'en déclare : en attribuer un
+     gros « parce que ça raisonne » multiplierait la facture sur une intuition. */
+  pal.value = d.modele || vue.ctx.paliers[0];
+  d.modele = pal.value;
+  pal.onchange = () => { d.modele = pal.value; };
+  pied.append(pal);
+
+  pied.append(el('span', { className: 'sp' }));
+
+  const bouton = el('button', { className: 'btn pub',
+                                textContent: `Déposer en attente (${NIVEAU_IMPORTE})` });
+  bouton.disabled = Boolean(bloquants.length) || !d.perimetre || !artefact;
+  bouton.onclick = () => deposer(c, bouton);
+  pied.append(bouton);
+
+  if (!d.perimetre) {
+    pied.append(el('span', { className: 'pourquoi',
+                             textContent: 'Choisis un périmètre : c\'est lui qui décide des outils autorisés.' }));
+  }
+  hote.append(pied);
+}
+
+const cssEchappe = (s) => String(s).replace(/["\\]/g, '\\$&');
+
+/** L'artefact, ou les raisons pour lesquelles il n'y en a pas. */
+function fabriquer(c, d) {
+  return versArtefact({
+    capacite: c, decisions: d, corps: vue.corps.get(c.chemin) || '', pack: vue.pack,
+    outils: vue.ctx.tools, isolements: vue.ctx.isolements, ecritures: vue.ctx.ecritures,
+    personne: vue.session?.username || '', perimetre: d.perimetre || ''
+  });
+}
+
+/**
+ * Déposer en attente.
+ *
+ * Le linter passe AVANT l'écriture, avec les vrais registres. Un artefact qui ne franchit
+ * pas la porte n'a rien à faire dans `pending/` : il y attendrait une validation humaine
+ * que la machine refuse déjà.
+ */
+async function deposer(c, bouton) {
+  const d = decisionsDe(c);
+  const { artefact, entete } = fabriquer(c, d);
+  if (!artefact) return;
+
+  bouton.disabled = true;
+  effacerFlash();
+  try {
+    const rapport = lint(artefact, vue.ctx);
+    if (rapport.blocked) {
+      const erreurs = rapport.findings.filter((f) => f.severity === ERROR)
+        .map((f) => `${f.code} ${f.message}`).join(' · ');
+      return flash(`La porte est fermée : ${erreurs}`);
+    }
+
+    if (!vue.repo) return flash('Aucun dépôt de registre choisi.');
+
+    const chemin = `${DOSSIER_IMPORTE}/${artefact.id}.yaml`;
+    await vue.forge.putFile(vue.repo, chemin, {
+      content: base64(entete + toYaml(artefact)),
+      message: `registre : importer ${artefact.id} depuis ${vue.pack.source}\n\n`
+             + `Capacité lue dans ${c.chemin} au commit ${vue.pack.commit}.\n`
+             + 'Deux champs viennent de l\'amont — nom et description. Les autres ont été '
+             + `décidés par ${vue.session?.username || 'l\'importeur'}.\n`
+             + 'Le `spec` contient le document de l\'amont, CITÉ entre délimiteurs : c\'est '
+             + 'du markdown écrit par un tiers, et c\'est là qu\'une injection se verrait.\n'
+             + `Niveau ${NIVEAU_IMPORTE}, aucune mesure au banc.\n`
+             + `Lint : ${rapport.errors} erreur(s), ${rapport.warnings} avertissement(s).`,
+      branch: 'main'
+    });
+    flash(`✔ Déposé — ${chemin}. Il attend une validation humaine dans « À valider ».`, true);
+  } catch (error) {
+    flash(`Dépôt impossible : ${error.message}`);
+  } finally {
+    rendreVerdict(c);
+  }
+}
+
+/* `btoa` ne prend que du latin-1 : un `é` dans une description le fait lever. */
+function base64(texte) {
+  const octets = new TextEncoder().encode(texte);
+  let bin = '';
+  for (const o of octets) bin += String.fromCharCode(o);
+  return btoa(bin);
 }
