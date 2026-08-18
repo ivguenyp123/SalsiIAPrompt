@@ -105,9 +105,29 @@ contrats:
 # n'appellent pas la même suite.
 #
 # LA SORTIE EST ÉCRITE PAR UN MODÈLE — il n'y a rien à reproduire mécaniquement.
-#   Platform Concierge   js/platform-concierge.js   6 appels de complétion
 #   MR Reviewer AI       js/mr-reviewer.js          la revue est du texte libre
 #   Smart Estimate       js/smart-estimate.js       l'estimation est un jugement
+#
+# ── CORRECTION : CE QUE J'AVAIS ÉCRIT SUR LE CONCIERGE ÉTAIT FAUX ───────────
+#
+# « Platform Concierge — 6 appels de complétion » figurait dans la liste ci-dessus. C'est
+# inexact, et la relecture du fichier le montre : il y a UN appel, `POST {AI_PROXY}/parse`
+# (l.171), doublement conditionnel — il faut que `AI_PROXY` soit configuré ET que
+# `CTX.aiNeeded` soit vrai, c'est-à-dire aucun `.gitlab-ci.yml`, ou plus de 60 branches, ou
+# plus de 8 branches en gitflow.
+#
+# Surtout, l'en-tête du fichier le dit lui-même : « Contrat du proxy backend (À IMPLÉMENTER
+# côté serveur) ». Le proxy n'existe pas. La couche IA du Concierge est un CONTRAT ÉCRIT,
+# pas un appel qui part.
+#
+# Ce qui tourne aujourd'hui est `regexParse()`, vingt-trois lignes, et sa sortie n'est PAS
+# écrite par un modèle : c'est un JSON à SCHÉMA FIXE — `{ action, version, test, enabled,
+# branchHint, confidence, human }`, `action` prise dans six valeurs. Il y avait donc bien
+# un vocabulaire à fixer, et le classement d'origine l'a écarté sur une lecture erronée.
+#
+# La conclusion « rien à reproduire » tombe pour ce module ; elle tient pour les deux
+# autres. Le contrat reste à extraire — c'est le seul du hub dont la sortie soit un JSON
+# contraint, donc le seul dont des critères pourraient vérifier un FAIT et non une forme.
 #
 # LA SORTIE EST UNE LISTE D'OBJETS DU DÉPÔT, sans vocabulaire propre à fixer : le contrat
 # serait « une liste de fichiers », ce qu'un agent n'a pas besoin qu'on lui déclare.

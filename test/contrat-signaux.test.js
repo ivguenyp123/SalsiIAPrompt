@@ -25,7 +25,7 @@ import { readFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { repartitionContributions, inventaireBranches } from '../lib/signaux-matiere.js';
+import { repartitionContributions, inventaireBranches, sait } from '../lib/signaux-matiere.js';
 import { rapportSecrets, inventaireDependances, rapportConformite } from '../lib/signaux-securite.js';
 import { chiffresDora } from '../lib/signaux-dora.js';
 import { chiffresDaily } from '../lib/signaux-daily.js';
@@ -127,6 +127,32 @@ const INVOCATIONS = {
 /* ── Le contrat ───────────────────────────────────────────────────────────── */
 
 describe('tout signal calculable rend un texte utilisable', () => {
+  test('tout signal CALCULÉ est DÉCLARÉ calculable', () => {
+    /*
+     * ── LE SECOND DÉFAUT DE CETTE FAMILLE, ET IL EST PIRE QUE LE PREMIER ──────
+     *
+     * Un signal doit être inscrit à DEUX endroits :
+     *
+     *   CALCULS, dans le catalogue     COMMENT on le calcule
+     *   SIGNAUX, dans signaux-matiere  QUE la plateforme sait le calculer
+     *
+     * `activite_du_jour` n'était inscrit que dans le premier. `sait()` répondait donc non,
+     * et l'écran en concluait — logiquement — que la matière devait être saisie à la main :
+     * un champ vide, un bouton « Récupérer », et pas de sélecteur de dépôt. Le calcul
+     * existait et n'était jamais appelé.
+     *
+     * Le symptôme ne ressemble pas à une panne : l'agent s'affiche, se lance, et répond —
+     * sur un champ vide. C'est la même faute que le `texte` oublié, par une autre porte, et
+     * elle a survécu au test qui vérifiait le `texte` parce que celui-ci n'interrogeait
+     * jamais `sait()`.
+     */
+    for (const nom of signauxDuCatalogue()) {
+      assert.ok(sait(nom),
+        `\`${nom}\` est calculé par le catalogue mais absent de SIGNAUX : l'écran `
+        + 'demandera de le saisir à la main et n\'appellera jamais le calcul');
+    }
+  });
+
   test('aucun signal du catalogue n\'est absent de ce test', () => {
     // Sans ceci, ajouter un signal sans le tester ferait passer ce fichier en silence —
     // et le fichier ne servirait plus qu'à rassurer.
