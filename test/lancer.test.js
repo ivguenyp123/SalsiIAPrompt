@@ -243,6 +243,71 @@ describe('lancer un artefact', () => {
    * coupée a l'air FINIE : on la lit, on agit dessus. Le plafond appartient donc au
    * PALIER, déclaré au registre, et il monte avec lui.
    */
+  /*
+   * ── LE TROU QUE CES TESTS FERMENT ──────────────────────────────────────────
+   *
+   * `output.contains_secret` gardait la porte de SORTIE : que le modèle ne recopie pas un
+   * jeton. La porte d'ENTRÉE n'était gardée nulle part. Le log de CI, lui, était caviardé
+   * depuis le début — au motif exact qu'envoyer un texte à un fournisseur sans le relire
+   * serait l'incident que cette plateforme existe pour éviter. Le raisonnement n'avait été
+   * appliqué qu'à un chemin sur cinq.
+   *
+   * Un `.env` ouvert dans le sélecteur de fichiers, un `application.yml` avec son mot de
+   * passe, une clé collée à la main : tout partait en clair chez le fournisseur.
+   */
+  describe('rien ne part chez le fournisseur avec un secret dedans', () => {
+    const AVEC_JETON = 'const t = "glpat-AbCdEfGhIjKlMnOpQrSt";\nfetch(url, { token: t });';
+
+    test('le secret est retiré du prompt AVANT l\'appel', async () => {
+      const v = faux('## À quoi ça sert\nRien.');
+      const r = await lancer(lecture(), { vertex: v, models, contexte: contexteOk(),
+        valeurs: { repo: 'demo-front', code: AVEC_JETON } });
+
+      assert.ok(!v.vu.prompt.includes('glpat-AbCdEfGhIjKlMnOpQrSt'),
+        'le jeton est parti chez le fournisseur');
+      assert.match(v.vu.prompt, /\[secret caviardé\]/);
+      // Le reste du fichier arrive intact : caviarder n'est pas tronquer.
+      assert.match(v.vu.prompt, /fetch\(url/);
+      assert.equal(r.refuse, false, 'un secret n\'annule pas l\'appel, il en sort');
+    });
+
+    test('les TYPES sont nommés, jamais les valeurs', async () => {
+      // Un rapport qui recopierait le secret qu'il vient de faire retirer serait pire que
+      // pas de rapport : il le rendrait persistant — au journal, sur disque — là où il ne
+      // faisait que passer en mémoire.
+      const r = await lancer(lecture(), { vertex: faux('ok'), models, contexte: contexteOk(),
+        valeurs: { repo: 'demo-front', code: AVEC_JETON } });
+      assert.deepEqual(r.caviarde, ['GitLab PAT']);
+      assert.ok(!JSON.stringify(r.caviarde).includes('AbCdEfGh'));
+    });
+
+    test('un code sans secret ne déclenche rien', async () => {
+      // Sans ce test, un caviardage trop large passerait inaperçu : il abîmerait toutes
+      // les matières et personne ne saurait pourquoi les réponses se dégradent. C'est
+      // exactement ce qu'aurait fait `SECRET_PATTERNS`, dont un motif vise TOUTE URL.
+      const v = faux('ok');
+      const r = await lancer(lecture(), { vertex: v, models, contexte: contexteOk(),
+        valeurs: { repo: 'demo-front', code: 'const a = 1; // https://exemple.fr' } });
+      assert.deepEqual(r.caviarde, []);
+      assert.match(v.vu.prompt, /https:\/\/exemple\.fr/, 'une URL n\'est pas un secret');
+    });
+
+    test('le prompt rendu à l\'appelant est celui qui est PARTI', async () => {
+      // Rendre le prompt d'origine ferait croire, en débogage comme au journal, que le
+      // modèle a vu le secret. Une seule version circule : la caviardée.
+      const r = await lancer(lecture(), { vertex: faux('ok'), models, contexte: contexteOk(),
+        valeurs: { repo: 'demo-front', code: AVEC_JETON } });
+      assert.ok(!r.prompt.includes('glpat-AbCdEfGhIjKlMnOpQrSt'));
+    });
+
+    test('plusieurs types de secrets sont tous nommés', async () => {
+      const r = await lancer(lecture(), { vertex: faux('ok'), models, contexte: contexteOk(),
+        valeurs: { repo: 'demo-front',
+                   code: 'AKIAIOSFODNN7EXAMPLE\nsk-ant-abcdefghijklmnopqrstuvwx' } });
+      assert.deepEqual([...r.caviarde].sort(), ['AWS Access Key', 'Anthropic Key']);
+    });
+  });
+
   test('le plafond de sortie vient du registre, et suit le palier', async () => {
     const v = faux('## À quoi ça sert\nÀ rien.');
     await lancer(lecture(), { vertex: v, valeurs: valeursOk, contexte: contexteOk(), models });

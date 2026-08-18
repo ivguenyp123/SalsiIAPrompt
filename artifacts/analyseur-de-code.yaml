@@ -5,16 +5,49 @@
 #
 # Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
 # ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# ── LA SÉCURITÉ N'EST PLUS UN AGENT D'À CÔTÉ ────────────────────────────────
+#
+# Cet agent lisait un fichier et rendait deux choses : ce qui le rend difficile, et ce
+# qu'il fait. La sécurité vivait ailleurs — `secrets-exposes`, un agent qu'il faut penser
+# à lancer, sur un scan du dépôt entier.
+#
+# Personne n'y pense. On ouvre un fichier parce qu'on va y toucher, et c'est précisément le
+# moment où savoir qu'il porte un risque change quelque chose. Un contrôle de sécurité
+# qu'il faut décider de faire est un contrôle qu'on ne fait pas.
+#
+# La sécurité est donc une SECTION de cet agent, au même titre que « ce qui risque de
+# casser ». `secrets-exposes` reste : il répond à une autre question — « quoi révoquer en
+# premier, sur tout le dépôt » — et il travaille sur une matière CALCULÉE que celui-ci n'a
+# pas. Les deux ne se remplacent pas.
+#
+# ── ET CE QUE CET AGENT NE PEUT PAS DIRE ────────────────────────────────────
+#
+# Il lit UN fichier, avec un modèle, sans rien exécuter et sans voir le reste du dépôt. Il
+# peut repérer un motif dangereux ; il ne peut pas prouver une absence. La consigne lui
+# interdit donc explicitement d'écrire qu'un fichier est sûr — c'est la phrase qu'un
+# lecteur pressé retient, et c'est celle qu'aucune lecture ne permet.
+#
+# Les secrets EN DUR, eux, ne lui parviennent même pas : `runtime/lancer.js` les caviarde
+# avant l'appel et l'écran le dit. L'agent voit `[secret caviardé]` — d'où la consigne de
+# le signaler sans commenter une valeur qu'il n'a pas vue.
 
 id: analyseur-de-code
 kind: prompt
-title: "analyseur de code "
+title: Analyser un code — dette, risques et sécurité
 owner:
   person: ivguenyp123
   scope: Data
+tags: [code, securite, qualite]
 intent:
-  purpose: "a analyser et expliquer un code "
-  not_for: quand on utilise pas un code
+  purpose: >-
+    Lire un fichier et dire trois choses à qui va y toucher : ce qu'il fait, ce qui rend
+    son évolution coûteuse, et ce qui s'y présente comme un risque de sécurité.
+  not_for: >-
+    Ne pas utiliser comme audit de sécurité, ni comme preuve qu'un fichier est sain :
+    c'est la lecture d'un fichier par un modèle, sans exécution, sans analyse de flot,
+    sans le reste du dépôt. Pour l'état réel des secrets d'un dépôt, il y a
+    `secrets-exposes`, dont la matière est calculée.
 model_tier: mid
 target_level: experimental
 variables:
@@ -28,39 +61,60 @@ criteria:
   - target: output.contains_secret
     op: eq
     value: false
+  # Les quatre sections attendues, dont Sécurité : sans ce critère, « la sécurité est dans
+  # l'agent » ne tiendrait qu'à la bonne volonté du modèle, et un jour il la sauterait.
+  - target: output.sections
+    op: contains
+    value:
+      - À quoi ça sert
+      - Ce qui risque de casser
+      - Sécurité
+      - Par où commencer
 spec: |-
-    1. Tu analyses ce fichier du dépôt {{repo}}.
+  Tu lis un fichier du dépôt {{repo}} pour quelqu'un qui va y toucher.
 
-    Structure ta réponse ainsi, avec ces titres exactement :
-    ## Ce qui rend ce fichier difficile
-    ## Ce qui risque de casser
-    ## Par où commencer
+  Rends exactement ces sections, avec ces titres :
 
-    Règles :
-    - « Par où commencer » ne contient qu'UNE proposition, la plus rentable
-    - chaque constat cite l'endroit concerné, jamais une généralité de méthode
-    - ne signale aucun point que l'outillage rattrape déjà — indentation, nommage
-      de variable locale, import inutilisé
-    - si le fichier est court et clair, dis-le et arrête-toi
-    - si le fichier n'est pas du code, dis-le et arrête-toi
+  ## À quoi ça sert
+  ## Ce qui risque de casser
+  ## Sécurité
+  ## Par où commencer
 
-    Fichier :
-    {{code}}
+  Ce qu'on attend dans chacune :
 
-    2. Tu expliques ce fichier du dépôt {{repo}} à quelqu'un qui ne l'a pas écrit.
+  À QUOI ÇA SERT
+  Explique l'INTENTION, pas la syntaxe. Ne paraphrase jamais une ligne. Trois phrases
+  maximum. Si le fichier n'est pas du code — configuration, feuille de style, données —
+  dis-le et arrête-toi là. S'il est vide, dis qu'il est vide et arrête-toi.
 
-    Structure ta réponse ainsi, avec ces titres exactement :
-    ## À quoi ça sert
-    ## Comment ça marche
-    ## Ce qui surprend
+  CE QUI RISQUE DE CASSER
+  Ce qui rend ce fichier coûteux à faire évoluer, et où ça lâchera. Chaque constat cite
+  l'endroit concerné, jamais une généralité de méthode. Ne signale aucun point que
+  l'outillage rattrape déjà — indentation, nommage de variable locale, import inutilisé.
+  Si le fichier est court et clair, dis-le.
 
-    Règles :
-    - explique l'INTENTION, pas la syntaxe. Ne paraphrase jamais une ligne.
-    - « À quoi ça sert » tient en trois phrases maximum
-    - « Ce qui surprend » ne contient que ce qui n'est pas devinable à la lecture
-    - si le fichier n'est pas du code — configuration, feuille de style, données —
-      dis-le en une phrase et arrête-toi là
-    - si le fichier est vide, dis qu'il est vide et arrête-toi
+  SÉCURITÉ
+  Ce qui, DANS CE FICHIER, se présente comme un risque : entrée non validée, concaténation
+  dans une requête ou une commande, désérialisation d'une donnée reçue, contrôle d'accès
+  absent là où il en faudrait un, chiffrement fait à la main, aléatoire non
+  cryptographique, jeton ou identifiant écrit en dur, journalisation d'une donnée
+  sensible.
 
-    Fichier :
-    {{code}}
+  Quatre règles, et la première prime sur les autres :
+
+  - N'ÉCRIS JAMAIS QUE CE FICHIER EST SÛR. Tu lis un fichier, avec un modèle, sans
+    l'exécuter et sans voir le reste du dépôt. Tu peux repérer un motif dangereux ; tu ne
+    peux pas prouver une absence. Si tu ne vois rien, écris « rien de visible à la lecture
+    de ce seul fichier » — ce n'est pas la même phrase.
+  - Cite la ligne ou l'expression concernée. Un risque sans endroit ne se corrige pas.
+  - Ne recopie AUCUNE valeur de secret, même partielle, même si elle est sous tes yeux.
+  - Là où tu lis `[secret caviardé]`, un secret a été retiré avant que ce texte ne te
+    parvienne. Signale-le comme un secret en dur à révoquer, et ne commente pas sa valeur :
+    tu ne l'as pas vue.
+
+  PAR OÙ COMMENCER
+  UNE seule proposition, la plus rentable. Si la section Sécurité contient un risque, c'est
+  lui — avant la dette.
+
+  Fichier :
+  {{code}}

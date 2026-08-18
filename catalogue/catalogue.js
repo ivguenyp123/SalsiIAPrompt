@@ -2914,6 +2914,32 @@ function ouvrirExecution(entry) {
     const surMr = calcules.map((c) => c.dernier()).find((r) => r?.pr);
 
     /*
+     * ── DES SECRETS ONT ÉTÉ RETIRÉS AVANT L'ENVOI, ET ÇA SE DIT EN PREMIER ────
+     *
+     * Le caviardage protège l'appel. Il ne répare pas le dépôt : le jeton est toujours
+     * en dur dans le fichier, et il faut le révoquer. Retirer un secret en silence
+     * laisserait quelqu'un croire que tout va bien alors qu'il vient d'être averti d'une
+     * fuite — et lui ferait par-dessus le marché mal lire la réponse, puisque le modèle
+     * n'a pas vu ce que le fichier contient.
+     *
+     * En tête de la sortie, avant même le verdict de contrat : c'est plus urgent que de
+     * savoir si les sections attendues sont là.
+     */
+    if (corps.caviarde?.length) {
+      zone.append(el('div', { className: 'verdict ko' },
+        el('span', { textContent: '🔒' }),
+        el('span', {},
+          el('b', { textContent: `${corps.caviarde.length} secret(s) retiré(s) avant l'envoi : `
+                               + corps.caviarde.join(', ') + '.' }),
+          el('div', { style: 'font-size:12px;margin-top:4px',
+            textContent: 'Rien n\'est parti chez le fournisseur — mais le secret est '
+                       + 'TOUJOURS en dur dans le dépôt. Révoque-le, puis retire-le du '
+                       + 'fichier. Le modèle, lui, a lu « [secret caviardé] » à cet '
+                       + 'endroit : n\'attends pas de lui qu\'il commente ce qu\'il n\'a '
+                       + 'pas vu.' }))));
+    }
+
+    /*
      * UNE RÉPONSE COUPÉE LE DIT, ET C'EST LE PLUS IMPORTANT DE CET ÉCRAN.
      *
      * Le motif d'arrêt remontait déjà du moteur jusqu'ici — et personne ne le lisait. Une

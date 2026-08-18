@@ -106,6 +106,29 @@ describe('la ligne de journal', () => {
     assert.match(l.raison, /introuvable/);
   });
 
+  test('les secrets retirés sont comptés par TYPE, jamais par valeur', () => {
+    /*
+     * Le journal est le seul endroit qui rende la fuite CHIFFRABLE : sans cette colonne,
+     * on saurait que le garde-fou existe, jamais combien de fois il a servi.
+     *
+     * Mais il écrit sur DISQUE. Y recopier le secret qu'on vient de faire retirer serait
+     * pire que de ne rien journaliser : le jeton ne faisait que passer en mémoire, il
+     * deviendrait persistant — et dans un fichier que personne ne relit.
+     */
+    const l = ligne({ le: '2026-08-17T10:00:00Z', artifact: { id: 'x' },
+                      requete: {}, status: 200,
+                      corps: { caviarde: ['GitLab PAT', 'AWS Access Key'] } });
+    assert.deepEqual(l.caviarde, ['GitLab PAT', 'AWS Access Key']);
+  });
+
+  test('une exécution sans secret rend une liste vide, pas `undefined`', () => {
+    // Le cas courant. Une colonne absente casserait les agrégats de l'écran Admin, qui
+    // compte des tableaux — et le compte tomberait sans erreur, donc sans qu'on le voie.
+    const l = ligne({ le: '2026-08-17T10:00:00Z', artifact: { id: 'x' },
+                      requete: {}, status: 200, corps: {} });
+    assert.deepEqual(l.caviarde, []);
+  });
+
   test('ne garde NI le prompt NI la sortie', () => {
     // La règle de fond. Un prompt porte la matière injectée — un diff, un extrait de
     // dépôt. L'écrire sur disque créerait un magasin de données confidentielles là où il

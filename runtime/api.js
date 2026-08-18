@@ -225,6 +225,14 @@ async function conduire(requete = {}, deps = {}, trace = {}) {
     jetons: r.jetons,
     cout: r.cout,
     motifArret: r.motifArret,
+    /*
+     * Les TYPES de secrets retirés du prompt avant l'appel — jamais leurs valeurs.
+     *
+     * Le prompt ne revient pas (voir ci-dessus), mais ceci doit revenir : quelqu'un dont
+     * le fichier contenait un jeton doit l'apprendre. Le taire protégerait l'appel et
+     * laisserait le secret en dur dans le dépôt, ce qui est le vrai problème.
+     */
+    caviarde: r.caviarde || [],
     postvol: r.postvol,
     confirmationRequise: r.prevol.confirmationRequise,
     raisons: r.prevol.raisons

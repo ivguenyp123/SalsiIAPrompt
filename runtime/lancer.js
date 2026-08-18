@@ -25,6 +25,7 @@ import { ERROR } from '../lint/index.js';
 import { postvol } from './resolveurs.js';
 import { cout } from './vertex.js';
 import { natureDeCle, entree as entreeBanque } from '../lib/entrees.js';
+import { caviarder } from '../lib/signaux-securite.js';
 
 /** Une variable non résolue dans un spec rendu. Sert à refuser un prompt à trou. */
 export const TROU = /\{\{\s*([a-z][a-z0-9_]*)\s*\}\}/g;
@@ -130,14 +131,49 @@ export async function lancer(artifact, { vertex, valeurs = {}, contexte = {},
   const tier = artifact.model_tier || 'mid';
   const palier = models.find((m) => m.tier === tier);
 
-  const reponse = await vertex.generer({ prompt, tier,
+  /*
+   * ── LE DERNIER GARDE-FOU : RIEN NE SORT AVEC UN SECRET DEDANS ──────────────
+   *
+   * C'est la ligne qui manquait, et l'endroit où elle manquait est instructif.
+   *
+   * Le registre vérifiait déjà `output.contains_secret` : que la RÉPONSE du modèle ne
+   * contienne pas de jeton. La porte de sortie était gardée. La porte d'ENTRÉE ne l'était
+   * nulle part — on surveillait que le modèle ne recopie pas un secret, sans regarder
+   * qu'on venait de le lui donner.
+   *
+   * Le log de CI, lui, était caviardé depuis le début (`signaux-ci.js`), au motif exact
+   * qu'« envoyer ce log à un modèle — donc à un fournisseur, donc hors de la banque —
+   * sans le relire serait exactement l'incident que cette plateforme existe pour éviter ».
+   * Le raisonnement était juste et n'avait été appliqué qu'à un chemin sur cinq. Un
+   * `.env` ouvert dans le sélecteur de fichiers, un `application.yml` avec son mot de
+   * passe de base, une clé privée collée à la main : tout partait en clair.
+   *
+   * ── POURQUOI ICI, ET NULLE PART AILLEURS ───────────────────────────────────
+   *
+   * Le caviardage à l'écran est utile — il montre à l'auteur ce qu'il s'apprêtait à
+   * envoyer — mais il ne protège que ce qui passe par l'écran. Le prompt assemblé est le
+   * SEUL objet par lequel tout passe : l'écran, la ligne de commande, le banc d'essai, la
+   * chaîne. Un garde-fou placé ailleurs se contourne en changeant de porte.
+   *
+   * ── ET IL EST DIT, JAMAIS SILENCIEUX ───────────────────────────────────────
+   *
+   * `caviarde` remonte jusqu'à l'écran et jusqu'au journal. Remplacer un jeton en silence
+   * ferait deux dégâts : l'auteur ne saurait pas qu'il a un secret en dur dans son dépôt,
+   * et il croirait que le modèle a vu un fichier qu'il n'a pas vu. On nomme les TYPES
+   * rencontrés — « GitLab PAT » — jamais les valeurs : un journal qui recopie le secret
+   * qu'il vient de retirer ne protège rien.
+   */
+  const { texte: promptSur, trouves: caviarde } = caviarder(prompt);
+
+  const reponse = await vertex.generer({ prompt: promptSur, tier,
     ...(palier?.max_sortie ? { maxTokens: palier.max_sortie } : {}) });
   const apres = postvol(artifact, reponse.texte, { valeurs, artifact });
 
   return {
     prevol: avant,
     refuse: false,
-    prompt,
+    prompt: promptSur,
+    caviarde,
     sortie: reponse.texte,
     modele: reponse.modele,
     jetons: reponse.jetons,
