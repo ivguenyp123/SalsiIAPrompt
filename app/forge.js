@@ -23,6 +23,8 @@
  *   listPullRequests(repo)                             → [{ numero, titre, branche, cible, auteur }]
  *   pullRequestChanges(repo, numero)                   → [{ fichier, ancien, patch, binaire }]
  *   listRuns(repo, { perPage, depuis })                → [{ id, statut, branche, quand, sha, debut }]
+ *   listJobs(repo, runId)                              → [{ id, nom, etape, statut, secondes }]
+ *   jobLog(repo, jobId)                                → texte brut, non tronqué
  *   listDeployments(repo, { perPage, depuis })         → [{ id, environnement, quand, branche }]
  *
  * Les deux forges rendent un patch PAR FICHIER : `lib/matiere.js` les recolle en diff
@@ -148,6 +150,11 @@ async function parLeRelais(url, { method, headers, body }, fetchImpl) {
     ok: enveloppe.statut >= 200 && enveloppe.statut < 300,
     status: enveloppe.statut,
     json: async () => JSON.parse(enveloppe.corps || 'null'),
+    // Un log de job n'est PAS du JSON. Sans ce `text`, une lecture brute passée par le
+    // relais échouerait là où la même lecture en direct réussit — et la panne
+    // n'apparaîtrait que chez quelqu'un dont le navigateur bloque les appels croisés,
+    // c'est-à-dire précisément là où on ne peut pas déboguer.
+    text: async () => enveloppe.corps || '',
     /*
      * Le corps BRUT, garde de côté pour le message d'erreur.
      *
@@ -199,7 +206,7 @@ const A_REESSAYER = (statut) => statut === 429 || statut >= 500;
 const dormir = (ms) => new Promise((r) => { setTimeout(r, ms); });
 
 function makeCaller({ base, headers, host, scopeHint }, fetchImpl) {
-  return async function call(path, { params, body, method = 'GET' } = {}) {
+  return async function call(path, { params, body, method = 'GET', texte = false } = {}) {
     const url = new URL(base + path);
     for (const [k, v] of Object.entries(params || {})) {
       if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, v);
@@ -245,7 +252,17 @@ function makeCaller({ base, headers, host, scopeHint }, fetchImpl) {
       const dit = messageDe(response.brut);
       throw new ForgeError(explain(response.status, { host, scopeHint, dit }), response.status);
     }
-    return response.status === 204 ? null : response.json();
+    if (response.status === 204) return null;
+    /*
+     * `texte: true` — la seule lecture du produit qui ne rend pas du JSON.
+     *
+     * Un log de job est du texte brut, parfois plusieurs mégaoctets. Le passer par
+     * `response.json()` échouerait sur la première ligne. Et par le relais, la réponse
+     * reconstruite doit exposer `text()` comme `fetch` le fait, sinon la lecture marche en
+     * direct et casse derrière un navigateur qui bloque les appels croisés.
+     */
+    if (texte) return response.text ? response.text() : (response.brut || '');
+    return response.json();
   };
 }
 
@@ -411,6 +428,42 @@ function gitlab(session, fetchImpl) {
         sha: p.sha || '', debut: p.created_at || ''
       }));
     },
+
+    /*
+     * ── LES JOBS D'UN PIPELINE, ET LEUR LOG ───────────────────────────────────
+     *
+     * C'est la lecture qui manquait pour qu'un agent puisse expliquer un échec de CI.
+     * Sans elle, on ne savait QUE qu'un pipeline avait échoué — jamais pourquoi. Un agent
+     * à qui on demande la cause sans lui donner le log la devine, ce qui est la faute que
+     * ce registre existe pour empêcher : c'est pour ça que `expliquer-un-pipeline-en-echec`
+     * avait été supprimé du catalogue plutôt que laissé en place.
+     *
+     * `statut` est normalisé comme celui des pipelines : les deux forges n'ont ni le même
+     * vocabulaire ni les mêmes états intermédiaires.
+     */
+    listJobs: async (repo, runId) => {
+      const list = await call(
+        `/projects/${encodeURIComponent(repo)}/pipelines/${runId}/jobs`,
+        { params: { per_page: 100 } });
+      return list.map((j) => ({
+        id: j.id, nom: j.name || '', etape: j.stage || '',
+        statut: statutCI(j.status), quand: j.finished_at || j.created_at || '',
+        // La durée sépare « ça a planté tout de suite » de « ça a tourné vingt minutes
+        // puis expiré » — deux pannes qui ne se cherchent pas au même endroit.
+        secondes: Math.round(j.duration || 0), url: j.web_url || ''
+      }));
+    },
+
+    /*
+     * Le log, en TEXTE BRUT et non tronqué ici.
+     *
+     * Le découpage appartient au signal, pas à la forge : c'est lui qui sait quelle
+     * fenêtre autour de l'échec a du sens, et c'est lui qui doit pouvoir dire combien il
+     * a écarté. Une forge qui couperait en silence rendrait cette information
+     * irrécupérable.
+     */
+    jobLog: (repo, jobId) =>
+      call(`/projects/${encodeURIComponent(repo)}/jobs/${jobId}/trace`, { texte: true }),
 
     /*
      * Les DÉPLOIEMENTS — le seul chiffre du rapport quotidien que la forge ne savait pas
@@ -716,6 +769,46 @@ function github(session, fetchImpl) {
         sha: w.head_sha || '', debut: w.created_at || ''
       }));
     },
+
+    /*
+     * Les jobs d'un run. Même forme que côté GitLab.
+     *
+     * GitHub n'a pas d'`étape` au sens GitLab : un job porte des `steps`, et c'est le
+     * premier step en échec qui dit où ça a cassé. On le remonte à la place — c'est
+     * l'information que l'`étape` GitLab apporte, sous un autre nom.
+     */
+    listJobs: async (repo, runId) => {
+      const r = await call(`/repos/${repo}/actions/runs/${runId}/jobs`,
+        { params: { per_page: 100 } });
+      return (r.jobs || []).map((j) => {
+        const rate = (j.steps || []).find((s) => s.conclusion === 'failure');
+        const debut = j.started_at ? new Date(j.started_at).getTime() : 0;
+        const fin = j.completed_at ? new Date(j.completed_at).getTime() : 0;
+        return {
+          id: j.id, nom: j.name || '',
+          etape: rate?.name || '',
+          statut: statutCI(j.status === 'completed' ? j.conclusion : j.status),
+          quand: j.completed_at || j.started_at || '',
+          secondes: debut && fin ? Math.round((fin - debut) / 1000) : 0,
+          url: j.html_url || ''
+        };
+      });
+    },
+
+    /*
+     * Le log d'un job.
+     *
+     * GitHub répond 302 vers un stockage signé. `fetch` suit la redirection tout seul, et
+     * c'est ce qu'on veut — mais l'en-tête `Authorization` part alors vers un hôte qui
+     * n'est pas GitHub. Le jeton n'y sert à rien (l'URL porte déjà sa signature) et
+     * certains stockages REFUSENT une requête qui en porte un.
+     *
+     * On ne peut pas retirer l'en-tête à mi-chemin depuis un navigateur. Si la lecture
+     * échoue pour cette raison, l'appelant traite l'absence de log comme une absence — le
+     * signal le dit — plutôt que de faire échouer toute l'analyse du pipeline.
+     */
+    jobLog: (repo, jobId) =>
+      call(`/repos/${repo}/actions/jobs/${jobId}/logs`, { texte: true }),
 
     /*
      * Les déploiements. Même forme que côté GitLab, deux différences de fond :

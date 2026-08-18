@@ -18,7 +18,7 @@ import { SOURCES, sourceProbable, estUnIdentifiant, chercher as chercherFichier,
          diffUnifie, resume, grosse } from '../lib/matiere.js';
 import { rendre as rendreMd, ressembleADuMarkdown, lienSur } from '../lib/md.js';
 import { rapportHtml, nomFichier } from '../lib/rapport.js';
-import { sait as saitCalculer, surPlusieursDepots, surUneMr, zonesDepuisArbre,
+import { sait as saitCalculer, surPlusieursDepots, surUneMr, listeDeChoix, zonesDepuisArbre,
          repartitionContributions, inventaireBranches, resumeCourt, resumeBranches,
          FENETRE, MAX_ZONES_INTERROGEES } from '../lib/signaux-matiere.js';
 import { fichierSuspect, MAX_FICHIERS_LUS, rapportSecrets, resumeSecrets,
@@ -33,6 +33,7 @@ import { chiffresDaily, resumeDaily,
 import { parcSecurite, resumeParc, MAX_DEPOTS } from '../lib/signaux-parc.js';
 import { coupee } from '../lib/arret.js';
 import { revueMr, resumeRevue } from '../lib/signaux-revue.js';
+import { jobEnEchec, resumeCi } from '../lib/signaux-ci.js';
 import { BRANCHE as BRANCHE_CORRECTIFS, fichiersAProposer, aProposer,
          descriptionMr, titreMr, messageCommit } from '../lib/correctifs.js';
 import { indexer, chercher, etiquettes, porteEtiquettes } from '../lib/recherche.js';
@@ -1131,6 +1132,65 @@ async function matiereDora(depot) {
   });
 }
 
+/*
+ * Combien de pipelines on liste, et combien d'échecs on propose.
+ *
+ * On demande une page de pipelines et on garde les échecs. Proposer les cinquante
+ * derniers échecs ne servirait personne : on explique un échec RÉCENT, et une liste
+ * déroulante de cinquante lignes ne se lit pas.
+ */
+const MAX_RUNS_LISTES = 60;
+const MAX_ECHECS_LISTES = 12;
+
+/*
+ * Où vit la configuration de CI, selon la forge.
+ *
+ * On essaie dans l'ordre et on s'arrête au premier trouvé. Sans elle, un correctif ne
+ * peut porter que sur le code — jamais sur le pipeline — et le signal le dit plutôt que
+ * de laisser l'agent proposer de modifier un fichier qu'il n'a pas lu.
+ */
+const CONFIGS_CI = ['.gitlab-ci.yml', '.github/workflows/ci.yml', '.github/workflows/main.yml',
+                    '.github/workflows/build.yml', '.github/workflows/test.yml',
+                    'Jenkinsfile', 'azure-pipelines.yml'];
+
+/**
+ * Le job qui a fait tomber un pipeline, et de quoi proposer un correctif.
+ *
+ * ── L'ORDRE DES LECTURES, ET POURQUOI IL COMPTE ──────────────────────────────
+ *
+ * On lit les jobs d'ABORD, on choisit celui qui a échoué, puis on lit SON log. Lire les
+ * logs de tous les jobs coûterait des mégaoctets pour n'en garder qu'un — et sur un
+ * pipeline à quinze jobs, la lecture prendrait plus longtemps que l'appel au modèle.
+ *
+ * Si plusieurs jobs ont échoué, on prend le PREMIER dans l'ordre du pipeline : les
+ * suivants échouent en général parce que celui-là a échoué, et expliquer le dernier
+ * enverrait chercher la cause au mauvais endroit.
+ */
+async function matiereJobEnEchec(depot, run) {
+  const jobs = await forge.listJobs(depot, run.id).catch(() => []);
+  const echoue = jobs.find((j) => j.statut === 'echec') || null;
+
+  const [log, config] = await Promise.all([
+    // `null` et non `''` : « pas lisible » et « vide » n'envoient pas chercher la même
+    // chose, et le signal traite les deux cas séparément.
+    echoue ? forge.jobLog(depot, echoue.id).catch(() => null) : Promise.resolve(null),
+    trouverConfigCi(depot)
+  ]);
+
+  return jobEnEchec({ depot, run, jobs, job: echoue, log,
+                      configCi: config?.contenu ?? null, cheminConfig: config?.chemin || '' });
+}
+
+/** Le premier fichier de CI trouvé à la racine, ou `null` si le dépôt n'en a pas. */
+async function trouverConfigCi(depot) {
+  const ref = await brancheDe(depot).catch(() => '');
+  const chemins = await arbre(depot).catch(() => []);
+  const trouve = CONFIGS_CI.find((c) => chemins.includes(c));
+  if (!trouve) return null;
+  const f = await forge.getFile(depot, trouve, ref).catch(() => null);
+  return f ? { chemin: trouve, contenu: f.content } : null;
+}
+
 /**
  * Le rapport quotidien — cinq lectures, dont une qui a le droit d'échouer.
  *
@@ -1246,6 +1306,59 @@ async function brancheDe(depot) {
  * repliée : personne n'a besoin de la voir pour s'en servir, et tout le monde doit
  * pouvoir la lire pour la contester.
  */
+/*
+ * Les deux listes déroulantes, décrites plutôt que codées deux fois.
+ *
+ * Chaque entrée dit : comment lister, comment étiqueter une ligne, ce que le choix
+ * déclenche, et comment nommer chaque panne. Tout le reste — l'anti-concurrence, le
+ * verrou du bouton, l'affichage de la matière — est commun et n'existe qu'une fois.
+ */
+const LISTES = {
+  mr: {
+    attente: 'Lecture des merge requests de',
+    aucun: 'Aucune merge request ouverte sur ce dépôt — il n\'y a rien à relire.',
+    invite: (n) => `— choisir parmi ${n} merge request(s) ouverte(s) —`,
+    etiquette: (p) => `#${p.numero}  ${p.titre}  (${p.branche} → ${p.cible})`,
+    cle: (p) => String(p.numero),
+    choisir: 'Choisis la merge request à relire.',
+    illisible: 'Merge requests illisibles',
+    enCours: (p) => `Assemblage du diff de #${p.numero}…`,
+    echec: 'Diff illisible',
+    lister: (depot) => forge.listPullRequests(depot),
+    calculer: (depot, p) => matiereRevue(depot, p),
+    resume: resumeRevue
+  },
+  run: {
+    attente: 'Lecture des pipelines de',
+    /*
+     * Ce message est une bonne nouvelle, et il doit se lire comme telle. « Aucun pipeline
+     * en échec » sur un écran qui vient d'échouer à trouver quelque chose ressemble à une
+     * panne — d'où la formulation explicite.
+     */
+    aucun: 'Aucun pipeline en échec récemment sur ce dépôt : il n\'y a rien à expliquer.',
+    invite: (n) => `— choisir parmi ${n} pipeline(s) en échec —`,
+    etiquette: (r) => `${r.branche || '(sans branche)'} · ${dateCourte(r.debut || r.quand)}`
+                    + `${r.sha ? ` · ${r.sha.slice(0, 7)}` : ''}`,
+    cle: (r) => String(r.id),
+    choisir: 'Choisis le pipeline en échec à expliquer.',
+    illisible: 'Pipelines illisibles',
+    enCours: (r) => `Lecture des jobs et du log de ${r.branche || 'ce pipeline'}…`,
+    echec: 'Log illisible',
+    lister: (depot) => forge.listRuns(depot, { perPage: MAX_RUNS_LISTES })
+      .then((runs) => runs.filter((r) => r.statut === 'echec').slice(0, MAX_ECHECS_LISTES)),
+    calculer: (depot, run) => matiereJobEnEchec(depot, run),
+    resume: resumeCi
+  }
+};
+
+/** Une date lisible dans une liste déroulante — le jour et l'heure, rien de plus. */
+function dateCourte(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return 'date inconnue';
+  return d.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit',
+                                     minute: '2-digit' });
+}
+
 function champCalcule(variable, { surEtat = () => {} } = {}) {
   const zone = el('textarea', { rows: 8 });
   const etat = el('div', { className: 'calc-etat' });
@@ -1264,8 +1377,21 @@ function champCalcule(variable, { surEtat = () => {} } = {}) {
    *
    * Ici, on choisit le dépôt en haut, on déroule, on choisit. Le diff s'assemble seul.
    */
-  const parMr = surUneMr(variable.name);
-  const choixMr = el('select', { hidden: !parMr });
+  /*
+   * Le second choix, quand il y en a un — et il est désormais PARAMÉTRÉ.
+   *
+   * `revue_mr` déroulait les merge requests ouvertes ; `job_en_echec` déroule les
+   * pipelines en échec. Même geste, même raison : la matière coûte cher (un diff assemblé
+   * fichier par fichier, un log de plusieurs mégaoctets), donc on ne la calcule pas pour
+   * le premier élément venu. On remplit la liste, et c'est le CHOIX qui déclenche la
+   * lecture.
+   *
+   * Deux branches jumelles auraient fini par diverger — l'une garderait un garde-fou que
+   * l'autre perdrait, sur un écran où personne ne compare les deux chemins.
+   */
+  const liste2 = listeDeChoix(variable.name);
+  const parMr = liste2 === 'mr';
+  const choixMr = el('select', { hidden: !liste2 });
   let mrs = [];
 
   const noeud = el('div', { className: 'mat calc' },
@@ -1308,40 +1434,37 @@ function champCalcule(variable, { surEtat = () => {} } = {}) {
     refaire.hidden = vide;
 
     if (vide) {
-      if (parMr) { choixMr.hidden = true; mrs = []; }
+      if (liste2) { choixMr.hidden = true; mrs = []; }
       dire(liste ? 'Coche les dépôts à auditer ci-dessus.' : 'Choisis un dépôt ci-dessus.');
       surEtat(false);
       return;
     }
     /*
-     * Sur une MR, le choix du dépôt ne calcule rien : il REMPLIT la liste. C'est le choix
-     * de la merge request qui déclenche la lecture du diff — assembler le diff de la
-     * première MR venue coûterait un appel par fichier pour quelque chose que personne
-     * n'a demandé.
+     * Quand il y a un second choix, choisir le dépôt ne calcule rien : il REMPLIT la
+     * liste. C'est la sélection qui déclenche la lecture coûteuse.
      */
-    if (parMr) {
-      dire(`Lecture des merge requests de ${depot}…`, 'attente');
+    if (liste2) {
+      const L = LISTES[liste2];
+      dire(`${L.attente} ${depot}…`, 'attente');
       surEtat(true);
       try {
-        mrs = await forge.listPullRequests(depot);
+        mrs = await L.lister(depot);
         if (mien !== enCours) return;
         choixMr.textContent = '';
         choixMr.hidden = false;
         if (!mrs.length) {
           choixMr.hidden = true;
-          dire('Aucune merge request ouverte sur ce dépôt — il n\'y a rien à relire.');
+          dire(L.aucun);
           return;
         }
-        choixMr.append(el('option', { value: '',
-          textContent: `— choisir parmi ${mrs.length} merge request(s) ouverte(s) —` }));
+        choixMr.append(el('option', { value: '', textContent: L.invite(mrs.length) }));
         for (const p of mrs) {
-          choixMr.append(el('option', { value: String(p.numero),
-            textContent: `#${p.numero}  ${p.titre}  (${p.branche} → ${p.cible})` }));
+          choixMr.append(el('option', { value: L.cle(p), textContent: L.etiquette(p) }));
         }
-        dire('Choisis la merge request à relire.');
+        dire(L.choisir);
       } catch (error) {
         if (mien !== enCours) return;
-        dire(`Merge requests illisibles : ${error.message}`, 'ko');
+        dire(`${L.illisible} : ${error.message}`, 'ko');
       } finally {
         surEtat(false);
       }
@@ -1383,26 +1506,28 @@ function champCalcule(variable, { surEtat = () => {} } = {}) {
   let dernierChoix = '';
   refaire.onclick = () => calculer(dernierChoix);
 
-  /** Choisir une merge request : c'est là que le diff s'assemble. */
+  /** Choisir dans la liste : c'est ICI que la lecture coûteuse se fait, et pas avant. */
   choixMr.onchange = async () => {
-    const pr = mrs.find((p) => String(p.numero) === choixMr.value);
+    if (!liste2) return;
+    const L = LISTES[liste2];
+    const choisi = mrs.find((p) => L.cle(p) === choixMr.value);
     zone.value = '';
     detail.hidden = true;
-    if (!pr) { dire('Choisis la merge request à relire.'); return; }
+    if (!choisi) { dire(L.choisir); return; }
 
     const mien = ++enCours;
-    dire(`Assemblage du diff de #${pr.numero}…`, 'attente');
+    dire(L.enCours(choisi), 'attente');
     surEtat(true);
     try {
-      const r = await matiereRevue(dernierChoix, pr);
+      const r = await L.calculer(dernierChoix, choisi);
       if (mien !== enCours) return;
       dernier = r;
       zone.value = r.texte;
       detail.hidden = false;
-      dire(`✔ ${resumeRevue(r)}`, 'ok');
+      dire(`✔ ${L.resume(r)}`, 'ok');
     } catch (error) {
       if (mien !== enCours) return;
-      dire(`Diff illisible : ${error.message}`, 'ko');
+      dire(`${L.echec} : ${error.message}`, 'ko');
     } finally {
       surEtat(false);
     }
@@ -1461,6 +1586,7 @@ const SIGNAL_LISIBLE = {
   rapport_conformite: 'La conformité CIS — contrôlée sur le dépôt',
   chiffres_dora: 'Les quatre métriques DORA — mesurées sur 30 jours',
   activite_du_jour: 'L\'activité de la semaine et le Health Score — calculés sur 7 jours',
+  job_en_echec: 'Le pipeline en échec à expliquer — choisi dans la liste',
   parc_securite: 'La conformité du parc — auditée sur les dépôts cochés',
   revue_mr: 'La merge request à relire — choisie dans la liste'
 };
