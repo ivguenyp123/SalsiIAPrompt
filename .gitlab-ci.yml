@@ -56,7 +56,7 @@ pages:
     - mkdir -p public
     - cp -r index.html app admin catalogue composer demande guide studio public/
     - cp -r lib lint preflight runtime public/
-    - cp -r registries inventaire entrees schema docs public/
+    - cp -r registries inventaire entrees schema docs attestations public/
   artifacts:
     paths: [public]
   rules:

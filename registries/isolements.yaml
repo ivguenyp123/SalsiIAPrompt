@@ -7,72 +7,128 @@
 # formulaire d'import n'est pas un droit — c'est un mot. Le vocabulaire est donc fermé, et
 # il vit ici.
 #
-# ── LA COLONNE QUI COMPTE EST `applicable` ──────────────────────────────────
+# ── CE FICHIER NE DÉCLARE PLUS `applicable` ─────────────────────────────────
 #
-# Elle dit si la plateforme sait AUJOURD'HUI faire respecter cet isolement. Trois valeurs
-# sont applicables parce qu'elles décrivent ce que la plateforme fait déjà : produire du
-# texte, lire par la forge, écrire par un outil `mode: write` sous confirmation humaine.
+# Il l'a fait, et c'était l'erreur exacte que ce dépôt reproche à tout le monde : un
+# booléen écrit à la main qui affirme ce que la plateforme sait ou ne sait pas faire
+# respecter. Un `applicable: true` mal tapé aurait accordé un droit d'un caractère.
 #
-# Les deux formes conteneurisées ne le sont pas : il n'existe aucun exécuteur isolé. Les
-# déclarer applicables reviendrait à accorder un droit que rien ne fait respecter — une
-# capacité s'annoncerait « réseau coupé » et tournerait sans que personne ne coupe quoi que
-# ce soit. Elles sont donc listées, choisissables, et BLOQUANTES : une capacité qui les
-# exige entre au registre, s'y voit, et ne se lance pas.
+# À la place, chaque isolement déclare ses PREUVES : les faits qui doivent être vrais pour
+# qu'il soit tenu. `lib/executeur.js` les confronte à ce que la forge rend, et le verdict
+# est CALCULÉ. Trois issues, jamais deux :
 #
-# C'est volontairement inconfortable. Mantis exige la première ligne de ce qui n'est pas
-# applicable — « USE THIS ONLY IN ISOLATED, RESTRICTED ENVIRONMENTS », « host command
-# execution is strictly prohibited ». Un import qui rendrait ces capacités lançables
-# aujourd'hui les ferait tourner exactement là où leur auteur l'interdit.
+#   applicable      toutes les preuves sont établies
+#   non applicable  au moins une preuve est établie FAUSSE
+#   non vérifiable  au moins une preuve ne peut pas être établie d'ici, et aucune n'est
+#                   fausse. Ce n'est ni l'un ni l'autre, et ça ne se lance pas non plus :
+#                   `non résolu` ne vaut jamais `satisfait`.
 #
-# `applicable: false` disparaîtra le jour où l'exécuteur isolé existera. Pas avant, et pas
-# en changeant ce fichier.
+# ── QUI PEUT ÉTABLIR QUOI ───────────────────────────────────────────────────
+#
+# `par: plateforme`    lisible depuis le navigateur, avec le jeton de l'utilisateur. La
+#                      plateforme le vérifie elle-même, à chaque fois, sans rien croire.
+#
+# `par: attestation`   invérifiable d'ici, et pas par paresse : la configuration d'un
+#                      runner GitLab n'est exposée par aucune API que nous puissions
+#                      lire. Quelqu'un qui administre ces runners peut en répondre — et
+#                      son attestation est un fichier signé, daté, périmable, dans
+#                      `attestations/`. Une signature n'est pas une mesure, et c'est dit à
+#                      l'écran : c'est un engagement humain, comme le niveau `officiel`.
+#
+# La conséquence est inconfortable et elle est juste : aujourd'hui, sans attestation, les
+# deux formes conteneurisées sortent NON VÉRIFIABLES. Pas « non applicable » — on ne sait
+# pas. Et ce qu'on ne sait pas ne se lance pas.
 
 isolements:
   - id: aucune-execution
-    applicable: true
     titre: Aucune exécution
     description: >-
       La capacité produit du texte. Rien n'est exécuté, ni sur l'hôte, ni ailleurs. C'est
       le cas de tous les prompts du registre aujourd'hui.
-    exige: []
+    preuves:
+      - id: aucun_outil_write
+        par: plateforme
+        quoi: "La capacité ne déclare aucun outil en `mode: write`."
 
   - id: lecture-seule
-    applicable: true
     titre: Lecture seule, par la forge
     description: >-
       La capacité lit des fichiers, des pipelines ou des merge requests via la couche de
       forge, avec le jeton de l'utilisateur. Elle ne modifie rien.
-    exige: [outils_en_mode_read]
+    preuves:
+      - id: aucun_outil_write
+        par: plateforme
+        quoi: "La capacité ne déclare aucun outil en `mode: write`."
 
   - id: ecriture-confirmee
-    applicable: true
     titre: Écriture, sous confirmation humaine
     description: >-
       La capacité modifie un dépôt par un outil `mode: write`, donc `executor: module`,
       donc `requires_confirmation: true`. Le chemin qui parle au modèle n'écrit jamais.
-    exige: [outils_en_mode_write, confirmation_humaine]
+    preuves:
+      - id: write_par_module
+        par: plateforme
+        quoi: >-
+          Tout outil en `mode: write` est en `executor: module` et exige une confirmation.
+          C'est l'invariant L005, déjà contrôlé à la porte.
+
+  # ── Les deux formes qui exigent un exécuteur, et ce qu'il faudrait pour ────
 
   - id: conteneur-sans-reseau
-    applicable: false
     titre: Conteneur, réseau coupé
     description: >-
       La capacité exécute du code dans un conteneur jetable, sans accès réseau. C'est ce
       que Mantis exige de ses reproducteurs de crash.
-    exige: [executeur_isole, reseau_coupe]
-    manque: >-
-      Aucun exécuteur isolé n'existe dans la plateforme. Déclarer cet isolement décrit une
-      exigence, il ne la fait pas respecter.
+    preuves:
+      - id: job_ci_declare
+        par: plateforme
+        quoi: >-
+          Le dépôt porte un fichier de CI qui définit un job dédié à l'exécution isolée,
+          avec une image épinglée par digest.
+      - id: executeur_jetable
+        par: attestation
+        quoi: >-
+          Le runner qui prend ce job est en exécuteur conteneur, et le conteneur est
+          détruit après chaque job.
+        pourquoi_pas_lisible: >-
+          La configuration d'un runner vit dans son `config.toml`, sur la machine du
+          runner. Aucune API de forge ne la rend. Un job peut déclarer ce qu'il veut : ce
+          qui décide est la machine qui l'exécute.
+      - id: reseau_coupe
+        par: attestation
+        quoi: Le réseau du conteneur est coupé pendant l'exécution du job.
+        pourquoi_pas_lisible: >-
+          GitLab n'a pas de déclaration par job pour couper le réseau. Ça se règle dans le
+          runner. Lire `.gitlab-ci.yml` et en conclure « réseau coupé » serait exactement
+          ce que I001 refuse : accorder un droit sur la lecture d'un texte.
 
   - id: conteneur-avec-reseau
-    applicable: false
     titre: Conteneur, réseau ouvert
     description: >-
       La capacité exécute du code dans un conteneur jetable et a besoin du réseau —
       récupérer une dépendance, joindre un service.
-    exige: [executeur_isole]
-    manque: >-
-      Aucun exécuteur isolé n'existe dans la plateforme. Et un conteneur avec réseau est
-      la forme la plus permissive : elle ne s'accordera pas par un import.
+    preuves:
+      - id: job_ci_declare
+        par: plateforme
+        quoi: >-
+          Le dépôt porte un fichier de CI qui définit un job dédié à l'exécution isolée,
+          avec une image épinglée par digest.
+      - id: executeur_jetable
+        par: attestation
+        quoi: >-
+          Le runner qui prend ce job est en exécuteur conteneur, et le conteneur est
+          détruit après chaque job.
+        pourquoi_pas_lisible: >-
+          Même raison : le `config.toml` du runner n'est lisible par aucune API.
+      - id: sortie_maitrisee
+        par: attestation
+        quoi: >-
+          Les destinations que le conteneur peut joindre sont restreintes par la
+          configuration du runner ou du réseau.
+        pourquoi_pas_lisible: >-
+          Un conteneur avec réseau est la forme la plus permissive. Sans preuve de ce
+          qu'il peut joindre, « avec réseau » veut dire « avec Internet », et ça ne
+          s'accorde pas sur une lecture de fichier.
 
 # ── Ce qu'une capacité MODIFIE. Vocabulaire fermé, pour la même raison. ──────
 #
@@ -96,7 +152,7 @@ ecritures:
   - id: etat-partage
     titre: Un état partagé
     description: >-
-      Elle écrit un état que d'autres capacités relisent — le `findings.json` de Mantis en
-      est un. Deux capacités qui écrivent le même état se marchent dessus sans qu'aucune
-      ne le sache.
+      Elle écrit un état que d'autres capacités relisent — l'atelier d'une chaîne, le
+      `findings.json` de Mantis. Deux capacités qui écrivent le même état se marchent
+      dessus sans qu'aucune ne le sache ; `L028` attrape le cas des chaînes.
     confirmation: true

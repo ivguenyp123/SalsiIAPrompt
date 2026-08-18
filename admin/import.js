@@ -31,6 +31,7 @@
 import { skillsDansArbre, lirePack, CHAMPS, fiable, MAX_CAPACITES } from '../lib/import-pack.js';
 import { versArtefact, resteADecider, DOSSIER_IMPORTE,
          NIVEAU_IMPORTE } from '../lib/import-artefact.js';
+import { verdict as verdictIsolement, preuvesPlateforme } from '../lib/executeur.js';
 import { contexte } from './contexte.js';
 import { knownScopes } from '../app/scopes.js';
 import { lint, ERROR } from '../lint/index.js';
@@ -369,20 +370,26 @@ function champSaisie(c, def, d) {
 }
 
 /*
- * L'isolement : une liste FERMÉE, lue du registre.
+ * L'isolement : une liste FERMÉE, lue du registre — et l'étiquette est CALCULÉE.
  *
- * Ce qui n'est pas applicable est listé quand même, et étiqueté. Le masquer donnerait un
- * menu où tout est possible et laisserait croire que la plateforme sait tout faire
- * respecter — alors qu'elle ne sait en faire respecter aucun des deux qui comptent pour
- * Mantis. Le voir barré est une information ; ne pas le voir est un mensonge par omission.
+ * Ce qui n'est pas tenu est listé quand même, et étiqueté. Le masquer donnerait un menu
+ * où tout est possible et laisserait croire que la plateforme sait tout faire respecter —
+ * alors qu'elle ne sait tenir aucun des deux qui comptent pour Mantis. Le voir marqué est
+ * une information ; ne pas le voir est un mensonge par omission.
+ *
+ * L'étiquette vient de `lib/executeur.js`, jamais d'un booléen du registre : le jour où
+ * une attestation entre dans `attestations/`, ce menu change tout seul.
  */
 function selectIsolement(d, maj) {
   const s = el('select', { className: 'stsel large' });
   s.append(el('option', { value: '', textContent: '— à choisir —' }));
   for (const i of vue.ctx.isolements) {
+    const v = verdictIsolement(i, { etablies: preuvesPlateforme({ outils: vue.ctx.tools }),
+                                    attestations: vue.ctx.attestations });
     s.append(el('option', {
       value: i.id,
-      textContent: i.applicable ? i.titre : `${i.titre} — NON APPLICABLE aujourd'hui`
+      textContent: v.tenable ? i.titre
+        : `${i.titre} — ${v.issue === 'non_applicable' ? 'NON TENU' : 'NON VÉRIFIABLE'} aujourd'hui`
     }));
   }
   s.value = d.isolement || '';
@@ -516,6 +523,7 @@ function fabriquer(c, d) {
   return versArtefact({
     capacite: c, decisions: d, corps: vue.corps.get(c.chemin) || '', pack: vue.pack,
     outils: vue.ctx.tools, isolements: vue.ctx.isolements, ecritures: vue.ctx.ecritures,
+    attestations: vue.ctx.attestations,
     personne: vue.session?.username || '', perimetre: d.perimetre || ''
   });
 }

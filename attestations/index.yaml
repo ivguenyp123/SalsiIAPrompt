@@ -1,0 +1,60 @@
+# Les attestations — ce que quelqu'un affirme, et dont la plateforme ne peut pas juger.
+#
+# ── POURQUOI CE DOSSIER EXISTE, ET CE QU'IL COÛTE D'ADMETTRE ────────────────
+#
+# Ce dépôt calcule tout ce qu'il peut et refuse le reste. Il y a pourtant une chose qu'il
+# ne peut pas calculer et qui décide de tout, dès qu'on parle d'exécuter du code : LA
+# CONFIGURATION DU RUNNER. Elle vit dans un `config.toml`, sur la machine du runner.
+# Aucune API de forge ne la rend.
+#
+# On peut lire qu'un job de CI existe et qu'il épingle son image. On ne peut pas lire que
+# le conteneur est détruit après le job, ni que son réseau est coupé. Lire
+# `.gitlab-ci.yml` et en conclure « réseau coupé » serait exactement ce que I001 refuse :
+# accorder un droit sur la lecture d'un texte.
+#
+# ── UNE ATTESTATION N'EST PAS UNE MESURE ────────────────────────────────────
+#
+# Elle vaut ce que vaut une signature. C'est écrit partout où elle apparaît — dans le
+# verdict, dans la phrase à l'écran — parce qu'une plateforme qui affiche « isolé » sur la
+# foi d'un engagement humain sans le nommer ment par omission.
+#
+# Trois choses la rendent recevable, et la troisième est la moins évidente :
+#
+#   `le`       elle est DATÉE, et elle périme au bout de 90 jours — le même délai qu'une
+#              certification au banc, pour la même raison. Un runner se reconfigure ; une
+#              attestation de l'an dernier décrit une machine qui n'existe peut-être plus.
+#   `preuves`  elle dit exactement CE QU'ELLE COUVRE, par identifiant de preuve. Une
+#              attestation qui dirait « nos runners sont sûrs » ne couvre rien de nommé,
+#              donc rien du tout.
+#   `par`      elle dit QUI s'engage. Un fichier signé « l'équipe » n'a personne à qui
+#              parler le jour où le runner s'avère mal configuré.
+#
+# ── CE DOSSIER EST VIDE, ET C'EST LE FAIT DU JOUR ───────────────────────────
+#
+# Personne n'a rien attesté. Les deux isolements conteneurisés sortent donc NON
+# VÉRIFIABLES — ni tenus, ni non tenus — et ce qu'on ne sait pas ne se lance pas.
+#
+# Ajouter une attestation est un geste lourd, et il doit le rester : c'est une merge
+# request sur le dépôt de registre, relue par quelqu'un d'autre, avec le nom d'une
+# personne dedans.
+
+# Un navigateur ne sait pas lister un dossier : ce manifeste est la seule liste, et
+# `test/executeur.test.js` échoue s'il ne correspond plus aux fichiers présents.
+attestations: []
+
+# ── LE MODÈLE, pour qui doit en écrire une ─────────────────────────────────
+#
+#   # attestations/runners-isoles.yaml
+#   id: runners-isoles
+#   par: prenom.nom
+#   role: Administrateur des runners GitLab de la tribu Plateforme
+#   le: 2026-08-18
+#   portee: >-
+#     Les runners portant le tag `salsi-isole`, sur le groupe `plateforme`.
+#   preuves:
+#     - executeur_jetable
+#     - reseau_coupe
+#   comment: >-
+#     Ce sur quoi la personne s'est appuyée pour l'affirmer — la ligne du `config.toml`,
+#     la politique réseau, la procédure de recréation. Sans ce champ, on ne saurait pas
+#     quoi re-vérifier dans 90 jours.

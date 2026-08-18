@@ -25,6 +25,7 @@ import { versArtefact, refus, resteADecider, specDe, enteteDe, normaliserId,
          NIVEAU_IMPORTE, DOSSIER_IMPORTE, OUVERTURE, CLOTURE,
          MAX_CORPS, enTitre } from '../lib/import-artefact.js';
 import { lire as lireProvenance } from '../lib/provenance.js';
+import { verdict as verdictIsolement, preuvesPlateforme } from '../lib/executeur.js';
 import { lint, ERROR } from '../lint/index.js';
 import { makeValidator } from '../lib/schema.js';
 import yaml from '../lib/yaml.js';
@@ -197,7 +198,7 @@ describe('déclarer une écriture et pouvoir écrire sont deux choses', () => {
 
 /* ── I005 : l'isolement ───────────────────────────────────────────────────── */
 
-describe('I005 — un isolement qui ne s\'applique pas ne se lance pas', () => {
+describe('I005 — un isolement qui n\'est pas tenu ne se lance pas', () => {
   test('il N\'EMPÊCHE PAS le dépôt : la capacité a sa place au registre', () => {
     /*
      * La nuance est le sujet. Refuser le dépôt ferait disparaître de la plateforme ce
@@ -206,13 +207,25 @@ describe('I005 — un isolement qui ne s\'applique pas ne se lance pas', () => {
      */
     const r = faire({ ...DECISIONS, isolement: 'conteneur-sans-reseau' });
     assert.ok(r.artefact, 'déposable');
-    const p = r.refus.find((x) => /pas applicable/.test(x.quoi));
+    const p = r.refus.find((x) => /n'est pas tenu/.test(x.quoi));
     assert.equal(p.bloquant, false);
+  });
+
+  test('LE REFUS DIT CE QUI MANQUE ET QUI POURRAIT LE FOURNIR', () => {
+    /*
+     * L'applicabilité n'est plus un booléen écrit dans le registre : elle est calculée
+     * par `lib/executeur.js` à partir des preuves. Le refus reprend sa phrase, qui nomme
+     * l'administrateur des runners — « non vérifiable » tout seul se lit comme une panne.
+     */
+    const p = faire({ ...DECISIONS, isolement: 'conteneur-sans-reseau' }).refus
+      .find((x) => /n'est pas tenu/.test(x.quoi));
+    assert.match(p.detail, /NON VÉRIFIABLE/);
+    assert.match(p.detail, /qui administre les runners/);
   });
 
   test('le fichier le dit en toutes lettres, en tête', () => {
     const r = faire({ ...DECISIONS, isolement: 'conteneur-sans-reseau' });
-    assert.match(r.entete, /ISOLEMENT NON APPLICABLE — I005/);
+    assert.match(r.entete, /ISOLEMENT NON TENU — I005/);
     assert.match(r.entete, /Elle ne se lance pas/);
   });
 
@@ -227,12 +240,18 @@ describe('I005 — un isolement qui ne s\'applique pas ne se lance pas', () => {
     assert.match(r.refus.find((x) => /sandbox/.test(x.quoi)).detail, /vocabulaire est fermé/);
   });
 
-  test('AUCUNE forme conteneurisée n\'est applicable aujourd\'hui', () => {
-    // Le jour où ça change, ce test rougit — et c'est voulu : rendre un isolement
-    // applicable est une décision, pas un effet de bord.
+  test('UN ISOLEMENT TENU NE PRODUIT AUCUN REFUS', () => {
+    // `aucune-execution` ne dépend d'aucune attestation : il doit passer sans que
+    // personne ne signe quoi que ce soit.
+    assert.deepEqual(faire().refus, []);
+  });
+
+  test('AUCUNE forme conteneurisée n\'est tenue aujourd\'hui', () => {
+    // Le jour où ça change, c'est parce qu'une attestation a été déposée — pas parce
+    // qu'un booléen a été retourné dans un fichier.
     for (const i of ISOLEMENTS.filter((x) => /^conteneur-/.test(x.id))) {
-      assert.equal(i.applicable, false, i.id);
-      assert.ok(i.manque, `${i.id} doit dire ce qui manque`);
+      const v = verdictIsolement(i, { etablies: preuvesPlateforme({ outils: OUTILS }) });
+      assert.equal(v.tenable, false, i.id);
     }
   });
 });
@@ -452,10 +471,12 @@ describe('ce qui sort passe la porte', () => {
 /* ── Le registre des isolements ───────────────────────────────────────────── */
 
 describe('le registre des isolements', () => {
-  test('chaque entrée dit si elle est applicable, sans ambiguïté', () => {
+  test('chaque entrée se présente, et laisse l\'applicabilité au calcul', () => {
+    // La forme des preuves est éprouvée dans `test/executeur.test.js`, qui est leur
+    // module. Ici on vérifie seulement ce dont le générateur d'artefact se sert.
     for (const i of ISOLEMENTS) {
-      assert.equal(typeof i.applicable, 'boolean', `${i.id} : applicable doit être booléen`);
       assert.ok(i.titre && i.description, i.id);
+      assert.equal(i.applicable, undefined, `${i.id} : l'applicabilité se CALCULE`);
     }
   });
 
