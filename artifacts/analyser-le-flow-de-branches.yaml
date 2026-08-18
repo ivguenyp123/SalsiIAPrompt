@@ -82,6 +82,15 @@ spec: |-
     que des gens poussent sur le tronc à partir de ce seul chiffre. Dis ce qu'il faut
     vérifier d'abord : le mode de fusion du dépôt.
 
+    N'AFFIRME L'EXISTENCE D'AUCUNE BRANCHE que la matière ne NOMME pas. Elle porte la liste
+    des branches de développement trouvées ; quand cette liste est vide, il n'y en a
+    aucune, et écrire « une branche `develop` existe » serait faux. C'est la faute la plus
+    facile à commettre ici, parce que la phrase sonne juste.
+
+    Regarde aussi SUR COMBIEN une valeur est mesurée avant de la commenter. Une durée de
+    vie médiane calculée sur une ou deux fusions n'est pas une pratique d'équipe : la
+    matière le signale, reprends-le plutôt que de conclure.
+
     Si la matière dit que le flow pratiqué n'est pas observable — aucune merge request —
     écris-le et arrête-toi là. Un dépôt neuf n'a pas un mauvais flow : il n'en a pas
     encore, et lui en conseiller un sur zéro observation serait un avis, pas une analyse.

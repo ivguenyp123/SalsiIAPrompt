@@ -396,3 +396,51 @@ describe('le flow déclaré et le flow pratiqué', () => {
     assert.equal(long.flow_observe.duree_vie_mediane_j, 39);
   });
 });
+
+/* ── La matière ne doit affirmer que ce qu'elle a vu ──────────────────────── */
+
+describe('le texte n\'affirme jamais l\'existence d\'une branche absente', () => {
+  test('sans `develop`, le texte dit qu\'AUCUNE n\'existe', () => {
+    /*
+     * ── LE DÉFAUT QUE CE TEST EXISTE POUR EMPÊCHER ────────────────────────────
+     *
+     * La ligne était écrite en dur : « Déclaré : <flow> — d'après la seule présence d'une
+     * branche `develop` ». Or `flowDetecte()` rend `feature-branching` quand cette branche
+     * est ABSENTE. Sur un dépôt qui n'en a pas, la matière affirmait donc qu'il en existait
+     * une.
+     *
+     * L'agent a repris la phrase telle quelle — c'est exactement ce qu'on lui demande — et
+     * a écrit « une branche `develop` existe » sur un dépôt à trois branches qui n'en
+     * comptait aucune. Ce n'était PAS une hallucination : la couche déterministe a fourni
+     * un fait faux, et le modèle l'a fidèlement amplifié.
+     *
+     * Une consigne qui interdit d'inventer ne protège de rien si la matière se trompe.
+     */
+    const r = sain({ branches: [
+      { name: 'main', default: true, protectee: true, quand: ilYA(1) },
+      { name: 'claude/un-correctif', quand: ilYA(2) },
+      { name: 'test', quand: ilYA(3) }] });
+
+    assert.equal(r.flow_observe.declare, 'feature-branching');
+    assert.deepEqual(r.flow_observe.branches_de_dev, []);
+    assert.match(r.texte, /AUCUNE des deux n'existe/);
+    assert.ok(!/présence d'une branche/.test(r.texte),
+      'le texte ne doit pas parler de la présence d\'une branche qu\'il n\'a pas vue');
+  });
+
+  test('avec `develop`, le texte la NOMME', () => {
+    const r = sain({ branches: [
+      { name: 'main', default: true, protectee: true, quand: ilYA(1) },
+      { name: 'develop', quand: ilYA(2) }] });
+    assert.deepEqual(r.flow_observe.branches_de_dev, ['develop']);
+    assert.match(r.texte, /`develop` existe/);
+  });
+
+  test('une « médiane » sur moins de cinq fusions est annoncée comme telle', () => {
+    // Une médiane sur une seule fusion est le nombre lui-même. L'annoncer comme une
+    // médiane invite à conclure sur une pratique d'équipe à partir d'un échantillon de un.
+    const r = sain({ mrsFusionnees: [{ numero: 1, titre: 'x', cible: 'main',
+                                       ouvert: ilYA(9), fusionne: ilYA(2) }] });
+    assert.match(r.texte, /sur 1 fusion\(s\) seulement — trop peu pour décrire une pratique/);
+  });
+});
