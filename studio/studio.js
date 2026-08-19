@@ -1214,11 +1214,17 @@ function renderListe() {
   for (const e of montrees) host.append(ligneListe(e));
 }
 
-const ICONE = { prompt: '📚', chain: '🔗' };
+/* Le prompt porte la marque Salsi (`.ic-salsi`, app.css) au lieu d'un emoji —
+   c'est un nœud DOM, pas un caractère, d'où ce constructeur. */
+const icKind = (kind) => kind === 'prompt'
+  ? el('span', { className: 'ic-salsi' })
+  : document.createTextNode(kind === 'chain' ? '🔗' : '🤖');
 
 function ligneListe(entree) {
   const gauche = el('div', {});
-  const titre = el('h3', {}, entree.lisible ? `${ICONE[entree.kind] || '🤖'} ` : '⚠ ', entree.titre);
+  const titre = entree.lisible
+    ? el('h3', {}, icKind(entree.kind), ' ', entree.titre)
+    : el('h3', {}, '⚠ ', entree.titre);
   titre.append(el('span', { className: `st ${entree.etat}`, textContent: ETATS[entree.etat].label,
                             title: ETATS[entree.etat].aide }));
   if (!entree.lisible) titre.append(el('span', { className: 'st ko', textContent: 'illisible' }));

@@ -103,7 +103,12 @@ if (enMiens) {
 const forge = createForge(session);
 const repo = localStorage.getItem('salsi_ia_registry_repo');
 
-const ICONS = { agent: '🤖', prompt: '📚', chain: '🔗' };
+const ICONS = { agent: '🤖', chain: '🔗' };
+/* Le prompt porte la marque Salsi (`.ic-salsi`, app.css) au lieu d'un emoji —
+   c'est un nœud DOM, pas un caractère, d'où ce constructeur. */
+const icKind = (kind) => kind === 'prompt'
+  ? el('span', { className: 'ic-salsi' })
+  : document.createTextNode(ICONS[kind] || '📄');
 
 let items = [];
 /*
@@ -293,8 +298,8 @@ const fold = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g,
 
 const FILTERS = [
   { id: 'tout', label: 'Tout' },
-  { id: 'agent', label: '🤖 Agents' },
-  { id: 'prompt', label: '📚 Prompts' },
+  { id: 'agent', label: 'Agents', kind: 'agent' },
+  { id: 'prompt', label: 'Prompts', kind: 'prompt' },
   // « Les miens » n'est pas un type mais une PROVENANCE, et c'est pour ça qu'il mérite
   // sa place ici : un agent sauvé chez soi n'a été relu par personne, et on doit pouvoir
   // ne regarder que ceux-là — ou les écarter.
@@ -306,7 +311,9 @@ function renderFilters() {
   const host = $('filters');
   host.textContent = '';
   for (const f of FILTERS) {
-    const b = el('button', { textContent: f.label, className: f.id === filter ? 'on' : '' });
+    const b = f.kind
+      ? el('button', { className: f.id === filter ? 'on' : '' }, icKind(f.kind), ` ${f.label}`)
+      : el('button', { textContent: f.label, className: f.id === filter ? 'on' : '' });
     b.onclick = () => { filter = f.id; renderFilters(); render(); };
     host.append(b);
   }
@@ -400,7 +407,7 @@ function card(entry) {
   }
 
   const node = el('button', { className: `item${personnel ? ' mien' : ''}` },
-    el('h3', {}, `${ICONS[artifact.kind] || '📄'} `, artifact.title || artifact.id),
+    el('h3', {}, icKind(artifact.kind), ' ', artifact.title || artifact.id),
     el('p', { textContent: artifact.intent?.purpose || '—' })
   );
 
@@ -466,7 +473,7 @@ function openSheet(entry) {
   prevolBtn.onclick = () => ouvrirPrevol(entry);
 
   const entete = el('header', {},
-    el('h2', {}, ICONS[artifact.kind] || '📄', ' ', artifact.title || artifact.id));
+    el('h2', {}, icKind(artifact.kind), ' ', artifact.title || artifact.id));
 
   /*
    * Deux façons de lancer, et elles ne font pas la même chose.

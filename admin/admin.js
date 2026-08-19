@@ -58,7 +58,15 @@ const forge = createForge(session);
 const repo = localStorage.getItem('salsi_ia_registry_repo');
 const PENDING = 'artifacts/pending';
 
-const ICONS = { agent: '🤖', prompt: '📚', chain: '🔗' };
+const ICONS = { agent: '🤖', chain: '🔗' };
+/*
+ * Le prompt n'a plus d'emoji : sa « pile de livres » faisait catalogue de
+ * bibliothèque. À la place, la marque Salsi du hub — un élément, pas un
+ * caractère, donc partout où l'icône apparaît on append un nœud.
+ */
+const icKind = (kind) => kind === 'prompt'
+  ? el('span', { className: 'ic-salsi' })
+  : document.createTextNode(ICONS[kind] || '📄');
 
 let ctx = null;
 
@@ -150,7 +158,7 @@ function row(entry) {
 
   const ecrit = (artifact.tools || []).some((t) => t.mode === 'write');
 
-  const titre = el('h3', {}, `${ICONS[artifact.kind] || '📄'} `, artifact.title || artifact.id);
+  const titre = el('h3', {}, icKind(artifact.kind), ' ', artifact.title || artifact.id);
   titre.append(el('span', { className: `pill ${report.blocked ? 'ko' : 'ok'}`,
                             textContent: report.blocked ? `porte : ${report.errors} erreur(s)` : 'porte franchie' }));
   if (ecrit) titre.append(el('span', { className: 'pill write', textContent: 'écriture' }));
@@ -470,7 +478,7 @@ async function decider(entry, action) {
  * La colonne « Usages » reste vide, et c'est délibéré : voir parc.js.
  */
 const pvue = { entrees: [], q: '', kind: '', statut: '', charge: false };
-const KINDS = [['', 'Tout'], ['agent', '🤖 Agents'], ['prompt', '📚 Prompts']];
+const KINDS = [['', 'Tout'], ['agent', 'Agents'], ['prompt', 'Prompts']];
 
 async function chargerParc() {
   if (!repo) {
@@ -550,7 +558,7 @@ function renderBarreParc() {
   const seg = $('pkind');
   if (!seg.children.length) {
     for (const [id, label] of KINDS) {
-      const b = el('button', { textContent: label });
+      const b = id ? el('button', {}, icKind(id), ` ${label}`) : el('button', { textContent: label });
       b.dataset.k = id;
       b.onclick = () => { pvue.kind = id; renderParc(); };
       seg.append(b);
@@ -601,14 +609,14 @@ function ligneParc(e) {
   const row = el('div', { className: `trow${e.statut === 'retire' ? ' off' : ''}` });
 
   row.append(el('div', { className: 'nm' },
-    el('span', { className: 'ic', textContent: e.lisible ? (ICONS[e.kind] || '📄') : '⚠' }),
+    el('span', { className: 'ic' }, e.lisible ? icKind(e.kind) : '⚠'),
     el('div', { style: 'min-width:0' },
       el('div', { className: 't', textContent: e.titre, title: e.titre }),
       el('div', { className: 'o', title: e.path,
                   textContent: [e.owner, e.scope, e.niveauTexte].filter(Boolean).join(' · ') || e.path }))));
 
   row.append(el('span', {}, e.kind
-    ? el('span', { className: `kb ${e.kind}`, textContent: e.kind === 'agent' ? '🤖 Agent' : '📚 Prompt' })
+    ? el('span', { className: `kb ${e.kind}` }, icKind(e.kind), e.kind === 'agent' ? ' Agent' : ' Prompt')
     : el('span', { className: 'jamais', textContent: '—' })));
 
   const def = STATUTS[e.statut];

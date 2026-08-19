@@ -152,3 +152,15 @@ h2.section{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:
          letter-spacing:.01em}
 .verdict.ok{background:rgba(52,211,153,.16);color:var(--ok);border:1px solid rgba(52,211,153,.4)}
 .verdict.ko{background:rgba(248,113,113,.16);color:var(--err);border:1px solid rgba(248,113,113,.4)}
+
+/* ── La marque Salsi ──────────────────────────────────────────────────────── */
+/* Le petit carré évidé du hub (`css/hub.css`, `.logo-mark`), en unités `em`
+   pour qu'il suive la taille du texte où il est posé : c'est l'icône des
+   prompts partout où un emoji ferait daté. Les deux couleurs sont celles du
+   dégradé du hub — elles n'existent pas en variables ici, on les fige. */
+.ic-salsi{display:inline-block;width:.95em;height:.95em;flex:none;
+          background:linear-gradient(135deg,#7c5cff,#f472b6);
+          border-radius:.28em;position:relative;vertical-align:-.1em;
+          box-shadow:0 2px 8px rgba(124,92,255,.4)}
+.ic-salsi::after{content:'';position:absolute;inset:.21em;
+                 background:var(--bg-deep);border-radius:.14em}
