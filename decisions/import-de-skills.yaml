@@ -1,4 +1,4 @@
-# Les trois contraintes de l'import de capacités externes.
+# Les contraintes de l'import de capacités externes — trois d'avant le code, trois du réel.
 #
 # ── POURQUOI CE FICHIER EXISTE AVANT LE CODE QU'IL CONTRAINT ────────────────
 #
@@ -116,6 +116,29 @@ contraintes:
       là où leur auteur l'interdit, et le ferait en affichant « isolement : conteneur sans
       réseau » — c'est-à-dire en mentant à l'écran. Déclarer n'est pas contraindre : tant
       qu'aucun code ne coupe le réseau, le champ décrit un souhait.
+
+  # Écrite avec le suivi de l'amont, quand le bouton « vérifier les mises à jour »
+  # est arrivé — c'est-à-dire au moment exact où un raccourci devenait possible.
+  - id: I006
+    titre: Suivre l'amont est un constat, jamais une mise à jour
+    regle: >-
+      La plateforme sait relire l'amont d'une capacité importée et dire si le document
+      cité a bougé — identique, modifié, disparu, ou non vérifiable, et le quatrième état
+      se montre au lieu de se maquiller en « à jour ». Il n'existe AUCUN chemin qui prenne
+      le nouveau texte de l'amont et le pose dans un artefact : reprendre une nouvelle
+      version, c'est relire le pack, repasser par le proposeur et le crible, et redéposer
+      en attente de validation. La nouvelle version n'hérite de rien — ni des droits
+      décidés, ni de la validation, ni du niveau.
+    pourquoi: >-
+      Un bouton « mettre à jour » qui recopierait le nouveau texte ferait de la validation
+      un péage du premier passage : l'amont pourrait publier n'importe quoi APRÈS notre
+      relecture, et le registre le servirait avec le tampon d'une validation donnée à un
+      autre texte. C'est l'attaque la plus simple contre un registre gouverné — être sage
+      au premier import, changer ensuite — et elle ne se contre qu'en refusant qu'une mise
+      à jour existe autrement que comme un nouvel import. Le suivi, lui, compare le
+      fichier CITÉ (par empreinte, ou texte contre texte), pas la tête du dépôt : l'HEAD
+      d'un dépôt actif bouge tous les jours pour des fichiers qui ne nous regardent pas,
+      et crier « modifié » à chaque commit voisin apprendrait à ignorer l'alerte.
 
 # ── CE QUE CES CONTRAINTES NE PROMETTENT PAS ────────────────────────────────
 #

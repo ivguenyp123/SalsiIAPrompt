@@ -36,6 +36,10 @@ import { contexte } from './contexte.js';
 import { knownScopes } from '../app/scopes.js';
 import { lint, ERROR } from '../lint/index.js';
 import { toYaml } from '../studio/to-yaml.js';
+import { provenanceDe, verdictAmont,
+         IDENTIQUE, MODIFIE, DISPARU, NON_VERIFIABLE } from '../lib/import-suivi.js';
+import { STATUTS, DOSSIERS } from './parc.js';
+import yaml from '../lib/yaml.js';
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, props = {}) => Object.assign(document.createElement(tag), props);
@@ -97,6 +101,61 @@ export function normaliserDepot(saisie = '') {
   return s.replace(/\.git$/i, '').replace(/^\/+|\/+$/g, '');
 }
 
+/**
+ * Lire un dépôt amont, à un commit épinglé — la mécanique seule, sans écran.
+ *
+ * Extraite de `lireLePack` le jour où le scanner est arrivé : lui et l'import font
+ * EXACTEMENT la même lecture (épingler, lister, lire les `SKILL.md`, hacher), et deux
+ * copies auraient fini par lire deux choses différentes. `surEtat` reçoit les lignes de
+ * progression ; l'appelant décide où elles s'affichent.
+ */
+export async function lireAmont(forge, depot, ref, surEtat = () => {}) {
+  // 1. Épingler. Tout le reste est lu à CE sha.
+  const commits = await forge.listCommits(depot, '', { perPage: 1, ref });
+  const commit = commits[0]?.sha;
+  if (!commit) throw new Error(`aucun commit lisible sur ${ref}`);
+
+  // 2. L'arborescence. Les voisins d'une capacité sont des CHEMINS : leur présence est
+  //    un fait, leur contenu n'est pas notre affaire à cette étape.
+  const arbre = await forge.listTree(depot, commit);
+  const { chemins, total, coupes } = skillsDansArbre(arbre);
+  if (!total) throw new Error('aucun `SKILL.md` dans ce dépôt à ce commit');
+
+  // 3. Les SKILL.md, eux seuls.
+  surEtat(`${total} capacité(s) trouvée(s), lecture de ${chemins.length}…`);
+  const fichiers = [];
+  for (const chemin of chemins) {
+    const f = await forge.getFile(depot, chemin, commit);
+    if (f) fichiers.push({ chemin, contenu: f.content });
+  }
+
+  // 4. Les sommes, puis la lecture mécanique.
+  const sommes = new Map();
+  for (const f of fichiers) sommes.set(f.contenu, await sommeDe(f.contenu));
+
+  /*
+   * L'arbre ENTIER entre dans `lirePack` : c'est lui qui porte les voisins d'une
+   * capacité, et la présence d'un script à côté d'un `SKILL.md` est un fait qu'on ne
+   * veut pas perdre. Seuls les `SKILL.md` réellement lus portent un contenu ; un
+   * `SKILL.md` que la forge n'a pas rendu est ÉCARTÉ plutôt que passé vide, sans quoi
+   * il se lirait « cette capacité ne déclare rien ».
+   */
+  const lus = new Map(fichiers.map((f) => [f.chemin, f.contenu]));
+  const entrants = arbre
+    .filter((chemin) => !/(^|\/)SKILL\.md$/i.test(chemin) || lus.has(chemin))
+    .map((chemin) => ({ chemin, contenu: lus.get(chemin) ?? '' }));
+
+  const pack = lirePack({
+    fichiers: entrants,
+    source: `${depot}@${ref}`,
+    commit,
+    // Consultation, pas calcul : le module est synchrone, `crypto.subtle` ne l'est pas.
+    // Un contenu absent de la table rend `null` — une empreinte fausse est pire qu'absente.
+    hacher: (contenu) => sommes.get(contenu) ?? null
+  });
+  return { pack, fichiers, coupes };
+}
+
 /** Lire le pack, à un commit épinglé. */
 export async function lireLePack(forge, { session, repo } = {}) {
   if (session) { vue.session = session; vue.repo = repo; vue.forge = forge; }
@@ -110,49 +169,10 @@ export async function lireLePack(forge, { session, repo } = {}) {
   $('imcorps').replaceChildren();
 
   try {
-    // 1. Épingler. Tout le reste est lu à CE sha.
-    const commits = await forge.listCommits(depot, '', { perPage: 1, ref });
-    const commit = commits[0]?.sha;
-    if (!commit) throw new Error(`aucun commit lisible sur ${ref}`);
+    const { pack, fichiers, coupes } =
+      await lireAmont(forge, depot, ref, (m) => { $('imetat').textContent = m; });
 
-    // 2. L'arborescence. Les voisins d'une capacité sont des CHEMINS : leur présence est
-    //    un fait, leur contenu n'est pas notre affaire à cette étape.
-    const arbre = await forge.listTree(depot, commit);
-    const { chemins, total, coupes } = skillsDansArbre(arbre);
-    if (!total) throw new Error('aucun `SKILL.md` dans ce dépôt à ce commit');
-
-    // 3. Les SKILL.md, eux seuls.
-    $('imetat').textContent = `${total} capacité(s) trouvée(s), lecture de ${chemins.length}…`;
-    const fichiers = [];
-    for (const chemin of chemins) {
-      const f = await forge.getFile(depot, chemin, commit);
-      if (f) fichiers.push({ chemin, contenu: f.content });
-    }
-
-    // 4. Les sommes, puis la lecture mécanique.
-    const sommes = new Map();
-    for (const f of fichiers) sommes.set(f.contenu, await sommeDe(f.contenu));
-
-    /*
-     * L'arbre ENTIER entre dans `lirePack` : c'est lui qui porte les voisins d'une
-     * capacité, et la présence d'un script à côté d'un `SKILL.md` est un fait qu'on ne
-     * veut pas perdre. Seuls les `SKILL.md` réellement lus portent un contenu ; un
-     * `SKILL.md` que la forge n'a pas rendu est ÉCARTÉ plutôt que passé vide, sans quoi
-     * il se lirait « cette capacité ne déclare rien ».
-     */
-    const lus = new Map(fichiers.map((f) => [f.chemin, f.contenu]));
-    const entrants = arbre
-      .filter((chemin) => !/(^|\/)SKILL\.md$/i.test(chemin) || lus.has(chemin))
-      .map((chemin) => ({ chemin, contenu: lus.get(chemin) ?? '' }));
-
-    vue.pack = lirePack({
-      fichiers: entrants,
-      source: `${depot}@${ref}`,
-      commit,
-      // Consultation, pas calcul : le module est synchrone, `crypto.subtle` ne l'est pas.
-      // Un contenu absent de la table rend `null` — une empreinte fausse est pire qu'absente.
-      hacher: (contenu) => sommes.get(contenu) ?? null
-    });
+    vue.pack = pack;
     // Le CORPS de chaque capacité, gardé pour la citation du `spec` (I004). Il ne
     // transite jamais par `lirePack`, qui n'en a pas l'usage.
     vue.corps = new Map(fichiers.map((f) => [f.chemin, decouperCorps(f.contenu)]));
@@ -855,4 +875,307 @@ function rendreCarte(c) {
     if (noms[idx] && d[noms[idx]] !== undefined) ta.value = d[noms[idx]];
   }
   rendreVerdict(c);
+}
+
+/* ══ Déjà importés — suivre l'amont ═════════════════════════════════════════
+ *
+ * Le bouton CONSTATE, il ne met jamais à jour. La provenance de chaque artefact
+ * importé (dépôt, référence, commit épinglé, fichier cité, empreinte) vit dans les
+ * commentaires de tête que `enteteDe` a écrits — le parseur YAML les jette, le
+ * FICHIER les garde, et `provenanceDe` les relit depuis le texte brut. Le verdict
+ * compare le fichier CITÉ, pas la tête du dépôt : l'HEAD d'un dépôt actif bouge
+ * tous les jours pour des fichiers qui ne nous regardent pas.
+ *
+ * Le seul geste offert quand l'amont a bougé est « Relire le pack » : il remplit le
+ * formulaire d'import et TOUT le circuit se rejoue — proposeur, crible, dépôt en
+ * attente, validation. La nouvelle version n'hérite de rien.
+ */
+const suivi = { entrees: [], charge: false };
+
+const icDe = (kind) => kind === 'prompt'
+  ? el('span', { className: 'ic-salsi' })
+  : document.createTextNode(kind === 'chain' ? '🔗' : '🤖');
+
+/** Les artefacts à provenance d'import, relus depuis leur texte BRUT, dossier par dossier. */
+async function chargerSuivi() {
+  const etat = $('imsuivietat');
+  const entrees = [];
+  const pannes = [];
+
+  for (const [statut, dossier] of DOSSIERS) {
+    let fichiers = [];
+    try {
+      fichiers = (await vue.forge.listFiles(vue.repo, dossier))
+        .filter((f) => f.type === 'file' && /\.ya?ml$/.test(f.name));
+    } catch (error) {
+      // Un dossier absent est un parc sans retrait, pas une panne. Mais on la note :
+      // si TOUS les dossiers échouent, « aucun import » serait un mensonge de réseau.
+      pannes.push(`${dossier} : ${error.message}`);
+      continue;
+    }
+    for (const f of fichiers) {
+      etat.textContent = `Lecture de ${f.path}…`;
+      const brut = await vue.forge.getFile(vue.repo, f.path).catch(() => null);
+      const prov = provenanceDe(brut?.content || '');
+      if (!prov) continue;                  // écrit à la main : pas d'amont à suivre
+      let artefact = null;
+      try { artefact = yaml.parse(brut.content); } catch { /* illisible : montré quand même */ }
+      entrees.push({ path: f.path, statut, prov, artefact });
+    }
+  }
+
+  etat.textContent = '';
+  if (pannes.length === DOSSIERS.length) {
+    throw new Error(`aucun dossier lisible — ${pannes[0]}`);
+  }
+  suivi.entrees = entrees;
+  suivi.charge = true;
+}
+
+function rendreSuivi() {
+  const host = $('imsuivi');
+  host.replaceChildren();
+
+  if (!suivi.entrees.length) {
+    host.append(el('p', { className: 'hint',
+      textContent: 'Aucun artefact du registre ne porte de provenance d\'import : rien '
+        + 'à suivre. Les capacités écrites à la main n\'ont pas d\'amont.' }));
+    return;
+  }
+
+  for (const e of suivi.entrees) {
+    const row = el('div', { className: 'row' });
+    e.zone = el('div');
+
+    const h = el('h3');
+    h.append(icDe(e.artefact?.kind), ' ',
+             e.artefact?.title || e.artefact?.id || e.path.split('/').pop());
+    h.append(el('span', { className: 'pill', textContent: STATUTS[e.statut]?.label || e.statut }));
+    row.append(h);
+
+    const faits = el('div', { className: 'facts' });
+    for (const t of [`${e.prov.depot}@${e.prov.ref}`, `épinglé ${e.prov.commit.slice(0, 8)}`,
+                     e.prov.fichier, e.prov.sha256 ? 'empreinte notée' : 'sans empreinte']) {
+      faits.append(el('span', { textContent: t }));
+    }
+    row.append(faits, e.zone);
+    host.append(row);
+  }
+}
+
+/** Relire l'amont d'UNE entrée et poser le verdict dans sa zone. */
+async function verifierEntree(e) {
+  e.zone.replaceChildren(el('span', { className: 'meta', textContent: 'Relecture de l\'amont…' }));
+  let verdict;
+  try {
+    const commits = await vue.forge.listCommits(e.prov.depot, '', { perPage: 1, ref: e.prov.ref });
+    const commitAmont = commits[0]?.sha;
+    if (!commitAmont) throw new Error(`aucun commit lisible sur ${e.prov.ref}`);
+
+    let contenuAmont = null;
+    let contenuEpingle = null;
+    if (commitAmont !== e.prov.commit) {
+      const tete = await vue.forge.getFile(e.prov.depot, e.prov.fichier, commitAmont)
+        .catch(() => null);
+      contenuAmont = tete ? tete.content : null;
+      // Sans empreinte notée à l'import, on relit le commit épinglé pour comparer les textes.
+      if (!e.prov.sha256 && contenuAmont !== null) {
+        const epingle = await vue.forge.getFile(e.prov.depot, e.prov.fichier, e.prov.commit)
+          .catch(() => null);
+        contenuEpingle = epingle ? epingle.content : null;
+      }
+    }
+
+    const sommes = new Map();
+    if (contenuAmont !== null) sommes.set(contenuAmont, await sommeDe(contenuAmont));
+    verdict = verdictAmont({ provenance: e.prov, commitAmont, contenuAmont, contenuEpingle,
+                             hacher: (t) => sommes.get(t) ?? null });
+  } catch (error) {
+    // Injoignable N'EST PAS un verdict sur le contenu : on n'a pas pu regarder.
+    e.zone.replaceChildren();
+    const a = el('div', { className: 'alerte' });
+    a.textContent = `Injoignable : ${error.message}. On n'a pas pu comparer — ce qui `
+      + 'ne dit rien du contenu.';
+    e.zone.append(a);
+    return;
+  }
+
+  e.zone.replaceChildren();
+  const ligne = el('div', { className: 'acts' });
+  const ETIQUETTES = {
+    [IDENTIQUE]: ['ok', 'à jour'],
+    [MODIFIE]: ['write', 'modifié en amont'],
+    [DISPARU]: ['ko', 'disparu de l\'amont'],
+    [NON_VERIFIABLE]: ['ko', 'non vérifiable']
+  };
+  const [classe, label] = ETIQUETTES[verdict.issue];
+  ligne.append(el('span', { className: `pill ${classe}`, textContent: label }),
+               el('span', { className: 'meta', textContent: verdict.detail }));
+
+  if (verdict.issue === MODIFIE) {
+    ligne.append(el('span', { className: 'sp' }));
+    const b = el('button', { className: 'btn', textContent: 'Relire le pack →' });
+    b.title = 'Remplit le formulaire d\'import : la nouvelle version repasse par TOUT '
+      + 'le circuit — proposeur, crible, dépôt en attente, validation. Rien n\'est hérité.';
+    b.onclick = () => {
+      $('imdepot').value = e.prov.depot;
+      $('imref').value = e.prov.ref;
+      lireLePack(vue.forge, { session: vue.session, repo: vue.repo });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+    ligne.append(b);
+  }
+  e.zone.append(ligne);
+}
+
+async function verifierTout() {
+  const btn = $('imsuivibtn');
+  btn.disabled = true;
+  try {
+    // La liste se RELIT à chaque vérification : c'est le moment où la fraîcheur compte.
+    await chargerSuivi();
+    rendreSuivi();
+    if (!suivi.entrees.length) return;
+    // En file, pas en rafale : l'amont est l'API publique d'autrui.
+    for (const e of suivi.entrees) await verifierEntree(e);
+  } catch (error) {
+    $('imsuivietat').textContent = `Lecture impossible : ${error.message}`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* ══ Les sources amont — le scanner ═════════════════════════════════════════
+ *
+ * La liste vient de `registries/sources-amont.yaml` et dit « on sait que ça existe »,
+ * jamais « c'est bien ». Le scan fait EXACTEMENT la lecture de l'import (`lireAmont`,
+ * partagée) : épingler, lister, lire les `SKILL.md` — et rend les mêmes chiffres
+ * honnêtes, mesurées en tête et à zéro. Trois issues, jamais confondues :
+ * du lisible, rien de lisible (une information sur l'éditeur), injoignable (on n'a
+ * pas pu regarder — « N/A n'est pas zéro »).
+ */
+const lanceursScan = [];
+
+async function monterSources() {
+  const host = $('imsources');
+  let doc;
+  try {
+    const r = await fetch('../registries/sources-amont.yaml', { cache: 'no-cache' });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    doc = yaml.parse(await r.text());
+  } catch (error) {
+    host.append(el('div', { className: 'alerte',
+      textContent: `Registre des sources illisible : ${error.message}` }));
+    return;
+  }
+  for (const s of doc.sources || []) host.append(carteSource(s));
+}
+
+function carteSource(s) {
+  const row = el('div', { className: 'row' });
+  const refDe = s.ref || 'main';
+
+  const h = el('h3');
+  h.append(s.nom || s.id, el('span', { className: 'pill', textContent: `${s.depot}@${refDe}` }));
+  row.append(h, el('p', { className: 'purpose', textContent: s.pourquoi || '' }));
+
+  const acts = el('div', { className: 'acts' });
+  const btn = el('button', { className: 'btn', textContent: 'Scanner' });
+  const etat = el('span', { className: 'meta' });
+  const resultat = el('div');
+  acts.append(btn, etat);
+  row.append(acts, resultat);
+
+  const lancer = async () => {
+    btn.disabled = true;
+    resultat.replaceChildren();
+    etat.textContent = `Lecture de ${s.depot}@${refDe}…`;
+    try {
+      const { pack, coupes } = await lireAmont(vue.forge, s.depot, refDe,
+        (m) => { etat.textContent = m; });
+      etat.textContent = `commit ${pack.commit.slice(0, 8)}`
+        + (coupes ? ` · ${coupes} non lue(s) au-delà de ${MAX_CAPACITES}` : '');
+      rendreScan(s, refDe, pack, resultat);
+    } catch (error) {
+      etat.textContent = '';
+      const a = el('div', { className: 'alerte' });
+      a.textContent = /aucun `?SKILL\.md`?/i.test(error.message)
+        ? `Rien au format lisible : ${s.depot} ne publie pas de SKILL.md sur ${refDe}. `
+          + 'C\'est une information, pas une panne — cet éditeur ne publie pas (encore) '
+          + 'ses agents sous une forme qu\'une machine peut relire.'
+        : `Injoignable : ${error.message}. On n'a pas pu regarder — ce qui n'est pas `
+          + '« rien à voir ».';
+      resultat.append(a);
+    } finally {
+      btn.disabled = false;
+    }
+  };
+  btn.onclick = lancer;
+  lanceursScan.push(lancer);
+  return row;
+}
+
+function rendreScan(s, refDe, pack, host) {
+  const r = pack.resume;
+
+  // Les mêmes chiffres que l'import, dans le même ordre : mesurées d'abord, à zéro.
+  const faits = el('div', { className: 'facts' });
+  const fait = (t) => faits.append(el('span', { textContent: t }));
+  fait(`${r.mesurees} mesurée(s) — zéro, toujours, avant le banc`);
+  fait(`${r.sansZoneDombre} sans zone d'ombre`);
+  fait(`${r.decouvertes} découverte(s)`);
+  if (r.avecScripts) fait(`${r.avecScripts} avec scripts — pas des prompts`);
+  if (r.illisibles) fait(`${r.illisibles} à l'en-tête illisible`);
+  host.append(faits);
+
+  const liste = el('div', { className: 'hint' });
+  for (const c of pack.capacites) {
+    const p = el('p', { style: 'margin:3px 0' });
+    const nom = fiable(c.champs.id.origine) ? c.champs.id.valeur : c.chemin;
+    p.append(el('b', { textContent: nom }));
+    if (fiable(c.champs.titre.origine)) p.append(` — ${c.champs.titre.valeur}`);
+    liste.append(p);
+  }
+  host.append(liste);
+
+  const acts = el('div', { className: 'acts' });
+  const b = el('button', { className: 'btn on', textContent: 'Ouvrir dans l\'import →' });
+  b.onclick = () => {
+    $('imdepot').value = s.depot;
+    $('imref').value = refDe;
+    lireLePack(vue.forge, { session: vue.session, repo: vue.repo });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  acts.append(b);
+  host.append(acts);
+}
+
+/**
+ * Monter les deux sections, une fois. Appelé quand la vue s'ouvre : la liste des
+ * imports se charge pour être VUE, mais aucun amont n'est contacté avant le clic —
+ * ouvrir un onglet ne doit pas déclencher des requêtes vers les dépôts d'autrui.
+ */
+export async function monterImport(forge, { session, repo } = {}) {
+  vue.forge = forge; vue.session = session; vue.repo = repo;
+  if ($('imsuivibtn').dataset.monte) return;
+  $('imsuivibtn').dataset.monte = '1';
+
+  $('imsuivibtn').onclick = verifierTout;
+  $('imscanbtn').onclick = async () => {
+    $('imscanbtn').disabled = true;
+    try { for (const lancer of lanceursScan) await lancer(); }
+    finally { $('imscanbtn').disabled = false; }
+  };
+
+  await monterSources();
+  if (!repo) {
+    $('imsuivietat').textContent = 'Aucun dépôt de registre choisi : rien à suivre.';
+    return;
+  }
+  try {
+    await chargerSuivi();
+    rendreSuivi();
+  } catch (error) {
+    $('imsuivietat').textContent = `Lecture impossible : ${error.message}`;
+  }
 }

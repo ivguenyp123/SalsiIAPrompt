@@ -38,7 +38,7 @@ import { STATUTS, DOSSIERS, dossiersDe, inventaireParc, compter, filtrer } from 
 import { niveau } from '../lib/niveau.js';
 import { lire as lireProvenance } from '../lib/provenance.js';
 import { chargerExecutions, monterPas, chargeEs } from './executions.js';
-import { lireLePack } from './import.js';
+import { lireLePack, monterImport } from './import.js';
 import { contexte } from './contexte.js';
 
 const session = requireSession('../app/login.html');
@@ -809,6 +809,9 @@ function montrerVue(id) {
    * MAINTENANT » : la seule dont une donnée périmée ment sur une décision en attente.
    */
   if (id === 'valider') load();
+  // Les sections « déjà importés » et « sources » se montent à la première venue ;
+  // aucun dépôt d'autrui n'est contacté avant un clic explicite.
+  if (id === 'import') monterImport(forge, { session, repo });
 }
 
 // Le pack se lit sur demande : pas de chargement à l'ouverture de la vue, parce qu'aucun

@@ -1,0 +1,52 @@
+# Les sources amont — les dépôts publics que le scanner regarde.
+#
+# ── CE QUE CETTE LISTE EST ────────────────────────────────────────────────────
+#
+# Une liste de dépôts PUBLICS où de grands éditeurs d'IA (et quelques collections
+# communautaires sérieuses) publient des compétences au format que notre lecteur
+# comprend : des `SKILL.md`. Le scanner de l'écran d'import les parcourt un par un
+# et dit ce qu'il y trouve — combien de capacités, lesquelles, et ce qu'elles
+# déclarent vraiment.
+#
+# ── CE QU'ELLE N'EST PAS ─────────────────────────────────────────────────────
+#
+# Une liste de confiance. Figurer ici ne donne AUCUN droit : ce que le scanner
+# trouve s'importe par le même écran, passe par le même crible, et repart en
+# `artifacts/pending/` à `experimental` comme tout le reste (I001, I002). La liste
+# dit « on sait que ça existe », jamais « c'est bien ».
+#
+# Un dépôt qui ne publie rien au format `SKILL.md` rendra « rien de lisible » —
+# et c'est une INFORMATION, pas un échec : ça dit que cet éditeur ne publie pas
+# (encore) ses agents sous une forme qu'une machine peut relire. À distinguer
+# d'« injoignable », qui dit qu'on n'a pas pu regarder (« N/A n'est pas zéro »).
+#
+# Ajouter une source : id unique, nom lisible, depot en `owner/repo` (pas d'URL),
+# ref facultative (main par défaut), et POURQUOI elle mérite d'être surveillée —
+# celui qui l'ajoute répond de cette ligne.
+
+sources:
+  - id: anthropic-skills
+    nom: Anthropic — Agent Skills
+    depot: anthropics/skills
+    ref: main
+    pourquoi: >-
+      Le dépôt public où Anthropic publie ses skills d'agent, au format SKILL.md
+      exactement — la source la plus riche connue dans le format que notre
+      lecteur comprend.
+
+  - id: google-mantis
+    nom: Google — Mantis
+    depot: google/mantis
+    ref: main
+    pourquoi: >-
+      Le pack d'où est venu notre premier import réel (mantis-architecture).
+      Des capacités d'analyse de code au format SKILL.md, publiées par Google.
+
+  - id: superpowers
+    nom: Communauté — Superpowers
+    depot: obra/superpowers
+    ref: main
+    pourquoi: >-
+      Une des collections communautaires de skills les plus fournies. Pas un
+      éditeur — raison de plus pour que tout ce qui en vient soit relu ligne à
+      ligne avant d'exister chez nous.

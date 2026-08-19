@@ -497,6 +497,43 @@
     <div class="meta"><span id="imetat"></span></div>
     <div id="imflash"></div>
     <div id="imcorps"></div>
+
+    <!--
+      SUIVRE N'EST PAS METTRE À JOUR.
+
+      Le bouton ci-dessous CONSTATE : il relit l'amont de chaque capacité importée et dit
+      si le document cité a bougé. Il n'existe aucun chemin qui prenne le nouveau texte
+      et le pose dans l'artefact — la « mise à jour » est un NOUVEL import, qui repasse
+      par le proposeur, le crible, et l'attente de validation. Sinon le circuit de
+      relecture ne serait qu'un péage du premier passage.
+    -->
+    <h3 class="sous">Déjà importés — l'amont a-t-il bougé ?</h3>
+    <p class="hint" style="margin:6px 0 12px">Chaque capacité importée cite un document,
+      épinglé à un commit. Ce bouton relit l'amont et <b>constate</b> — identique, modifié,
+      disparu, ou impossible à comparer. Il ne met rien à jour : reprendre une nouvelle
+      version, c'est relire le pack et repasser par la validation.</p>
+    <div class="toolbar" style="margin-bottom:14px">
+      <button class="btn" id="imsuivibtn">Vérifier les mises à jour</button>
+      <span class="meta"><span id="imsuivietat"></span></span>
+    </div>
+    <div id="imsuivi" style="display:grid;gap:12px"></div>
+
+    <!--
+      LA LISTE DIT « ON SAIT QUE ÇA EXISTE », JAMAIS « C'EST BIEN ».
+
+      Les sources viennent de `registries/sources-amont.yaml` — celui qui en ajoute une
+      répond de sa ligne. Ce que le scanner trouve s'importe par le même écran et repart
+      en attente comme tout le reste : figurer dans la liste ne donne aucun droit.
+    -->
+    <h3 class="sous">Les sources amont — ce que les grands éditeurs publient</h3>
+    <p class="hint" style="margin:6px 0 12px">Scanner les dépôts publics du registre des
+      sources et voir ce qu'ils proposent au format que notre lecteur comprend
+      (<code>SKILL.md</code>). « Rien de lisible » est une information ; « injoignable »
+      en est une autre — les deux ne se confondent pas.</p>
+    <div class="toolbar" style="margin-bottom:14px">
+      <button class="btn" id="imscanbtn">Tout scanner</button>
+    </div>
+    <div id="imsources" style="display:grid;gap:12px"></div>
   </section>
 </main>
 
