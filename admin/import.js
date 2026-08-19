@@ -50,6 +50,14 @@ const vue = { pack: null, charge: false, coupes: 0, lus: 0,
               corps: new Map(),
               /* Ce que l'importeur a décidé, par capacité. Rien n'y est pré-rempli. */
               decisions: new Map(),
+              /*
+               * Le chemin d'UNE capacité à afficher seule — venu du scanner (« ouvrir
+               * celle-ci ») ou du suivi (« relire le pack » sur un artefact précis).
+               * C'est un filtre d'AFFICHAGE, pas de lecture : le pack entier est lu au
+               * commit épinglé, parce que voisins et scripts d'une capacité sont des
+               * faits de l'arbre entier. `null` : tout montrer.
+               */
+              cible: null,
               ctx: null, session: null, repo: null, forge: null };
 
 export const chargeImport = () => vue.charge;
@@ -156,9 +164,11 @@ export async function lireAmont(forge, depot, ref, surEtat = () => {}) {
   return { pack, fichiers, coupes };
 }
 
-/** Lire le pack, à un commit épinglé. */
-export async function lireLePack(forge, { session, repo } = {}) {
+/** Lire le pack, à un commit épinglé. `cible` : n'afficher que cette capacité. */
+export async function lireLePack(forge, { session, repo, cible = null } = {}) {
   if (session) { vue.session = session; vue.repo = repo; vue.forge = forge; }
+  // Se remet à CHAQUE lecture : relire à la main, c'est demander tout le pack.
+  vue.cible = cible;
   const depot = normaliserDepot($('imdepot').value);
   const ref = $('imref').value.trim() || 'main';
   if (!depot) return flash('Indique un dépôt, par exemple `google/mantis`.');
@@ -246,9 +256,36 @@ function rendre() {
   }
 
   corps.append(el('h3', { className: 'sous', textContent: 'Les capacités, et ce qui leur manque' }));
-  for (const c of pack.capacites) corps.append(carteCapacite(c));
+
+  /*
+   * Le ciblage filtre L'AFFICHAGE, jamais la lecture : les chiffres ci-dessus décrivent
+   * le pack ENTIER, au commit épinglé, et restent vrais. Une cible qui n'existe plus à
+   * ce commit — l'amont a bougé entre le scan et l'ouverture — se DIT au lieu de
+   * retomber en silence sur tout le pack : on croirait avoir ouvert ce qu'on a cliqué.
+   */
+  let montrees = pack.capacites;
+  if (vue.cible) {
+    montrees = pack.capacites.filter((c) => c.chemin === vue.cible);
+    const note = el('div', { className: 'alerte' });
+    if (montrees.length) {
+      note.append(`Une seule capacité affichée — les chiffres ci-dessus décrivent le pack `
+        + `entier (${pack.capacites.length} capacité(s)). `);
+      const tout = el('button', { className: 'btn',
+        textContent: `Montrer les ${pack.capacites.length}` });
+      tout.onclick = () => { vue.cible = null; rendre(); };
+      note.append(tout);
+    } else {
+      note.append(`\`${vue.cible}\` n'est plus dans le pack au commit épinglé `
+        + `${pack.commit.slice(0, 8)} — l'amont a bougé depuis le scan. `
+        + 'Voici le pack tel qu\'il est aujourd\'hui.');
+      montrees = pack.capacites;
+    }
+    corps.append(note);
+  }
+
+  for (const c of montrees) corps.append(carteCapacite(c));
   // Après insertion dans le document : `rendreVerdict` cherche son conteneur par sélecteur.
-  for (const c of pack.capacites) rendreVerdict(c);
+  for (const c of montrees) rendreVerdict(c);
 
   const note = el('p', { className: 'note-bas' });
   note.textContent = pack.schema
@@ -1020,7 +1057,8 @@ async function verifierEntree(e) {
     b.onclick = () => {
       $('imdepot').value = e.prov.depot;
       $('imref').value = e.prov.ref;
-      lireLePack(vue.forge, { session: vue.session, repo: vue.repo });
+      // Ciblé sur LE fichier suivi : c'est lui qui a bougé, c'est lui qu'on vient relire.
+      lireLePack(vue.forge, { session: vue.session, repo: vue.repo, cible: e.prov.fichier });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     };
     ligne.append(b);
@@ -1128,15 +1166,19 @@ function rendreScan(s, refDe, pack, host) {
   if (r.illisibles) fait(`${r.illisibles} à l'en-tête illisible`);
   host.append(faits);
 
-  // Le geste AVANT la liste : c'est lui qu'on cherche une fois les chiffres lus.
-  const acts = el('div', { className: 'acts', style: 'margin-bottom:12px' });
-  const b = el('button', { className: 'btn on', textContent: 'Ouvrir dans l\'import →' });
-  b.onclick = () => {
+  // Le pack entier est toujours lu — voisins et scripts sont des faits de l'arbre
+  // entier — mais on peut n'AFFICHER qu'une capacité : c'est `cible`, un filtre d'écran.
+  const ouvrir = (cible = null) => {
     $('imdepot').value = s.depot;
     $('imref').value = refDe;
-    lireLePack(vue.forge, { session: vue.session, repo: vue.repo });
+    lireLePack(vue.forge, { session: vue.session, repo: vue.repo, cible });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  // Le geste AVANT la liste : c'est lui qu'on cherche une fois les chiffres lus.
+  const acts = el('div', { className: 'acts', style: 'margin-bottom:12px' });
+  const b = el('button', { className: 'btn on', textContent: 'Tout ouvrir dans l\'import →' });
+  b.onclick = () => ouvrir();
   acts.append(b);
   host.append(acts);
 
@@ -1156,6 +1198,9 @@ function rendreScan(s, refDe, pack, host) {
         : 'Aucune description déclarée — l\'en-tête ne dit pas ce qu\'elle fait.'
     }));
     carte.append(el('small', { textContent: c.chemin }));
+    const seule = el('button', { className: 'btn', textContent: 'Ouvrir celle-ci →' });
+    seule.onclick = () => ouvrir(c.chemin);
+    carte.append(seule);
     grille.append(carte);
   }
   host.append(grille);
