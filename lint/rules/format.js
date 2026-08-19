@@ -81,7 +81,13 @@ export function L019(artifact) {
 /** Bornes hautes. La borne basse est déjà portée par le `minLength` du schéma. */
 const SPEC_MIN_WARN = 150;   // en-deçà, ce n'est pas une consigne, c'est une note
 const SPEC_WARN = 12000;
-const SPEC_MAX = 30000;
+/*
+ * Exportée : l'import de skills dimensionne son plafond de citation SUR cette borne,
+ * plutôt que d'inventer la sienne. Le premier plafond inventé (12 000) refusait le VRAI
+ * Mantis — 20 801 caractères — qu'en réalité la porte aurait accepté avec un simple
+ * avertissement. Deux chiffres pour la même chose finissent toujours par se contredire.
+ */
+export const SPEC_MAX = 30000;
 
 /**
  * L020 — Taille du spec dans des bornes exploitables. 🔴 / 🟡

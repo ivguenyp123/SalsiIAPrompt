@@ -137,6 +137,24 @@ describe('I004 — le texte de l\'amont est une citation, jamais une consigne', 
     assert.match(r.refus.find((x) => /caractères/.test(x.quoi)).detail, /ne se relit pas/);
   });
 
+  test('LE VRAI MANTIS FAIT 20 801 CARACTÈRES, ET IL PASSE', () => {
+    /*
+     * Trouvé au premier import réel : le plafond inventé (12 000) refusait
+     * `mantis-architecture`, que la porte L020 aurait accepté avec un simple
+     * avertissement. Le plafond est maintenant DÉRIVÉ de la porte (SPEC_MAX − 2000) ;
+     * ce test épingle la taille réelle relevée le 2026-08-19 pour que personne ne
+     * réintroduise un chiffre local qui contredit le registre.
+     */
+    const reel = 'Synthesizes raw learnings and codebase analysis.\n'.repeat(425); // ≈ 20 8xx
+    assert.ok(reel.length > 20000 && reel.length < MAX_CORPS, `taille du fixture : ${reel.length}`);
+    const r = faire(DECISIONS, SKILL, reel);
+    assert.ok(r.artefact, 'le corps réel de Mantis est citable');
+    const porte = lint(r.artefact, CTX);
+    assert.equal(porte.blocked, false, 'la porte accepte le spec qui le cite');
+    // Et l'avertissement L020 est là — mérité : les consignes se diluent.
+    assert.ok(porte.findings.some((f) => f.code === 'L020'), 'le WARN de dilution est rendu');
+  });
+
   test('la consigne interdit d\'exécuter, même si le document décrit une exécution', () => {
     const s = faire().artefact.spec;
     assert.match(s, /Tu n'exécutes rien/);

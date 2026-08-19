@@ -37,8 +37,8 @@ import { knownScopes } from '../app/scopes.js';
 import { toYaml } from '../studio/to-yaml.js';
 import { relire } from './coherence.js';
 import { ligne as ligneJournal } from '../lib/executions.js';
-import { promptDe as promptProposeur, verifier as verifierPropositions } from '../lib/import-proposer.js';
-import { MAX_CORPS } from '../lib/import-artefact.js';
+import { promptDe as promptProposeur, verifier as verifierPropositions,
+         MAX_CORPS_PROPOSEUR } from '../lib/import-proposer.js';
 import { caviarder } from '../lib/signaux-securite.js';
 
 /*
@@ -442,9 +442,10 @@ export async function proposer(requete = {}, deps = {}) {
   if (corps.length < 20) {
     return { status: 400, corps: { erreur: 'Rien à lire : le corps du SKILL.md est vide.' } };
   }
-  if (corps.length > MAX_CORPS) {
+  if (corps.length > MAX_CORPS_PROPOSEUR) {
     return { status: 400, corps: { erreur: `Document de ${corps.length} caractères : au-delà `
-      + `de ${MAX_CORPS}, l'import lui-même le refusera — inutile de proposer dessus.` } };
+      + `de ${MAX_CORPS_PROPOSEUR}, la lecture coûte plus qu'elle n'aide. Remplis à la main `
+      + 'ce document-là.' } };
   }
 
   let vertex;
