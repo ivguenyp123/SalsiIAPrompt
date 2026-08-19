@@ -95,14 +95,51 @@ export function statutCI(brut) {
  * cette ligne. Quand la réponse porte un message — et les deux forges en mettent un —
  * il part à l'écran tel quel, tronqué mais jamais réécrit.
  */
-function explain(status, { host, scopeHint, dit = '' }) {
+function explain(status, { host, scopeHint, dit = '', entetes = null }) {
   const suite = dit ? ` La forge dit : « ${String(dit).slice(0, 220)} »` : '';
   if (status === 401) return `Jeton refusé : invalide, révoqué ou expiré.${suite}`;
+  /*
+   * ── LE 403 DE QUOTA N'EST PAS UN PROBLÈME DE DROITS ────────────────────────
+   *
+   * GitHub répond 403 avec un jeton PARFAITEMENT VALIDE quand la limite d'appels est
+   * atteinte — la générale (5 000/h), ou la « secondaire » qui tombe sur les rafales,
+   * c'est-à-dire exactement ce que produisent le parc et le catalogue en relisant
+   * chaque artefact. Vu en vrai : même jeton qu'une heure avant, GET /user à la
+   * connexion, et cet écran qui répondait « il manque le droit d'écriture » — un
+   * message qui envoie regénérer un jeton qui n'a rien fait. Le quota se reconnaît à
+   * ses en-têtes (`x-ratelimit-remaining: 0`, `retry-after`) ou à son message, et il
+   * se dit pour ce qu'il est : une attente, pas une permission.
+   */
+  if ((status === 403 || status === 429) && limiteAtteinte(dit, entetes)) {
+    return `Limite d'appels de ${host} atteinte pour ce jeton — rien à voir avec tes `
+      + 'droits, et regénérer le jeton n\'y changera rien. Elle se rouvre d\'elle-même'
+      + `${reouverture(entetes)}.${suite}`;
+  }
   if (status === 403) return `Jeton valide mais accès refusé : il manque le droit ${scopeHint}.${suite}`;
   if (status === 404) return `Ressource introuvable sur ${host} — dépôt inexistant, ou jeton sans visibilité dessus.${suite}`;
   if (status === 409) return `Conflit : le fichier a changé entre la lecture et l'écriture. Recharge et réessaie.${suite}`;
   if (status >= 500) return `${host} répond une erreur serveur (${status}).${suite}`;
   return `La forge a répondu ${status}.${suite}`;
+}
+
+/** Reconnaître un refus de quota : l'en-tête d'abord, le message ensuite. */
+function limiteAtteinte(dit, entetes) {
+  if (entetes?.get?.('x-ratelimit-remaining') === '0') return true;
+  if (entetes?.get?.('retry-after')) return true;
+  return /rate limit/i.test(dit);
+}
+
+/** Quand la limite se rouvre, si la forge l'a dit. Sinon l'ordre de grandeur honnête. */
+function reouverture(entetes) {
+  const reset = Number(entetes?.get?.('x-ratelimit-reset'));
+  if (Number.isFinite(reset) && reset > 0) {
+    const h = new Date(reset * 1000);
+    const deux = (n) => String(n).padStart(2, '0');
+    return ` vers ${deux(h.getHours())}h${deux(h.getMinutes())}`;
+  }
+  const apres = Number(entetes?.get?.('retry-after'));
+  if (Number.isFinite(apres) && apres > 0) return ` dans ~${Math.max(1, Math.ceil(apres / 60))} min`;
+  return ' — la générale à l\'heure pile, la « secondaire » en quelques minutes';
 }
 
 /*
@@ -273,8 +310,21 @@ function makeCaller({ base, headers, host, scopeHint }, fetchImpl) {
     }
 
     if (!response.ok) {
-      const dit = messageDe(response.brut);
-      throw new ForgeError(explain(response.status, { host, scopeHint, dit }), response.status);
+      /*
+       * ── LE CORPS D'ERREUR SE LIT AUSSI EN DIRECT ──────────────────────────────
+       *
+       * `brut` n'était rempli que par le relais : en direct, le vrai message de la
+       * forge — « API rate limit exceeded », « Resource protected by SAML » — était
+       * JETÉ, et l'écran n'avait plus que le code pour deviner. C'est comme ça qu'un
+       * quota atteint s'est affiché « il manque le droit d'écriture » sur un jeton
+       * sain. On ne lira ce flux qu'une fois, et c'est ici : après ce bloc, on jette.
+       */
+      const brut = response.brut !== undefined ? response.brut
+        : (typeof response.text === 'function' ? await response.text().catch(() => '') : '');
+      const dit = messageDe(brut);
+      throw new ForgeError(
+        explain(response.status, { host, scopeHint, dit, entetes: response.headers }),
+        response.status);
     }
     if (response.status === 204) return null;
     /*

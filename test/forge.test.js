@@ -210,3 +210,51 @@ describe('erreurs', () => {
     assert.throws(() => createForge({ gitlabUrl: '', token: '' }), /URL et un jeton/);
   });
 });
+
+/*
+ * Le 403 de quota N'EST PAS un problème de droits — vu en vrai à la connexion :
+ * même jeton qu'une heure avant, GET /user, et l'écran qui répondait « il manque le
+ * droit d'écriture ». Deux défauts, deux verrous : le corps d'erreur se lit aussi en
+ * direct (il n'était lu que par le relais), et le quota se nomme au lieu d'accuser
+ * le jeton.
+ */
+describe('le 403 dit la vérité — quota et droits ne se confondent pas', () => {
+  const reponse403 = (corps, entetes = {}) => async () => ({
+    ok: false, status: 403,
+    text: async () => corps,
+    headers: { get: (k) => entetes[k.toLowerCase()] ?? null }
+  });
+
+  test('la limite d\'appels se nomme, jeton hors de cause, heure de réouverture donnée', async () => {
+    const forge = createForge(GITHUB, reponse403(
+      JSON.stringify({ message: 'API rate limit exceeded for user ID 1.' }),
+      { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': '1755640800' }));
+    await assert.rejects(() => forge.currentUser(), (e) =>
+      /Limite d'appels/.test(e.message)
+      && !/droit d'écriture/.test(e.message)
+      && /vers \d{2}h\d{2}/.test(e.message)
+      && /rate limit exceeded/.test(e.message));   // le message de la forge, lu en DIRECT
+  });
+
+  test('la limite « secondaire » aussi, avec son délai en minutes', async () => {
+    const forge = createForge(GITHUB, reponse403(
+      JSON.stringify({ message: 'You have exceeded a secondary rate limit.' }),
+      { 'retry-after': '120' }));
+    await assert.rejects(() => forge.currentUser(), (e) =>
+      /Limite d'appels/.test(e.message) && /dans ~2 min/.test(e.message));
+  });
+
+  test('un vrai 403 de droits garde son message — désormais AVEC ce que la forge a dit', async () => {
+    const forge = createForge(GITHUB, reponse403(
+      JSON.stringify({ message: 'Resource not accessible by personal access token' })));
+    await assert.rejects(() => forge.currentUser(), (e) =>
+      /il manque le droit/.test(e.message)
+      && /Resource not accessible/.test(e.message));
+  });
+
+  test('un 403 nu — ni corps ni en-têtes — retombe sur les droits, sans casser', async () => {
+    const forge = createForge(GITHUB, async () => ({ ok: false, status: 403 }));
+    await assert.rejects(() => forge.currentUser(), (e) =>
+      e instanceof ForgeError && /il manque le droit/.test(e.message));
+  });
+});
