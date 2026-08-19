@@ -71,10 +71,36 @@ function flash(message, ok = false) {
 }
 const effacerFlash = () => { $('imflash').className = ''; };
 
+/**
+ * Le `owner/repo` d'une saisie, qu'on ait tapé le chemin ou collé l'URL entière.
+ *
+ * ── POURQUOI CETTE NORMALISATION EXISTE ─────────────────────────────────────
+ *
+ * Le premier essai réel a échoué sur `https://github.com/google/mantis` collé tel quel :
+ * la forge reçoit l'URL entière comme identifiant de dépôt, ne trouve aucun commit, et
+ * rend « aucun commit lisible sur main » — un message qui accuse le dépôt là où c'est la
+ * saisie qui n'était pas au bon format. Coller l'URL est le geste NATUREL ; refuser de la
+ * comprendre est un défaut, pas une exigence.
+ *
+ * On accepte donc les deux. On retire l'hôte, le `.git` final et l'ancre — mais on GARDE
+ * le chemin entier : GitLab a des sous-groupes, `lcl/paiement/registre` est un dépôt réel
+ * et non `lcl/paiement` suivi d'un dossier. On ne coupe qu'aux marqueurs qui séparent
+ * sans ambiguïté le dépôt de ce qu'on regarde dedans : `/tree/`, `/blob/`, le `/-/` de
+ * GitLab.
+ */
+export function normaliserDepot(saisie = '') {
+  let s = String(saisie).trim().split('#')[0];
+  // L'URL, http(s) ou ssh, perd son hôte. Ce qui reste commence au chemin.
+  s = s.replace(/^[a-z]+:\/\/[^/]+\//i, '').replace(/^git@[^:]+:/i, '');
+  // Ce qui suit un marqueur de navigation n'est plus le dépôt : on le retire.
+  s = s.replace(/\/(?:-\/)?(?:tree|blob|commits?)\/.*$/i, '');
+  return s.replace(/\.git$/i, '').replace(/^\/+|\/+$/g, '');
+}
+
 /** Lire le pack, à un commit épinglé. */
 export async function lireLePack(forge, { session, repo } = {}) {
   if (session) { vue.session = session; vue.repo = repo; vue.forge = forge; }
-  const depot = $('imdepot').value.trim();
+  const depot = normaliserDepot($('imdepot').value);
   const ref = $('imref').value.trim() || 'main';
   if (!depot) return flash('Indique un dépôt, par exemple `google/mantis`.');
 
