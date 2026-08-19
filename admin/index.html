@@ -302,6 +302,16 @@
      qu'on replie. C'est la raison qui fait remplir sérieusement ; repliée, elle ne sert
      à rien et le champ se remplit au hasard. */
   .champ{margin:0 0 16px;padding:0 0 0 12px;border-left:2px solid var(--line2)}
+  /* Le champ encore à décider se voit DEPUIS le bandeau du bas : liseré rouge, et un
+     battement quand on clique son nom — sur une carte de deux écrans, « ci-dessus » ne
+     suffit pas. */
+  .champ.manque{border-left-color:var(--err)}
+  .champ.manque > label::after{content:' — à décider';color:var(--err);font-size:11px}
+  @keyframes bat{0%,100%{background:transparent}30%{background:rgba(248,113,113,.12)}}
+  .champ.clignote{animation:bat 1.2s ease 2}
+  #vue-import .coherence.flou a{color:#fca5a5;font-weight:700;text-decoration:none;
+                                white-space:nowrap}
+  #vue-import .coherence.flou a:hover{text-decoration:underline}
   .champ > label{display:block;font-size:13px;font-weight:800;color:var(--tp);margin-bottom:3px}
   .champ .pourquoi{margin:0 0 8px;font-size:11.5px;line-height:1.55;color:var(--tm)}
   .champ textarea.saisie{width:100%;font-family:var(--fb);font-size:13px;color:var(--tp);

@@ -385,6 +385,7 @@ function perimetreParDefaut() {
 /** Un champ du formulaire : son pourquoi, ses indices, son contrôle. */
 function controle(c, def, d) {
   const box = el('div', { className: 'champ' });
+  box.dataset.champ = def.nom;
   box.append(el('label', { textContent: def.quoi }));
   box.append(el('p', { className: 'pourquoi', textContent: def.pourquoi }));
 
@@ -536,11 +537,41 @@ function rendreVerdict(c) {
   const vides = problemes.filter((p) => p.genre === 'vide');
   const conflits = problemes.filter((p) => p.genre !== 'vide');
 
+  /*
+   * LES MANQUANTS SONT NOMMÉS, CLIQUABLES, ET MARQUÉS SUR PLACE.
+   *
+   * La première version disait « 1 champ(s) à décider ci-dessus » — sans dire lequel,
+   * sur une carte de deux écrans de haut. Vécu à l'usage : tout SEMBLAIT rempli, et
+   * l'importeur cherchait à l'œil un select resté sur « — à choisir — ». Un compte sans
+   * nom est une chasse au trésor. Maintenant : le nom, un clic qui y mène, et un liseré
+   * rouge sur le champ lui-même.
+   */
+  const manquants = resteADecider(c, d);
+  const row = hote.closest('.row');
+  for (const champEl of row?.querySelectorAll('.champ') || []) {
+    champEl.classList.toggle('manque',
+      manquants.some((m) => m.nom === champEl.dataset.champ));
+  }
+
   if (vides.length) {
     const box = el('div', { className: 'coherence flou' });
-    box.append(el('b', { textContent: `${vides.length} champ(s) à décider ci-dessus` }),
-      document.createTextNode('Tant qu\'il en reste un, la capacité n\'est pas gouvernable — '
-        + 'et ce qui n\'est pas gouvernable ne se dépose pas.'));
+    box.append(el('b', { textContent: `Reste à décider : `
+      + manquants.map((m) => NOMS_CHAMPS[m.nom] || m.nom).join(' · ') }));
+    box.append(document.createTextNode('Tant qu\'il en reste un, la capacité n\'est pas '
+      + 'gouvernable — et ce qui n\'est pas gouvernable ne se dépose pas. '));
+    for (const m of manquants) {
+      const lien = el('a', { href: '#', textContent: `→ ${NOMS_CHAMPS[m.nom] || m.nom}` });
+      lien.onclick = (e) => {
+        e.preventDefault();
+        const cible = row?.querySelector(`.champ[data-champ="${m.nom}"]`);
+        if (cible) {
+          cible.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          cible.classList.remove('clignote');
+          requestAnimationFrame(() => cible.classList.add('clignote'));
+        }
+      };
+      box.append(lien, document.createTextNode(' '));
+    }
     hote.append(box);
   }
 
