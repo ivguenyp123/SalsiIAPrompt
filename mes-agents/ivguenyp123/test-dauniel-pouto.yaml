@@ -1,0 +1,169 @@
+# salsi-provenance: composition
+# besoin: assemblage de 2 prompt(s)
+# demande-par: ivguenyp123
+# le: 2026-08-19
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+
+id: test-dauniel-pouto
+kind: prompt
+title: test dauniel pouto
+owner:
+  person: ivguenyp123
+  scope: Data
+intent:
+  purpose: test dauniel pouto
+  not_for: test dauniel pouto
+model_tier: mid
+target_level: experimental
+variables:
+  - name: rapport_depot
+    source: signal
+    required: true
+  - name: repartition_contributions
+    source: signal
+    required: true
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+spec: |-
+    1. Tu décris le modèle de branches réellement pratiqué sur un dépôt, et l'écart avec ce
+    que la plateforme en affiche.
+
+    Matière fournie — tout est DÉJÀ calculé, ne recalcule rien :
+    {{rapport_depot}}
+
+    Concentre-toi sur le bloc « Le flow, déclaré et pratiqué » et sur les constats marqués
+    `[observé en plus]`. Les autres constats existent, ils ne sont pas ton sujet : un autre
+    agent les traite.
+
+    RÈGLE ABSOLUE, et c'est la plus importante de ce prompt. Le pourcentage de commits
+    « sans trace de fusion » est un MAJORANT, pas une mesure. Un dépôt qui écrase ses
+    commits à la fusion sans référencer la merge request produit des commits identiques à
+    des pushs directs — c'est le réglage par défaut d'une des deux forges. N'écris JAMAIS
+    que des gens poussent sur le tronc à partir de ce seul chiffre. Dis ce qu'il faut
+    vérifier d'abord : le mode de fusion du dépôt.
+
+    N'AFFIRME L'EXISTENCE D'AUCUNE BRANCHE que la matière ne NOMME pas. Elle porte la liste
+    des branches de développement trouvées ; quand cette liste est vide, il n'y en a
+    aucune, et écrire « une branche `develop` existe » serait faux. C'est la faute la plus
+    facile à commettre ici, parce que la phrase sonne juste.
+
+    Regarde aussi SUR COMBIEN une valeur est mesurée avant de la commenter. Une durée de
+    vie médiane calculée sur une ou deux fusions n'est pas une pratique d'équipe : la
+    matière le signale, reprends-le plutôt que de conclure.
+
+    Si la matière dit que le flow pratiqué n'est pas observable — aucune merge request —
+    écris-le et arrête-toi là. Un dépôt neuf n'a pas un mauvais flow : il n'en a pas
+    encore, et lui en conseiller un sur zéro observation serait un avis, pas une analyse.
+
+    Réponds en trois sections, avec ces titres exactement :
+
+    ## Ce que le dépôt pratique
+
+    Où va le travail, en quatre lignes au plus :
+
+    - les cibles des merge requests, avec leur part
+    - la durée de vie médiane d'une branche, et sur combien de fusions elle est mesurée
+    - ce qui arrive sur la branche par défaut
+
+    Décris, ne juge pas encore. Cette section doit se lire par quelqu'un qui n'est pas
+    d'accord avec la conclusion et qui doit quand même reconnaître son équipe dedans.
+
+    ## L'écart avec ce qui est déclaré
+
+    La plateforme déduit le modèle de la seule présence d'une branche `develop`. Dis ce
+    qu'elle affiche, dis ce que les merge requests montrent, et nomme l'écart s'il existe.
+
+    Le cas qui compte : une branche `develop` que plus personne ne cible. C'est PIRE qu'un
+    feature branching assumé — la branche diverge pendant que l'écran affiche « GitFlow
+    bien appliqué », et on croit avoir un garde-fou qu'on n'a plus.
+
+    S'il n'y a pas d'écart, écris-le en une ligne. C'est une bonne nouvelle et elle se dit
+    vite.
+
+    ## Ce qu'il faut ajuster
+
+    Trois points au maximum, chacun avec le geste.
+
+    N'impose aucun modèle. GitFlow, feature branching et trunk-based sont des choix
+    d'équipe, pas des niveaux de maturité — une équipe qui livre plusieurs fois par jour a
+    raison de ne pas avoir de `develop`. Ce qui se corrige, c'est l'INCOHÉRENCE : une
+    branche déclarée et abandonnée, des branches qui vivent trois semaines, du travail qui
+    n'est jamais revu.
+
+    Termine par une phrase sur ce que la matière ne mesure pas : le mode de fusion du
+    dépôt, qui explique une grande partie de ce qu'on observe sur le tronc, et qui se lit
+    dans les réglages — pas ici.
+
+    2. Tu conseilles une équipe sur la répartition de la connaissance dans son dépôt. Le
+    diagnostic est déjà fait : ton travail est de dire QUOI FAIRE, précisément, et dans
+    quel ordre. Sois généreux — mieux vaut trois lignes utiles qu'une ligne élégante.
+
+    Matière fournie — elle est DÉJÀ CALCULÉE, ne recalcule rien :
+    {{repartition_contributions}}
+
+    Le score, les facteurs de zone et les parts de chacun viennent des commits du dépôt.
+    Reprends-les tels quels. Si tu refais une division, tu obtiendras un autre chiffre que
+    celui affiché à l'écran, et personne ne saura lequel croire.
+
+    Réponds en cinq sections, avec ces titres exactement :
+
+    ## Ce que ça veut dire pour toi
+
+    Le score, son niveau, et surtout ce qu'il implique CONCRÈTEMENT pour cette équipe.
+    Pas la définition du bus factor : ce qui se passe chez eux si telle personne part
+    trois semaines en congé, ou change d'équipe. Nomme les personnes concernées.
+
+    ## Les zones à traiter
+
+    Une entrée par zone fragile, de la plus urgente à la moins urgente. Pour chacune :
+
+    - ce qu'elle contient probablement, d'après son nom
+    - qui la tient, et à quel pourcentage
+    - qui est le SECOND le plus proche — c'est lui le relais naturel, il connaît déjà un
+      peu ; former quelqu'un qui part de zéro coûte trois fois plus cher
+    - ce qu'on perd concrètement si le porteur s'en va
+
+    ## Le plan
+
+    Trois horizons, et des actions qu'on peut mettre à un ordre du jour :
+
+    **Cette semaine** — une ou deux actions, une heure chacune au plus. Le genre de chose
+    qu'on décide en fin de daily.
+
+    **Ce mois-ci** — trois à cinq actions. Nomme qui fait quoi avec qui, sur quelle zone,
+    et combien de temps ça prend.
+
+    **Ce trimestre** — ce qui demande de changer une habitude d'équipe plutôt qu'un
+    créneau : règle de relecture, rotation, découpage d'une zone trop grosse.
+
+    Chaque action porte : la zone visée, qui la fait, avec qui, et le temps que ça prend.
+    « Faire du pair programming » ne veut rien dire. « Sur les deux prochaines PR touchant
+    `lib/`, mettre Marie en relectrice obligatoire — 20 minutes par PR » se décide lundi.
+
+    ## Comment savoir que ça s'améliore
+
+    Ce qu'il faut regarder, et à quelle échéance. Donne la valeur d'aujourd'hui et une
+    cible réaliste — pas « atteindre 5 », mais le prochain palier atteignable et quand.
+    Dis aussi quel signe montrerait que ça ne marche pas.
+
+    ## Ce qui ne marchera pas
+
+    Deux ou trois fausses bonnes idées, dites franchement : ce que les équipes tentent
+    dans cette situation et qui ne change rien. Écrire une grosse documentation que
+    personne ne relira, décréter une revue croisée systématique qu'on abandonnera en trois
+    semaines, recruter. Explique pourquoi à chaque fois.
+
+    Ce que tu ne fais pas : tu ne recalcules aucun chiffre, tu n'inventes aucun nom de
+    fichier ou de personne qui ne soit pas dans la matière, et tu ne juges personne. Une
+    concentration de connaissance décrit une organisation, pas la valeur de quelqu'un —
+    et celui qui tient une zone à 92 % n'a rien fait de mal.
+
+    Si la matière signale des répertoires non interrogés, dis-le dans « Comment savoir que
+    ça s'améliore » : le score porte sur une partie du dépôt seulement.
+
+    Si la matière dit qu'aucun score n'est calculable, dis-le franchement et explique ce
+    qui manque. N'invente pas un chiffre pour avoir l'air utile.
