@@ -603,10 +603,15 @@ function rendreVerdict(c) {
   pied.append(el('span', { className: 'sp' }));
 
   const bouton = el('button', { className: 'btn pub',
-                                textContent: `Déposer en attente (${NIVEAU_IMPORTE})` });
-  bouton.disabled = Boolean(bloquants.length) || !d.perimetre || !artefact;
+                                textContent: d._depose ? 'Déposée en attente ✔'
+                                  : `Déposer en attente (${NIVEAU_IMPORTE})` });
+  bouton.disabled = Boolean(d._depose) || Boolean(bloquants.length) || !d.perimetre || !artefact;
   bouton.onclick = () => deposer(c, bouton);
   pied.append(bouton);
+  if (d._depose) {
+    pied.append(el('span', { className: 'pourquoi',
+      textContent: `${d._depose} — la suite se joue dans « À valider ».` }));
+  }
 
   if (!d.perimetre) {
     pied.append(el('span', { className: 'pourquoi',
@@ -634,22 +639,44 @@ function fabriquer(c, d) {
  * pas la porte n'a rien à faire dans `pending/` : il y attendrait une validation humaine
  * que la machine refuse déjà.
  */
+/*
+ * ── LE RÉSULTAT S'AFFICHE LÀ OÙ ON A CLIQUÉ ─────────────────────────────────
+ *
+ * Vécu à l'usage : « quand je clique sur Déposer, ça fait rien ». Il se passait
+ * TOUT — le lint tournait, le refus ou le succès s'affichait… dans le bandeau en HAUT
+ * de la page, à deux écrans du bouton. Et un artefact refusé sortait par un `return`
+ * muet. Trois chemins, trois silences vus du bouton.
+ *
+ * Règle d'écran, désormais : tout ce que ce bouton provoque se dit À CÔTÉ de lui. Le
+ * bandeau du haut reste alimenté — il sert à qui remonte — mais il n'est plus le seul.
+ */
 async function deposer(c, bouton) {
   const d = decisionsDe(c);
-  const { artefact, entete } = fabriquer(c, d);
-  if (!artefact) return;
-
   bouton.disabled = true;
+  bouton.textContent = '… dépôt en cours';
   effacerFlash();
+
+  let resultat;
   try {
+    const { artefact, entete, refus: problemes } = fabriquer(c, d);
+    if (!artefact) {
+      resultat = { ok: false, texte: 'Rien n\'est parti : '
+        + problemes.filter((p) => p.bloquant).map((p) => p.quoi).join(' · ') };
+      return;
+    }
+
     const rapport = lint(artefact, vue.ctx);
     if (rapport.blocked) {
       const erreurs = rapport.findings.filter((f) => f.severity === ERROR)
         .map((f) => `${f.code} ${f.message}`).join(' · ');
-      return flash(`La porte est fermée : ${erreurs}`);
+      resultat = { ok: false, texte: `La porte est fermée : ${erreurs}` };
+      return;
     }
-
-    if (!vue.repo) return flash('Aucun dépôt de registre choisi.');
+    if (!vue.repo) {
+      resultat = { ok: false, texte: 'Aucun dépôt de registre choisi — reviens à l\'accueil '
+        + 'pour le sélectionner.' };
+      return;
+    }
 
     const chemin = `${DOSSIER_IMPORTE}/${artefact.id}.yaml`;
     await vue.forge.putFile(vue.repo, chemin, {
@@ -664,11 +691,22 @@ async function deposer(c, bouton) {
              + `Lint : ${rapport.errors} erreur(s), ${rapport.warnings} avertissement(s).`,
       branch: 'main'
     });
-    flash(`✔ Déposé — ${chemin}. Il attend une validation humaine dans « À valider ».`, true);
+    // L'état de la carte change : déposée, elle ne se redépose pas d'un double-clic.
+    d._depose = chemin;
+    resultat = { ok: true, texte: `✔ Déposée — ${chemin}. Elle attend une validation `
+      + 'humaine dans « À valider ».' };
   } catch (error) {
-    flash(`Dépôt impossible : ${error.message}`);
+    resultat = { ok: false, texte: `Dépôt impossible : ${error.message}` };
   } finally {
     rendreVerdict(c);
+    const hote = document.querySelector(`[data-verdict="${cssEchappe(c.chemin)}"]`);
+    if (hote && resultat) {
+      const box = el('div', { className: `coherence ${resultat.ok ? 'ok' : 'flou'}` });
+      box.append(el('b', { textContent: resultat.ok ? 'Déposée' : 'Pas déposée' }),
+        document.createTextNode(resultat.texte));
+      hote.prepend(box);
+    }
+    if (resultat) flash(resultat.texte, resultat.ok);
   }
 }
 
