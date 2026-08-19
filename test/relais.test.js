@@ -126,9 +126,47 @@ describe('sans serveur, rien ne change', () => {
     });
   });
 
-  test('le relais est tenté une seule fois, jamais en boucle', async () => {
+  test('le couple direct+relais est retenté pour une LECTURE, puis on s\'arrête', async () => {
+    /*
+     * Ce test disait « 2 appels et stop ». Depuis le premier import réel, un jet se
+     * réessaie comme un 5xx — lire un pack fait ~18 requêtes en série, et un seul hoquet
+     * réseau tuait tout. Ce qui ne change pas : le relais est tenté UNE fois par
+     * tentative, jamais en boucle dans une même tentative, et le nombre de tentatives
+     * est borné par REESSAIS.
+     */
     const f = faux({ relais: null });
     await assert.rejects(() => createForge(session, f.impl).currentUser());
-    assert.equal(f.vus.length, 2, 'le direct, puis le relais, et on s\'arrête');
+    assert.equal(f.vus.length, 6, '3 tentatives × (direct + relais), et on s\'arrête');
+  });
+
+  test('UN HOQUET RÉSEAU SUR UNE LECTURE NE LA TUE PLUS', async () => {
+    /*
+     * Le défaut du premier import réel : 18 requêtes en série, un fetch qui jette une
+     * fois, et « Impossible de joindre » sur une lecture dont 17 dix-huitièmes
+     * passaient. Ici : premier direct jette, relais absent, DEUXIÈME tentative réussit.
+     */
+    let appels = 0;
+    const impl = async (u) => {
+      if (String(u).startsWith('/api/forge')) throw new Error('pas de serveur');
+      appels += 1;
+      if (appels === 1) throw new TypeError('failed to fetch');
+      return { ok: true, status: 200, json: async () => ({ id: 1, login: 'x' }) };
+    };
+    const u = await createForge(session, impl).currentUser();
+    assert.equal(u.username, 'x');
+    assert.equal(appels, 2, 'la deuxième tentative a suffi');
+  });
+
+  test('un ÉCRIT qui jette n\'est JAMAIS retenté — deux MR valent pire qu\'une erreur', async () => {
+    let posts = 0;
+    const impl = async (u, options = {}) => {
+      if (String(u).startsWith('/api/forge')) throw new Error('pas de serveur');
+      if (options.method === 'POST') { posts += 1; throw new TypeError('failed to fetch'); }
+      return { ok: true, status: 200, json: async () => ({}) };
+    };
+    await assert.rejects(
+      () => createForge(session, impl).commenterPullRequest('moi/demo', 3, 'avis'),
+      (e) => e.status === 0);
+    assert.equal(posts, 1, 'un écrit incertain ne se rejoue pas');
   });
 });

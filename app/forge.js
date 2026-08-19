@@ -234,19 +234,42 @@ function makeCaller({ base, headers, host, scopeHint }, fetchImpl) {
           return await parLeRelais(url.toString(), { method, headers: entetes, body }, fetchImpl);
         } catch {
           throw new ForgeError(
-            `Impossible de joindre ${host}. Vérifie l'adresse, ton accès réseau (VPN), ` +
-            'et que la forge autorise les appels depuis le navigateur (CORS). Le relais du '
-            + 'serveur local n\'a pas répondu non plus.', 0
+            `Impossible de joindre ${host} (${url.pathname}). Vérifie l'adresse, ton accès ` +
+            'réseau (VPN), et que la forge autorise les appels depuis le navigateur (CORS). ' +
+            'Le relais du serveur local n\'a pas répondu non plus — est-ce que `node serve.js` '
+            + 'tourne ?', 0
           );
         }
       }
     };
 
-    let response = await unAppel();
-    for (let essai = 0; essai < REESSAIS
-                        && rejouable && !response.ok && A_REESSAYER(response.status); essai += 1) {
-      await dormir(ATTENTE[essai]);
-      response = await unAppel();
+    /*
+     * ── LE JET AUSSI SE RÉESSAIE, PAS SEULEMENT LE 5XX ────────────────────────
+     *
+     * Défaut trouvé au premier import réel : lire un pack fait ~18 requêtes EN SÉRIE —
+     * l'arbre, puis chaque SKILL.md. Un seul `fetch` qui JETTE (coupure d'une seconde,
+     * DNS qui tousse, Wi-Fi qui bascule) tuait toute la lecture avec « Impossible de
+     * joindre » — alors que les 17 autres requêtes passaient. Les réessais existaient
+     * pour les 5xx et jamais pour le jet, qui est pourtant LE mode d'échec des réseaux
+     * d'entreprise.
+     *
+     * Même politique que pour les 5xx : uniquement les lectures (un POST qui a peut-être
+     * abouti ne se rejoue pas), mêmes attentes. Chaque tentative garde son repli par le
+     * relais — c'est le couple direct+relais qui est retenté, pas le relais en boucle.
+     */
+    let response;
+    for (let essai = 0; ; essai += 1) {
+      try {
+        response = await unAppel();
+      } catch (erreur) {
+        if (rejouable && essai < REESSAIS) { await dormir(ATTENTE[essai]); continue; }
+        throw erreur;
+      }
+      if (rejouable && essai < REESSAIS && !response.ok && A_REESSAYER(response.status)) {
+        await dormir(ATTENTE[essai]);
+        continue;
+      }
+      break;
     }
 
     if (!response.ok) {
