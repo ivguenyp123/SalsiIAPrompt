@@ -109,16 +109,36 @@ function forgeDuRegistre() {
   return clientRegistre;
 }
 
+/*
+ * Un dossier personnel a un étage de plus : `mes-agents/<qui>/<id>.yaml`. L'exécution ne
+ * connaît pas les gens — et n'a pas à les connaître : elle cherche pour NOMMER un refus,
+ * pas pour lancer. On déplie donc le dossier en ses sous-dossiers, un par personne.
+ */
+const PERSONNELS = ['mes-agents', 'mes-chaines'];
+
+function sousDossiersDe(d) {
+  try {
+    return readdirSync(join(ROOT, d), { withFileTypes: true })
+      .filter((e) => e.isDirectory()).map((e) => `${d}/${e.name}`);
+  } catch { return []; }                     // le dossier n'existe pas : personne n'a rien sauvé
+}
+
 /** Le registre, lu chez la forge. Rend le texte du fichier, ou `null`. */
 async function depuisLaForge(id, dossiers) {
   const forge = forgeDuRegistre();
   if (!forge) return null;
 
   for (const d of dossiers) {
-    try {
-      const f = await forge.getFile(REGISTRE.repo, `${d}/${id}.yaml`, BRANCHE);
-      if (f?.content) return f.content;
-    } catch { /* ce dossier ne l'a pas, ou la forge refuse : on essaie le suivant */ }
+    const chemins = PERSONNELS.includes(d)
+      ? (await forge.listFiles(REGISTRE.repo, d, BRANCHE).catch(() => []))
+          .filter((e) => e.type === 'dir').map((e) => `${e.path}/${id}.yaml`)
+      : [`${d}/${id}.yaml`];
+    for (const chemin of chemins) {
+      try {
+        const f = await forge.getFile(REGISTRE.repo, chemin, BRANCHE);
+        if (f?.content) return f.content;
+      } catch { /* ce dossier ne l'a pas, ou la forge refuse : on essaie le suivant */ }
+    }
   }
   return null;
 }
@@ -201,7 +221,11 @@ function dependances() {
         return texte ? yaml.parse(texte) : null;
       }
 
-      const rel = dossiers.map((d) => `${d}/${id}.yaml`).find((r) => existsSync(join(ROOT, r)));
+      const rel = dossiers
+        .flatMap((d) => PERSONNELS.includes(d)
+          ? sousDossiersDe(d).map((u) => `${u}/${id}.yaml`)
+          : [`${d}/${id}.yaml`])
+        .find((r) => existsSync(join(ROOT, r)));
       if (rel) return lire(rel);
 
       // Absent du disque : peut-être vient-il d'être validé depuis l'écran. On regarde

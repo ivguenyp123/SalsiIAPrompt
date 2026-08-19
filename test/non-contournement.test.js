@@ -104,6 +104,27 @@ describe('la validation humaine ne se contourne pas par l\'API', () => {
     assert.equal(temoin.appels, 0);
   });
 
+  test('VU LE 2026-08-19 : un BROUILLON PERSONNEL est refusé nommément, pas « introuvable »', async () => {
+    /*
+     * Le cas réel : un agent tout juste sauvé depuis Fabriquer (`mes-agents/<qui>/`)
+     * s'affichait au catalogue avec son panneau de lancement, et l'exécution répondait
+     * « introuvable au registre ». Le fichier EXISTE ; ce qui lui manque est une
+     * validation — et c'est ce que le refus doit dire. Il ne se lance toujours pas :
+     * la recherche des dossiers personnels sert à nommer, jamais à ouvrir.
+     */
+    const { temoin, d } = deps('mes-agents');
+    const r = await executer(REQ, d);
+    assert.equal(r.status, 403, 'refusé, pas absent');
+    assert.match(r.corps.erreur, /brouillon personnel/);
+    assert.match(r.corps.erreur, /dépose-le en attente/);
+    assert.equal(temoin.appels, 0, 'le modèle ne doit jamais être atteint');
+
+    const chaine = deps('mes-chaines');
+    const rc = await executer(REQ, chaine.d);
+    assert.equal(rc.status, 403);
+    assert.match(rc.corps.erreur, /chaîne personnelle/);
+  });
+
   test('le refus est un 403 NOMMÉ, pas un 404 déguisé', async () => {
     // Un refus qui se présente comme une absence ne se comprend pas : l'auteur voit
     // « introuvable » sur un artefact qu'il vient de déposer, et conclut à un bug.

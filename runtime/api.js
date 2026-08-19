@@ -60,13 +60,31 @@ import { caviarder } from '../lib/signaux-securite.js';
 export const DOSSIERS = ['artifacts', 'artifacts/pending', 'artifacts/retires'];
 export const LANCABLE = 'artifacts';
 
+/*
+ * Les dossiers PERSONNELS — `mes-agents/<qui>/`, `mes-chaines/<qui>/` — s'y ajoutent
+ * pour la recherche, jamais pour le lancement. Vu en vrai : un agent tout juste sauvé
+ * depuis Fabriquer s'affichait au catalogue avec son panneau de lancement… et
+ * l'exécution répondait « introuvable au registre » — un 404 qui déguisait un refus en
+ * absence, précisément ce que la recherche dossier par dossier existe pour empêcher.
+ * Le fichier EXISTE ; ce qui lui manque est une validation, et c'est ça qu'on dit.
+ */
+export const PERSONNELS = ['mes-agents', 'mes-chaines'];
+
 const REFUS_DOSSIER = {
   'artifacts/pending':
     'attend une validation humaine dans l\'Admin. Rien de ce qui est en attente ne se '
     + 'lance : la file de validation est une porte, pas un dossier.',
   'artifacts/retires':
     'a été retiré du catalogue. Un artefact retiré ne se lance plus — le réactiver est '
-    + 'un geste d\'Admin, pas un paramètre d\'appel.'
+    + 'un geste d\'Admin, pas un paramètre d\'appel.',
+  'mes-agents':
+    'est un brouillon personnel : sauvé chez toi, relu par personne. Un brouillon ne se '
+    + 'lance pas — dépose-le en attente de validation, et une fois validé il rejoindra '
+    + 'le catalogue et se lancera.',
+  'mes-chaines':
+    'est une chaîne personnelle : sauvée chez toi, relue par personne. Elle ne se lance '
+    + 'pas — dépose-la en attente de validation, et une fois validée elle rejoindra le '
+    + 'catalogue et se lancera.'
 };
 
 /** Un identifiant d'artefact : le même motif que le schéma, appliqué à l'entrée. */
@@ -161,7 +179,8 @@ async function conduire(requete = {}, deps = {}, trace = {}) {
    */
   let artifact = null;
   let dossier = null;
-  for (const d of DOSSIERS) {
+  // Les personnels en dernier : un id validé prime sur un brouillon homonyme.
+  for (const d of [...DOSSIERS, ...PERSONNELS]) {
     artifact = await charger(id, [d]);
     if (artifact) { dossier = d; break; }
   }
