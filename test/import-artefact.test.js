@@ -155,10 +155,20 @@ describe('I004 — le texte de l\'amont est une citation, jamais une consigne', 
     assert.ok(porte.findings.some((f) => f.code === 'L020'), 'le WARN de dilution est rendu');
   });
 
-  test('la consigne interdit d\'exécuter, même si le document décrit une exécution', () => {
+  test('LE TRAVAIL D\'ÉCRITURE SE FAIT, L\'EXÉCUTION JAMAIS — et l\'inexécutable ne bloque pas', () => {
+    /*
+     * Recalibré par la première exécution réelle : « tu décris ce qu'il faudrait faire »
+     * interdisait l'exécution ET le livrable — le modèle rendait la procédure au lieu du
+     * produit sur une matière pourtant fournie. Trois assertions, trois moitiés de la
+     * règle : produire en entier, ne rien lancer, continuer quand une étape du document
+     * est inexécutable ici.
+     */
     const s = faire().artefact.spec;
-    assert.match(s, /Tu n'exécutes rien/);
-    assert.match(s, /même si le document ci-dessus en décrit/);
+    assert.match(s, /TU LE FAIS EN ENTIER/);
+    assert.match(s, /pas la\s+procédure/);
+    assert.match(s, /Tu ne lances rien/);
+    assert.match(s, /n'arrête pas le travail/);
+    assert.match(s, /la matière rapporte que/);
   });
 });
 
