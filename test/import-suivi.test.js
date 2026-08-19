@@ -135,13 +135,19 @@ describe('le registre des sources amont est lisible et complet', () => {
     assert.ok(Array.isArray(doc.sources) && doc.sources.length >= 2,
       'au moins deux sources connues');
     for (const s of doc.sources) {
-      for (const champ of ['id', 'nom', 'depot', 'pourquoi']) {
+      for (const champ of ['id', 'nom', 'depot', 'pourquoi', 'corpus']) {
         assert.ok(s[champ], `la source ${s.id || '?'} porte \`${champ}\``);
       }
       assert.match(s.depot, /^[\w.-]+(\/[\w.-]+)+$/,
-        `\`${s.depot}\` est un chemin owner/repo, pas une URL`);
+        `\`${s.depot}\` est un chemin owner/repo, pas une URL — et pas un joker : `
+        + 'un `*` n\'est pas une adresse');
+      // Le vocabulaire des corpus est FERMÉ : un corpus inventé n'informerait personne.
+      assert.ok(['conformite', 'editeur', 'communaute'].includes(s.corpus),
+        `corpus \`${s.corpus}\` inconnu sur ${s.id}`);
     }
     const ids = doc.sources.map((s) => s.id);
     assert.equal(new Set(ids).size, ids.length, 'les id sont uniques');
+    const depots = doc.sources.map((s) => s.depot.toLowerCase());
+    assert.equal(new Set(depots).size, depots.length, 'les dépôts sont uniques');
   });
 });

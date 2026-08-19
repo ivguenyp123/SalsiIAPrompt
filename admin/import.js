@@ -1094,6 +1094,17 @@ async function verifierTout() {
  */
 const lanceursScan = [];
 
+/*
+ * Les trois corpus de la veille, dans l'ordre où on les relit : la spécification
+ * d'abord, les maisons ensuite, le terrain sauvage en dernier. Le corpus est une
+ * information de RELECTURE, pas un droit — il dit avec quels yeux lire le scan.
+ */
+const CORPUS = [
+  ['conformite', 'Conformité', 'La spécification Agent Skills et ses gardiens — le format lui-même.'],
+  ['editeur', 'Éditeurs', 'Ce que les grandes maisons publient sous leur nom.'],
+  ['communaute', 'Communauté', 'Le terrain sauvage — raison de plus pour relire ligne à ligne.']
+];
+
 async function monterSources() {
   const host = $('imsources');
   let doc;
@@ -1106,7 +1117,24 @@ async function monterSources() {
       textContent: `Registre des sources illisible : ${error.message}` }));
     return;
   }
-  for (const s of doc.sources || []) host.append(carteSource(s));
+  const sources = doc.sources || [];
+  const groupes = [...CORPUS, ['', 'Sans corpus', '']];
+  for (const [cle, titre, sousTitre] of groupes) {
+    const du = sources.filter((s) => (s.corpus || '') === cle);
+    if (!du.length) continue;
+    const tete = el('div', { style: 'margin:6px 0 2px' });
+    tete.append(el('h4', { className: 'sous', style: 'margin:0;font-size:13.5px',
+                           textContent: `${titre} · ${du.length}` }));
+    if (sousTitre) tete.append(el('p', { className: 'hint', style: 'margin:2px 0 0',
+                                         textContent: sousTitre }));
+    host.append(tete);
+    for (const s of du) host.append(carteSource(s));
+  }
+  // Le coût se dit AVANT le clic : tout scanner, c'est autant de dépôts en série,
+  // et le quota de la forge n'est pas infini.
+  $('imscanbtn').textContent = `Tout scanner (${sources.length} dépôts)`;
+  $('imscanbtn').title = `${sources.length} dépôts lus en série — plusieurs appels chacun. `
+    + 'Ça consomme du quota GitHub : préfère scanner une source à la fois si tu en vises une.';
 }
 
 function carteSource(s) {

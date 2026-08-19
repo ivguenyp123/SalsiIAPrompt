@@ -2,11 +2,10 @@
 #
 # ── CE QUE CETTE LISTE EST ────────────────────────────────────────────────────
 #
-# Une liste de dépôts PUBLICS où de grands éditeurs d'IA (et quelques collections
-# communautaires sérieuses) publient des compétences au format que notre lecteur
-# comprend : des `SKILL.md`. Le scanner de l'écran d'import les parcourt un par un
-# et dit ce qu'il y trouve — combien de capacités, lesquelles, et ce qu'elles
-# déclarent vraiment.
+# Une liste de dépôts PUBLICS où des éditeurs d'IA et des collections communautaires
+# publient des compétences au format que notre lecteur comprend : des `SKILL.md`. Le
+# scanner de l'écran d'import les parcourt un par un et dit ce qu'il y trouve —
+# combien de capacités, lesquelles, et ce qu'elles déclarent vraiment.
 #
 # ── CE QU'ELLE N'EST PAS ─────────────────────────────────────────────────────
 #
@@ -20,33 +19,170 @@
 # (encore) ses agents sous une forme qu'une machine peut relire. À distinguer
 # d'« injoignable », qui dit qu'on n'a pas pu regarder (« N/A n'est pas zéro »).
 #
-# Ajouter une source : id unique, nom lisible, depot en `owner/repo` (pas d'URL),
-# ref facultative (main par défaut), et POURQUOI elle mérite d'être surveillée —
-# celui qui l'ajoute répond de cette ligne.
+# ── LES TROIS CORPUS ─────────────────────────────────────────────────────────
+#
+# La veille d'ivguenyp123 (2026-08-19) classe les sources en trois familles, et le
+# classement est une information qui change la RELECTURE, pas les droits :
+#
+#   conformite  la spécification Agent Skills et ses gardiens — le format lui-même ;
+#   editeur     ce que les grandes maisons publient sous leur nom ;
+#   communaute  le terrain sauvage — raison de plus pour relire ligne à ligne.
+#
+# Ajouter une source : id unique, nom lisible, depot en `owner/repo` (pas d'URL,
+# pas de joker — un `*` n'est pas une adresse et ne se scanne pas), corpus, ref
+# facultative (main par défaut), et POURQUOI elle mérite d'être surveillée —
+# celui qui l'ajoute répond de cette ligne. Pour un dépôt jamais scanné, le
+# pourquoi dit d'où vient la piste : c'est le scan qui dira le contenu.
 
 sources:
+  # ── Corpus A — conformité ──────────────────────────────────────────────────
   - id: anthropic-skills
     nom: Anthropic — Agent Skills
     depot: anthropics/skills
+    corpus: conformite
     ref: main
     pourquoi: >-
       Le dépôt public où Anthropic publie ses skills d'agent, au format SKILL.md
       exactement — la source la plus riche connue dans le format que notre
       lecteur comprend.
 
+  - id: openai-skills
+    nom: OpenAI — Skills
+    depot: openai/skills
+    corpus: conformite
+    ref: main
+    pourquoi: >-
+      OpenAI sous son propre nom, dans la famille conformité de la veille du
+      2026-08-19. Jamais scanné avant d'entrer ici : le scan dira ce qu'il publie.
+
+  - id: agentskills-spec
+    nom: Agent Skills — la spécification
+    depot: agentskills/agentskills
+    corpus: conformite
+    ref: main
+    pourquoi: >-
+      Le dépôt de la spécification du format lui-même. S'il porte des SKILL.md
+      d'exemple, ce sont les plus canoniques qui existent.
+
+  # ── Corpus B — éditeurs ────────────────────────────────────────────────────
   - id: google-mantis
     nom: Google — Mantis
     depot: google/mantis
+    corpus: editeur
     ref: main
     pourquoi: >-
       Le pack d'où est venu notre premier import réel (mantis-architecture).
       Des capacités d'analyse de code au format SKILL.md, publiées par Google.
 
+  - id: microsoft-skills
+    nom: Microsoft — Skills
+    depot: microsoft/skills
+    corpus: editeur
+    ref: main
+    pourquoi: >-
+      Microsoft sous son propre nom, veille du 2026-08-19. Le scan dira le contenu.
+
+  - id: cloudflare-skills
+    nom: Cloudflare — Skills
+    depot: cloudflare/skills
+    corpus: editeur
+    ref: main
+    pourquoi: >-
+      Cloudflare sous son propre nom, veille du 2026-08-19. Le scan dira le contenu.
+
+  - id: nvidia-skills
+    nom: NVIDIA — Skills
+    depot: nvidia/skills
+    corpus: editeur
+    ref: main
+    pourquoi: >-
+      NVIDIA sous son propre nom, veille du 2026-08-19. Le scan dira le contenu.
+
+  - id: vercel-agent-skills
+    nom: Vercel Labs — Agent Skills
+    depot: vercel-labs/agent-skills
+    corpus: editeur
+    ref: main
+    pourquoi: >-
+      Le laboratoire de Vercel, veille du 2026-08-19. Le scan dira le contenu.
+
+  - id: github-awesome-copilot
+    nom: GitHub — Awesome Copilot
+    depot: github/awesome-copilot
+    corpus: editeur
+    ref: main
+    pourquoi: >-
+      Une liste « awesome » tenue par GitHub même — probablement un annuaire de
+      liens plus qu'un pack. « Rien de lisible » y serait une réponse normale,
+      pas une déception.
+
+  - id: stripe-ai
+    nom: Stripe — AI
+    depot: stripe/ai
+    corpus: editeur
+    ref: main
+    pourquoi: >-
+      Stripe sous son propre nom, veille du 2026-08-19. Le scan dira le contenu.
+
+  - id: datadog-agent-skills
+    nom: Datadog Labs — Agent Skills
+    depot: datadog-labs/agent-skills
+    corpus: editeur
+    ref: main
+    pourquoi: >-
+      Le laboratoire de Datadog, veille du 2026-08-19. Le scan dira le contenu.
+
+  # `aws-samples/*` figurait dans la veille : un joker n'est pas une adresse, et on
+  # ne devine pas un nom de dépôt à la place de quelqu'un. Le jour où UN dépôt
+  # aws-samples précis est identifié, il entre ici avec sa ligne et son pourquoi.
+
+  # ── Corpus C — communauté ──────────────────────────────────────────────────
+  - id: wshobson-agents
+    nom: Communauté — wshobson/agents
+    depot: wshobson/agents
+    corpus: communaute
+    ref: main
+    pourquoi: >-
+      Collection individuelle repérée dans la veille du 2026-08-19. Personne n'en
+      répond chez un éditeur : tout ce qui en vient se relit ligne à ligne.
+
   - id: superpowers
     nom: Communauté — Superpowers
     depot: obra/superpowers
+    corpus: communaute
     ref: main
     pourquoi: >-
       Une des collections communautaires de skills les plus fournies. Pas un
       éditeur — raison de plus pour que tout ce qui en vient soit relu ligne à
       ligne avant d'exister chez nous.
+
+  - id: addyosmani-agent-skills
+    nom: Communauté — addyosmani/agent-skills
+    depot: addyosmani/agent-skills
+    corpus: communaute
+    ref: main
+    pourquoi: >-
+      Collection individuelle repérée dans la veille du 2026-08-19. Le scan dira
+      le contenu ; la relecture dira le reste.
+
+  - id: alirezarezvani-claude-skills
+    nom: Communauté — claude-skills
+    depot: alirezarezvani/claude-skills
+    corpus: communaute
+    ref: main
+    pourquoi: >-
+      Collection individuelle repérée dans la veille du 2026-08-19. Le scan dira
+      le contenu ; la relecture dira le reste.
+
+  - id: voltagent-awesome
+    nom: Communauté — Awesome Agent Skills
+    depot: VoltAgent/awesome-agent-skills
+    corpus: communaute
+    ref: main
+    pourquoi: >-
+      Une liste « awesome » communautaire — probablement des liens plus que des
+      SKILL.md. Utile comme carte du territoire, même si le scan y lit peu.
+
+  # `ComposioHQ/*` figurait dans la veille : même règle que pour aws-samples — un
+  # joker n'est pas une adresse. Un dépôt précis de ComposioHQ pourra entrer ici
+  # nommé, avec sa ligne et son pourquoi.
