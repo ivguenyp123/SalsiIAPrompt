@@ -35,7 +35,7 @@ import { fileURLToPath } from 'node:url';
 import yaml from './lib/yaml.js';
 import { makeValidator } from './lib/schema.js';
 import { createMoteur } from './runtime/moteur.js';
-import { executer, etat, rediger, composer, coherence, DOSSIERS } from './runtime/api.js';
+import { executer, etat, rediger, composer, coherence, proposer, DOSSIERS } from './runtime/api.js';
 import { lint } from './lint/index.js';
 import { chemin } from './lib/entrees.js';
 import { CHEMIN, carte } from './runtime/etat-derive.js';
@@ -165,7 +165,9 @@ function dependances() {
     targets: lire('registries/targets.yaml').targets,
     entrees: lire('entrees/index.yaml'),
     // Les isolements et leurs preuves : P009 recalcule la ténabilité à chaque lancement.
+    // Le vocabulaire des écritures voyage avec — le proposeur d'import le cite au modèle.
     isolements: lire('registries/isolements.yaml').isolements,
+    ecritures: lire('registries/isolements.yaml').ecritures,
     validateArtifact: makeValidator(JSON.parse(readFileSync(join(ROOT, 'schema/artifact.schema.json'), 'utf8')))
   };
   /*
@@ -398,6 +400,18 @@ createServer(async (req, res) => {
       try { requete = await corps(req); }
       catch (error) { json(res, 400, { erreur: error.message }); return; }
       const { status, corps: sortie } = await rediger(requete, dependances());
+      json(res, status, sortie);
+      return;
+    }
+
+    // Le proposeur d'import : un SKILL.md entre, des propositions VÉRIFIÉES sortent.
+    // Même famille que /api/rediger — le modèle assiste, n'écrit rien, ne décide rien.
+    if (url.pathname === '/api/proposer') {
+      if (req.method !== 'POST') { json(res, 405, { erreur: 'POST attendu.' }); return; }
+      let requete;
+      try { requete = await corps(req); }
+      catch (error) { json(res, 400, { erreur: error.message }); return; }
+      const { status, corps: sortie } = await proposer(requete, dependances());
       json(res, status, sortie);
       return;
     }

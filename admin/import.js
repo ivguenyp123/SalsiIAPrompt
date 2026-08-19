@@ -30,7 +30,7 @@
  */
 import { skillsDansArbre, lirePack, CHAMPS, fiable, MAX_CAPACITES } from '../lib/import-pack.js';
 import { versArtefact, resteADecider, DOSSIER_IMPORTE,
-         NIVEAU_IMPORTE } from '../lib/import-artefact.js';
+         NIVEAU_IMPORTE, AUCUN_OUTIL } from '../lib/import-artefact.js';
 import { verdict as verdictIsolement, preuvesPlateforme } from '../lib/executeur.js';
 import { contexte } from './contexte.js';
 import { knownScopes } from '../app/scopes.js';
@@ -276,7 +276,27 @@ function carteCapacite(c) {
    */
   const d = decisionsDe(c);
   const bloc = el('div', { className: 'bloc' });
-  bloc.append(el('h4', { textContent: 'À décider — et c\'est toi qui en réponds' }));
+
+  /*
+   * L'EN-TÊTE PORTE LE BOUTON « PROPOSER » — pas « Remplir automatiquement ».
+   *
+   * Le modèle lit la prose et propose avec preuves ; `lib/import-proposer.js` vérifie
+   * chaque citation mécaniquement ; et la sortie sépare structurellement ce que l'écran
+   * a le droit de POSER (les descriptions) de ce qu'il ne peut qu'AFFICHER (les droits).
+   * C'est I003 en action : `deduit` ne rend rien lançable — il attend un clic humain.
+   */
+  const entete = el('div', { className: 'ligne-decider' });
+  entete.append(el('h4', { textContent: 'À décider — et c\'est toi qui en réponds' }));
+  const proposerBtn = el('button', { className: 'btn ghost',
+                                     textContent: '🪄 Proposer depuis le texte' });
+  proposerBtn.onclick = () => proposerPour(c, proposerBtn);
+  entete.append(proposerBtn);
+  bloc.append(entete);
+
+  const hote = el('div');
+  hote.dataset.propositions = c.chemin;
+  bloc.append(hote);
+
   for (const def of CHAMPS.filter((x) => x.requis && !fiable(c.champs[x.nom].origine))) {
     bloc.append(controle(c, def, d));
   }
@@ -446,11 +466,33 @@ function selectEcrit(d, maj) {
 function casesOutils(d, maj) {
   const box = el('div', { className: 'cases' });
   d.outils = d.outils || [];
+
+  /*
+   * « AUCUN OUTIL » EST UNE DÉCISION. Défaut trouvé à l'usage : une capacité dont tout
+   * arrive par la matière n'a besoin de rien, et le formulaire forçait à cocher une case
+   * quand même — c'est-à-dire à accorder un droit pour rien. La case se comporte en
+   * exclusive : la cocher décoche le reste, cocher un outil la décoche.
+   */
+  const aucune = el('label', { className: 'case aucune' });
+  const cbAucun = el('input', { type: 'checkbox', checked: d.outils.includes(AUCUN_OUTIL) });
+  cbAucun.onchange = () => {
+    d.outils = cbAucun.checked ? [AUCUN_OUTIL] : [];
+    for (const autre of box.querySelectorAll('input')) {
+      if (autre !== cbAucun) autre.checked = false;
+    }
+    maj();
+  };
+  aucune.append(cbAucun, el('b', { textContent: 'Aucun outil' }),
+    el('span', { textContent: '— tout ce qu\'elle reçoit arrive par la matière collée' }));
+  box.append(aucune);
+
   for (const t of vue.ctx.tools) {
     const lab = el('label', { className: 'case' });
     const cb = el('input', { type: 'checkbox', checked: d.outils.includes(t.id) });
     cb.onchange = () => {
-      d.outils = cb.checked ? [...d.outils, t.id] : d.outils.filter((x) => x !== t.id);
+      d.outils = cb.checked ? [...d.outils.filter((x) => x !== AUCUN_OUTIL), t.id]
+                            : d.outils.filter((x) => x !== t.id);
+      if (cb.checked) cbAucun.checked = false;
       maj();
     };
     lab.append(cb, el('code', { textContent: t.id }),
@@ -605,4 +647,124 @@ function base64(texte) {
   let bin = '';
   for (const o of octets) bin += String.fromCharCode(o);
   return btoa(bin);
+}
+
+/* ── Le proposeur ──────────────────────────────────────────────────────────── */
+
+/** Les libellés des champs, pour parler à l'humain — pas en identifiants. */
+const NOMS_CHAMPS = { entrees: 'Ce qu\'elle lit', sorties: 'Ce qu\'elle produit',
+                      ecrit: 'Ce qu\'elle modifie', outils: 'Les outils',
+                      isolement: 'L\'isolement' };
+
+/**
+ * Demander des propositions au modèle, puis les poser SELON LEUR CLASSE.
+ *
+ * Les descriptives remplissent le textarea — marquées, l'humain relit. Les droits
+ * s'affichent en face du contrôle avec leur citation et leur ligne : c'est à l'humain
+ * de cliquer, et rien dans cette fonction ne touche un select ni une case.
+ */
+async function proposerPour(c, bouton) {
+  const hote = document.querySelector(`[data-propositions="${cssEchappe(c.chemin)}"]`);
+  if (!hote) return;
+  bouton.disabled = true;
+  bouton.textContent = '… le modèle lit';
+  hote.replaceChildren();
+
+  let r;
+  try {
+    const reponse = await fetch('/api/proposer', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ corps: vue.corps.get(c.chemin) || '', chemin: c.chemin })
+    });
+    r = await reponse.json();
+    if (!reponse.ok) throw new Error(r.erreur || `statut ${reponse.status}`);
+  } catch (error) {
+    hote.append(el('div', { className: 'coherence flou',
+      textContent: `Le proposeur n'a pas répondu : ${error.message}. Le formulaire se `
+        + 'remplit très bien sans lui.' }));
+    bouton.disabled = false;
+    bouton.textContent = '🪄 Proposer depuis le texte';
+    return;
+  }
+
+  const d = decisionsDe(c);
+  const faits = [];
+
+  if (r.illisible) {
+    hote.append(el('div', { className: 'coherence flou',
+      textContent: 'Le modèle n\'a rien rendu d\'exploitable — ce qui n\'est pas « rien à '
+        + 'proposer ». Réessaie, ou remplis à la main.' }));
+  }
+
+  /*
+   * L'ALERTE D'ABORD. Si le document contient une phrase qui s'adresse à l'importeur,
+   * c'est la première chose que l'humain doit lire — avant toute proposition.
+   */
+  if (r.alerte) {
+    hote.append(el('div', { className: 'coherence ko' },));
+    const a = hote.lastChild;
+    a.append(el('b', { textContent: 'Le document semble s\'adresser à l\'importeur' }),
+      document.createTextNode(`${r.alerte} Un document n'a pas d'ordres à donner à `
+        + 'l\'import : lis ce passage avec cette idée en tête.'));
+  }
+
+  // Les DESCRIPTIVES : posées dans le champ, et dites.
+  for (const p of r.preremplissages || []) {
+    d[p.champ] = p.valeur;
+    d._proposes = [...new Set([...(d._proposes || []), p.champ])];
+    faits.push(`${NOMS_CHAMPS[p.champ]} — pré-rempli depuis la ligne ${p.ligne}`);
+  }
+
+  // Les DROITS : affichés, jamais cliqués.
+  for (const p of r.suggestions || []) {
+    const box = el('div', { className: 'coherence ok suggestion' });
+    box.append(el('b', { textContent: `${NOMS_CHAMPS[p.champ]} — le modèle suggère : `
+      + `${Array.isArray(p.valeur) ? p.valeur.join(', ') : p.valeur}` }));
+    box.append(document.createTextNode(
+      `D'après la ligne ${p.ligne} : « ${p.citation} ». ${p.pourquoi} `));
+    box.append(el('i', { textContent: 'À toi de cliquer — une suggestion n\'est pas un droit.' }));
+    hote.append(box);
+  }
+
+  if ((r.jetees || []).length) {
+    const j = el('p', { className: 'pourquoi',
+      textContent: `${r.jetees.length} proposition(s) jetée(s) au crible — citation `
+        + 'introuvable ou valeur hors registre. Elles ne sont pas montrées : une '
+        + 'proposition sans preuve n\'existe pas.' });
+    hote.append(j);
+  }
+
+  if (faits.length) {
+    hote.append(el('div', { className: 'coherence flou' }));
+    const f = hote.lastChild;
+    f.append(el('b', { textContent: 'Proposé par le modèle — relis avant de déposer' }),
+      document.createTextNode(`${faits.join(' · ')}. Ces textes sont dans les champs `
+        + 'ci-dessous : ils se corrigent comme n\'importe quelle saisie.'));
+  }
+
+  bouton.disabled = false;
+  bouton.textContent = '🪄 Proposer encore';
+  // Re-rendre la carte pour que les textareas montrent les valeurs posées.
+  rendreCarte(c);
+}
+
+/**
+ * Re-rendre les CHAMPS d'une carte sans toucher au bloc de propositions.
+ *
+ * Les textareas sont recréés par `controle()` : après un pré-remplissage, le plus simple
+ * honnête est de les resservir depuis `decisions` — c'est la même source que le dépôt.
+ */
+function rendreCarte(c) {
+  const d = decisionsDe(c);
+  const row = document.querySelector(`[data-propositions="${cssEchappe(c.chemin)}"]`)
+    ?.closest('.row');
+  if (!row) return;
+  for (const ta of row.querySelectorAll('.champ textarea')) {
+    // L'ordre des textareas suit l'ordre des CHAMPS requis manquants : entrees, sorties.
+    const noms = CHAMPS.filter((x) => x.requis && !fiable(c.champs[x.nom].origine))
+      .filter((x) => ['entrees', 'sorties'].includes(x.nom)).map((x) => x.nom);
+    const idx = [...row.querySelectorAll('.champ textarea')].indexOf(ta);
+    if (noms[idx] && d[noms[idx]] !== undefined) ta.value = d[noms[idx]];
+  }
+  rendreVerdict(c);
 }

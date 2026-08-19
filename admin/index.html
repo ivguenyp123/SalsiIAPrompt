@@ -322,6 +322,17 @@
   #vue-import .coherence.ko > b{color:#fbbf24}
   #vue-import .acts{display:flex;gap:9px;flex-wrap:wrap;align-items:center;
                     border-top:1px solid var(--line);padding-top:14px;margin-top:14px}
+  /* ── Le proposeur ──
+     Le bouton vit sur la ligne du titre « À décider » : proposer est un geste sur tout
+     le formulaire, pas sur un champ. Les suggestions de DROITS sont vertes-cadrées mais
+     jamais cliquables — le vert dit « prouvé dans le texte », pas « autorisé ». */
+  .ligne-decider{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+  .ligne-decider h4{margin:0}
+  .ligne-decider .btn{margin-left:auto}
+  #vue-import .coherence.suggestion i{display:block;margin-top:6px;color:var(--tm);font-size:11.5px}
+  .case.aucune{border-color:rgba(124,92,252,.4)}
+  .case.aucune b{color:var(--tp);font-size:12px}
+  .case.aucune span{color:var(--tm);font-size:11px}
   #vue-import .acts .sp{flex:1}
   #vue-import .acts .pourquoi{flex:1 0 100%;margin:0;font-size:11.5px;color:var(--tm)}
 </style>

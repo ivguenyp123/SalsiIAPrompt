@@ -37,6 +37,9 @@ import { knownScopes } from '../app/scopes.js';
 import { toYaml } from '../studio/to-yaml.js';
 import { relire } from './coherence.js';
 import { ligne as ligneJournal } from '../lib/executions.js';
+import { promptDe as promptProposeur, verifier as verifierPropositions } from '../lib/import-proposer.js';
+import { MAX_CORPS } from '../lib/import-artefact.js';
+import { caviarder } from '../lib/signaux-securite.js';
 
 /*
  * Les dossiers où un artefact peut VIVRE — et le seul d'où il peut être LANCÉ.
@@ -415,6 +418,73 @@ async function deroulerChaine(artefact, { valeurs, contexte, vertex, models, fou
   } };
 }
 
+/* ── Le proposeur d'import ────────────────────────────────────────────────── */
+
+/**
+ * Un SKILL.md → des propositions VÉRIFIÉES pour le formulaire d'import.
+ *
+ * Ce que ce point d'entrée NE fait pas, comme `rediger` : il n'écrit rien, ne décide
+ * rien, n'accorde rien. Il rend des propositions dont chaque citation a été retrouvée
+ * MÉCANIQUEMENT dans le document (la ligne est calculée ici, jamais reprise du modèle),
+ * séparées en deux classes que l'écran ne peut pas confondre : les descriptives, qu'il
+ * peut pré-remplir, et les droits, qu'il affiche à côté du contrôle sans jamais cliquer.
+ *
+ * Le corps passe au CAVIARDAGE avant l'appel — un SKILL.md peut contenir un secret
+ * d'exemple, et la règle de `lancer()` vaut ici : rien ne part en clair.
+ *
+ * @param {object} requete  { corps, chemin }
+ * @param {object} deps     { registres, creerVertex }
+ */
+export async function proposer(requete = {}, deps = {}) {
+  const { registres = {}, creerVertex } = deps;
+  const corps = String(requete.corps || '').trim();
+
+  if (corps.length < 20) {
+    return { status: 400, corps: { erreur: 'Rien à lire : le corps du SKILL.md est vide.' } };
+  }
+  if (corps.length > MAX_CORPS) {
+    return { status: 400, corps: { erreur: `Document de ${corps.length} caractères : au-delà `
+      + `de ${MAX_CORPS}, l'import lui-même le refusera — inutile de proposer dessus.` } };
+  }
+
+  let vertex;
+  try { vertex = creerVertex(); }
+  catch (error) { return { status: 503, corps: { erreur: error.message } }; }
+
+  const { texte: corpsSur, trouves: caviarde } = caviarder(corps);
+  const prompt = promptProposeur({
+    corps: corpsSur, chemin: String(requete.chemin || ''),
+    outils: registres.tools || [], isolements: registres.isolements || [],
+    ecritures: registres.ecritures || []
+  });
+
+  let reponse;
+  try {
+    // `nano` : proposer cinq champs est une extraction, pas un raisonnement.
+    reponse = await vertex.generer({ prompt, tier: 'nano' });
+  } catch (error) {
+    return { status: error.status && error.status >= 400 ? error.status : 502,
+             corps: { erreur: error.message } };
+  }
+
+  /*
+   * LA VÉRIFICATION SE FAIT SUR LE TEXTE CAVIARDÉ — le même que le modèle a lu. Vérifier
+   * contre l'original ferait échouer toute citation contenant `[secret caviardé]`, et
+   * réussir une citation du secret en clair : les deux mauvais côtés à la fois.
+   */
+  const crible = verifierPropositions(reponse?.texte || '', {
+    corps: corpsSur,
+    outils: registres.tools || [], isolements: registres.isolements || [],
+    ecritures: registres.ecritures || []
+  });
+
+  return { status: 200, corps: {
+    ...crible, caviarde,
+    fournisseur: vertex.fournisseur, modele: reponse?.modele || '',
+    jetons: reponse?.jetons || null
+  } };
+}
+
 /* ── La dictée ────────────────────────────────────────────────────────────── */
 
 /** Une phrase plus longue que ça n'est plus un besoin, c'est un cahier des charges. */
@@ -604,4 +674,4 @@ export async function coherence(requete = {}, deps = {}) {
   }
 }
 
-export default { executer, etat, rediger, composer, coherence, DOSSIERS, LANCABLE, ID_VALIDE, PHRASE_MAX };
+export default { executer, etat, rediger, composer, coherence, proposer, DOSSIERS, LANCABLE, ID_VALIDE, PHRASE_MAX };
