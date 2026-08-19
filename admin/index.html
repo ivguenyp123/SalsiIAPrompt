@@ -199,6 +199,18 @@
   .alerte{padding:12px 15px;border-radius:12px;margin-bottom:16px;font-size:12.5px;line-height:1.6;
           color:#fcd34d;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.35)}
 
+  /* ── Le scan d'une source : une carte par capacité ──
+     Le nom seul ne dit rien ; c'est la description déclarée qu'on vient lire, et elle
+     mérite sa place au lieu d'une ligne tassée. Le chemin reste en pied : deux
+     capacités peuvent porter le même nom dans deux dossiers. */
+  .scaps{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;
+         margin:4px 0 6px}
+  .scap{background:var(--bg-deep);border:1px solid var(--line);border-radius:12px;
+        padding:12px 14px;min-width:0;display:flex;flex-direction:column;gap:5px}
+  .scap b{font-size:13px;font-family:var(--fd)}
+  .scap p{margin:0;color:var(--ts);font-size:12px;line-height:1.55;flex:1}
+  .scap small{color:var(--tm);font-size:10.5px;font-family:var(--fm);word-break:break-all}
+
   /* ── Exécutions ──
      Cinq chiffres et pas quatre : la part d'entrée est ce que le produit défend, elle ne
      se range pas dans une grille faite pour autre chose. `auto-fit` plutôt qu'un nombre

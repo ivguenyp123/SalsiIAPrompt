@@ -1128,17 +1128,8 @@ function rendreScan(s, refDe, pack, host) {
   if (r.illisibles) fait(`${r.illisibles} à l'en-tête illisible`);
   host.append(faits);
 
-  const liste = el('div', { className: 'hint' });
-  for (const c of pack.capacites) {
-    const p = el('p', { style: 'margin:3px 0' });
-    const nom = fiable(c.champs.id.origine) ? c.champs.id.valeur : c.chemin;
-    p.append(el('b', { textContent: nom }));
-    if (fiable(c.champs.titre.origine)) p.append(` — ${c.champs.titre.valeur}`);
-    liste.append(p);
-  }
-  host.append(liste);
-
-  const acts = el('div', { className: 'acts' });
+  // Le geste AVANT la liste : c'est lui qu'on cherche une fois les chiffres lus.
+  const acts = el('div', { className: 'acts', style: 'margin-bottom:12px' });
   const b = el('button', { className: 'btn on', textContent: 'Ouvrir dans l\'import →' });
   b.onclick = () => {
     $('imdepot').value = s.depot;
@@ -1148,6 +1139,26 @@ function rendreScan(s, refDe, pack, host) {
   };
   acts.append(b);
   host.append(acts);
+
+  /*
+   * Une carte par capacité, pas une ligne : le nom seul ne dit rien, et c'est la
+   * description — ce que l'amont DÉCLARE — qu'on vient lire ici. Le chemin reste en
+   * pied de carte : deux capacités peuvent porter le même nom dans deux dossiers.
+   */
+  const grille = el('div', { className: 'scaps' });
+  for (const c of pack.capacites) {
+    const carte = el('div', { className: 'scap' });
+    const nom = fiable(c.champs.id.origine) ? c.champs.id.valeur : c.chemin;
+    carte.append(el('b', { textContent: nom }));
+    carte.append(el('p', {
+      textContent: fiable(c.champs.titre.origine)
+        ? c.champs.titre.valeur
+        : 'Aucune description déclarée — l\'en-tête ne dit pas ce qu\'elle fait.'
+    }));
+    carte.append(el('small', { textContent: c.chemin }));
+    grille.append(carte);
+  }
+  host.append(grille);
 }
 
 /**
