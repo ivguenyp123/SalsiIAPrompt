@@ -33,7 +33,7 @@ import { ERROR } from '../lint/index.js';
 import { chemin } from '../lib/entrees.js';
 import { cout, VertexError } from './vertex.js';
 import { createMoteur } from './moteur.js';
-import { rendre, trous, valeursDepuisContexte, resoluesDepuisContexte } from './lancer.js';
+import { rendre, manquantes, valeursDepuisContexte, resoluesDepuisContexte } from './lancer.js';
 import { passer, plan, certifier, casRetenus, depense, runsDe } from './banc.js';
 import { CHEMIN, entree, fusionner, serialiser } from './etat-derive.js';
 
@@ -241,8 +241,10 @@ for (const artifact of lot) {
     // Les valeurs ont déjà été lues à la banque pour le pré-vol : les relire à chaque
     // tour relirait les mêmes fichiers treize fois pour le même résultat.
     const prompt = rendre(artifact.spec, valeursDuCas.get(cas.id) || {});
-    const manquantes = trous(prompt);
-    if (manquantes.length) return { erreur: `prompt à trou : ${manquantes.join(', ')}` };
+    // Sur le SPEC, pas sur le rendu : une fixture de la banque a le droit de contenir
+    // `{{x}}` — un cas d'or qui fait analyser un agent est de la matière, pas un trou.
+    const sansValeur = manquantes(artifact.spec, valeursDuCas.get(cas.id) || {});
+    if (sansValeur.length) return { erreur: `prompt à trou : ${sansValeur.join(', ')}` };
 
     try {
       const r = await moteur.generer({ prompt, tier: artifact.model_tier || 'mid' });

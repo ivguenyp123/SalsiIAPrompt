@@ -21,7 +21,8 @@ import { fileURLToPath } from 'node:url';
 import yaml from '../lib/yaml.js';
 import { makeValidator } from '../lib/schema.js';
 import { resoudre, satisfait, postvol, RESOLVABLES } from '../runtime/resolveurs.js';
-import { lancer, rendre, trous, valeursDepuisContexte, resoluesDepuisContexte } from '../runtime/lancer.js';
+import { lancer, rendre, trous, manquantes,
+         valeursDepuisContexte, resoluesDepuisContexte } from '../runtime/lancer.js';
 import { chemin } from '../lib/entrees.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -85,6 +86,29 @@ describe('le spec devient un prompt', () => {
     assert.deepEqual(trous(rendre('{{a}}', {})), ['a'], 'une clé absente laisse le trou');
     assert.deepEqual(trous(rendre('{{a}}', { a: null })), ['a'], '`null` n\'est pas une valeur');
     assert.deepEqual(trous(rendre('{{a}}', { a: 0 })), []);
+  });
+
+  test('LA MATIÈRE N\'EST PAS LE GABARIT : un moustache dans une valeur n\'est pas un trou', () => {
+    /*
+     * Vu en vrai le jour où le green coding a analysé `artifacts/conformite-cis.yaml` :
+     * le spec du fichier ANALYSÉ contient `{{rapport_conformite}}`, le contrôle
+     * rescannait le prompt RENDU, le prenait pour un trou, et refusait le départ.
+     * La plateforme ne savait plus lire ses propres agents comme matière.
+     *
+     * `manquantes` regarde le SPEC confronté aux valeurs — jamais le rendu.
+     */
+    const spec = 'Analyse ce fichier :\n{{analyse_fichier}}';
+    const matiere = 'id: conformite-cis\nspec: |\n  Rends {{rapport_conformite}} en tableau.';
+
+    assert.deepEqual(manquantes(spec, { analyse_fichier: matiere }), [],
+      'la valeur fournie remplit le trou, ce qu\'elle contient est de la matière');
+    // Et le moustache de la matière part au modèle TEL QUEL — jamais substitué.
+    assert.match(rendre(spec, { analyse_fichier: matiere }), /\{\{rapport_conformite\}\}/);
+
+    // Le vrai trou, lui, refuse toujours — clé absente ou nulle, mêmes règles que rendre.
+    assert.deepEqual(manquantes(spec, {}), ['analyse_fichier']);
+    assert.deepEqual(manquantes(spec, { analyse_fichier: null }), ['analyse_fichier']);
+    assert.deepEqual(manquantes(spec, { analyse_fichier: '' }), [], 'vide est une valeur');
   });
 });
 

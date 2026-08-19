@@ -64,6 +64,26 @@ export function rendre(spec, valeurs = {}) {
 export const trous = (rendu) => [...new Set([...String(rendu).matchAll(TROU)].map((m) => m[1]))];
 
 /**
+ * Les trous du GABARIT, confrontés aux valeurs fournies — jamais cherchés dans le rendu.
+ *
+ * ── LA MATIÈRE N'EST PAS LE GABARIT ─────────────────────────────────────────
+ *
+ * Le contrôle historique faisait `trous(rendre(spec, valeurs))` : il rescannait le texte
+ * RENDU. Or les valeurs y sont insérées telles quelles — et une valeur a parfaitement le
+ * droit de contenir `{{quelque_chose}}`. Vu en vrai le jour où le green coding a analysé
+ * `artifacts/conformite-cis.yaml` : le spec du fichier ANALYSÉ contient
+ * `{{rapport_conformite}}`, le contrôle l'a pris pour un trou du prompt, et le départ a
+ * été refusé — la plateforme ne savait plus lire ses propres agents comme matière.
+ *
+ * Un trou est une variable du SPEC sans valeur. Ce qui ressemble à une variable dans la
+ * matière est de la matière. `rendre` ne substitue d'ailleurs que les trous du spec —
+ * `String.replace` ne repasse pas sur ce qu'il vient d'insérer — donc ces moustaches-là
+ * ne seront jamais remplies : elles partent au modèle comme le texte qu'elles sont.
+ */
+export const manquantes = (spec, valeurs = {}) => trous(spec).filter((nom) =>
+  !Object.hasOwn(valeurs, nom) || valeurs[nom] === undefined || valeurs[nom] === null);
+
+/**
  * Résout le contexte d'un cas d'or en valeurs de variables.
  *
  * `diff_fixture: petit-fix` ne se substitue pas à `{{diff_fixture}}` — il n'y a pas de
@@ -169,13 +189,14 @@ export async function lancer(artifact, { vertex, valeurs = {}, contexte = {},
   }
 
   const prompt = rendre(artifact.spec, valeurs);
-  const manquantes = trous(prompt);
-  if (manquantes.length) {
+  // Sur le SPEC, pas sur le rendu : une matière qui contient `{{x}}` est de la matière.
+  const sansValeur = manquantes(artifact.spec, valeurs);
+  if (sansValeur.length) {
     // P003 l'a normalement déjà dit ; ce garde-fou attrape le cas où une variable est
     // utilisée dans le spec sans être déclarée — L002 au lint, mais un fichier écrit à
     // la main dans le dépôt ne passe pas par le Studio.
     return { prevol: avant, refuse: true, sortie: null, postvol: null,
-             raison: `Le prompt partirait avec ${manquantes.length} trou(s) : ${manquantes.join(', ')}.` };
+             raison: `Le prompt partirait avec ${sansValeur.length} trou(s) : ${sansValeur.join(', ')}.` };
   }
 
   /*
@@ -249,4 +270,4 @@ export async function lancer(artifact, { vertex, valeurs = {}, contexte = {},
   };
 }
 
-export default { lancer, rendre, trous, valeursDepuisContexte, TROU };
+export default { lancer, rendre, trous, manquantes, valeursDepuisContexte, TROU };

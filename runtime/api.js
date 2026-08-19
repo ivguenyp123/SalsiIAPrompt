@@ -26,7 +26,7 @@
  * Module INJECTÉ de bout en bout — forge de Vertex, lecture de fichiers, registres.
  * C'est ce qui permet de le tester sans clé, sans réseau et sans serveur.
  */
-import { lancer, valeursDepuisContexte, rendre, trous } from './lancer.js';
+import { lancer, valeursDepuisContexte, rendre, manquantes } from './lancer.js';
 import { derouler, depense as depenseChaine } from './chaine.js';
 import { prevol } from '../preflight/index.js';
 import { ERROR } from '../lint/index.js';
@@ -376,9 +376,11 @@ async function deroulerChaine(artefact, { valeurs, contexte, vertex, models, fou
    */
   const jouer = async (cible, entrees) => {
     const prompt = rendre(cible.spec, entrees);
-    const manquantes = trous(prompt);
-    if (manquantes.length) {
-      throw new Error(`prompt à trou sur \`${cible.id}\` : ${manquantes.join(', ')}`);
+    // Sur le SPEC, pas sur le rendu : la sortie d'une brique amont a le droit de
+    // contenir `{{x}}` — c'est de la matière, pas un trou de la brique suivante.
+    const sansValeur = manquantes(cible.spec, entrees);
+    if (sansValeur.length) {
+      throw new Error(`prompt à trou sur \`${cible.id}\` : ${sansValeur.join(', ')}`);
     }
     const rep = await vertex.generer({ prompt, tier: cible.model_tier || 'mid' });
     return { sortie: rep.texte, jetons: rep.jetons, modele: rep.modele,
