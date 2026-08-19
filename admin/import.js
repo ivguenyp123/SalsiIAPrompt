@@ -721,17 +721,36 @@ async function proposerPour(c, bouton) {
     box.append(el('b', { textContent: `${NOMS_CHAMPS[p.champ]} — le modèle suggère : `
       + `${Array.isArray(p.valeur) ? p.valeur.join(', ') : p.valeur}` }));
     box.append(document.createTextNode(
-      `D'après la ligne ${p.ligne} : « ${p.citation} ». ${p.pourquoi} `));
+      `D'après la ligne ${p.ligne} : « ${p.citation} »`
+      + `${p.partielle ? ' (fragment vérifié de sa citation)' : ''}. ${p.pourquoi} `));
     box.append(el('i', { textContent: 'À toi de cliquer — une suggestion n\'est pas un droit.' }));
     hote.append(box);
   }
 
+  /*
+   * LES JETÉES SE MONTRENT — comme jetées.
+   *
+   * La première version n'affichait qu'un compte, et le premier essai réel a tout jeté :
+   * l'humain voyait « 4 jetées » et des champs vides, sans rien pour comprendre ni pour
+   * repartir. Montrer la valeur BARRÉE avec sa raison ne la promeut pas — l'écran dit
+   * précisément « sans preuve vérifiable » — mais elle informe : une bonne description
+   * mal citée se recopie à la main en dix secondes, et ce choix-là appartient à l'humain.
+   */
   if ((r.jetees || []).length) {
-    const j = el('p', { className: 'pourquoi',
-      textContent: `${r.jetees.length} proposition(s) jetée(s) au crible — citation `
-        + 'introuvable ou valeur hors registre. Elles ne sont pas montrées : une '
-        + 'proposition sans preuve n\'existe pas.' });
-    hote.append(j);
+    const box = el('div', { className: 'coherence flou jetees' });
+    box.append(el('b', { textContent: `${r.jetees.length} proposition(s) jetée(s) au crible `
+      + '— sans preuve vérifiable dans le document' }));
+    const ul = el('ul', { className: 'plain' });
+    for (const j of r.jetees) {
+      const li = el('li');
+      li.append(el('s', { textContent: `${NOMS_CHAMPS[j.champ] || j.champ} : `
+        + `${Array.isArray(j.valeur) ? j.valeur.join(', ') : String(j.valeur ?? '')}` }));
+      li.append(document.createTextNode(` — ${j.raison}`));
+      ul.append(li);
+    }
+    box.append(ul, el('i', { textContent: 'Rien de tout ceci n\'est appliqué. Si une valeur '
+      + 'te semble juste malgré tout, c\'est TOI qui la tapes — en le sachant.' }));
+    hote.append(box);
   }
 
   if (faits.length) {

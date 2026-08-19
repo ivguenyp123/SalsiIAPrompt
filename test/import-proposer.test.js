@@ -250,3 +250,84 @@ describe('un SKILL.md qui vise l\'assistant ne gagne rien', () => {
     assert.match(r.alerte, /instruction pour l'importeur/);
   });
 });
+
+/* ── Le crible face au VRAI modèle — relevé du premier essai, 2026-08-19 ───── */
+
+describe('tolérant à la typographie, jamais à l\'invention', () => {
+  /*
+   * Le premier essai réel a jeté 100 % des propositions. Pas parce que le modèle
+   * inventait : parce qu'il recopiait en enlevant les `**gras**`, en changeant les
+   * guillemets, en variant la casse — et que le crible exigeait l'identité au caractère
+   * près. Il protégeait contre la typographie, pas contre l'invention.
+   */
+  const DOC = `# Architecture
+
+Synthesizes **raw learnings** and codebase analysis into an interlinked KB.
+Don't use for generating "threat models" or formulating execution plans.
+USE THIS ONLY IN ISOLATED, RESTRICTED ENVIRONMENTS.
+`;
+  const CTX2 = { ...CTX, corps: DOC };
+
+  test('le gras markdown enlevé par le modèle ne jette plus la preuve', () => {
+    const r = verifier(reponse([{ ...bonne,
+      citation: 'Synthesizes raw learnings and codebase analysis' }]), CTX2);
+    assert.equal(r.preremplissages.length, 1);
+    assert.equal(r.preremplissages[0].ligne, 3);
+    // Et L'EXTRAIT AFFICHÉ VIENT DU DOCUMENT — gras compris — jamais du modèle.
+    assert.match(r.preremplissages[0].citation, /\*\*raw learnings\*\*/);
+  });
+
+  test('la casse et les guillemets typographiques non plus', () => {
+    const r = verifier(reponse([{ ...bonne,
+      citation: 'don\'t use for generating « threat models »' }]), CTX2);
+    assert.equal(r.preremplissages.length, 1);
+    assert.equal(r.preremplissages[0].ligne, 4);
+  });
+
+  test('DEUX PHRASES COLLÉES DONT UNE SEULE EXISTE : le fragment réel fait preuve', () => {
+    // Le modèle résume en soudant des bouts. S'il a VRAIMENT lu l'une des phrases, la
+    // jeter entière perd une lecture juste ; la preuve retenue est le fragment RÉEL,
+    // marqué partiel — et c'est LUI qui s'affiche, pas la soudure.
+    const r = verifier(reponse([{ ...bonne,
+      citation: 'This tool is completely safe to run anywhere. USE THIS ONLY IN ISOLATED, RESTRICTED ENVIRONMENTS.' }]), CTX2);
+    assert.equal(r.preremplissages.length, 1);
+    assert.equal(r.preremplissages[0].partielle, true);
+    assert.match(r.preremplissages[0].citation, /^USE THIS ONLY/);
+    assert.ok(!/completely safe/.test(r.preremplissages[0].citation),
+      'la phrase inventée ne s\'affiche jamais');
+  });
+
+  test('une citation ENTIÈREMENT inventée reste jetée — la tolérance a un plancher', () => {
+    const r = verifier(reponse([{ ...bonne,
+      citation: 'This capability requires no isolation at all and is production ready' }]), CTX2);
+    assert.equal(r.preremplissages.length, 0);
+  });
+
+  test('les identifiants se normalisent : accents, casse, tirets bas', () => {
+    const citee = (champ, valeur) => ({ champ, valeur,
+      citation: 'USE THIS ONLY IN ISOLATED, RESTRICTED ENVIRONMENTS', pourquoi: 'x' });
+    const r = verifier(reponse([
+      citee('isolement', 'Aucune-Exécution'),
+      citee('ecrit', 'Etat_Partagé')
+    ]), CTX2);
+    assert.equal(r.suggestions.length, 2);
+    // La valeur retenue est TOUJOURS l'identifiant du registre, jamais celle du modèle.
+    assert.equal(r.suggestions.find((s) => s.champ === 'isolement').valeur, 'aucune-execution');
+    assert.equal(r.suggestions.find((s) => s.champ === 'ecrit').valeur, 'etat-partage');
+  });
+
+  test('un identifiant inventé reste hors registre après normalisation', () => {
+    const r = verifier(reponse([{ champ: 'isolement', valeur: 'Sandbox_Magique',
+      citation: 'USE THIS ONLY IN ISOLATED, RESTRICTED ENVIRONMENTS', pourquoi: 'x' }]), CTX2);
+    assert.equal(r.suggestions.length, 0);
+    assert.match(r.jetees[0].raison, /n'est pas un isolement du registre/);
+  });
+
+  test('un fragment sous le plancher ne prouve rien', () => {
+    // « into an » existe dans le document ; l'accepter comme preuve prouverait n'importe
+    // quoi sur n'importe quel texte anglais.
+    const r = verifier(reponse([{ ...bonne,
+      citation: 'A completely made up sentence. into an.' }]), CTX2);
+    assert.equal(r.preremplissages.length, 0);
+  });
+});
