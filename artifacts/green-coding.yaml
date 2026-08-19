@@ -1,0 +1,140 @@
+# salsi-provenance: demande
+# besoin: « fais moi un agent qui cette fois analyse le code mais en terme de green coding »
+# demande-par: ivguenyp123
+# le: 2026-08-19
+# (écrit à la main sur cette demande, sur le moule de l'analyseur de code — pas passé
+#  par la dictée)
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# ── CE QUE « GREEN CODING » VEUT DIRE ICI, ET SURTOUT CE QUE ÇA NE DIT PAS ──
+#
+# Cet agent lit UN fichier et cherche les MOTIFS qui font consommer plus que
+# nécessaire : du travail refait, des données surlues, des attentes actives, des
+# transferts obèses, de la rétention sans borne. C'est une lecture — pas une mesure.
+#
+# Le piège du genre, c'est le chiffre : « ce code émet X grammes de CO₂ », « −40 % de
+# consommation ». Aucune lecture de fichier ne peut produire ces nombres ; les écrire
+# quand même, c'est du faux avec de l'autorité — la faute exacte que « le chiffre au
+# code » interdit. La consigne l'interdit donc explicitement, et une section entière
+# est réservée à ce qu'il FAUDRAIT mesurer pour transformer les hypothèses en faits :
+# la fréquence d'appel ne se lit pas dans le fichier, et c'est pourtant elle qui
+# décide si une boucle coûte un centime ou un serveur.
+#
+# La matière est la même que l'analyseur de code : le fichier scanné, caviardé et
+# numéroté par la plateforme. Mêmes règles sur les secrets, même honnêteté sur
+# l'extrait coupé.
+
+id: green-coding
+kind: prompt
+title: Green coding — ce que ce fichier gaspille
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [code, performance, qualite]
+intent:
+  purpose: >-
+    Lire un fichier et dire où il consomme plus que nécessaire — travail refait,
+    données surlues, attentes actives, rétention sans borne — avec, pour chaque
+    constat, la ligne, la ressource gaspillée et le geste qui supprime le travail.
+  not_for: >-
+    Ce n'est pas un bilan carbone et ça n'en produira jamais les chiffres : aucune
+    lecture de fichier ne mesure des watts, des grammes de CO₂ ou des pourcentages
+    d'économie. C'est une chasse aux motifs, à confirmer par les mesures que la
+    section dédiée réclame. Pas non plus un juge de style : un code laid qui ne
+    travaille qu'une fois ne gaspille rien.
+model_tier: mid
+target_level: experimental
+variables:
+  # La même entrée calculée que l'analyseur de code : le fichier a été scanné et
+  # caviardé AVANT d'arriver ici — les secrets ne parviennent jamais au modèle.
+  - name: analyse_fichier
+    source: signal
+    required: true
+    description: >-
+      Le fichier choisi, scanné avant lecture : motifs de secret avec leur ligne,
+      contrôles de chaîne d'approvisionnement du manifeste, ce qui n'a pas été
+      cherché, puis le contenu caviardé et numéroté.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  # Les quatre sections, dont « Ce qu'il faudrait mesurer » : sans ce critère, la
+  # partie la plus honnête du rapport — celle qui avoue ce qu'une lecture ne sait
+  # pas — serait la première que le modèle sauterait.
+  - target: output.sections
+    op: contains
+    value:
+      - À quoi ça sert
+      - Où ça gaspille
+      - Ce qu'il faudrait mesurer
+      - Par où commencer
+spec: |-
+  Tu lis un fichier pour dire où il fait travailler des machines plus que nécessaire.
+
+  Le rapport ci-dessous est CALCULÉ : le scan a déjà tourné sur le fichier entier, et
+  les secrets y sont caviardés.
+
+  {{analyse_fichier}}
+
+  Rends exactement ces sections, avec ces titres :
+
+  ## À quoi ça sert
+  ## Où ça gaspille
+  ## Ce qu'il faudrait mesurer
+  ## Par où commencer
+
+  Ce qu'on attend dans chacune :
+
+  À QUOI ÇA SERT
+  L'intention du fichier en deux phrases, parce qu'on ne juge pas la dépense d'un code
+  sans savoir ce qu'il achète. Si ce n'est pas du code — configuration, données —
+  dis-le, signale seulement ce qui s'y voit (une rétention sans borne se déclare aussi
+  dans une configuration), et arrête-toi.
+
+  OÙ ÇA GASPILLE
+  Les motifs qui font consommer, chacun avec SA ligne, LA ressource qu'il brûle —
+  calcul refait, aller-réseau, lecture disque, mémoire retenue — et LE geste qui
+  supprime ce travail. Cherche en priorité :
+
+  - le travail REFAIT : recalculé à chaque appel ce qui ne change pas, connexion ou
+    client recréé dans une boucle, fichier relu à chaque passage, re-parse du même texte ;
+  - les données SURLUES : tout charger pour n'utiliser qu'un champ, `SELECT *`,
+    pagination absente, N+1 — un appel par élément là où un seul suffirait ;
+  - les attentes ACTIVES : polling serré là où un événement existe, boucle qui tourne
+    pour surveiller, intervalle qui continue sans lecteur ;
+  - les boucles dont le coût EXPLOSE : quadratique ou pire sur une donnée que rien ne
+    borne — dis sur quelle donnée, et ce qui se passe quand elle grandit ;
+  - la rétention SANS BORNE : cache sans éviction, historique jamais purgé, journal
+    verbeux dans une boucle chaude, ce qui s'accumule sans date de sortie ;
+  - les transferts OBÈSES : la réponse entière là où un résumé suffit, compression
+    absente sur du volumineux, la même chose renvoyée à chaque fois sans cache.
+
+  Trois règles, et la première prime :
+
+  - AUCUN CHIFFRE DE CONSOMMATION. Ni watts, ni grammes de CO₂, ni « −30 % ». Tu lis
+    un fichier : ces nombres ne peuvent pas en sortir, et un chiffre non mesuré est
+    faux avec de l'autorité. Tu peux dire ce qui DOMINE — un aller-réseau coûte plus
+    que mille additions, ce qui tourne souvent bat ce qui tourne une fois — jamais
+    combien.
+  - Classe par facture probable, pas par élégance. En tête ce qui tourne souvent ou
+    par élément ; en queue ce qui tourne une fois au démarrage. Quand la fréquence ne
+    se lit pas dans le fichier, dis que ton classement est une hypothèse.
+  - Ne signale ni les micro-optimisations que le compilateur fait déjà, ni un dogme —
+    « réécris dans tel langage » n'est pas un geste. Si le fichier est sobre, écris-le :
+    un rapport vide est un bon rapport.
+
+  Et les mêmes règles de lecture que partout : ne recopie aucune valeur de secret,
+  même caviardée ; si l'extrait est coupé, ne conclus rien sur ce que tu n'as pas lu.
+
+  CE QU'IL FAUDRAIT MESURER
+  Les deux ou trois mesures qui transformeraient tes hypothèses en faits, et où elles
+  vivent : la fréquence d'appel (les métriques d'exécution), le volume de la donnée
+  traversée (la base, pas le code), la taille de ce qui transite (les journaux d'accès).
+  C'est la section qui rend le reste honnête — « déduit » ne vaut pas « mesuré ».
+
+  PAR OÙ COMMENCER
+  UNE proposition, la plus rentable : celle qui supprime du travail machine, pas celle
+  qui rend le code plus joli. Dis ce qu'elle supprime — « cet appel ne se fera plus
+  qu'une fois » vaut mieux que « c'est mieux ».
