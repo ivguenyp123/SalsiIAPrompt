@@ -91,6 +91,19 @@ describe('ce que le formulaire ne montre pas est transporté', () => {
     const apres = rouvrirEtRepublier(nu);
     assert.ok(!('tags' in apres) && !('model_tier' in apres));
   });
+
+  test('l\'isolement survit — rééditer un agent importé ne lui retire pas son droit', () => {
+    // Le Studio n'a pas de champ isolement ; sans transport, republier un artefact
+    // importé l'aurait amputé en silence du droit qu'un Admin avait décidé, et P009
+    // aurait jugé un artefact qui ne dit plus rien. Découvert par un VRAI import :
+    // mantis-architecture, redéposé, perdait son `isolement` à la première réédition.
+    const importe = { ...officiel, isolement: 'aucune-execution' };
+    assert.equal(rouvrirEtRepublier(importe).isolement, 'aucune-execution');
+
+    const sans = { ...officiel };
+    delete sans.isolement;
+    assert.ok(!('isolement' in rouvrirEtRepublier(sans)), 'absent à l\'origine, absent après');
+  });
 });
 
 describe('l\'identifiant est préservé', () => {

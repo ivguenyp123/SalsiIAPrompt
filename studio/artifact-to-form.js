@@ -23,7 +23,14 @@
  * champs écrits aurait figé les cas d'or d'un artefact repris — visibles, éditables en
  * apparence, et remplacés par la version transportée à la republication.
  */
-export const CARRIED = ['tags', 'moment', 'model_tier', 'classification'];
+/*
+ * `isolement` y est ENTRÉ le jour où l'import l'a écrit dans les artefacts : le Studio
+ * ne le montre pas, et sans transport, rééditer un agent importé lui retirait son
+ * isolement en silence — P009 aurait alors jugé un artefact amputé du droit qu'un
+ * Admin avait pourtant décidé. Le jour où le Studio saura le saisir, il en sortira,
+ * comme `golden_cases` avant lui.
+ */
+export const CARRIED = ['tags', 'moment', 'model_tier', 'classification', 'isolement'];
 
 /** Un dictionnaire redevient des lignes de saisie. L'ordre du fichier est conservé. */
 const toRows = (map, keyName) =>
