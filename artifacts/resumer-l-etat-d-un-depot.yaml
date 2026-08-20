@@ -14,7 +14,7 @@
 # dire pourquoi.
 id: resumer-l-etat-d-un-depot
 kind: prompt
-title: L'état de ce dépôt — la photo, en une page
+title: 'L''état de ce dépôt — la photo, en une page'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -39,10 +39,10 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - Ce que c'est
-      - Comment ça vit
-      - Où ça frotte
-      - Ce qu'on ne sait pas
+      - 'Ce que c''est'
+      - 'Comment ça vit'
+      - 'Où ça frotte'
+      - 'Ce qu''on ne sait pas'
 spec: |-
   Tu résumes l'état d'un dépôt.
   

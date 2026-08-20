@@ -15,7 +15,7 @@
 # péremption.
 id: proposer-la-structure-d-un-projet
 kind: prompt
-title: La structure d'un projet qui démarre — la plus petite qui tienne
+title: 'La structure d''un projet qui démarre — la plus petite qui tienne'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -45,10 +45,10 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - Ce que ce projet doit faire
-      - L'arborescence
-      - Ce que je n'ai pas mis
-      - Quand la faire évoluer
+      - 'Ce que ce projet doit faire'
+      - 'L''arborescence'
+      - 'Ce que je n''ai pas mis'
+      - 'Quand la faire évoluer'
 spec: |-
   Tu proposes l'arborescence d'un projet qui démarre.
   

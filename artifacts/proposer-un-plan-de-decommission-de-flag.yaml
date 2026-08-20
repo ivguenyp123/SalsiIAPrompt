@@ -14,7 +14,7 @@
 # spec impose cet ordre et exige que l'étape d'observation ait un critère.
 id: proposer-un-plan-de-decommission-de-flag
 kind: prompt
-title: Retirer un drapeau — l'ordre des étapes, et celle qu'on saute toujours
+title: 'Retirer un drapeau — l''ordre des étapes, et celle qu''on saute toujours'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -44,11 +44,11 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - Ce que le drapeau tient encore
-      - Le plan, dans l'ordre
-      - Ce qui devient du code mort
-      - Le point de non-retour
-      - À vérifier dans la console avant de commencer
+      - 'Ce que le drapeau tient encore'
+      - 'Le plan, dans l''ordre'
+      - 'Ce qui devient du code mort'
+      - 'Le point de non-retour'
+      - 'À vérifier dans la console avant de commencer'
 spec: |-
   Tu proposes le plan de retrait d'un feature flag.
   

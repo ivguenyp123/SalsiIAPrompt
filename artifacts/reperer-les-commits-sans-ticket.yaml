@@ -14,7 +14,7 @@
 # signifie que quelque chose est parti en production sans avoir été demandé.
 id: reperer-les-commits-sans-ticket
 kind: prompt
-title: Les commits sans ticket — et lesquels posent vraiment problème
+title: 'Les commits sans ticket — et lesquels posent vraiment problème'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -39,9 +39,9 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - Ce qui manque de traçabilité
-      - Ceux qui n'inquiètent pas
-      - Ce qui rendrait ça inutile
+      - 'Ce qui manque de traçabilité'
+      - 'Ceux qui n''inquiètent pas'
+      - 'Ce qui rendrait ça inutile'
 spec: |-
   Tu repères les commits d'une version qui ne citent aucun ticket.
   

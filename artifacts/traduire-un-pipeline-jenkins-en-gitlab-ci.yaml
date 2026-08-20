@@ -16,7 +16,7 @@
 # après.
 id: traduire-un-pipeline-jenkins-en-gitlab-ci
 kind: prompt
-title: De Jenkins à GitLab CI — la traduction, et ce qui ne se traduit pas
+title: 'De Jenkins à GitLab CI — la traduction, et ce qui ne se traduit pas'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -41,10 +41,10 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - Ce que fait le pipeline d'origine
-      - Ce qui n'a pas d'équivalent
-      - Le fichier traduit
-      - À vérifier avant de basculer
+      - 'Ce que fait le pipeline d''origine'
+      - 'Ce qui n''a pas d''équivalent'
+      - 'Le fichier traduit'
+      - 'À vérifier avant de basculer'
 spec: |-
   Tu traduis un pipeline Jenkins en `.gitlab-ci.yml`.
   

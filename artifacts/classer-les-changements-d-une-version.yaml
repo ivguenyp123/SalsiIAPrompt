@@ -15,7 +15,7 @@
 # compte vraiment — les deux autres se découvrent, celle-là se subit.
 id: classer-les-changements-d-une-version
 kind: prompt
-title: Les changements d'une version — nouveautés, corrections, ruptures
+title: 'Les changements d''une version — nouveautés, corrections, ruptures'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -40,10 +40,10 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - Ce qui casse
-      - Ce qui est nouveau
-      - Ce qui est corrigé
-      - Ce que je n'ai pas pu classer
+      - 'Ce qui casse'
+      - 'Ce qui est nouveau'
+      - 'Ce qui est corrigé'
+      - 'Ce que je n''ai pas pu classer'
 spec: |-
   Tu classes les changements d'une version.
   

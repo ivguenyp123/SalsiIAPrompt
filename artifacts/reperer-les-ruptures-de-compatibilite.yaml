@@ -15,7 +15,7 @@
 # appelants : le spec exige donc de le dire, et de nommer ce qu'il faut chercher.
 id: reperer-les-ruptures-de-compatibilite
 kind: prompt
-title: Les ruptures — ce qui va casser chez les appelants
+title: 'Les ruptures — ce qui va casser chez les appelants'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -40,10 +40,10 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - Ce qui casse
-      - Ce qui casse en silence
-      - Ce qu'il faut chercher
-      - Ce que le diff ne montre pas
+      - 'Ce qui casse'
+      - 'Ce qui casse en silence'
+      - 'Ce qu''il faut chercher'
+      - 'Ce que le diff ne montre pas'
 spec: |-
   Tu lis un diff pour dire ce qui va casser chez ceux qui appellent ce code.
   

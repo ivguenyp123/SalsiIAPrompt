@@ -15,7 +15,7 @@
 # retrouve absent d'un fichier qui décide des relectures.
 id: rediger-le-fichier-des-responsables
 kind: prompt
-title: Le CODEOWNERS — d'après qui touche vraiment à quoi
+title: 'Le CODEOWNERS — d''après qui touche vraiment à quoi'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -45,10 +45,10 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - Ce que montrent les contributions
-      - Les zones à ne PAS verrouiller
-      - Le fichier
-      - Ce que ce fichier ne dit pas
+      - 'Ce que montrent les contributions'
+      - 'Les zones à ne PAS verrouiller'
+      - 'Le fichier'
+      - 'Ce que ce fichier ne dit pas'
 spec: |-
   Tu proposes un fichier CODEOWNERS à partir de qui touche réellement à quoi.
   

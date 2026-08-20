@@ -15,7 +15,7 @@
 # déclenche jamais rien.
 id: rediger-la-checklist-de-rollout
 kind: prompt
-title: La checklist de rollout — dont les critères d'arrêt
+title: 'La checklist de rollout — dont les critères d''arrêt'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -40,11 +40,11 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - Avant d'ouvrir
-      - Les paliers
-      - Ce qui fait redescendre
-      - Qui décide et quand
-      - Ce qu'un rollback ne rattrapera pas
+      - 'Avant d''ouvrir'
+      - 'Les paliers'
+      - 'Ce qui fait redescendre'
+      - 'Qui décide et quand'
+      - 'Ce qu''un rollback ne rattrapera pas'
 spec: |-
   Tu écris la checklist de rollout d'un feature flag.
   

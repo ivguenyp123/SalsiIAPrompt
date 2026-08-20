@@ -12,7 +12,7 @@
 # Le partage qui tient est celui qui passe par du travail RÉEL déjà prévu.
 id: proposer-un-plan-de-partage-de-connaissance
 kind: prompt
-title: Partager la connaissance — un plan qui tienne trois mois
+title: 'Partager la connaissance — un plan qui tienne trois mois'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -37,10 +37,10 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - Les zones à découpler
-      - Le plan, greffé sur du travail réel
-      - Ce qui le fera échouer
-      - À quoi on verra que ça marche
+      - 'Les zones à découpler'
+      - 'Le plan, greffé sur du travail réel'
+      - 'Ce qui le fera échouer'
+      - 'À quoi on verra que ça marche'
 spec: |-
   Tu proposes un plan de partage de connaissance à partir de la répartition des contributions.
   

@@ -15,7 +15,7 @@
 # en jours par quelqu'un qui connaît l'équipe ; l'inverse n'est pas vrai.
 id: estimer-l-effort-de-reprise-d-un-code
 kind: prompt
-title: Reprendre ce code — ce que ça demande avant d'y toucher
+title: 'Reprendre ce code — ce que ça demande avant d''y toucher'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -40,11 +40,11 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - Ce que ce code fait
-      - Ce qu'il faut comprendre
-      - Ce qu'il faut aller chercher ailleurs
-      - Ce qui sera pénible
-      - Ce qui rendrait l'estimation possible
+      - 'Ce que ce code fait'
+      - 'Ce qu''il faut comprendre'
+      - 'Ce qu''il faut aller chercher ailleurs'
+      - 'Ce qui sera pénible'
+      - 'Ce qui rendrait l''estimation possible'
 spec: |-
   Tu dis ce que reprendre un code qu'on n'a pas écrit va demander.
   

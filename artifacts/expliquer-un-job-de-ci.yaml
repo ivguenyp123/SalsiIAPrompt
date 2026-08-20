@@ -15,7 +15,7 @@
 # regarder.
 id: expliquer-un-job-de-ci
 kind: prompt
-title: Ce job de CI — ce qu'il fait vraiment
+title: 'Ce job de CI — ce qu''il fait vraiment'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -40,10 +40,10 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - À quoi il sert
-      - Quand il tourne
-      - Ce dont il a besoin
-      - Ce qui se passe quand il échoue
+      - 'À quoi il sert'
+      - 'Quand il tourne'
+      - 'Ce dont il a besoin'
+      - 'Ce qui se passe quand il échoue'
 spec: |-
   Tu expliques un job de CI à quelqu'un qui ne l'a pas écrit.
   

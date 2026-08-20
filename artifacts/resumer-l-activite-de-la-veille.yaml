@@ -14,7 +14,7 @@
 # un fait qu'on ne connaissait pas.
 id: resumer-l-activite-de-la-veille
 kind: prompt
-title: Hier sur ce dépôt — trois lignes
+title: 'Hier sur ce dépôt — trois lignes'
 owner:
   person: ivguenyp123
   scope: Plateforme

@@ -15,7 +15,7 @@
 # troisième.
 id: rediger-le-commentaire-dora-du-comite
 kind: prompt
-title: Le commentaire DORA du comité — cinq lignes, et rien de plus
+title: 'Le commentaire DORA du comité — cinq lignes, et rien de plus'
 owner:
   person: ivguenyp123
   scope: Plateforme

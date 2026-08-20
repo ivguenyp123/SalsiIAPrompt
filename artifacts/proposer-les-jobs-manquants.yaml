@@ -14,7 +14,7 @@
 # précis. Le spec exige donc, pour chaque manque, ce qui peut arriver sans lui.
 id: proposer-les-jobs-manquants
 kind: prompt
-title: Les jobs qui manquent — et seulement ceux qui manquent vraiment
+title: 'Les jobs qui manquent — et seulement ceux qui manquent vraiment'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -39,10 +39,10 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - Ce que la chaîne couvre déjà
-      - Ce qui manque, et ce que ça laisse passer
-      - Ce qui ne vaut pas la peine ici
-      - Ce que je n'ai pas pu voir
+      - 'Ce que la chaîne couvre déjà'
+      - 'Ce qui manque, et ce que ça laisse passer'
+      - 'Ce qui ne vaut pas la peine ici'
+      - 'Ce que je n''ai pas pu voir'
 spec: |-
   Tu relis une chaîne CI et tu dis ce qui lui manque.
   

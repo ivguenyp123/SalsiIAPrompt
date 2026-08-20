@@ -16,7 +16,7 @@
 # personne n'applique.
 id: rediger-le-contrat-de-contribution
 kind: prompt
-title: Le CONTRIBUTING — les conventions telles qu'on les pratique
+title: 'Le CONTRIBUTING — les conventions telles qu''on les pratique'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -46,10 +46,10 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - Ce que la chaîne impose
-      - Ce qui se pratique
-      - Ce qui n'est pas tranché
-      - Le fichier
+      - 'Ce que la chaîne impose'
+      - 'Ce qui se pratique'
+      - 'Ce qui n''est pas tranché'
+      - 'Le fichier'
 spec: |-
   Tu rédiges le CONTRIBUTING d'un dépôt, à partir de ses conventions réelles.
   

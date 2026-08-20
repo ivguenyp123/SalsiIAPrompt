@@ -15,7 +15,7 @@
 # demande la seule chose utile : ce qui est TRANSPOSABLE de l'une à l'autre.
 id: comparer-deux-squads-sur-dora
 kind: prompt
-title: Deux squads sur DORA — ce qui les différencie, sans les classer
+title: 'Deux squads sur DORA — ce qui les différencie, sans les classer'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -40,11 +40,11 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - Ce que chaque squad livre
-      - Où les chiffres divergent
-      - Ce qui expliquerait l'écart
-      - Ce qui est transposable
-      - Ce que cette comparaison ne prouve pas
+      - 'Ce que chaque squad livre'
+      - 'Où les chiffres divergent'
+      - 'Ce qui expliquerait l''écart'
+      - 'Ce qui est transposable'
+      - 'Ce que cette comparaison ne prouve pas'
 spec: |-
   Tu compares les chiffres DORA de deux squads.
   

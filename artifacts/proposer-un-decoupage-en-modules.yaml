@@ -15,7 +15,7 @@
 # ce qu'on ne peut PAS séparer, ce qui est souvent le constat le plus utile.
 id: proposer-un-decoupage-en-modules
 kind: prompt
-title: Découper ce fichier — les coutures qui existent déjà
+title: 'Découper ce fichier — les coutures qui existent déjà'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -40,11 +40,11 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - Ce que le fichier contient
-      - Les coutures qui existent déjà
-      - Le découpage proposé
-      - Ce qui ne se sépare pas
-      - Ce que ça va casser
+      - 'Ce que le fichier contient'
+      - 'Les coutures qui existent déjà'
+      - 'Le découpage proposé'
+      - 'Ce qui ne se sépare pas'
+      - 'Ce que ça va casser'
 spec: |-
   Tu proposes comment découper un fichier trop gros.
   

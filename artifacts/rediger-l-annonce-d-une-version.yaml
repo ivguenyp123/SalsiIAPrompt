@@ -14,7 +14,7 @@
 # quelqu'un qui veut savoir si sa facture va changer.
 id: rediger-l-annonce-d-une-version
 kind: prompt
-title: L'annonce d'une version — pour ceux qui ne lisent pas de code
+title: 'L''annonce d''une version — pour ceux qui ne lisent pas de code'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -39,10 +39,10 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - En une phrase
-      - Ce que vous pouvez faire de nouveau
-      - Ce qui va vous sembler différent
-      - Ce que vous devez faire
+      - 'En une phrase'
+      - 'Ce que vous pouvez faire de nouveau'
+      - 'Ce qui va vous sembler différent'
+      - 'Ce que vous devez faire'
 spec: |-
   Tu rédiges l'annonce d'une version, pour les gens qui utilisent le produit.
   

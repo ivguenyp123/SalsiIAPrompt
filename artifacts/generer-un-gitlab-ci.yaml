@@ -15,7 +15,7 @@
 # première exécution.
 id: generer-un-gitlab-ci
 kind: prompt
-title: Un .gitlab-ci.yml pour cette pile — le plus petit qui marche
+title: 'Un .gitlab-ci.yml pour cette pile — le plus petit qui marche'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -45,10 +45,10 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - Ce que cette chaîne fait
-      - Le fichier
-      - Ce que j'ai supposé
-      - À vérifier avant de pousser
+      - 'Ce que cette chaîne fait'
+      - 'Le fichier'
+      - 'Ce que j''ai supposé'
+      - 'À vérifier avant de pousser'
 spec: |-
   Tu écris un `.gitlab-ci.yml` pour un projet, à partir de sa pile et de ses environnements.
   

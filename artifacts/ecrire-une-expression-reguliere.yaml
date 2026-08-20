@@ -18,7 +18,7 @@
 # caractères, et c'est un déni de service.
 id: ecrire-une-expression-reguliere
 kind: prompt
-title: Une expression régulière — avec les cas qui la cassent
+title: 'Une expression régulière — avec les cas qui la cassent'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -43,11 +43,11 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - Ce que j'ai compris
-      - L'expression
-      - Ce qui doit matcher
-      - Ce qui ne doit PAS matcher
-      - Ce qu'elle ne saura pas faire
+      - 'Ce que j''ai compris'
+      - 'L''expression'
+      - 'Ce qui doit matcher'
+      - 'Ce qui ne doit PAS matcher'
+      - 'Ce qu''elle ne saura pas faire'
 spec: |-
   Tu traduis un besoin décrit en français en expression régulière.
   

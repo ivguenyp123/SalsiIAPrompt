@@ -16,7 +16,7 @@
 # huit chemins, dont sept que personne ne teste.
 id: estimer-la-dette-des-feature-flags
 kind: prompt
-title: La dette des drapeaux — ce qu'ils coûtent tant qu'ils restent
+title: 'La dette des drapeaux — ce qu''ils coûtent tant qu''ils restent'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -46,11 +46,11 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - Ce qui est encore en place
-      - Les chemins que ça ouvre
-      - Ce qui n'est jamais parcouru
-      - Par lequel commencer
-      - Ce qui ne se compte pas ici
+      - 'Ce qui est encore en place'
+      - 'Les chemins que ça ouvre'
+      - 'Ce qui n''est jamais parcouru'
+      - 'Par lequel commencer'
+      - 'Ce qui ne se compte pas ici'
 spec: |-
   Tu dis ce que les feature flags encore en place coûtent.
   

@@ -11,7 +11,7 @@
 # note.
 id: expliquer-les-quatre-metriques-dora
 kind: prompt
-title: Les quatre métriques DORA, expliquées à qui ne les connaît pas
+title: 'Les quatre métriques DORA, expliquées à qui ne les connaît pas'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -36,10 +36,10 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - Ce que chaque chiffre mesure
-      - Ce que ceux-ci racontent
-      - Ce qu'ils ne disent pas
-      - Par quoi commencer si on veut bouger
+      - 'Ce que chaque chiffre mesure'
+      - 'Ce que ceux-ci racontent'
+      - 'Ce qu''ils ne disent pas'
+      - 'Par quoi commencer si on veut bouger'
 spec: |-
   Tu expliques les quatre métriques DORA d'une équipe à quelqu'un qui ne les connaît pas.
   

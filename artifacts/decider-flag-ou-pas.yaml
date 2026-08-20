@@ -15,7 +15,7 @@
 # reste une réponse pleine.
 id: decider-flag-ou-pas
 kind: prompt
-title: Flag ou pas ? — ce que ce changement gagne, et ce qu'il coûte
+title: 'Flag ou pas ? — ce que ce changement gagne, et ce qu''il coûte'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -45,11 +45,11 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - Ce que ce changement fait
-      - Ce qu'un drapeau apporterait ici
-      - Ce qu'il coûterait
-      - Les autres façons de se protéger
-      - Ma réponse
+      - 'Ce que ce changement fait'
+      - 'Ce qu''un drapeau apporterait ici'
+      - 'Ce qu''il coûterait'
+      - 'Les autres façons de se protéger'
+      - 'Ma réponse'
 spec: |-
   Tu dis si un changement mérite un feature flag.
   

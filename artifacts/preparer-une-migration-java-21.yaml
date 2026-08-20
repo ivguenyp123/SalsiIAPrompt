@@ -16,7 +16,7 @@
 # exige donc de dire quoi VÉRIFIER, jamais d'affirmer.
 id: preparer-une-migration-java-21
 kind: prompt
-title: Passer à Java 21 — ce qu'il faut changer, et dans quel ordre
+title: 'Passer à Java 21 — ce qu''il faut changer, et dans quel ordre'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -41,10 +41,10 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - D'où on part
-      - Ce qui bloque probablement
-      - L'ordre des étapes
-      - Ce qu'il faut vérifier et que je ne peux pas savoir
+      - 'D''où on part'
+      - 'Ce qui bloque probablement'
+      - 'L''ordre des étapes'
+      - 'Ce qu''il faut vérifier et que je ne peux pas savoir'
 spec: |-
   Tu prépares le passage d'un projet à Java 21.
   

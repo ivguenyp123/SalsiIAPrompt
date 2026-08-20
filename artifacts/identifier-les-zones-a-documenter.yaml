@@ -13,7 +13,7 @@
 # Le spec impose donc de CHOISIR, et de dire quoi écrire exactement.
 id: identifier-les-zones-a-documenter
 kind: prompt
-title: Les zones à documenter — celles qui le méritent, et pas les autres
+title: 'Les zones à documenter — celles qui le méritent, et pas les autres'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -38,10 +38,10 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - Les zones qui le méritent
-      - Ce qu'il faut y écrire
-      - Celles qui n'en valent pas la peine
-      - Ce que ces chiffres ne montrent pas
+      - 'Les zones qui le méritent'
+      - 'Ce qu''il faut y écrire'
+      - 'Celles qui n''en valent pas la peine'
+      - 'Ce que ces chiffres ne montrent pas'
 spec: |-
   Tu dis quelles zones d'un dépôt méritent d'être documentées en priorité.
   

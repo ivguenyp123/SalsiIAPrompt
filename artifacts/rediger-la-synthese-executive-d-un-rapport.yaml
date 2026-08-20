@@ -13,7 +13,7 @@
 # synthèse qui ne tranche pas fait lire le rapport entier, donc elle a échoué.
 id: rediger-la-synthese-executive-d-un-rapport
 kind: prompt
-title: La synthèse exécutive — dix lignes en tête de rapport
+title: 'La synthèse exécutive — dix lignes en tête de rapport'
 owner:
   person: ivguenyp123
   scope: Plateforme

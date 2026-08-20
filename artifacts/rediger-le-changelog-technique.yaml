@@ -15,7 +15,7 @@
 # diagonale à la recherche d'un mot.
 id: rediger-le-changelog-technique
 kind: prompt
-title: Le changelog technique — pour ceux qui intègrent
+title: 'Le changelog technique — pour ceux qui intègrent'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -40,12 +40,12 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - Actions requises
-      - Modifié
-      - Ajouté
-      - Déconseillé
-      - Retiré
-      - Non déterminé depuis l'historique
+      - 'Actions requises'
+      - 'Modifié'
+      - 'Ajouté'
+      - 'Déconseillé'
+      - 'Retiré'
+      - 'Non déterminé depuis l''historique'
 spec: |-
   Tu écris le changelog d'une version, pour les équipes qui intègrent ce composant.
   

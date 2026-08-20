@@ -14,7 +14,7 @@
 # question de coût du prochain changement, pas de propreté.
 id: analyser-un-code
 kind: prompt
-title: Ce fichier — ce qui le rend difficile à changer
+title: 'Ce fichier — ce qui le rend difficile à changer'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -39,11 +39,11 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - Ce que fait ce fichier
-      - Ce qu'il faut comprendre avant d'y toucher
-      - Ce qui casse ailleurs
-      - Par où commencer
-      - Ce que je n'ai pas pu juger
+      - 'Ce que fait ce fichier'
+      - 'Ce qu''il faut comprendre avant d''y toucher'
+      - 'Ce qui casse ailleurs'
+      - 'Par où commencer'
+      - 'Ce que je n''ai pas pu juger'
 spec: |-
   Tu lis un fichier pour dire ce qui rendra le prochain changement coûteux.
   

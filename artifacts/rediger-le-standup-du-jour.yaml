@@ -16,7 +16,7 @@
 # pour vide. Le spec l'oblige donc à laisser la place à ce qu'il ne sait pas.
 id: rediger-le-standup-du-jour
 kind: prompt
-title: Mon standup — ce que j'ai fait, d'après ce qui est traçable
+title: 'Mon standup — ce que j''ai fait, d''après ce qui est traçable'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -41,10 +41,10 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - Ce qui a avancé
-      - Ce qui bloque
-      - Ce dont j'ai besoin
-      - Ce que la forge n'a pas vu
+      - 'Ce qui a avancé'
+      - 'Ce qui bloque'
+      - 'Ce dont j''ai besoin'
+      - 'Ce que la forge n''a pas vu'
 spec: |-
   Tu prépares le point de standup d'une personne à partir de son activité traçable.
   

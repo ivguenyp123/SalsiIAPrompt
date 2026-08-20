@@ -15,7 +15,7 @@
 # pourquoi.
 id: expliquer-un-revert-detecte
 kind: prompt
-title: Ce revert — ce qu'il dit du changement d'origine
+title: 'Ce revert — ce qu''il dit du changement d''origine'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -45,10 +45,10 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - Ce qui a été annulé
-      - Ce que ça suggère
-      - Ce qu'il reste à vérifier
-      - Ce que le diff ne dit pas
+      - 'Ce qui a été annulé'
+      - 'Ce que ça suggère'
+      - 'Ce qu''il reste à vérifier'
+      - 'Ce que le diff ne dit pas'
 spec: |-
   Tu lis un revert et l'historique autour, pour dire ce qu'il apprend.
   

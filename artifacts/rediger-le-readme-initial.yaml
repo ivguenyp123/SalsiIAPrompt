@@ -17,7 +17,7 @@
 # avec le projet.
 id: rediger-le-readme-initial
 kind: prompt
-title: Le README initial — les deux questions du premier jour
+title: 'Le README initial — les deux questions du premier jour'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -47,8 +47,8 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - Le fichier
-      - Ce que j'ai supposé
+      - 'Le fichier'
+      - 'Ce que j''ai supposé'
 spec: |-
   Tu écris le README d'un projet qui démarre.
   

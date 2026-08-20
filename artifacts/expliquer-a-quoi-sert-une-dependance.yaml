@@ -16,7 +16,7 @@
 # spec exige donc de nommer ce que la réécriture devrait reprendre.
 id: expliquer-a-quoi-sert-une-dependance
 kind: prompt
-title: Cette dépendance — à quoi elle sert ICI, et si on peut s'en passer
+title: 'Cette dépendance — à quoi elle sert ICI, et si on peut s''en passer'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -46,10 +46,10 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - À quoi elle sert ici
-      - Ce qu'on en utilise vraiment
-      - S'en passer : ce que ça demanderait
-      - Ce que je ne vois pas
+      - 'À quoi elle sert ici'
+      - 'Ce qu''on en utilise vraiment'
+      - 'S''en passer : ce que ça demanderait'
+      - 'Ce que je ne vois pas'
 spec: |-
   Tu expliques à quoi une dépendance sert dans ce projet précis.
   

@@ -13,7 +13,7 @@
 # Elle est le SYMPTÔME d'une organisation qui l'a laissée seule.
 id: expliquer-un-bus-factor-de-un
 kind: prompt
-title: Bus factor de 1 — ce que ça coûte vraiment, et par quoi commencer
+title: 'Bus factor de 1 — ce que ça coûte vraiment, et par quoi commencer'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -38,10 +38,10 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - Ce que disent les chiffres
-      - Quand ça se paie
-      - Le premier geste
-      - Ce que les commits ne disent pas
+      - 'Ce que disent les chiffres'
+      - 'Quand ça se paie'
+      - 'Le premier geste'
+      - 'Ce que les commits ne disent pas'
 spec: |-
   Tu expliques ce qu'un bus factor bas coûte à une équipe.
   

@@ -13,7 +13,7 @@
 # Ça, ça survit à une réécriture du YAML.
 id: rediger-la-documentation-d-un-pipeline
 kind: prompt
-title: La doc de ce pipeline — ce que chaque étape fait, et quand
+title: 'La doc de ce pipeline — ce que chaque étape fait, et quand'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -38,11 +38,11 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - À quoi sert cette chaîne
-      - Les étapes
-      - Ce qui déclenche quoi
-      - Quand ça casse
-      - Ce que cette doc ne couvre pas
+      - 'À quoi sert cette chaîne'
+      - 'Les étapes'
+      - 'Ce qui déclenche quoi'
+      - 'Quand ça casse'
+      - 'Ce que cette doc ne couvre pas'
 spec: |-
   Tu documentes un pipeline existant, pour ceux qui devront vivre avec.
   

@@ -13,7 +13,7 @@
 # ce que la personne vaut, et le document dit lui-même ce qu'il n'est pas.
 id: simuler-le-depart-d-une-personne
 kind: prompt
-title: Si cette personne s'en va — ce qui devient fragile, et dans quel ordre
+title: 'Si cette personne s''en va — ce qui devient fragile, et dans quel ordre'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -38,11 +38,11 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - Ce que le dépôt perd
-      - Ce qui devient lent
-      - Ce qui devient risqué
-      - Ce qu'on peut préparer maintenant
-      - Ce que cet exercice ne dit pas
+      - 'Ce que le dépôt perd'
+      - 'Ce qui devient lent'
+      - 'Ce qui devient risqué'
+      - 'Ce qu''on peut préparer maintenant'
+      - 'Ce que cet exercice ne dit pas'
 spec: |-
   Tu décris ce qu'un dépôt perd si une personne donnée n'y travaille plus.
   

@@ -14,7 +14,7 @@
 # écrire une date sans critère.
 id: rediger-la-documentation-d-un-flag
 kind: prompt
-title: La fiche d'un feature flag — dont la ligne qui manque toujours
+title: 'La fiche d''un feature flag — dont la ligne qui manque toujours'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -39,11 +39,11 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - À quoi il sert
-      - Ce qui change quand il est activé
-      - Qui décide
-      - Quand il disparaît
-      - Ce qu'il ne protège pas
+      - 'À quoi il sert'
+      - 'Ce qui change quand il est activé'
+      - 'Qui décide'
+      - 'Quand il disparaît'
+      - 'Ce qu''il ne protège pas'
 spec: |-
   Tu rédiges la fiche d'un feature flag.
   

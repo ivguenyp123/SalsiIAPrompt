@@ -15,7 +15,7 @@
 # ENSUITE, et à quel signe, vaut autant que la liste initiale.
 id: proposer-les-jobs-de-ci-d-un-nouveau-projet
 kind: prompt
-title: La CI d'un projet qui démarre — trois jobs, pas douze
+title: 'La CI d''un projet qui démarre — trois jobs, pas douze'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -40,10 +40,10 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - Ce qu'il faut dès le premier jour
-      - Ce que chacun protège
-      - Ce qui vient plus tard, et à quel signe
-      - Ce qui n'arrivera peut-être jamais
+      - 'Ce qu''il faut dès le premier jour'
+      - 'Ce que chacun protège'
+      - 'Ce qui vient plus tard, et à quel signe'
+      - 'Ce qui n''arrivera peut-être jamais'
 spec: |-
   Tu proposes les jobs de CI d'un projet qui démarre.
   

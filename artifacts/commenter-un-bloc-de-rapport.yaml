@@ -15,7 +15,7 @@
 # explicitement.
 id: commenter-un-bloc-de-rapport
 kind: prompt
-title: Ce bloc de rapport — ce que les chiffres veulent vraiment dire
+title: 'Ce bloc de rapport — ce que les chiffres veulent vraiment dire'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -40,9 +40,9 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - Ce que ce chiffre implique
-      - Ce qui pourrait le rendre trompeur
-      - Ce qu'il faut regarder à côté
+      - 'Ce que ce chiffre implique'
+      - 'Ce qui pourrait le rendre trompeur'
+      - 'Ce qu''il faut regarder à côté'
 spec: |-
   Tu commentes un bloc d'un rapport de dépôt.
   

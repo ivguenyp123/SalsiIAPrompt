@@ -15,7 +15,7 @@
 # preuve à faire pour chacun.
 id: reperer-le-code-mort
 kind: prompt
-title: Le code mort — ce qui en a l'air, et comment le prouver
+title: 'Le code mort — ce qui en a l''air, et comment le prouver'
 owner:
   person: ivguenyp123
   scope: Plateforme
@@ -40,10 +40,10 @@ criteria:
   - target: output.sections
     op: contains
     value:
-      - Mort à l'intérieur du fichier
-      - Candidats à vérifier ailleurs
-      - La vérification à faire
-      - Ce qui ressemble à du code mort et n'en est pas
+      - 'Mort à l''intérieur du fichier'
+      - 'Candidats à vérifier ailleurs'
+      - 'La vérification à faire'
+      - 'Ce qui ressemble à du code mort et n''en est pas'
 spec: |-
   Tu repères dans un fichier ce qui n'a plus l'air de servir.
   
