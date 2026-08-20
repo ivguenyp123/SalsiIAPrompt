@@ -1,0 +1,123 @@
+# Capacité de l'inventaire du hub — module « DORA Insights ».
+# besoin : « un agent qui dit pourquoi ma fréquence de déploiement est basse et par quoi commencer »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : conclure que l'équipe est lente. Une fréquence basse a
+# quatre causes très différentes — on livre par gros lots, la chaîne est trop
+# lente pour livrer souvent, quelque chose bloque en aval, ou le produit n'a
+# simplement pas besoin d'être livré plus souvent. La dernière est parfaitement
+# légitime et personne ne l'évoque jamais.
+#
+# Le second piège : confondre pipeline et déploiement. La matière porte des
+# exécutions de CI ; un pipeline réussi n'est pas une mise en production, et
+# compter les uns pour les autres fausse tout le diagnostic.
+id: diagnostiquer-une-frequence-de-deploiement-faible
+kind: prompt
+title: 'Pourquoi on déploie si peu — et par quoi commencer'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [dora, livraison]
+intent:
+  purpose: >-
+    Croiser les métriques DORA et l'historique des exécutions pour dire d'où vient une fréquence de déploiement basse — et par quoi commencer, si tant est qu'il faille commencer.
+  not_for: >-
+    Ce n'est pas un jugement sur la vitesse de l'équipe : une fréquence basse peut être le bon rythme pour ce produit. Et ça ne mesure pas les déploiements — la matière porte des exécutions de CI, et un pipeline réussi n'est pas une mise en production.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: chiffres_dora
+    source: signal
+    required: true
+    description: >-
+      Les quatre métriques DORA calculées sur la période, avec ce qui n'a pas pu être mesuré.
+  - name: historique_pipelines
+    source: signal
+    required: true
+    description: >-
+      undefined
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce que les chiffres disent'
+      - 'Les quatre causes possibles'
+      - 'Celle que la forme suggère'
+      - 'Par quoi commencer'
+      - 'Ce qui manque pour en être sûr'
+spec: |-
+  Tu diagnostiques une fréquence de déploiement basse.
+  
+  Les métriques :
+  {{chiffres_dora}}
+  
+  L'historique des exécutions :
+  {{historique_pipelines}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que les chiffres disent
+  ## Les quatre causes possibles
+  ## Celle que la forme suggère
+  ## Par quoi commencer
+  ## Ce qui manque pour en être sûr
+  
+  ── CE QUE L'HISTORIQUE PORTE, ET CE QU'IL NE PORTE PAS ───────────────────
+  
+  Il porte des ÉVÉNEMENTS : chaque exécution, sa date, sa branche, son statut, sa
+  durée. Il ne porte AUCUN log et AUCUN job — savoir qu'un pipeline a échoué et
+  savoir pourquoi sont deux lectures. Ne devine donc jamais la cause d'un échec :
+  dis ce que la forme montre, et ce qu'il faudrait ouvrir pour trancher.
+  
+  Et la période RÉELLEMENT couverte est annoncée en tête de la matière. Quand le
+  plafond de lecture a mordu, elle est plus courte que la fenêtre demandée — et
+  tout ce qui précède est invisible. N'écris jamais « l'activité a chuté avant le
+  12 » quand c'est la lecture qui s'est arrêtée là.
+  
+  ── LES DEUX RÈGLES ───────────────────────────────────────────────────────
+  
+  NE CONCLUS PAS QUE L'ÉQUIPE EST LENTE. Une fréquence basse a quatre causes, et la
+  quatrième est légitime : ce produit n'a peut-être pas besoin d'être livré plus souvent. Un
+  socle réglementaire livré une fois par mois n'est pas une équipe en retard.
+  
+  UN PIPELINE N'EST PAS UN DÉPLOIEMENT. La matière porte des exécutions de CI. Compter les
+  unes pour les autres est l'erreur qui fausse tout le diagnostic : dis explicitement ce que
+  tu comptes.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE LES CHIFFRES DISENT
+  La fréquence mesurée, et le rythme réel des exécutions. Croise les deux : beaucoup
+  d'exécutions et peu de déploiements dessinent une histoire, peu des deux en dessinent une
+  autre. Dis ce que la matière n'a PAS mesuré — « N/A n'est pas zéro ».
+  
+  LES QUATRE CAUSES POSSIBLES
+  Nomme-les toutes, en une ligne chacune, avec le signe qui les trahit :
+  1. LE GROS LOT — on accumule et on livre d'un coup. Signe : des pics d'activité séparés par
+     du calme, des changements volumineux.
+  2. LA CHAÎNE TROP LENTE — livrer coûte trop cher pour le faire souvent. Signe : une durée
+     médiane élevée, des reprises.
+  3. UN BLOCAGE EN AVAL — validation, fenêtre de livraison, dépendance à une autre équipe.
+     Signe : du travail prêt qui attend, des exécutions réussies sans suite.
+  4. LE RYTHME EST LE BON — le produit ne demande pas plus. Signe : pas de travail en
+     attente, pas de plainte, une chaîne rapide.
+  
+  CELLE QUE LA FORME SUGGÈRE
+  Tranche, en disant sur quoi tu t'appuies dans la matière. Et si la forme n'est pas
+  concluante, ÉCRIS-LE : c'est plus utile qu'un diagnostic inventé, et ça oriente vers ce
+  qu'il faut aller regarder.
+  
+  PAR QUOI COMMENCER
+  UNE action, celle qui correspond à la cause retenue — et elles n'ont rien à voir entre
+  elles : découper les changements, raccourcir la chaîne, lever le blocage aval, ou ne rien
+  changer. Dis ce qu'elle produirait, et à quel chiffre on le verrait.
+  
+  CE QUI MANQUE POUR EN ÊTRE SÛR
+  Trois lignes : la matière ne voit pas les déploiements réels, ni les validations, ni ce qui
+  attend hors de la forge, ni la période coupée par le plafond de lecture.

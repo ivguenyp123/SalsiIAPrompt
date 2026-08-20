@@ -1,0 +1,129 @@
+# Capacité de l'inventaire du hub — module « Auto Retro × DORA Insights ».
+# besoin : « un agent qui dit quelle alerte aurait permis de voir l'incident plus tôt »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : proposer des alertes. Au pluriel, et beaucoup. C'est le
+# réflexe après un incident, et c'est ainsi qu'on construit un système où tout
+# sonne et où plus personne ne regarde — la fatigue d'alerte tue plus d'incidents
+# qu'elle n'en attrape.
+#
+# UNE alerte, celle qui aurait sonné le plus tôt. Et le spec exige de dire ce
+# qu'elle produira comme FAUX POSITIFS : une alerte dont on ne connaît pas le bruit
+# sera coupée au bout de trois semaines, et personne ne s'en apercevra.
+id: proposer-les-alertes-manquantes
+kind: prompt
+title: 'L''alerte qui aurait permis de voir plus tôt'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [incident, observabilite]
+intent:
+  purpose: >-
+    Dire quelle UNE alerte aurait permis de voir cet incident plus tôt, sur quoi elle porte, et combien de fois elle sonnera pour rien.
+  not_for: >-
+    Ce n'est pas une liste d'alertes à mettre en place : un système où tout sonne est un système que plus personne ne regarde. Et ce n'est pas un post-mortem — l'alerte est une des actions possibles, pas l'analyse.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: notes_incident
+    source: user
+    required: true
+    description: >-
+      Ce que tu écris de l'incident — personne d'autre ne peut le relire.
+  - name: historique_pipelines
+    source: signal
+    required: true
+    description: >-
+      undefined
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce qui aurait été observable, et quand'
+      - 'L''alerte'
+      - 'Ce qu''elle coûtera en faux positifs'
+      - 'Ce qu''aucune alerte n''aurait vu'
+spec: |-
+  Tu dis quelle alerte aurait permis de voir cet incident plus tôt.
+  
+  Les notes :
+  {{notes_incident}}
+  
+  Les exécutions de CI :
+  {{historique_pipelines}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce qui aurait été observable, et quand
+  ## L'alerte
+  ## Ce qu'elle coûtera en faux positifs
+  ## Ce qu'aucune alerte n'aurait vu
+  
+  ── CE QUE L'HISTORIQUE PORTE, ET CE QU'IL NE PORTE PAS ───────────────────
+  
+  Il porte des ÉVÉNEMENTS : chaque exécution, sa date, sa branche, son statut, sa
+  durée. Il ne porte AUCUN log et AUCUN job — savoir qu'un pipeline a échoué et
+  savoir pourquoi sont deux lectures. Ne devine donc jamais la cause d'un échec :
+  dis ce que la forme montre, et ce qu'il faudrait ouvrir pour trancher.
+  
+  Et la période RÉELLEMENT couverte est annoncée en tête de la matière. Quand le
+  plafond de lecture a mordu, elle est plus courte que la fenêtre demandée — et
+  tout ce qui précède est invisible. N'écris jamais « l'activité a chuté avant le
+  12 » quand c'est la lecture qui s'est arrêtée là.
+  
+  ── LA RÈGLE ──────────────────────────────────────────────────────────────
+  
+  UNE SEULE ALERTE. Pas trois, pas une liste. Après un incident, le réflexe est d'en proposer
+  plusieurs « pour être sûr » — et c'est exactement ainsi qu'on construit un système où tout
+  sonne et où plus personne ne regarde. La fatigue d'alerte fait rater plus d'incidents
+  qu'elle n'en attrape.
+  
+  ET DIS SON BRUIT. Une alerte dont on n'a pas annoncé les faux positifs est coupée au bout
+  de trois semaines, sans que personne le remarque — jusqu'à l'incident suivant. C'est la
+  section qui décide si l'alerte survivra.
+  
+  AUCUN NOM DE PERSONNE.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUI AURAIT ÉTÉ OBSERVABLE, ET QUAND
+  Avant de proposer quoi que ce soit : à quel moment le problème est devenu VISIBLE quelque
+  part, même si personne ne regardait. Un échec de pipeline, une durée qui s'allonge, une
+  série qui commence, un symptôme rapporté dans les notes.
+  
+  Puis l'écart avec le moment où quelqu'un a su. C'est ce délai que l'alerte vise à réduire —
+  et s'il est déjà court, dis-le : une alerte de plus n'apportera rien.
+  
+  L'ALERTE
+  Une seule, précisément définie :
+  - SUR QUOI elle porte — une valeur observable, pas une impression ;
+  - LE SEUIL et la DURÉE : « trois échecs consécutifs sur la branche principale », pas
+    « trop d'échecs ». Sans durée, une alerte sonne au premier soubresaut ;
+  - QUI elle réveille, par rôle, et à quel moment de la journée ;
+  - CE QU'ON FAIT quand elle sonne. Une alerte sans geste associé est une notification, et
+    une notification s'ignore.
+  
+  Dis honnêtement si la donnée nécessaire est disponible aujourd'hui. Beaucoup de bonnes
+  alertes portent sur quelque chose que personne ne mesure encore — et alors la vraie action
+  est de commencer à le mesurer, pas de configurer une alerte.
+  
+  CE QU'ELLE COÛTERA EN FAUX POSITIFS
+  Concret : dans quelles situations normales elle sonnera pour rien. Une reprise de branche,
+  une maintenance, un pic de charge prévu, un travail en cours qui casse volontairement.
+  Estime la fréquence en ordre de grandeur — plusieurs fois par jour, par semaine, par mois —
+  et dis à partir de quel bruit elle deviendra inutile.
+  
+  Si tu estimes que le bruit sera trop élevé, DIS QUE L'ALERTE N'EN VAUT PAS LA PEINE. C'est
+  une conclusion valable, et bien plus utile qu'une alerte qui sera coupée.
+  
+  CE QU'AUCUNE ALERTE N'AURAIT VU
+  Trois lignes : ce qui, dans cet incident, ne produit aucun signal observable — une donnée
+  silencieusement fausse, un comportement dégradé sans erreur, un effet visible seulement
+  chez un utilisateur. Et rappelle que la matière ne porte ni log ni métrique applicative :
+  tu raisonnes sur des statuts d'exécution.

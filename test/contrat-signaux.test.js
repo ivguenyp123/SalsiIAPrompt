@@ -36,6 +36,7 @@ import { rapportDepot } from '../lib/signaux-depot.js';
 import { planDeLivraison } from '../lib/signaux-livraison.js';
 import { analyseFichier, analyseBranche, analyseDepot } from '../lib/signaux-code.js';
 import { analyseRegime } from '../lib/signaux-regime.js';
+import { historiquePipelines } from '../lib/signaux-pipelines.js';
 import { etatBranche } from '../lib/signaux-branche.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -209,7 +210,22 @@ const INVOCATIONS = {
   regime_du_depot: () => analyseRegime({
     depot: DEPOT, ref: 'main',
     arbre: ['src/index.js', 'libs/sdk.jar', 'node_modules/x/i.js', 'certs/prod.pem'],
-    gitignore: '', maintenant: new Date(MAINTENANT) })
+    gitignore: '', maintenant: new Date(MAINTENANT) }),
+
+  /*
+   * L'historique : des exécutions mêlées — réussies, échouées, annulées, en cours — sur
+   * deux branches. C'est l'état où le signal doit tenir sa règle la plus fine : les
+   * annulées et les en-cours HORS du dénominateur du taux d'échec.
+   */
+  historique_pipelines: () => historiquePipelines({
+    depot: DEPOT, brancheDefaut: 'main', fenetre: 30,
+    executions: [
+      { id: 1, quand: '2026-08-18T10:00:00Z', statut: 'success', branche: 'main', secondes: 300 },
+      { id: 2, quand: '2026-08-19T10:00:00Z', statut: 'failed', branche: 'feat/x', secondes: 120 },
+      { id: 3, quand: '2026-08-19T12:00:00Z', statut: 'failed', branche: 'feat/x', secondes: 110 },
+      { id: 4, quand: '2026-08-20T09:00:00Z', statut: 'canceled', branche: 'main', secondes: 0 }
+    ],
+    maintenant: new Date(MAINTENANT) })
 };
 
 /* ── Le contrat ───────────────────────────────────────────────────────────── */

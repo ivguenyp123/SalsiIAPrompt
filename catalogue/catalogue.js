@@ -51,6 +51,8 @@ import { analyseFichier, resumeCode, analyseBranche, resumeBrancheCode,
          ILLISIBLE, HORS_SOURCE,
          MAX_FICHIERS_BRANCHE } from '../lib/signaux-code.js';
 import { analyseRegime, resumeRegime } from '../lib/signaux-regime.js';
+import { historiquePipelines, resumeHistorique,
+         MAX_EXECUTIONS, FENETRE_JOURS as FENETRE_PIPELINES } from '../lib/signaux-pipelines.js';
 import { etatBranche, resumeBranche } from '../lib/signaux-branche.js';
 import { BUMPS, environnements as environnementsDe, KUSTOMIZATION_RX } from '../runtime/livraison.js';
 import { preparer as preparerLivraison, executer as executerLivraison,
@@ -989,7 +991,8 @@ const CALCULS = {
   etat_branche: (depot, reglages) => matiereEtatBranche(depot, reglages),
   code_de_la_branche: (depot, reglages) => matiereCodeBranche(depot, reglages),
   code_du_depot: (depot, reglages) => matiereCodeDepot(depot, reglages),
-  regime_du_depot: (depot, reglages) => matiereRegime(depot, reglages)
+  regime_du_depot: (depot, reglages) => matiereRegime(depot, reglages),
+  historique_pipelines: (depot, reglages) => matiereHistoriquePipelines(depot, reglages)
 };
 
 /** Le résumé d'une ligne, par signal. Sans entrée ici, l'écran n'afficherait rien. */
@@ -1008,7 +1011,8 @@ const RESUMES = {
   etat_branche: resumeBranche,
   code_de_la_branche: resumeBrancheCode,
   code_du_depot: resumeDepotCode,
-  regime_du_depot: resumeRegime
+  regime_du_depot: resumeRegime,
+  historique_pipelines: resumeHistorique
 };
 
 async function matiereContributions(depot) {
@@ -1509,6 +1513,27 @@ async function matiereCodeDepot(depot, { dossier = '', branche = '' } = {}) {
 
   return analyseDepot({ depot, ref, dossier, arbre: chemins, fichiers, candidats, nonLus,
                         maintenant: new Date() });
+}
+
+/**
+ * L'historique des exécutions de CI, sur une fenêtre.
+ *
+ * UN SEUL APPEL, et c'est délibéré : la liste des exécutions suffit à lire une forme. Aller
+ * chercher les jobs de chacune coûterait cent appels pour répondre à une autre question —
+ * celle de `pipeline_log`, qui porte sur UNE exécution.
+ *
+ * La fenêtre demandée n'est pas la fenêtre couverte dès que le plafond mord : le signal le
+ * dit lui-même, et c'est pour ça qu'on lui passe `fenetre` plutôt que de la lui laisser
+ * deviner depuis les dates qu'il reçoit.
+ */
+async function matiereHistoriquePipelines(depot, { fenetre = '' } = {}) {
+  const jours = Number(fenetre) || FENETRE_PIPELINES;
+  const ref = await brancheDe(depot);
+  const depuis = new Date(Date.now() - jours * 86400000).toISOString();
+  const executions = await forge.listRuns(depot, { perPage: MAX_EXECUTIONS, depuis })
+    .catch(() => []);
+  return historiquePipelines({ depot, executions, brancheDefaut: ref,
+                               fenetre: jours, maintenant: new Date() });
 }
 
 /**
@@ -2210,7 +2235,8 @@ const SIGNAL_LISIBLE = {
   etat_branche: 'Où en est cette branche — divergence, dispersion, âge',
   code_de_la_branche: 'Le code changé par cette branche — scanné avant lecture',
   code_du_depot: 'Le code du dépôt — carte, pile et fichiers retenus, scannés avant lecture',
-  regime_du_depot: 'Ce que ce dépôt versionne et ne devrait pas — chemins, jamais des tailles'
+  regime_du_depot: 'Ce que ce dépôt versionne et ne devrait pas — chemins, jamais des tailles',
+  historique_pipelines: 'Les exécutions de CI dans le temps — la forme, pas la moyenne'
 };
 
 /**

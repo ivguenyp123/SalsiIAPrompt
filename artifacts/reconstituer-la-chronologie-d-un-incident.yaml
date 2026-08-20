@@ -1,0 +1,124 @@
+# Capacité de l'inventaire du hub — module « Auto Retro × DORA Insights ».
+# besoin : « un agent qui reconstitue la chronologie d'un incident à partir des déploiements et des logs »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : la chronologie qui raconte au lieu de dater. Dès qu'on
+# ordonne des faits, on les relie — « à 14 h 12, le déploiement ; à 14 h 30, la
+# panne » devient une causalité pour tout lecteur, même sans un mot de plus.
+#
+# Une chronologie utile SÉPARE ce qui est daté de ce qui est supposé, et marque
+# explicitement les trous. Le trou le plus important est presque toujours l'écart
+# entre le début réel et la détection — et c'est le seul chiffre qui fasse changer
+# quelque chose.
+id: reconstituer-la-chronologie-d-un-incident
+kind: prompt
+title: 'La chronologie de l''incident — les faits datés, dans l''ordre'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [incident, ci]
+intent:
+  purpose: >-
+    Reconstituer la chronologie datée d'un incident à partir des notes et des exécutions de CI : ce qui est établi, ce qui manque, et l'écart entre le début et la détection.
+  not_for: >-
+    Ce n'est pas une recherche de cause — ordonner des faits n'établit aucun lien. Ce n'est pas un post-mortem (`rediger-le-post-mortem-d-un-incident`), qui vient après. Et ça ne voit aucun log : la matière porte des statuts d'exécution, pas leur contenu.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: notes_incident
+    source: user
+    required: true
+    description: >-
+      Ce que tu écris de l'incident — personne d'autre ne peut le relire.
+  - name: historique_pipelines
+    source: signal
+    required: true
+    description: >-
+      undefined
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'La chronologie'
+      - 'Les trous'
+      - 'Le délai de détection'
+      - 'Ce qui n''est pas établi'
+spec: |-
+  Tu reconstitues la chronologie d'un incident.
+  
+  Les notes :
+  {{notes_incident}}
+  
+  Les exécutions de CI :
+  {{historique_pipelines}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## La chronologie
+  ## Les trous
+  ## Le délai de détection
+  ## Ce qui n'est pas établi
+  
+  ── CE QUE L'HISTORIQUE PORTE, ET CE QU'IL NE PORTE PAS ───────────────────
+  
+  Il porte des ÉVÉNEMENTS : chaque exécution, sa date, sa branche, son statut, sa
+  durée. Il ne porte AUCUN log et AUCUN job — savoir qu'un pipeline a échoué et
+  savoir pourquoi sont deux lectures. Ne devine donc jamais la cause d'un échec :
+  dis ce que la forme montre, et ce qu'il faudrait ouvrir pour trancher.
+  
+  Et la période RÉELLEMENT couverte est annoncée en tête de la matière. Quand le
+  plafond de lecture a mordu, elle est plus courte que la fenêtre demandée — et
+  tout ce qui précède est invisible. N'écris jamais « l'activité a chuté avant le
+  12 » quand c'est la lecture qui s'est arrêtée là.
+  
+  ── LA RÈGLE, ET ELLE PORTE SUR L'ORDRE ───────────────────────────────────
+  
+  ORDONNER N'EST PAS EXPLIQUER. « À 14 h 12, une exécution sur main ; à 14 h 30, la panne »
+  se lit comme une causalité pour n'importe qui, même sans un mot de plus. Marque donc chaque
+  entrée par sa NATURE — établi, rapporté, déduit — et n'ajoute aucun connecteur de cause :
+  ni « à la suite de », ni « ce qui a provoqué ».
+  
+  AUCUN NOM DE PERSONNE.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  LA CHRONOLOGIE
+  Une ligne par fait, dans l'ordre du temps, avec l'heure. Chaque ligne porte sa source et sa
+  nature :
+  - ÉTABLI — une exécution de CI datée par la matière, ou un fait horodaté dans les notes ;
+  - RAPPORTÉ — ce que quelqu'un dit avoir observé, avec l'heure qu'il donne ;
+  - DÉDUIT — ce que tu places par recoupement, et il faut dire sur quoi.
+  
+  Mets les exécutions de CI de la fenêtre pertinente et les faits des notes dans la MÊME
+  liste : c'est la superposition qui a de la valeur, pas deux listes côte à côte.
+  
+  Si les notes ne donnent aucune heure, dis-le en premier — sans heures, il n'y a pas de
+  chronologie, seulement une liste.
+  
+  LES TROUS
+  Les périodes où rien n'est daté, et elles comptent autant que le reste. Entre le dernier
+  fait établi avant l'incident et le premier symptôme, entre le symptôme et la détection,
+  entre la détection et la première action. Dis, pour chaque trou, ce qui permettrait de le
+  combler — un journal applicatif, une alerte, un message dans un canal, une trace de
+  déploiement.
+  
+  LE DÉLAI DE DÉTECTION
+  La section la plus rentable d'un incident, et celle qu'on regarde le moins. L'écart entre
+  le début probable et le moment où quelqu'un a su. Donne-le si les deux bornes existent,
+  dis-le franchement sinon.
+  
+  Ce délai est ce qui se réduit le plus facilement et ce qui coûte le plus cher : la cause
+  change à chaque incident, la détection non.
+  
+  CE QUI N'EST PAS ÉTABLI
+  Trois à cinq lignes : ce que la matière ne porte pas — aucun log, aucun déploiement réel,
+  seulement des statuts d'exécution —, la période coupée par le plafond de lecture, et le
+  fait qu'une exécution de CI réussie ne prouve pas qu'une mise en production a eu lieu.
+  
+  Rappelle enfin que la proximité dans le temps n'est pas une cause.

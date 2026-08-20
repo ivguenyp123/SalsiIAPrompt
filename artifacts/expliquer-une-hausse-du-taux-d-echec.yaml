@@ -1,0 +1,115 @@
+# Capacité de l'inventaire du hub — module « DORA Insights ».
+# besoin : « un agent qui explique une hausse du change failure rate à partir des pipelines du mois »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : expliquer un TAUX. Un taux est une moyenne, et une moyenne
+# ne se raconte pas — elle s'est déplacée, c'est tout. Ce qui s'explique, c'est la
+# FORME : est-ce une journée noire, une branche qui casse, un job instable, ou une
+# dégradation régulière ? Ces quatre histoires donnent le même chiffre et n'ont
+# aucune réponse commune.
+#
+# Le second piège : conclure sur la cause depuis des statuts. La matière ne porte
+# aucun log. « Les tests sont devenus instables » est une hypothèse, pas un
+# constat.
+id: expliquer-une-hausse-du-taux-d-echec
+kind: prompt
+title: 'Cette hausse du taux d''échec — ce que la forme raconte'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [ci, dora]
+intent:
+  purpose: >-
+    Lire l'historique des exécutions pour dire ce que la hausse du taux d'échec raconte : une journée noire, une branche qui casse, une instabilité diffuse ou une dégradation — et ce qu'il faut ouvrir pour trancher.
+  not_for: >-
+    Ce n'est pas un diagnostic d'échec : la matière ne porte aucun log ni aucun job — pour ça, `expliquer-un-pipeline-en-echec`. Et ce n'est pas un bilan DORA (`dora-taux-echec`) : ici on lit la forme dans le temps, pas la métrique.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: historique_pipelines
+    source: signal
+    required: true
+    description: >-
+      undefined
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce que le taux cache'
+      - 'La forme dans le temps'
+      - 'Où ça se concentre'
+      - 'Ce qu''il faut ouvrir pour trancher'
+spec: |-
+  Tu lis l'historique des exécutions de CI pour expliquer une hausse du taux d'échec.
+  
+  {{historique_pipelines}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que le taux cache
+  ## La forme dans le temps
+  ## Où ça se concentre
+  ## Ce qu'il faut ouvrir pour trancher
+  
+  ── CE QUE L'HISTORIQUE PORTE, ET CE QU'IL NE PORTE PAS ───────────────────
+  
+  Il porte des ÉVÉNEMENTS : chaque exécution, sa date, sa branche, son statut, sa
+  durée. Il ne porte AUCUN log et AUCUN job — savoir qu'un pipeline a échoué et
+  savoir pourquoi sont deux lectures. Ne devine donc jamais la cause d'un échec :
+  dis ce que la forme montre, et ce qu'il faudrait ouvrir pour trancher.
+  
+  Et la période RÉELLEMENT couverte est annoncée en tête de la matière. Quand le
+  plafond de lecture a mordu, elle est plus courte que la fenêtre demandée — et
+  tout ce qui précède est invisible. N'écris jamais « l'activité a chuté avant le
+  12 » quand c'est la lecture qui s'est arrêtée là.
+  
+  ── LA RÈGLE ──────────────────────────────────────────────────────────────
+  
+  UN TAUX NE S'EXPLIQUE PAS, UNE FORME SI. Le même taux recouvre quatre histoires qui
+  n'appellent aucune réponse commune :
+  - UNE JOURNÉE NOIRE suivie de calme : quelque chose s'est cassé puis a été réparé ;
+  - UNE BRANCHE qui échoue en série : un travail en cours, pas un problème de chaîne ;
+  - DES ÉCHECS ISOLÉS et dispersés : instabilité — le cas le plus coûteux et le moins visible ;
+  - UNE DÉGRADATION RÉGULIÈRE : quelque chose s'use, et personne ne l'a vu venir.
+  
+  Dis laquelle des quatre la matière dessine. Si aucune ne colle, dis-le plutôt que de forcer.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE LE TAUX CACHE
+  Rappelle le taux et son dénominateur — la matière compte sur les exécutions ABOUTIES, ce
+  qui n'est pas la même chose que toutes. Puis dis en une phrase pourquoi ce nombre seul ne
+  permet pas de décider quoi que ce soit.
+  
+  LA FORME DANS LE TEMPS
+  Le jour par jour. Les échecs sont-ils groupés ou étalés ? Y a-t-il un avant et un après ?
+  Nomme les dates. Si un seul jour porte l'essentiel des échecs, c'est le constat principal
+  du rapport et tout le reste s'y accroche.
+  
+  Sers-toi des SÉRIES : deux échecs d'affilée sur une même branche sont un blocage, dix
+  échecs isolés sont une instabilité. La matière les compte déjà — ne les recompte pas,
+  interprète-les.
+  
+  OÙ ÇA SE CONCENTRE
+  Par branche. Distingue ce qui échoue sur une branche de production — ce qui compte
+  vraiment, et ce que DORA mesure — de ce qui échoue sur des branches de travail, où un échec
+  est normal et même souhaitable : c'est le filet qui fait son travail.
+  
+  Une hausse portée uniquement par des branches de travail n'est pas une dégradation de la
+  qualité. Dis-le fort si c'est le cas — c'est le contresens le plus fréquent sur cette
+  métrique.
+  
+  CE QU'IL FAUT OUVRIR POUR TRANCHER
+  La section obligatoire, parce que tu n'as aucun log. Nomme précisément : quelles exécutions
+  ouvrir en premier — donne leurs dates et leurs branches — et ce qu'on y cherchera. Le même
+  job qui revient, un changement d'image, une dépendance externe, un test qui échoue par
+  intermittence.
+  
+  Dis aussi ce que la matière ne couvre pas : la période coupée par le plafond, et le fait
+  qu'un pipeline réussi n'est pas un déploiement.

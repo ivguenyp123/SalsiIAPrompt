@@ -1,0 +1,126 @@
+# Capacité de l'inventaire du hub — module « DORA Insights ».
+# besoin : « un agent qui dit ce qu'il faudrait changer pour passer au palier DORA supérieur »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE, ET IL EST DANS LE MOT « PRÉVOIR » : la date. « Vous
+# atteindrez le palier High en octobre » — une projection sur quatre métriques
+# bruitées, calculée depuis une fenêtre courte, présentée comme un plan. Personne
+# ne peut la tenir et elle sera citée.
+#
+# Le second piège, plus grave : viser le palier plutôt que le travail. Une équipe
+# qui optimise ses métriques DORA pour changer de palier apprend à découper
+# artificiellement ses livraisons. Le palier n'est pas l'objectif — c'est un
+# thermomètre.
+id: prevoir-l-atteinte-d-un-palier-dora
+kind: prompt
+title: 'Passer au palier DORA supérieur — ce qu''il faudrait changer'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [dora, equipe]
+intent:
+  purpose: >-
+    Dire ce qu'il faudrait changer pour qu'une équipe passe au palier DORA supérieur : quelle métrique bloque, ce qui la tient, et ce que le changement demanderait vraiment — sans jamais projeter de date.
+  not_for: >-
+    Ce n'est pas une prévision : aucune date ne peut être calculée depuis quatre métriques bruitées sur une fenêtre courte. Et ce n'est pas un objectif à poursuivre — une équipe qui optimise son palier apprend à découper artificiellement ses livraisons.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: chiffres_dora
+    source: signal
+    required: true
+    description: >-
+      Les quatre métriques DORA calculées sur la période, avec ce qui n'a pas pu être mesuré.
+  - name: historique_pipelines
+    source: signal
+    required: true
+    description: >-
+      undefined
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Où en est chaque métrique'
+      - 'Celle qui bloque'
+      - 'Ce qui la tient'
+      - 'Ce que le changement demanderait'
+      - 'Pourquoi ce n''est peut-être pas la bonne cible'
+spec: |-
+  Tu dis ce qu'il faudrait changer pour passer au palier DORA supérieur.
+  
+  Les métriques :
+  {{chiffres_dora}}
+  
+  L'historique des exécutions :
+  {{historique_pipelines}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Où en est chaque métrique
+  ## Celle qui bloque
+  ## Ce qui la tient
+  ## Ce que le changement demanderait
+  ## Pourquoi ce n'est peut-être pas la bonne cible
+  
+  ── CE QUE L'HISTORIQUE PORTE, ET CE QU'IL NE PORTE PAS ───────────────────
+  
+  Il porte des ÉVÉNEMENTS : chaque exécution, sa date, sa branche, son statut, sa
+  durée. Il ne porte AUCUN log et AUCUN job — savoir qu'un pipeline a échoué et
+  savoir pourquoi sont deux lectures. Ne devine donc jamais la cause d'un échec :
+  dis ce que la forme montre, et ce qu'il faudrait ouvrir pour trancher.
+  
+  Et la période RÉELLEMENT couverte est annoncée en tête de la matière. Quand le
+  plafond de lecture a mordu, elle est plus courte que la fenêtre demandée — et
+  tout ce qui précède est invisible. N'écris jamais « l'activité a chuté avant le
+  12 » quand c'est la lecture qui s'est arrêtée là.
+  
+  ── LES DEUX INTERDITS ────────────────────────────────────────────────────
+  
+  AUCUNE DATE, AUCUNE PROJECTION. Ni « en trois mois », ni « d'ici la fin du trimestre ». Ces
+  métriques sont bruitées, calculées sur une fenêtre courte, et une date écrite ici devient un
+  engagement que personne n'a pris.
+  
+  NE TRANSFORME PAS LE PALIER EN OBJECTIF. Une équipe qui optimise pour changer de palier
+  découpe ses livraisons artificiellement, annule les pipelines qui allaient échouer, et
+  améliore ses chiffres sans rien améliorer. La dernière section existe pour dire ça, et
+  elle est obligatoire.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  OÙ EN EST CHAQUE MÉTRIQUE
+  Les quatre, avec leur valeur et leur palier tels que la matière les donne. Ne recalcule
+  rien. Dis ce qui n'est pas mesurable — une métrique N/A n'est pas une métrique à zéro, et
+  elle empêche à elle seule tout changement de palier.
+  
+  CELLE QUI BLOQUE
+  Le palier global est tiré vers le bas par la plus faible : nomme-la. S'il y en a deux à
+  égalité, dis-le — travailler sur l'une sans l'autre ne changera rien, et c'est exactement le
+  genre d'effort qu'on constate perdu six mois plus tard.
+  
+  CE QUI LA TIENT
+  Ce que l'historique des exécutions montre de concret sur cette métrique-là. Une durée
+  médiane élevée, des séries d'échecs, une activité par à-coups, des reprises. Appuie chaque
+  affirmation sur la forme, pas sur une intuition.
+  
+  Si l'historique ne dit rien d'utile sur la métrique qui bloque — c'est le cas du délai de
+  rétablissement, qui ne se lit pas dans des statuts de pipeline — DIS-LE plutôt que
+  d'inventer.
+  
+  CE QUE LE CHANGEMENT DEMANDERAIT
+  Concret, et honnête sur l'ampleur. Passer d'un palier à l'autre sur la fréquence peut
+  demander de changer la façon de découper le travail — ce n'est pas un réglage, c'est une
+  habitude d'équipe. Dis ce que ça touche vraiment, et ce que ça coûtera à qui.
+  
+  Une seule direction, la plus courte. Pas un plan en six axes.
+  
+  POURQUOI CE N'EST PEUT-ÊTRE PAS LA BONNE CIBLE
+  Obligatoire. Dis franchement dans quels cas viser le palier supérieur n'a pas de sens ici :
+  un produit qui ne demande pas ce rythme, une contrainte réglementaire, une fenêtre de
+  mesure trop courte pour que le palier veuille dire quelque chose. Et rappelle que ces
+  chiffres ne disent rien de la valeur livrée.
