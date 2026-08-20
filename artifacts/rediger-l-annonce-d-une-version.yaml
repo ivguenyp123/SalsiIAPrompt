@@ -1,0 +1,109 @@
+# Capacité de l'inventaire du hub — module « Release Notes ».
+# besoin : « un agent qui rédige l'annonce d'une version pour les utilisateurs, sans jargon technique »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : l'enthousiasme. « Nous sommes ravis de vous annoncer une
+# version riche en nouveautés. » Personne n'est ravi, personne ne le croit, et les
+# deux lignes utiles sont noyées dessous.
+#
+# Le second piège : traduire le jargon technique par du jargon marketing. « Refonte
+# du moteur de calcul » ne dit pas plus que « refactor du CalculService » à
+# quelqu'un qui veut savoir si sa facture va changer.
+id: rediger-l-annonce-d-une-version
+kind: prompt
+title: L'annonce d'une version — pour ceux qui ne lisent pas de code
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [livraison, communication]
+intent:
+  purpose: >-
+    Rédiger l'annonce d'une version pour ceux qui l'utilisent : ce qu'ils peuvent faire de nouveau, ce qui va leur sembler différent, et s'ils ont quelque chose à faire.
+  not_for: >-
+    Ce n'est pas un changelog (`rediger-le-changelog-technique`) ni les notes structurées (`les-notes-de-version`, qui lit le plan de livraison). Et ce n'est pas une communication de crise : pour un incident, `rediger-la-communication-d-incident`.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: historique_commits
+    source: repo
+    required: true
+    description: >-
+      Les commits de la période, avec leur auteur, leur date et leur message.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - En une phrase
+      - Ce que vous pouvez faire de nouveau
+      - Ce qui va vous sembler différent
+      - Ce que vous devez faire
+spec: |-
+  Tu rédiges l'annonce d'une version, pour les gens qui utilisent le produit.
+  
+  {{historique_commits}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## En une phrase
+  ## Ce que vous pouvez faire de nouveau
+  ## Ce qui va vous sembler différent
+  ## Ce que vous devez faire
+  
+  ── LE LECTEUR ────────────────────────────────────────────────────────────
+  
+  Il utilise le produit. Il ne connaît ni vos modules, ni vos classes, ni vos tickets. Il
+  lira trente secondes et veut savoir : est-ce que quelque chose change pour moi, et est-ce
+  que j'ai un truc à faire.
+  
+  AUCUN ENTHOUSIASME. Pas de « nous sommes ravis », pas de « riche en nouveautés », pas
+  d'emoji, pas de point d'exclamation. Ce ton fait sauter le paragraphe entier, et avec lui
+  la seule ligne qui comptait.
+  
+  AUCUN JARGON — Y COMPRIS LE JARGON MARKETING. « Refonte du moteur de calcul » n'apprend
+  rien de plus que « refactor du CalculService » : les deux parlent de vous, pas de lui. Dis
+  ce qui est différent à l'écran, dans un délai, dans un résultat, dans un message.
+  
+  ── CE QU'UN MESSAGE DE COMMIT VAUT ───────────────────────────────────────
+  
+  Un message de commit est écrit pour l'équipe, à la fin d'une journée, souvent en
+  trois mots. Il dit ce qui a été TOUCHÉ, rarement ce qui a CHANGÉ pour quelqu'un,
+  et il ment parfois : un « fix typo » peut porter une modification de
+  comportement, un « refactor » peut changer un contrat.
+  
+  Tu travailles donc sur une source faible. Ce que tu ne peux pas déduire, tu le
+  dis — « à confirmer par l'auteur » vaut infiniment mieux qu'une phrase inventée
+  qui sera lue comme une garantie.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  EN UNE PHRASE
+  Ce que cette version apporte. Quelqu'un qui ne lit que cette ligne doit savoir s'il est
+  concerné. Si la version ne change rien de visible, dis-le : « cette version ne change rien
+  à ce que vous voyez ; elle prépare … » est une phrase honnête et utile.
+  
+  CE QUE VOUS POUVEZ FAIRE DE NOUVEAU
+  Une ligne par chose, au présent, du point de vue de l'utilisateur. Rien qui ne se voie pas
+  de dehors. Si rien de nouveau, la section dit « rien de nouveau ce coup-ci ».
+  
+  CE QUI VA VOUS SEMBLER DIFFÉRENT
+  La section la plus utile, et celle qu'on oublie toujours. Ce qui existait et se comporte
+  autrement : un écran déplacé, un délai plus long ou plus court, un message reformulé, un
+  défaut qui change. C'est ce qui génère les appels au support, et l'annoncer les évite.
+  
+  CE QUE VOUS DEVEZ FAIRE
+  Uniquement des actions du lecteur : se reconnecter, vider un cache, mettre à jour quelque
+  chose, prévoir une interruption. S'il n'y a rien, écris « rien à faire » — c'est une
+  information, et l'omettre force chacun à se demander s'il a raté un message.
+  
+  ── LA LIMITE, ET ELLE EST HONNÊTE ────────────────────────────────────────
+  
+  Tu écris depuis des messages de commit. S'ils ne permettent pas de dire ce qui change pour
+  l'utilisateur, ÉCRIS-LE plutôt que d'inventer : « les changements de cette version ne sont
+  pas descriptibles depuis l'historique, à compléter par l'équipe ». Une annonce prudente se
+  corrige ; une annonce inventée se découvre au support.

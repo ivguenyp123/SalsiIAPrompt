@@ -1,0 +1,110 @@
+# Capacité de l'inventaire du hub — module « Release Notes ».
+# besoin : « un agent qui classe les changements d'une version en nouveautés, corrections et ruptures »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : classer sur le PRÉFIXE du message. `feat:` en nouveauté,
+# `fix:` en correction, et une rupture de compatibilité cachée sous un `refactor:`
+# passe sans être vue. Le préfixe dit l'intention de celui qui a écrit le message,
+# pas l'effet du changement.
+#
+# Le classement qui compte est celui du LECTEUR : ce qui apparaît, ce qui se
+# comporte autrement, ce qui casse. Et la troisième catégorie est la seule qui
+# compte vraiment — les deux autres se découvrent, celle-là se subit.
+id: classer-les-changements-d-une-version
+kind: prompt
+title: Les changements d'une version — nouveautés, corrections, ruptures
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [livraison, communication]
+intent:
+  purpose: >-
+    Classer les changements d'une version en nouveautés, corrections et ruptures — par leur effet sur ceux qui reçoivent, pas par le préfixe du message de commit.
+  not_for: >-
+    Ce n'est pas la rédaction des notes (`les-notes-de-version`, `rediger-l-annonce-d-une-version`) ni un changelog technique (`rediger-le-changelog-technique`). Et ça ne détecte pas les ruptures dans le code — pour ça, `reperer-les-ruptures-de-compatibilite` lit un diff.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: historique_commits
+    source: repo
+    required: true
+    description: >-
+      Les commits de la période, avec leur auteur, leur date et leur message.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Ce qui casse
+      - Ce qui est nouveau
+      - Ce qui est corrigé
+      - Ce que je n'ai pas pu classer
+spec: |-
+  Tu classes les changements d'une version.
+  
+  {{historique_commits}}
+  
+  Rends exactement ces sections, avec ces titres — et dans cet ordre :
+  
+  ## Ce qui casse
+  ## Ce qui est nouveau
+  ## Ce qui est corrigé
+  ## Ce que je n'ai pas pu classer
+  
+  ── LA RÈGLE ──────────────────────────────────────────────────────────────
+  
+  NE CLASSE PAS SUR LE PRÉFIXE. `feat:`, `fix:`, `chore:` disent l'intention de celui qui a
+  écrit le message, jamais l'effet du changement. Une rupture de compatibilité passe très
+  souvent sous un `refactor:`, et c'est exactement celle-là qu'il faut attraper.
+  
+  Classe sur l'EFFET pour celui qui reçoit : est-ce qu'il voit quelque chose de nouveau, est-ce
+  que quelque chose se comporte autrement, est-ce que quelque chose qui marchait ne marche
+  plus pareil.
+  
+  « CE QUI CASSE » VIENT EN PREMIER, même si la section est vide — et si elle est vide,
+  écris-le, c'est l'information la plus rassurante de la liste.
+  
+  ── CE QU'UN MESSAGE DE COMMIT VAUT ───────────────────────────────────────
+  
+  Un message de commit est écrit pour l'équipe, à la fin d'une journée, souvent en
+  trois mots. Il dit ce qui a été TOUCHÉ, rarement ce qui a CHANGÉ pour quelqu'un,
+  et il ment parfois : un « fix typo » peut porter une modification de
+  comportement, un « refactor » peut changer un contrat.
+  
+  Tu travailles donc sur une source faible. Ce que tu ne peux pas déduire, tu le
+  dis — « à confirmer par l'auteur » vaut infiniment mieux qu'une phrase inventée
+  qui sera lue comme une garantie.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUI CASSE
+  Tout ce qui oblige quelqu'un à changer quelque chose de son côté : une signature modifiée,
+  un champ retiré, un format différent, un défaut qui change, une dépendance dont la version
+  minimale monte, une configuration devenue obligatoire. Chaque ligne dit QUI doit agir et
+  QUOI.
+  
+  Un changement de valeur par défaut est une rupture, même si rien dans le code n'a l'air de
+  casser : c'est la rupture la plus fréquente et la moins annoncée.
+  
+  CE QUI EST NOUVEAU
+  Ce qui n'existait pas et qu'on peut maintenant faire. Regroupe par sujet : dix commits qui
+  servent une seule fonctionnalité font une ligne, pas dix. Si un commit ne produit rien de
+  visible de l'extérieur, il n'a pas sa place ici.
+  
+  CE QUI EST CORRIGÉ
+  Décrit par le SYMPTÔME que les gens voyaient, jamais par la cause technique. « Le total
+  était faux quand le panier contenait un article remboursé » plutôt que « corrige un
+  arrondi dans le calculateur ». Si le message ne permet pas de retrouver le symptôme,
+  dis-le : mieux vaut « correction dans le calcul du total, symptôme à confirmer » qu'une
+  description inventée.
+  
+  CE QUE JE N'AI PAS PU CLASSER
+  Obligatoire, et jamais vide sur une vraie version. Les commits dont le message ne permet
+  pas de savoir ce qui change : fusions, renommages, « wip », « fix », messages vides. Liste-les
+  avec leur identifiant court, pour qu'on aille voir. Les cacher donne une liste propre et
+  fausse.

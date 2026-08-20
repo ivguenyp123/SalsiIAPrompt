@@ -1,0 +1,119 @@
+# Capacité de l'inventaire du hub — module « Feature Flag Manager ».
+# besoin : « un agent qui propose le plan de retrait d'un feature flag stabilisé, étape par étape »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : retirer le drapeau et le code mort dans le même changement.
+# C'est ce que tout le monde fait, et c'est ce qui supprime le retour en arrière
+# au moment précis où on en a le plus besoin — juste après avoir figé un
+# comportement pour tous les utilisateurs.
+#
+# L'ordre correct est : figer la valeur, livrer, OBSERVER, puis retirer le code. Le
+# spec impose cet ordre et exige que l'étape d'observation ait un critère.
+id: proposer-un-plan-de-decommission-de-flag
+kind: prompt
+title: Retirer un drapeau — l'ordre des étapes, et celle qu'on saute toujours
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [livraison, qualite]
+intent:
+  purpose: >-
+    Proposer le plan de retrait d'un feature flag stabilisé : les étapes dans l'ordre, ce qui devient du code mort, et le point où l'on peut encore revenir en arrière.
+  not_for: >-
+    Ce n'est pas un audit des drapeaux existants (`les-feature-flags-a-retirer`) ni une décision de pose (`decider-flag-ou-pas`). Et ça ne dit pas si le drapeau est stabilisé : cette information vit dans la console, pas dans le code.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: inventaire_flags
+    source: repo
+    required: true
+    description: >-
+      Les feature flags déclarés, avec leur état et leur âge.
+  - name: code
+    source: repo
+    required: true
+    description: >-
+      Le contenu du fichier choisi.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Ce que le drapeau tient encore
+      - Le plan, dans l'ordre
+      - Ce qui devient du code mort
+      - Le point de non-retour
+      - À vérifier dans la console avant de commencer
+spec: |-
+  Tu proposes le plan de retrait d'un feature flag.
+  
+  Les drapeaux déclarés :
+  {{inventaire_flags}}
+  
+  Le code :
+  {{code}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que le drapeau tient encore
+  ## Le plan, dans l'ordre
+  ## Ce qui devient du code mort
+  ## Le point de non-retour
+  ## À vérifier dans la console avant de commencer
+  
+  ── TU LIS DU CODE ET DES DÉCLARATIONS, PAS UNE CONSOLE ───────────────────
+  
+  L'état réel d'un drapeau — activé où, pour quelle part des utilisateurs, depuis
+  quand, par qui — vit dans la console de flags, jamais dans ces fichiers. N'écris
+  donc jamais « ce drapeau est mort », « il est à 100 % », « personne ne s'en sert ».
+  
+  Ce que tu peux écrire se vérifie dans ce que tu as sous les yeux : « il n'apparaît
+  qu'à un endroit », « les deux branches font la même chose », « il est déclaré et
+  jamais relu ». Le mot autorisé est « figé » ; « mort » autorise à supprimer, et
+  c'est précisément ce qu'il ne faut pas faire sans avoir vérifié.
+  
+  ── L'ORDRE, ET IL N'EST PAS NÉGOCIABLE ───────────────────────────────────
+  
+  Le réflexe est de retirer le drapeau et le code mort dans le même changement. C'est
+  exactement ce qu'il ne faut pas faire : on supprime le retour en arrière au moment où on
+  vient de figer un comportement pour tout le monde.
+  
+  L'ordre est : 1) figer la valeur dans la configuration, 2) livrer et OBSERVER, 3) retirer
+  la lecture du drapeau, 4) retirer le code mort, 5) supprimer le drapeau de la console.
+  Chaque étape est un changement séparé, et l'étape 2 a un CRITÈRE et une DURÉE — sans quoi
+  elle est sautée.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE LE DRAPEAU TIENT ENCORE
+  Depuis le code : où il est lu, combien de chemins il ouvre, ce qu'il y a dans la branche
+  qu'on va abandonner. Si les deux branches font désormais la même chose, dis-le — le
+  retrait est alors presque gratuit, et c'est une bonne nouvelle à annoncer.
+  
+  LE PLAN, DANS L'ORDRE
+  Les cinq étapes, adaptées à ce cas. Chacune : ce qu'on change, ce qu'on observe, et
+  combien de temps on attend avant la suivante. L'étape d'observation dit CE QU'ON REGARDE —
+  un taux d'erreur, un compteur métier, une réclamation — sinon elle ne dure rien.
+  
+  CE QUI DEVIENT DU CODE MORT
+  La liste, depuis le code lu : les fonctions, les branches, les tests, les configurations
+  qui ne servent plus une fois le drapeau retiré. C'est le vrai gain de l'opération, et
+  l'oublier laisse le dépôt dans un état pire qu'avant — un drapeau retiré, du code mort
+  conservé.
+  
+  Attention aux fonctions utilisées AILLEURS que dans la branche abandonnée : dis ce qu'il
+  faut vérifier avant de supprimer, et n'affirme rien sur ce que tu n'as pas lu.
+  
+  LE POINT DE NON-RETOUR
+  Une ou deux lignes : à partir de quelle étape revenir en arrière demande un vrai
+  développement et non un basculement. C'est l'information que le plan existe pour donner.
+  
+  À VÉRIFIER DANS LA CONSOLE AVANT DE COMMENCER
+  L'état par environnement, la date du dernier changement, s'il reste des utilisateurs sur
+  l'ancienne voie, et si un autre service lit le même drapeau. Aucune de ces réponses n'est
+  dans le code.

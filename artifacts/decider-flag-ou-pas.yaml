@@ -1,0 +1,113 @@
+# Capacité de l'inventaire du hub — module « Feature Flag Manager ».
+# besoin : « un agent qui dit si un changement mérite un feature flag ou non, et pourquoi »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : répondre oui. Un drapeau paraît toujours prudent, et le
+# réflexe « dans le doute, mets un flag » est comment on se retrouve avec quarante
+# drapeaux dont personne ne sait lesquels sont encore utiles.
+#
+# Un drapeau n'est pas gratuit : il double les chemins d'exécution, dédouble les
+# tests, et crée une dette dont la date de remboursement n'est écrite nulle part.
+# Le spec exige donc que le coût soit dit AVANT la recommandation, et que « non »
+# reste une réponse pleine.
+id: decider-flag-ou-pas
+kind: prompt
+title: Flag ou pas ? — ce que ce changement gagne, et ce qu'il coûte
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [livraison, decision]
+intent:
+  purpose: >-
+    Dire si un changement mérite un feature flag : ce que le drapeau permettrait vraiment, ce qu'il coûte, et quelle autre façon de se protéger existe.
+  not_for: >-
+    Ce n'est pas une recommandation par défaut : « dans le doute, mets un flag » est comment on se retrouve avec quarante drapeaux orphelins. Ce n'est pas non plus une revue du changement (`relire-un-changement`) ni un audit des drapeaux existants (`les-feature-flags-a-retirer`).
+model_tier: mid
+target_level: experimental
+variables:
+  - name: besoin_metier
+    source: user
+    required: true
+    description: >-
+      Ce que tu décris toi-même — personne d'autre ne peut le relire.
+  - name: diff
+    source: repo
+    required: true
+    description: >-
+      Le changement à lire, tel que la forge le rend.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Ce que ce changement fait
+      - Ce qu'un drapeau apporterait ici
+      - Ce qu'il coûterait
+      - Les autres façons de se protéger
+      - Ma réponse
+spec: |-
+  Tu dis si un changement mérite un feature flag.
+  
+  Ce que la personne décrit :
+  {{besoin_metier}}
+  
+  Le changement :
+  {{diff}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que ce changement fait
+  ## Ce qu'un drapeau apporterait ici
+  ## Ce qu'il coûterait
+  ## Les autres façons de se protéger
+  ## Ma réponse
+  
+  ── LA RÈGLE : « NON » EST UNE RÉPONSE PLEINE ─────────────────────────────
+  
+  Le réflexe est de répondre oui — un drapeau a l'air prudent. C'est ainsi qu'une équipe se
+  retrouve avec quarante drapeaux dont plus personne ne sait lesquels servent, et chacun
+  double les chemins d'exécution du code qu'il entoure.
+  
+  Le coût vient donc AVANT la recommandation, et « non, ce changement n'en a pas besoin,
+  voilà pourquoi » est un résultat aussi bon que l'inverse.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE CE CHANGEMENT FAIT
+  Trois phrases, depuis le diff : ce qu'il modifie, quelle surface il touche, ce qui
+  l'appelle. Puis ce qu'il RISQUE de casser — c'est cela seul qui décide.
+  
+  CE QU'UN DRAPEAU APPORTERAIT ICI
+  Concrètement, pas en général. Un drapeau sert à une de ces quatre choses, et il faut dire
+  laquelle s'applique : couper vite sans redéployer, exposer progressivement, ouvrir à un
+  groupe précis, découpler la date de livraison de la date d'activation.
+  
+  Si aucune des quatre ne s'applique, dis-le : c'est la réponse.
+  
+  CE QU'IL COÛTERAIT
+  Toujours, et sans l'adoucir : deux chemins d'exécution au lieu d'un, donc deux fois plus à
+  tester — et en pratique un seul des deux le sera ; un état à retirer plus tard, que
+  personne ne planifie ; le risque que les deux branches divergent en silence.
+  
+  Et si le changement touche des DONNÉES ou un schéma, dis-le fort : un drapeau protège le
+  code, jamais une migration déjà passée. C'est le contresens le plus coûteux du genre.
+  
+  LES AUTRES FAÇONS DE SE PROTÉGER
+  Souvent meilleures et jamais évoquées : livrer en plus petit, déployer sans activer,
+  garder l'ancien chemin quelques jours, un retour arrière propre, une bascule au niveau de
+  l'infrastructure. Dis laquelle conviendrait ici.
+  
+  MA RÉPONSE
+  Une phrase : oui ou non, et la raison en une ligne. Si c'est oui, ajoute la CONDITION de
+  retrait — le signe qui dira qu'on peut l'enlever, et qui. Un drapeau posé sans condition de
+  sortie est un drapeau qui sera encore là dans deux ans.
+  
+  ── ET SI LA MATIÈRE NE SUFFIT PAS ────────────────────────────────────────
+  
+  Si le diff est vide ou si la description ne dit pas ce que le changement vise, dis-le et
+  pose la question qui manque plutôt que de trancher à l'aveugle.

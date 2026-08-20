@@ -1,0 +1,101 @@
+# Capacité de l'inventaire du hub — module « Feature Flag Manager ».
+# besoin : « un agent qui rédige la fiche d'un feature flag : à quoi il sert, qui décide, quand on l'enlève »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : la fiche complète et inutile. Nom, description, date de
+# création, propriétaire — tout ce qu'un outil de flags affiche déjà.
+#
+# La seule ligne qui manque toujours, et qui décide de tout, c'est la CONDITION DE
+# RETRAIT : à quel signe observable ce drapeau disparaît, et qui le décide. Sans
+# elle, un drapeau reste. Le spec en fait une section obligatoire, et interdit d'y
+# écrire une date sans critère.
+id: rediger-la-documentation-d-un-flag
+kind: prompt
+title: La fiche d'un feature flag — dont la ligne qui manque toujours
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [livraison, communication]
+intent:
+  purpose: >-
+    Rédiger la fiche d'un feature flag : à quoi il sert, qui décide de son état, et surtout à quel signe observable il sera retiré — et par qui.
+  not_for: >-
+    Ce n'est pas une entrée de console de flags : le nom, la date et le propriétaire y sont déjà. Ce n'est pas non plus une checklist de rollout (`rediger-la-checklist-de-rollout`) ni un plan de retrait (`proposer-un-plan-de-decommission-de-flag`).
+model_tier: mid
+target_level: experimental
+variables:
+  - name: besoin_metier
+    source: user
+    required: true
+    description: >-
+      Ce que tu décris toi-même — personne d'autre ne peut le relire.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - À quoi il sert
+      - Ce qui change quand il est activé
+      - Qui décide
+      - Quand il disparaît
+      - Ce qu'il ne protège pas
+spec: |-
+  Tu rédiges la fiche d'un feature flag.
+  
+  Ce que la personne décrit :
+  {{besoin_metier}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## À quoi il sert
+  ## Ce qui change quand il est activé
+  ## Qui décide
+  ## Quand il disparaît
+  ## Ce qu'il ne protège pas
+  
+  ── LA SECTION QUI COMPTE ─────────────────────────────────────────────────
+  
+  « QUAND IL DISPARAÎT » EST LA RAISON D'ÊTRE DE CETTE FICHE. Le nom, la date, le
+  propriétaire sont déjà dans la console. Ce qui manque partout, c'est le critère de retrait
+  — et c'est pour ça que les drapeaux restent des années.
+  
+  Ce critère est un SIGNE OBSERVABLE, pas une date. « Fin mars » ne déclenche rien : personne
+  ne relit un calendrier. « Quand la nouvelle voie aura traité un cycle de facturation
+  complet sans écart » se constate, et se décide.
+  
+  Si la description ne permet pas d'établir ce critère, ÉCRIS LA QUESTION à poser plutôt
+  qu'une date inventée. Une fiche qui pose la bonne question vaut mieux qu'une fiche qui
+  ment.
+  
+  ── CE QU'ON ATTEND DANS LES AUTRES SECTIONS ──────────────────────────────
+  
+  À QUOI IL SERT
+  Deux phrases, en langage de besoin et non de code : quel problème ce drapeau permet de
+  gérer. Pas « active la nouvelle implémentation » — ce que la nouvelle implémentation
+  change pour quelqu'un.
+  
+  CE QUI CHANGE QUAND IL EST ACTIVÉ
+  Ce qui est différent, observable, des deux côtés — et surtout ce qui est différent pour
+  l'UTILISATEUR, pas seulement dans le code. Précise ce qui se passe si on le rebascule après
+  coup : certaines choses ne reviennent pas en arrière, et c'est ce qu'il faut savoir avant
+  de l'activer.
+  
+  QUI DÉCIDE
+  Un rôle, pas un nom de personne : qui peut l'activer, qui peut le couper en urgence, qui
+  doit être prévenu. Si la description ne le dit pas, écris « à décider » en toutes lettres —
+  un drapeau sans propriétaire est un drapeau que personne n'osera couper un dimanche.
+  
+  CE QU'IL NE PROTÈGE PAS
+  Trois lignes, et elles évitent l'incident : un drapeau protège du CODE, jamais des données
+  déjà migrées, ni des messages déjà envoyés, ni des appels déjà faits à un tiers, ni de
+  l'état déjà écrit en base. Nomme ce qui, dans ce cas précis, ne reviendra pas en arrière.
+  
+  ── LE TON ────────────────────────────────────────────────────────────────
+  
+  Une fiche se lit en deux minutes, six mois plus tard, par quelqu'un qui n'était pas là.
+  Phrases courtes, aucun jargon interne non expliqué, aucun nom de personne.

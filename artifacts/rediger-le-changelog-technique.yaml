@@ -1,0 +1,112 @@
+# Capacité de l'inventaire du hub — module « Release Notes ».
+# besoin : « un agent qui écrit le changelog destiné aux équipes qui intègrent, pas aux utilisateurs »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : écrire les notes de version en plus technique. Le lecteur
+# n'est pas le même et sa question non plus. L'utilisateur demande « qu'est-ce qui
+# change pour moi » ; celui qui intègre demande « est-ce que je peux monter de
+# version sans rien toucher, et si non, quoi ».
+#
+# Un changelog technique se lit donc dans un seul sens : ce qui oblige à agir
+# d'abord, le reste ensuite. Et il est ORDONNÉ, parce qu'on le parcourt en
+# diagonale à la recherche d'un mot.
+id: rediger-le-changelog-technique
+kind: prompt
+title: Le changelog technique — pour ceux qui intègrent
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [livraison, communication]
+intent:
+  purpose: >-
+    Écrire le changelog destiné aux équipes qui intègrent : ce qui oblige à agir avant de monter de version, ce qui change sans rien casser, et ce qui est désormais déconseillé.
+  not_for: >-
+    Ce n'est pas l'annonce aux utilisateurs (`rediger-l-annonce-d-une-version`) ni le classement des changements (`classer-les-changements-d-une-version`). Ce lecteur-là intègre : sa question est « puis-je monter de version sans rien toucher ».
+model_tier: mid
+target_level: experimental
+variables:
+  - name: historique_commits
+    source: repo
+    required: true
+    description: >-
+      Les commits de la période, avec leur auteur, leur date et leur message.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Actions requises
+      - Modifié
+      - Ajouté
+      - Déconseillé
+      - Retiré
+      - Non déterminé depuis l'historique
+spec: |-
+  Tu écris le changelog d'une version, pour les équipes qui intègrent ce composant.
+  
+  {{historique_commits}}
+  
+  Rends exactement ces sections, avec ces titres — et dans cet ordre :
+  
+  ## Actions requises
+  ## Modifié
+  ## Ajouté
+  ## Déconseillé
+  ## Retiré
+  ## Non déterminé depuis l'historique
+  
+  ── LE LECTEUR, ET SA SEULE QUESTION ──────────────────────────────────────
+  
+  Il intègre ce composant dans son propre code. Il demande : puis-je monter de version sans
+  rien toucher, et sinon, quoi exactement. Il parcourt en diagonale, à la recherche d'un nom
+  de fonction ou d'un champ.
+  
+  D'où la forme : « Actions requises » EN PREMIER, toujours — même vide, et si elle est vide,
+  écris « aucune », c'est l'information qu'il cherche. Puis les autres sections, chacune en
+  liste, une ligne par élément, le nom exact du symbole ou du champ EN TÊTE de ligne.
+  
+  Le style est télégraphique, pas narratif. Pas de paragraphes.
+  
+  ── CE QU'UN MESSAGE DE COMMIT VAUT ───────────────────────────────────────
+  
+  Un message de commit est écrit pour l'équipe, à la fin d'une journée, souvent en
+  trois mots. Il dit ce qui a été TOUCHÉ, rarement ce qui a CHANGÉ pour quelqu'un,
+  et il ment parfois : un « fix typo » peut porter une modification de
+  comportement, un « refactor » peut changer un contrat.
+  
+  Tu travailles donc sur une source faible. Ce que tu ne peux pas déduire, tu le
+  dis — « à confirmer par l'auteur » vaut infiniment mieux qu'une phrase inventée
+  qui sera lue comme une garantie.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  ACTIONS REQUISES
+  Ce qu'il faut faire pour que la montée de version passe : mettre à jour un appel, ajouter
+  une configuration devenue obligatoire, migrer une donnée, monter une dépendance. Chaque
+  ligne : ce qu'il faut faire, et ce qui arrive si on ne le fait pas.
+  
+  MODIFIÉ
+  Ce qui existait et se comporte autrement — y compris les changements silencieux : valeur
+  par défaut, format, ordre, nullité, code d'erreur. C'est la section que les changelogs
+  ratent, et celle qui produit les incidents de montée de version.
+  
+  AJOUTÉ
+  Ce qui est nouveau et n'oblige à rien. Une ligne par élément.
+  
+  DÉCONSEILLÉ
+  Ce qui marche encore mais disparaîtra : dis par quoi le remplacer, et à partir de quelle
+  version ça s'arrête si l'historique le dit. Sinon, écris que l'échéance n'est pas connue —
+  ne l'invente pas.
+  
+  RETIRÉ
+  Ce qui n'existe plus. Nom exact, et le remplacement s'il y en a un.
+  
+  NON DÉTERMINÉ DEPUIS L'HISTORIQUE
+  Obligatoire. Les commits dont le message ne permet pas de trancher, avec leur identifiant
+  court. Un changelog qui cache ses zones d'ombre est un changelog qu'on cesse de croire à la
+  première mauvaise surprise.

@@ -1,0 +1,105 @@
+# Capacité de l'inventaire du hub — module « Feature Flag Manager ».
+# besoin : « un agent qui écrit la checklist de rollout d'un flag : critères d'activation, de rollback, mesure »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : la checklist qui ne décrit que la montée. 1 %, 10 %, 50 %,
+# 100 % — et rien sur ce qui fait redescendre. Une montée sans critère d'arrêt
+# n'est pas un déploiement progressif : c'est un déploiement complet plus lent, où
+# personne ne sait à quel moment s'inquiéter.
+#
+# Le spec exige donc que chaque palier porte SON critère d'arrêt, et que la mesure
+# soit nommée AVANT d'ouvrir — une métrique qu'on décide de regarder après coup ne
+# déclenche jamais rien.
+id: rediger-la-checklist-de-rollout
+kind: prompt
+title: La checklist de rollout — dont les critères d'arrêt
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [livraison, risque]
+intent:
+  purpose: >-
+    Écrire la checklist de rollout d'un drapeau : les paliers, ce qu'on mesure à chacun, ce qui fait redescendre, et qui décide — la mesure nommée avant la première ouverture.
+  not_for: >-
+    Ce n'est pas la fiche du drapeau (`rediger-la-documentation-d-un-flag`) ni son plan de retrait (`proposer-un-plan-de-decommission-de-flag`). Et ce n'est pas un plan de test : la checklist décrit ce qu'on observe en production, pas ce qu'on vérifie avant.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: besoin_metier
+    source: user
+    required: true
+    description: >-
+      Ce que tu décris toi-même — personne d'autre ne peut le relire.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Avant d'ouvrir
+      - Les paliers
+      - Ce qui fait redescendre
+      - Qui décide et quand
+      - Ce qu'un rollback ne rattrapera pas
+spec: |-
+  Tu écris la checklist de rollout d'un feature flag.
+  
+  Ce que la personne décrit :
+  {{besoin_metier}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Avant d'ouvrir
+  ## Les paliers
+  ## Ce qui fait redescendre
+  ## Qui décide et quand
+  ## Ce qu'un rollback ne rattrapera pas
+  
+  ── LA RÈGLE QUI FAIT LA DIFFÉRENCE ───────────────────────────────────────
+  
+  CHAQUE PALIER PORTE SON CRITÈRE D'ARRÊT. Une montée 1 % → 10 % → 50 % → 100 % sans rien
+  qui dise quand redescendre n'est pas un déploiement progressif : c'est un déploiement
+  complet, en plus lent, où personne ne sait à quel moment s'inquiéter.
+  
+  ET LA MESURE SE NOMME AVANT D'OUVRIR. Une métrique qu'on décide de regarder après coup ne
+  déclenche jamais rien : au moment où quelque chose cloche, on discute de savoir si le
+  chiffre est anormal, et on discute jusqu'au lendemain.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  AVANT D'OUVRIR
+  Ce qui doit être vrai avant le premier utilisateur : la mesure existe et on sait la lire,
+  la valeur normale est connue, le retour arrière a été essayé au moins une fois, quelqu'un
+  est joignable. Le point le plus souvent manqué est le troisième : un rollback jamais testé
+  n'est pas un rollback.
+  
+  LES PALIERS
+  Trois ou quatre, pas huit. Chacun avec : la part ouverte, ce qu'on regarde, combien de
+  temps on attend avant le suivant, et ce qui autorise à passer à la suite. La durée compte
+  autant que la part — certaines choses ne se voient qu'après un cycle complet d'usage, une
+  nuit, une clôture, un pic du matin.
+  
+  Si la description suggère un public particulier — interne d'abord, une agence, un profil —
+  dis-le : ouvrir à des gens qu'on peut appeler vaut mieux qu'ouvrir à 1 % au hasard.
+  
+  CE QUI FAIT REDESCENDRE
+  La section qui rend la checklist utile. Des seuils, pas des impressions : quel indicateur,
+  quelle valeur, sur quelle durée. Et le geste exact — couper le drapeau, redescendre d'un
+  palier, geler — parce qu'ils ne sont pas équivalents.
+  
+  Ajoute la règle qui sauve les nuits : dans le doute, on redescend. Rouvrir coûte une
+  heure ; réparer ce qui a passé coûte une semaine.
+  
+  QUI DÉCIDE ET QUAND
+  Par rôle. Qui autorise le passage au palier suivant, qui peut couper seul et sans demander,
+  et à quels moments on n'ouvre pas — la veille d'un jour de forte charge, un vendredi soir,
+  pendant une clôture.
+  
+  CE QU'UN ROLLBACK NE RATTRAPERA PAS
+  Trois lignes, obligatoires : les données écrites, les messages partis, les appels faits à
+  un tiers, les fichiers produits. Couper le drapeau arrête ce qui vient ; ça n'annule rien
+  de ce qui est déjà arrivé, et c'est ce qui décide de la taille des paliers.

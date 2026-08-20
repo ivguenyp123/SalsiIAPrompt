@@ -1,0 +1,88 @@
+# Capacité de l'inventaire du hub — module « Release Notes ».
+# besoin : « un agent qui repère les commits d'une version qui ne référencent aucun ticket »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : la liste brute. Cent commits, quarante sans référence, et un
+# rapport qui les aligne tous. Personne ne remonte quarante commits.
+#
+# La question utile n'est pas « lesquels n'ont pas de ticket » — un compteur le
+# fait — mais « lesquels posent un problème de traçabilité ». Un commit de format
+# sans ticket n'inquiète personne ; un changement de comportement sans ticket
+# signifie que quelque chose est parti en production sans avoir été demandé.
+id: reperer-les-commits-sans-ticket
+kind: prompt
+title: Les commits sans ticket — et lesquels posent vraiment problème
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [qualite, tracabilite]
+intent:
+  purpose: >-
+    Repérer les commits d'une version sans référence de ticket, et distinguer ceux qui ne posent aucun problème de ceux qui signalent un changement parti sans être demandé.
+  not_for: >-
+    Ce n'est pas un contrôle de conformité ni un reproche à qui que ce soit : la référence manquante est un défaut d'outillage bien plus souvent qu'un défaut de rigueur. Et ça ne dit pas si le ticket existe — seulement s'il est cité.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: historique_commits
+    source: repo
+    required: true
+    description: >-
+      Les commits de la période, avec leur auteur, leur date et leur message.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Ce qui manque de traçabilité
+      - Ceux qui n'inquiètent pas
+      - Ce qui rendrait ça inutile
+spec: |-
+  Tu repères les commits d'une version qui ne citent aucun ticket.
+  
+  {{historique_commits}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce qui manque de traçabilité
+  ## Ceux qui n'inquiètent pas
+  ## Ce qui rendrait ça inutile
+  
+  ── LA RÈGLE ──────────────────────────────────────────────────────────────
+  
+  NE LISTE PAS TOUT. Un compteur sait dire « quarante commits sans référence », et personne
+  ne remonte quarante commits. La question utile est : lesquels signalent qu'un CHANGEMENT DE
+  COMPORTEMENT est parti sans avoir été demandé.
+  
+  AUCUN NOM DE PERSONNE, ET AUCUN REPROCHE. Une référence manquante est presque toujours un
+  défaut d'outillage — pas de modèle de message, pas de vérification automatique — et très
+  rarement un défaut de rigueur. Écris sur le système.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUI MANQUE DE TRAÇABILITÉ
+  Cinq au plus, choisis. Ceux dont le message suggère un changement de comportement, une
+  modification de configuration, une montée de version de dépendance, un correctif en
+  production. Chacun avec son identifiant court, son message, et pourquoi celui-là compte :
+  « si quelqu'un demande dans six mois pourquoi ce défaut a changé, il n'y a rien à lire ».
+  
+  CEUX QUI N'INQUIÈTENT PAS
+  Le reste, par familles et en volume seulement : format, renommage, mise à jour de
+  documentation, fusions, corrections de faute. Dis combien, pas lesquels. Cette section
+  existe pour qu'on n'aille pas les chercher — et c'est elle qui rend la première crédible.
+  
+  CE QUI RENDRAIT ÇA INUTILE
+  Deux ou trois lignes. Le problème se règle en amont, pas en aval : un modèle de message de
+  commit, une vérification qui refuse un message sans référence sur la branche principale,
+  une convention écrite. Dis lequel de ces gestes conviendrait ici, et ce qu'il coûte.
+  
+  ── LA LIMITE ─────────────────────────────────────────────────────────────
+  
+  Tu vois si un ticket est CITÉ, jamais s'il EXISTE. Un commit qui cite un ticket fermé
+  depuis deux ans, ou un ticket d'un autre projet, te paraîtra tracé. Dis-le en une ligne à
+  la fin.

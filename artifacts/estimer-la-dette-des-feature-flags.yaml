@@ -1,0 +1,122 @@
+# Capacité de l'inventaire du hub — module « Feature Flag Manager ».
+# besoin : « un agent qui estime la dette technique portée par les feature flags encore en place »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE, ET IL EST DANS LE MOT « ESTIMER » : le chiffre. « Cette dette
+# représente 15 jours-homme », « 30 % de complexité en plus ». Rien dans la matière
+# ne permet ces nombres, et un chiffre inventé dans un rapport de dette est
+# exactement le faux avec autorité que « le chiffre au code » interdit.
+#
+# Ce qui se COMPTE ici, en revanche : le nombre de drapeaux, le nombre d'endroits
+# où chacun est lu, et le nombre de chemins d'exécution que leur combinaison
+# produit. Ce dernier est le chiffre qui frappe — trois drapeaux imbriqués font
+# huit chemins, dont sept que personne ne teste.
+id: estimer-la-dette-des-feature-flags
+kind: prompt
+title: La dette des drapeaux — ce qu'ils coûtent tant qu'ils restent
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [livraison, qualite]
+intent:
+  purpose: >-
+    Dire ce que les feature flags encore en place coûtent tant qu'ils restent : les chemins d'exécution qu'ils ouvrent, ce qui n'est jamais testé, et lesquels retirer en premier.
+  not_for: >-
+    Ce n'est pas un chiffrage en jours ni en pourcentage : rien dans la matière ne permet ces nombres. Ce n'est pas non plus un plan de retrait (`proposer-un-plan-de-decommission-de-flag`) ni un audit de ce qui est figé (`les-feature-flags-a-retirer`).
+model_tier: mid
+target_level: experimental
+variables:
+  - name: inventaire_flags
+    source: repo
+    required: true
+    description: >-
+      Les feature flags déclarés, avec leur état et leur âge.
+  - name: code
+    source: repo
+    required: true
+    description: >-
+      Le contenu du fichier choisi.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Ce qui est encore en place
+      - Les chemins que ça ouvre
+      - Ce qui n'est jamais parcouru
+      - Par lequel commencer
+      - Ce qui ne se compte pas ici
+spec: |-
+  Tu dis ce que les feature flags encore en place coûtent.
+  
+  Les drapeaux déclarés :
+  {{inventaire_flags}}
+  
+  Le code :
+  {{code}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce qui est encore en place
+  ## Les chemins que ça ouvre
+  ## Ce qui n'est jamais parcouru
+  ## Par lequel commencer
+  ## Ce qui ne se compte pas ici
+  
+  ── L'INTERDIT, ET IL EST DANS LE MOT « ESTIMER » ─────────────────────────
+  
+  AUCUN CHIFFRAGE EN JOURS, EN COÛT OU EN POURCENTAGE. Ni « quinze jours-homme », ni « 30 %
+  de complexité en plus », ni « X euros par an ». Rien dans cette matière ne permet ces
+  nombres, et un chiffre inventé dans un rapport de dette est ce qui le rend indéfendable
+  dès la première question.
+  
+  Ce que tu PEUX compter, parce que c'est sous tes yeux : le nombre de drapeaux, le nombre
+  de fichiers où chacun est lu, le nombre de chemins que leur combinaison produit. Dis
+  toujours sur combien de fichiers LUS tu comptes.
+  
+  ── TU LIS DU CODE ET DES DÉCLARATIONS, PAS UNE CONSOLE ───────────────────
+  
+  L'état réel d'un drapeau — activé où, pour quelle part des utilisateurs, depuis
+  quand, par qui — vit dans la console de flags, jamais dans ces fichiers. N'écris
+  donc jamais « ce drapeau est mort », « il est à 100 % », « personne ne s'en sert ».
+  
+  Ce que tu peux écrire se vérifie dans ce que tu as sous les yeux : « il n'apparaît
+  qu'à un endroit », « les deux branches font la même chose », « il est déclaré et
+  jamais relu ». Le mot autorisé est « figé » ; « mort » autorise à supprimer, et
+  c'est précisément ce qu'il ne faut pas faire sans avoir vérifié.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUI EST ENCORE EN PLACE
+  Les drapeaux, un par ligne, avec le nombre d'endroits où ils sont lus et leur âge si la
+  matière le donne. Sépare nettement ceux qui sont lus à un seul endroit — leur retrait est
+  mécanique — de ceux qui sont éparpillés, qui demandent une opération.
+  
+  LES CHEMINS QUE ÇA OUVRE
+  Le chiffre qui frappe, et le seul qui compte vraiment. N drapeaux indépendants dans la
+  même zone produisent 2^N combinaisons possibles ; trois drapeaux imbriqués font huit
+  chemins, et une équipe en teste deux. Dis combien de chemins existent dans les zones où
+  plusieurs drapeaux se croisent, et NOMME ces zones.
+  
+  Si aucun drapeau ne se croise, dis-le : c'est un très bon résultat, et il mérite d'être vu.
+  
+  CE QUI N'EST JAMAIS PARCOURU
+  Ce qui, dans le code lu, n'est probablement plus atteint : une branche désactivée depuis
+  longtemps, un cas rendu impossible par la combinaison de deux drapeaux, un test qui ne
+  couvre qu'un seul côté. C'est là que les bugs dorment — un code jamais exécuté n'est pas
+  un code sans défaut, c'est un code dont les défauts n'ont pas encore été rencontrés.
+  
+  PAR LEQUEL COMMENCER
+  UN drapeau, le plus rentable à retirer : celui qui libère le plus de chemins pour le moins
+  de travail. Dis pourquoi lui, et ce que son retrait supprime.
+  
+  CE QUI NE SE COMPTE PAS ICI
+  Trois à cinq lignes : l'état réel des drapeaux vit dans la console ; ce que la matière
+  annonce comme non lu ; le coût humain — l'hésitation avant de toucher à une zone pleine de
+  drapeaux — qui est réel et qu'aucun compteur ne voit ; et le fait qu'un drapeau lu nulle
+  part dans ces fichiers peut être lu ailleurs.

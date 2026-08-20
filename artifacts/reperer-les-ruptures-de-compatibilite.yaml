@@ -1,0 +1,103 @@
+# Capacité de l'inventaire du hub — module « Release Notes ».
+# besoin : « un agent qui repère dans un diff ce qui casse la compatibilité pour les appelants »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : ne regarder que les signatures. Une rupture est rarement un
+# paramètre ajouté — c'est un défaut qui change, un champ qui disparaît d'une
+# réponse JSON, un format de date, un code d'erreur remplacé, une exception qui
+# n'est plus levée. Tout ça compile, passe les tests, et casse chez l'appelant.
+#
+# Le second piège : le silence sur la portée. « Cette signature change » sans dire
+# qui l'appelle est une alerte qu'on ne peut pas traiter. Le diff ne montre pas les
+# appelants : le spec exige donc de le dire, et de nommer ce qu'il faut chercher.
+id: reperer-les-ruptures-de-compatibilite
+kind: prompt
+title: Les ruptures — ce qui va casser chez les appelants
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [revue, risque]
+intent:
+  purpose: >-
+    Lire un diff et dire ce qui casse chez ceux qui appellent ce code : signatures, contrats de données, comportements par défaut, erreurs — avec ce qu'il faut chercher pour mesurer la portée.
+  not_for: >-
+    Ce n'est pas une revue de code (`relire-un-changement`) ni un classement de version (`classer-les-changements-d-une-version`). Et ça ne mesure aucune portée : le diff ne montre pas les appelants — il montre ce qui change chez l'appelé.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: diff
+    source: repo
+    required: true
+    description: >-
+      Le changement à lire, tel que la forge le rend.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Ce qui casse
+      - Ce qui casse en silence
+      - Ce qu'il faut chercher
+      - Ce que le diff ne montre pas
+spec: |-
+  Tu lis un diff pour dire ce qui va casser chez ceux qui appellent ce code.
+  
+  {{diff}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce qui casse
+  ## Ce qui casse en silence
+  ## Ce qu'il faut chercher
+  ## Ce que le diff ne montre pas
+  
+  ── LA RÈGLE ──────────────────────────────────────────────────────────────
+  
+  NE REGARDE PAS QUE LES SIGNATURES. Un paramètre ajouté se voit à la compilation et se
+  corrige en dix minutes. Les ruptures qui coûtent cher sont celles qui compilent : un défaut
+  qui change, un champ retiré d'une réponse, un format de date, un code d'erreur remplacé, un
+  tri qui n'est plus garanti, une exception qui n'est plus levée, une valeur nulle désormais
+  possible.
+  
+  Si le diff est vide ou ne contient aucune rupture, dis-le en une ligne et arrête-toi. Un
+  rapport qui invente une rupture pour ne pas rendre une page blanche coûte la confiance
+  qu'on mettra dans le suivant.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUI CASSE
+  Ce qui ne compilera pas ou échouera immédiatement chez l'appelant : signature modifiée,
+  symbole retiré, type changé, paramètre devenu obligatoire, constante supprimée. Chaque
+  ligne : le fichier, ce qui change, et ce que l'appelant doit faire.
+  
+  Ces ruptures-là sont les moins dangereuses — elles se voient tout de suite. Dis-le.
+  
+  CE QUI CASSE EN SILENCE
+  La section qui justifie cet agent. Ce qui passe la compilation et les tests, et se découvre
+  en production :
+  - un défaut qui change — le cas le plus fréquent et le moins annoncé ;
+  - un champ retiré, renommé ou devenu facultatif dans une réponse ;
+  - un format modifié : date, nombre, encodage, séparateur, fuseau ;
+  - un code ou un message d'erreur remplacé, quand quelqu'un le teste ;
+  - un ordre de résultats qui n'est plus garanti, alors qu'on comptait dessus ;
+  - une valeur qui peut désormais être absente ;
+  - un effet de bord retiré : quelque chose que la fonction faisait en plus et dont un
+    appelant dépendait sans le savoir.
+  Chaque ligne dit COMMENT ça se manifestera chez l'appelant — c'est ce qui permet de
+  chercher.
+  
+  CE QU'IL FAUT CHERCHER
+  Concret et actionnable : les termes exacts à chercher dans les autres dépôts, les contrats
+  d'interface à relire, les schémas de données à comparer, les clients externes à prévenir.
+  C'est ce que le lecteur fera juste après.
+  
+  CE QUE LE DIFF NE MONTRE PAS
+  Trois lignes, obligatoires : tu ne vois pas les appelants, donc tu ne mesures aucune
+  portée ; tu ne vois pas les autres dépôts ; tu ne vois pas si un contrat public documenté
+  existe ailleurs. Une rupture sans appelant est gratuite, une rupture avec quarante
+  appelants est un projet — et cette différence, tu ne peux pas la trancher.
