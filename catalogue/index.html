@@ -227,6 +227,10 @@
   .picker select,.picker input{font-size:12px;padding:7px 9px}
   .picker .rangee select{flex:1;min-width:150px}
   .picker input{width:100%}
+  /* Le choix de fichiers locaux : cadre en pointillés pour dire « ça vient d'ailleurs »
+     — les autres sources tirent d'un dépôt, celle-ci du poste. */
+  .picker input[type=file]{border:1px dashed rgba(251,191,36,.5);border-radius:9px;
+                           padding:10px;background:rgba(251,191,36,.06);cursor:pointer}
   .picker .liste{max-height:212px;overflow:auto;display:grid;gap:3px;margin-top:8px}
   .picker .ligne{text-align:left;width:100%;font:inherit;color:inherit;padding:6px 9px;
                  border-radius:8px;border:1px solid transparent;background:transparent;

@@ -16,6 +16,7 @@ import { lint, ERROR } from '../lint/index.js';
 import { prevol, SENSIBILITES } from '../preflight/index.js';
 import { SOURCES, sourceProbable, estUnIdentifiant, chercher as chercherFichier,
          diffUnifie, resume, grosse } from '../lib/matiere.js';
+import { lireZip, assembler, BINAIRE } from '../lib/paquet.js';
 import { rendre as rendreMd, ressembleADuMarkdown, lienSur } from '../lib/md.js';
 import { rapportHtml, nomFichier } from '../lib/rapport.js';
 import { sait as saitCalculer, surPlusieursDepots, surUneMr, listeDeChoix, zonesDepuisArbre,
@@ -2200,7 +2201,17 @@ function champMatiere(variable) {
   const liste = el('div', { className: 'liste' });
   const aide = el('div', { className: 'vide' });
 
-  panneau.append(el('div', { className: 'rangee' }, source, depot), recherche, aide, liste);
+  const choixFichiers = el('input', {
+    type: 'file', multiple: true,
+    accept: '.zip,.html,.htm,.md,.txt,.yaml,.yml,.json,.log,.csv'
+  });
+
+  const degonfler = async (octets) => new Uint8Array(await new Response(
+    new Blob([octets]).stream().pipeThrough(new DecompressionStream('deflate-raw'))
+  ).arrayBuffer());
+
+  panneau.append(el('div', { className: 'rangee' }, source, depot),
+                 choixFichiers, recherche, aide, liste);
 
   const dire = (texte) => { aide.textContent = texte; };
   const vider = () => { liste.textContent = ''; };
@@ -2282,14 +2293,76 @@ function champMatiere(variable) {
     }
   }
 
+  /*
+   * DES FICHIERS DU POSTE — et le décompresseur vient du navigateur.
+   *
+   * `lib/paquet.js` est pur : il sait lire le RÉPERTOIRE CENTRAL d'un zip et assembler
+   * un lot, mais il ne sait pas dégonfler — c'est `DecompressionStream`, une API de
+   * plateforme, et elle n'a pas sa place dans un module testable sans navigateur. Elle
+   * est donc injectée ici, à l'unique endroit qui a le droit de la connaître.
+   *
+   * Aucun fichier ne quitte le poste tant que rien n'est lancé : la lecture se fait dans
+   * l'onglet, le contenu atterrit dans la zone, et la zone reste modifiable. C'est la
+   * règle de tout ce panneau — il propose, il n'injecte jamais.
+   */
+  async function lireLePoste(fichiers) {
+    const entrees = [];
+    const illisibles = [];
+
+    for (const f of fichiers) {
+      if (/\.zip$/i.test(f.name)) {
+        try {
+          const lot = await lireZip(await f.arrayBuffer(), degonfler);
+          entrees.push(...lot.fichiers);
+          illisibles.push(...lot.illisibles);
+        } catch (error) {
+          // Une archive illisible est NOMMÉE : sans ça, un zip corrompu donnerait un lot
+          // vide et on chercherait le défaut dans l'agent.
+          illisibles.push(`${f.name} (${error.message})`);
+        }
+        continue;
+      }
+      if (BINAIRE.test(f.name)) { illisibles.push(`${f.name} (binaire)`); continue; }
+      try { entrees.push({ nom: f.name, texte: await f.text() }); }
+      catch (error) { illisibles.push(`${f.name} (${error.message})`); }
+    }
+    return assembler(entrees, { illisibles });
+  }
+
+  choixFichiers.onchange = async () => {
+    const fichiers = [...(choixFichiers.files || [])];
+    if (!fichiers.length) return;
+    dire(`Lecture de ${fichiers.length} fichier(s)…`);
+    try {
+      const r = await lireLePoste(fichiers);
+      if (!r.retenus) { dire('Aucun fichier lisible dans ce lot.'); return; }
+      poser(r.texte, `${r.retenus} fichier(s) de ton poste`
+                   + (r.ecartes.length ? ` · ${r.ecartes.length} écarté(s)` : '')
+                   + (r.illisibles.length ? ` · ${r.illisibles.length} illisible(s)` : ''));
+    } catch (error) {
+      dire(`Lecture impossible : ${error.message}`);
+    } finally {
+      // Remis à zéro : rechoisir le MÊME lot doit relancer la lecture, sinon le second
+      // clic ne fait rien et on croit l'écran cassé.
+      choixFichiers.value = '';
+    }
+  };
+
   async function ouvrirPanneau() {
     panneau.hidden = false;
-    try { await remplirDepots(); }
-    catch (error) { dire(`Dépôts illisibles : ${error.message}`); return; }
+    // Les dépôts ne servent qu'aux sources qui tirent d'une forge : les demander pour un
+    // lot local ferait échouer l'ouverture sur un jeton expiré, sans aucune raison.
+    if (source.value !== 'colle' && source.value !== 'poste') {
+      try { await remplirDepots(); }
+      catch (error) { dire(`Dépôts illisibles : ${error.message}`); return; }
+    }
     charger();
   }
 
   function charger() {
+    depot.hidden = source.value === 'colle' || source.value === 'poste';
+    choixFichiers.hidden = source.value !== 'poste';
+
     if (source.value === 'colle') {
       recherche.hidden = true;
       vider();
@@ -2297,7 +2370,16 @@ function champMatiere(variable) {
          + 'journal de pipeline, qui vit dans la CI et pas au dépôt.');
       return;
     }
-    (source.value === 'pull' ? chargerPulls : chargerFichiers)();
+    if (source.value === 'poste') {
+      recherche.hidden = true;
+      vider();
+      dire('Choisis des fichiers, ou une archive ZIP. Chacun gardera son NOM dans la '
+         + 'matière — c\'est ce qui permet au rapport de dire de quel fichier il parle. '
+         + 'Ils ne viennent pas d\'un dépôt : personne d\'autre ne pourra les relire.');
+      return;
+    }
+    remplirDepots().then(() => (source.value === 'pull' ? chargerPulls : chargerFichiers)())
+      .catch((error) => dire(`Dépôts illisibles : ${error.message}`));
   }
 
   bouton.onclick = () => { if (panneau.hidden) ouvrirPanneau(); else panneau.hidden = true; };

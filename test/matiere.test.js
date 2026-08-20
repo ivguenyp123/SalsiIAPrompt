@@ -33,8 +33,23 @@ describe('la source proposée', () => {
     assert.equal(sourceProbable({ name: 'trace', source: 'signal' }), 'colle');
   });
 
-  test('les trois sources existent, « je colle » comprise', () => {
-    assert.deepEqual(SOURCES.map((s) => s.id), ['fichier', 'pull', 'colle']);
+  test('les quatre sources existent, dans l\'ordre où on les propose', () => {
+    /*
+     * L'ORDRE EST L'INFORMATION. Les deux premières tirent d'une forge — contestable,
+     * rejouable, relisible par quelqu'un d'autre. Les deux dernières viennent de la
+     * personne : un collage, ou un lot de son poste. `poste` est en DERNIER parce que
+     * c'est la seule matière que personne d'autre ne pourra relire, et le mettre en tête
+     * en ferait la voie normale.
+     */
+    assert.deepEqual(SOURCES.map((s) => s.id), ['fichier', 'pull', 'colle', 'poste']);
+  });
+
+  test('chaque source dit ce qu\'elle fait — une liste sans aide ne se choisit pas', () => {
+    for (const s of SOURCES) {
+      assert.ok(s.icone && s.libelle && s.aide, `la source ${s.id} est incomplète`);
+    }
+    // Celle du poste avertit de ce qu'elle coûte : sa matière n'est pas vérifiable.
+    assert.match(SOURCES.find((s) => s.id === 'poste').aide, /personne d'autre/i);
   });
 });
 
