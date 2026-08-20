@@ -1,0 +1,189 @@
+# salsi-provenance: demande
+# besoin: « on fait le même pour le green code ? il fait la même chose mais sur une branche ? »
+# demande-par: ivguenyp123
+# le: 2026-08-20
+# (écrit à la main sur cette demande — pas passé par la dictée)
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# ── CE N'EST PAS `green-coding` EN PLUS GRAND ───────────────────────────────
+#
+# `green-coding` lit UN fichier. Le passer à l'échelle du dépôt ne servirait à rien si
+# c'était pour rendre quarante fois le même rapport : ce qui coûte cher dans un système
+# ne se voit pas fichier par fichier.
+#
+# Ce qui apparaît quand on lit tout d'un coup, et rien d'autre ne le montre :
+#
+#   · le MÊME travail fait à trois endroits — trois modules qui recalculent la même
+#     chose, deux caches pour la même donnée, N appels à la même API ;
+#   · ce qui TOURNE EN PERMANENCE — un réveil par module, dix modules, dix réveils ;
+#   · le TRAJET d'une donnée — lue ici, resérialisée là, re-parsée plus loin : le coût
+#     est dans le voyage, pas dans une ligne ;
+#   · une dépendance lourde pour un usage léger, visible en croisant le manifeste et
+#     les imports.
+#
+# Aucun de ces quatre constats n'est formulable depuis un seul fichier. C'est la raison
+# d'être de cet agent, et c'est ce que son spec lui demande en priorité.
+#
+# ── LE PIÈGE DU GENRE, LE MÊME QU'À L'ÉCHELLE DU FICHIER ────────────────────
+#
+# Le chiffre. « Ce dépôt émet X grammes de CO₂ », « −40 % de consommation ». Aucune
+# lecture de code ne produit ces nombres, et les écrire quand même est du faux avec de
+# l'autorité — la faute exacte que « le chiffre au code » interdit. La consigne l'interdit
+# nommément, et une section entière sert à dire ce qu'il FAUDRAIT mesurer.
+#
+# À l'échelle du dépôt, un second chiffre devient tentant et il est tout aussi faux : le
+# décompte de fichiers concernés présenté comme une proportion. « 60 % du code est
+# fragile » n'a de sens que si on a lu 100 % du code, et la matière dit qu'on ne l'a pas
+# fait.
+
+id: green-coding-du-depot
+kind: prompt
+title: Green coding — ce que ce dépôt gaspille
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [code, performance, qualite]
+intent:
+  purpose: >-
+    Lire le code d'un dépôt — sur la branche de ton choix — et dire où il fait travailler
+    des machines plus que nécessaire : ce qui se refait à plusieurs endroits, ce qui
+    tourne en permanence, le trajet coûteux d'une donnée, et ce qui grossira mal. Chaque
+    constat avec son endroit, la ressource brûlée et le geste qui supprime le travail.
+  not_for: >-
+    Ce n'est pas un bilan carbone et ça n'en produira jamais les chiffres : aucune lecture
+    de code ne mesure des watts, des grammes de CO₂ ou des pourcentages d'économie. Ce
+    n'est pas non plus un audit — une partie seulement des fichiers est lue, et la matière
+    dit laquelle. Pour un seul fichier lu en entier, il y a `green-coding`.
+model_tier: mid
+target_level: experimental
+variables:
+  # `code_du_depot` porte un réglage de branche : « sur une branche » et « sur le dépôt »
+  # sont le même geste, avec ou sans ce réglage rempli.
+  - name: code_du_depot
+    source: signal
+    required: true
+    description: >-
+      La carte des répertoires, la pile détectée, le scan déterministe et le contenu des
+      fichiers retenus — lus sur la branche choisie, ou la branche par défaut.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Ce que ce dépôt fait tourner
+      - Ce qui se refait à plusieurs endroits
+      - Où ça gaspille
+      - Ce qu'il faudrait mesurer
+      - Par où commencer
+spec: |-
+  Tu lis le code d'un dépôt pour dire où il fait travailler des machines plus que
+  nécessaire.
+
+  La matière ci-dessous est CALCULÉE : la carte des répertoires porte sur l'arbre entier,
+  les fichiers retenus l'ont été par une règle écrite, et les secrets sont caviardés. Elle
+  est PARTIELLE et elle dit en tête ce qui n'a pas été lu.
+
+  {{code_du_depot}}
+
+  Rends exactement ces sections, avec ces titres :
+
+  ## Ce que ce dépôt fait tourner
+  ## Ce qui se refait à plusieurs endroits
+  ## Où ça gaspille
+  ## Ce qu'il faudrait mesurer
+  ## Par où commencer
+
+  ── LE VOCABULAIRE DE CHALEUR, ET IL EST FERMÉ ────────────────────────────
+
+  Tout constat porte un niveau, et un seul. Il ne dit pas la gravité : il dit À QUELLE
+  FRÉQUENCE la dépense se répète, ce qui est la seule chose qui fasse une facture.
+
+  - CHAUD   ça tourne souvent, ou une fois PAR ÉLÉMENT traité. Une itération ligne à
+            ligne, un appel par utilisateur, un intervalle de quelques secondes. C'est
+            là que tout se joue.
+  - TIÈDE   ça tourne une fois par requête, par exécution, par pipeline.
+  - FROID   ça tourne une fois au démarrage, au build, à l'installation. Un gaspillage
+            froid est presque toujours à laisser tranquille, et le dire fait gagner du
+            temps à celui qui lit.
+
+  LA FRÉQUENCE NE SE LIT PAS DANS LE CODE. Tu la déduis de la forme — une boucle, un
+  intervalle, un point d'entrée. Quand tu la déduis, ÉCRIS-LE : « chaud, si cette fonction
+  est bien appelée par requête » vaut infiniment mieux qu'un « chaud » affirmé.
+
+  ── CE QU'ON ATTEND DANS CHAQUE SECTION ───────────────────────────────────
+
+  CE QUE CE DÉPÔT FAIT TOURNER
+  La forme du travail, en quelques lignes — pas ce que le produit fait, mais ce que les
+  machines exécutent : ce qui répond à une demande, ce qui tourne sur une horloge ou en
+  tâche de fond, ce qui ne s'exécute qu'au démarrage ou au build. C'est la carte de
+  chaleur du dépôt, et tout le reste s'y accroche. Si tu ne peux pas la dresser avec ce
+  que tu as lu, dis-le : c'est déjà une information.
+
+  CE QUI SE REFAIT À PLUSIEURS ENDROITS
+  La section qui justifie de tout lire d'un coup, et la plus utile des cinq. Cherche :
+
+  - le même calcul, la même transformation, la même requête, dans plusieurs fichiers ;
+  - deux caches, deux états, deux copies de la même donnée — qui divergeront en plus de
+    coûter ;
+  - le TRAJET d'une donnée : lue, sérialisée, réécrite, re-parsée d'un module à l'autre.
+    Le coût est dans le voyage et aucun fichier ne le montre seul ;
+  - ce qui tourne en parallèle sans le savoir : plusieurs réveils, plusieurs surveillances,
+    plusieurs connexions là où une suffirait ;
+  - une dépendance lourde tirée pour un usage léger — croise le manifeste et les imports.
+
+  NOMME LES FICHIERS CONCERNÉS, tous. « Trois endroits recalculent la même chose » sans
+  dire lesquels ne se corrige pas. Si tu ne vois rien qui se répète, écris-le : c'est un
+  bon résultat, et l'inventer serait le pire des services.
+
+  OÙ ÇA GASPILLE
+  Le reste, GROUPÉ PAR MOTIF et non par fichier — sinon tu rends quarante rapports collés
+  au lieu d'un. Chaque motif avec son niveau de chaleur, les fichiers concernés, la
+  ressource brûlée (calcul refait, aller-réseau, lecture disque, mémoire retenue) et le
+  geste qui supprime ce travail.
+
+  Cherche : le travail refait (recalculé, reconnecté, relu à chaque passage), les données
+  surlues (tout charger pour un champ, `SELECT *`, un appel par élément là où un suffit,
+  pagination absente), les attentes actives (sondage serré là où un événement existe), les
+  boucles dont le coût explose sur une donnée que rien ne borne, la rétention sans borne
+  (cache sans éviction, journal verbeux dans une boucle chaude), les transferts obèses.
+
+  Trois règles, et la première prime :
+
+  - AUCUN CHIFFRE DE CONSOMMATION. Ni watts, ni grammes de CO₂, ni « −30 % ». Et à cette
+    échelle, aucune PROPORTION non plus : « 60 % du code est concerné » supposerait que tu
+    aies lu 100 % du code, et la matière dit que non. Tu peux compter ce que tu as compté
+    — des fichiers, des occurrences — et dire sur combien de fichiers LUS.
+  - Classe par chaleur, pas par élégance. Un motif froid en tête d'un rapport fait perdre
+    du temps à tout le monde.
+  - Ne signale ni les micro-optimisations que le compilateur fait déjà, ni un dogme :
+    « réécris dans tel langage », « utilise tel framework » ne sont pas des gestes.
+
+  Si le dépôt est sobre sur ce que tu as lu, écris-le. Un rapport vide est un bon rapport.
+
+  CE QU'IL FAUDRAIT MESURER
+  Les deux ou trois mesures qui transformeraient tes hypothèses en faits, et OÙ elles
+  vivent : la fréquence d'appel (les métriques d'exécution), le volume de la donnée
+  traversée (la base, pas le code), la taille de ce qui transite (les journaux d'accès),
+  le temps passé par étape (les traces). Nomme aussi les fichiers non lus qui pourraient
+  changer tes conclusions — la matière en donne le compte. C'est cette section qui rend
+  les autres honnêtes : « déduit » ne vaut pas « mesuré ».
+
+  PAR OÙ COMMENCER
+  UNE proposition, la plus rentable — celle qui supprime le plus de travail machine, pas
+  celle qui rend le code plus joli. Dis ce qu'elle supprime : « cet appel ne se fera plus
+  qu'une fois par pipeline au lieu d'une fois par fichier » se décide ; « c'est mieux »
+  ne se décide pas.
+
+  ── ET LES RÈGLES DE LECTURE, COMME PARTOUT ───────────────────────────────
+
+  - TU N'AS LU QU'UNE PART DU DÉPÔT. La carte des répertoires est complète, la lecture non.
+    Un dossier jamais ouvert peut porter l'essentiel du gaspillage — ne conclus rien sur
+    lui, et rappelle-le dans « ce qu'il faudrait mesurer ».
+  - N'ÉCRIS JAMAIS QUE CE DÉPÔT EST SOBRE, ni « optimisé », ni « sans gaspillage ». Tu lis
+    des fichiers sans rien exécuter et sans une seule mesure. Si rien ne t'inquiète :
+    « rien de visible à la lecture de ces fichiers ».
+  - Ne recopie aucune valeur de secret, même caviardée.

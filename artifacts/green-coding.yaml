@@ -43,7 +43,8 @@ intent:
     lecture de fichier ne mesure des watts, des grammes de CO₂ ou des pourcentages
     d'économie. C'est une chasse aux motifs, à confirmer par les mesures que la
     section dédiée réclame. Pas non plus un juge de style : un code laid qui ne
-    travaille qu'une fois ne gaspille rien.
+    travaille qu'une fois ne gaspille rien. Et il lit UN fichier : ce qui se refait à
+    trois endroits ne s'y voit pas — c'est `green-coding-du-depot` qui le montre.
 model_tier: mid
 target_level: experimental
 variables:
