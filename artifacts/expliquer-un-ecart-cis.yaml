@@ -1,0 +1,103 @@
+# Capacité de l'inventaire du hub — module « Security Scanner ».
+# besoin : « un agent qui explique un écart au référentiel CIS GitLab et ce qu'il faut changer »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : recopier l'intitulé du contrôle. « Le contrôle 1.2.3 exige
+# que les branches protégées interdisent la poussée directe » — c'est ce que le
+# rapport affiche déjà, en plus court.
+#
+# Ce qui manque, c'est ce que l'écart LAISSE PASSER concrètement dans ce dépôt-là,
+# et le geste exact : quel écran, quel réglage, quelle valeur. Un écart de
+# conformité expliqué sans le chemin pour le corriger reste ouvert des mois.
+id: expliquer-un-ecart-cis
+kind: prompt
+title: 'Cet écart CIS — ce qu''il laisse passer, et quoi changer'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [securite, conformite]
+intent:
+  purpose: >-
+    Expliquer un écart au référentiel CIS : ce qu'il laisse concrètement passer, le geste exact pour le corriger, et ce que la correction va gêner.
+  not_for: >-
+    Ce n'est pas une paraphrase de l'intitulé du contrôle — le rapport l'affiche déjà. Ce n'est pas non plus un plan de remédiation complet (`rediger-le-plan-de-remediation`) ni une priorisation (`prioriser-les-ecarts-de-conformite`).
+model_tier: mid
+target_level: experimental
+variables:
+  - name: rapport_conformite
+    source: signal
+    required: true
+    description: >-
+      La conformité du dépôt au référentiel CIS : les contrôles passés, échoués, non applicables.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce que l''écart laisse passer'
+      - 'Le geste exact'
+      - 'Ce que la correction va gêner'
+      - 'Ce que le contrôle ne couvre pas'
+spec: |-
+  Tu expliques un écart au référentiel CIS.
+  
+  {{rapport_conformite}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que l'écart laisse passer
+  ## Le geste exact
+  ## Ce que la correction va gêner
+  ## Ce que le contrôle ne couvre pas
+  
+  ── LA RÈGLE ──────────────────────────────────────────────────────────────
+  
+  NE RECOPIE PAS L'INTITULÉ DU CONTRÔLE. Le rapport l'affiche déjà, mieux formulé. Ce qu'on
+  attend est la suite : ce qui devient possible parce que ce contrôle échoue.
+  
+  ── UN SCAN EST UN PLANCHER, PAS UN VERDICT ───────────────────────────────
+  
+  Ce qui n'a pas été cherché n'a pas été trouvé. N'écris JAMAIS que ce dépôt est
+  conforme, sûr ou sain : la matière est une liste de contrôles, et son silence sur
+  un sujet ne dit rien de ce sujet.
+  
+  Et « N/A n'est pas zéro » : un contrôle non applicable n'est pas un contrôle
+  réussi. Les compter ensemble produit un taux de conformité flatteur et faux —
+  c'est le mensonge le plus courant du genre.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE L'ÉCART LAISSE PASSER
+  Le scénario concret, en deux ou trois phrases : qui peut faire quoi, et ce qui arrive
+  ensuite. Pas « risque de compromission » — « quelqu'un qui a le droit d'écrire peut pousser
+  directement sur la branche livrée sans qu'aucune relecture n'ait lieu, et rien n'en garde
+  trace ».
+  
+  Distingue ce qui demande un accès déjà obtenu de ce qui est ouvert à tous : ce n'est pas
+  le même risque, et le confondre fait traiter les écarts dans le mauvais ordre.
+  
+  LE GESTE EXACT
+  Où aller, quoi changer, quelle valeur mettre. Pas « activer la protection de branche » —
+  le chemin dans l'interface ou le réglage précis. Un écart expliqué sans son chemin de
+  correction reste ouvert des mois, et c'est la seule raison pour laquelle cet agent existe.
+  
+  Si tu ne connais pas le chemin exact, dis ce qu'il faut chercher plutôt que d'inventer un
+  menu.
+  
+  CE QUE LA CORRECTION VA GÊNER
+  La section qui évite le retour en arrière. Une protection de branche gêne les corrections
+  en urgence, une approbation obligatoire bloque quand une seule personne est disponible,
+  une rotation de jeton casse ce qui l'utilise sans qu'on le sache. Dis QUI va râler et
+  pourquoi il aura raison — puis ce qu'on met en face.
+  
+  Une correction appliquée sans avoir prévu ça est désactivée le vendredi suivant.
+  
+  CE QUE LE CONTRÔLE NE COUVRE PAS
+  Deux ou trois lignes : ce contrôle vérifie un RÉGLAGE, pas une pratique. Une branche
+  protégée avec une approbation obligatoire n'empêche pas l'approbation de complaisance. Le
+  dire évite qu'un contrôle vert ferme le sujet.

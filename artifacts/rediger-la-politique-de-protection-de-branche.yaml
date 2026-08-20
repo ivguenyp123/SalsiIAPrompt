@@ -1,0 +1,110 @@
+# Capacité de l'inventaire du hub — module « Security Scanner ».
+# besoin : « un agent qui rédige la politique de protection de branche adaptée à la taille de l'équipe »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : la politique maximale. Deux approbations obligatoires,
+# poussée directe interdite pour tous, suppression de branche interdite — sur une
+# équipe de trois personnes dont une en congé. Cette politique-là sera contournée
+# dans les quinze jours, et pas par mauvaise volonté : parce qu'elle rend le
+# travail impossible.
+#
+# Une politique contournée est pire qu'une politique laxiste : elle donne une
+# conformité de façade et apprend à passer outre. C'est pourquoi la répartition des
+# contributions est dans la matière — deux approbations exigées d'une équipe de
+# deux est une règle qui ne peut pas être respectée.
+id: rediger-la-politique-de-protection-de-branche
+kind: prompt
+title: 'La protection de branche — celle qui tiendra vraiment'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [securite, equipe]
+intent:
+  purpose: >-
+    Rédiger la politique de protection de branche qui tiendra vraiment, compte tenu de la taille réelle de l'équipe — avec la procédure d'urgence qui évite qu'elle soit contournée.
+  not_for: >-
+    Ce n'est pas la politique maximale : une règle contournée est pire qu'une règle laxiste, parce qu'elle donne une conformité de façade et apprend à passer outre. Et ça ne dit pas quels écarts corriger d'abord — c'est `prioriser-les-ecarts-de-conformite`.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: rapport_conformite
+    source: signal
+    required: true
+    description: >-
+      La conformité du dépôt au référentiel CIS : les contrôles passés, échoués, non applicables.
+  - name: repartition_contributions
+    source: signal
+    required: true
+    description: >-
+      Qui contribue à quoi, par zone du dépôt, avec les répertoires non interrogés.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce que l''équipe permet'
+      - 'La politique'
+      - 'La procédure d''urgence'
+      - 'Ce qui la fera contourner'
+spec: |-
+  Tu rédiges la politique de protection de branche d'un dépôt.
+  
+  L'état de conformité :
+  {{rapport_conformite}}
+  
+  Qui contribue :
+  {{repartition_contributions}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que l'équipe permet
+  ## La politique
+  ## La procédure d'urgence
+  ## Ce qui la fera contourner
+  
+  ── LA RÈGLE QUI DÉCIDE DE TOUT ───────────────────────────────────────────
+  
+  UNE POLITIQUE CONTOURNÉE EST PIRE QU'UNE POLITIQUE LAXISTE. Elle donne une conformité de
+  façade, et surtout elle apprend à l'équipe que les règles se contournent — ce qui vaudra
+  aussi pour celles qui comptent.
+  
+  La taille réelle de l'équipe décide donc du contenu. Exiger deux approbations d'une équipe
+  de deux est une règle qui ne PEUT pas être respectée ; elle sera désactivée un mardi soir
+  et jamais remise.
+  
+  AUCUN NOM DE PERSONNE : des rôles.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE L'ÉQUIPE PERMET
+  Avant toute règle : combien de personnes contribuent réellement et régulièrement, comment
+  elles se répartissent. C'est ce qui fixe le plafond du réalisable. Si une seule personne
+  contribue, dis-le franchement — la protection de branche ne remplace pas une relecture
+  qui n'existe pas, et prétendre le contraire est le vrai risque.
+  
+  LA POLITIQUE
+  Les règles, une par ligne, avec pour chacune ce qu'elle empêche. Couvre : qui peut pousser
+  directement, combien d'approbations, si l'auteur peut s'approuver, ce que la chaîne doit
+  valider avant fusion, qui peut forcer, ce qu'on fait des branches après fusion.
+  
+  Chaque règle est CALIBRÉE sur l'équipe réelle, et tu dis pourquoi tu n'as pas mis plus
+  strict. Une politique qui explique sa modération se défend devant un auditeur ; une
+  politique maximale qui sera désactivée ne se défend nulle part.
+  
+  LA PROCÉDURE D'URGENCE
+  La section qui sauve la politique. Il y aura un incident un dimanche, avec une seule
+  personne disponible. Si rien n'est prévu, la protection sera désactivée dans la panique et
+  ne sera pas remise.
+  
+  Écris donc : qui peut décider, comment on trace le passage en force, et ce qu'on fait
+  APRÈS — la relecture rétroactive dans les quarante-huit heures. Une exception tracée et
+  relue reste une exception ; une exception silencieuse devient la règle.
+  
+  CE QUI LA FERA CONTOURNER
+  Trois lignes honnêtes : les moments où cette politique va gêner, et ce qu'on met en face.
+  C'est ce qui la fera tenir six mois plutôt que quinze jours.

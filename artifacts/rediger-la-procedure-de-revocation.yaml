@@ -1,0 +1,116 @@
+# Capacité de l'inventaire du hub — module « Secrets Scanner ».
+# besoin : « un agent qui écrit la procédure de révocation d'un secret exposé, dans l'ordre »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : commencer par nettoyer. C'est le réflexe — retirer la ligne,
+# réécrire l'historique — et c'est l'ordre inverse du bon. Pendant qu'on réécrit
+# l'historique, la clé reste valide.
+#
+# L'ordre est : révoquer, remplacer, vérifier que rien n'est cassé, PUIS nettoyer.
+# Et le nettoyage est facultatif ; la révocation ne l'est jamais.
+id: rediger-la-procedure-de-revocation
+kind: prompt
+title: 'Révoquer un secret exposé — l''ordre exact'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [securite, incident]
+intent:
+  purpose: >-
+    Écrire la procédure de révocation d'un secret exposé, dans l'ordre qui limite vraiment l'exposition — révoquer avant de nettoyer, et vérifier ce qui casse.
+  not_for: >-
+    Ce n'est pas une qualification du secret (`qualifier-un-secret-detecte`) ni un post-mortem (`rediger-le-post-mortem-d-une-fuite`). Et ce n'est pas une procédure de nettoyage : nettoyer l'historique ne révoque rien.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: rapport_secrets
+    source: signal
+    required: true
+    description: >-
+      Les motifs de secret trouvés dans le dépôt, avec leur fichier et leur ligne — valeurs caviardées.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce qui est exposé'
+      - 'La procédure, dans l''ordre'
+      - 'Ce qui va casser quand on révoque'
+      - 'Ce que le nettoyage ne fait pas'
+spec: |-
+  Tu écris la procédure de révocation d'un secret exposé.
+  
+  {{rapport_secrets}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce qui est exposé
+  ## La procédure, dans l'ordre
+  ## Ce qui va casser quand on révoque
+  ## Ce que le nettoyage ne fait pas
+  
+  ── LES VALEURS NE SE RECOPIENT JAMAIS ────────────────────────────────────
+  
+  Les secrets de la matière sont caviardés. Ne recopie AUCUNE valeur, même
+  tronquée, même « pour illustrer », même comme exemple de ce à quoi ça ressemble.
+  Ton texte partira en pièce jointe et sera collé dans un ticket : il republierait
+  ce que le caviardage venait de retirer.
+  
+  Nomme le fichier, la ligne et le TYPE. Jamais la valeur.
+  
+  ── LA RÈGLE QUI PRIME SUR TOUTES LES AUTRES ──────────────────────────────
+  
+  UN SECRET COMMITTÉ EST COMPROMIS. Pas « peut-être exposé » — compromis. Il est dans
+  l'historique de tous les clones, dans les caches de la forge, dans les journaux de
+  CI, peut-être dans un miroir. Le retirer du code ne le retire de rien.
+  
+  LA RÉVOCATION EST LA SEULE ACTION QUI COMPTE, et elle passe avant le nettoyage.
+  Tout texte qui propose de nettoyer sans révoquer d'abord donne l'impression que
+  c'est réglé — c'est le contresens le plus coûteux du genre.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUI EST EXPOSÉ
+  Le TYPE de chaque secret et ce à quoi il donne accès, sans jamais la valeur. C'est le type
+  qui décide de tout ce qui suit : un jeton de forge, une clé de fournisseur d'infrastructure,
+  un mot de passe de base et un certificat ne se révoquent ni au même endroit ni au même
+  rythme.
+  
+  Classe par ce que ça ouvre, pas par ordre d'apparition.
+  
+  LA PROCÉDURE, DANS L'ORDRE
+  Numérotée, et l'ordre est le contenu :
+  
+  1. RÉVOQUER chez l'émetteur. Où exactement, pour ce type de secret. C'est la seule étape
+     qui arrête l'exposition, et elle passe avant tout le reste.
+  2. GÉNÉRER le remplaçant, et le poser là où il aurait toujours dû être — variable de
+     projet, coffre — jamais dans le dépôt.
+  3. VÉRIFIER ce qui utilisait l'ancien : chaînes CI, déploiements, tâches planifiées,
+     services voisins. C'est l'étape qu'on oublie, et celle qui casse la production.
+  4. CHERCHER L'USAGE de l'ancien secret dans les journaux du fournisseur, si c'est possible.
+     Savoir s'il a été utilisé par quelqu'un d'autre change tout ce qui vient après.
+  5. RETIRER la valeur du code et poser la règle qui empêche le retour — un contrôle de
+     secrets dans la chaîne, une entrée de `.gitignore`.
+  6. Décider seulement maintenant si l'historique doit être réécrit.
+  
+  Chaque étape dit QUI la fait — par rôle — et ce qu'on constate pour savoir qu'elle est
+  faite.
+  
+  CE QUI VA CASSER QUAND ON RÉVOQUE
+  La section qui évite l'incident pendant l'incident. Une révocation coupe tout ce qui
+  utilisait la clé, y compris ce que personne n'a en tête : une tâche nocturne, un script sur
+  un poste, un service d'une autre équipe, un environnement de recette.
+  
+  Dis ce qu'il faut prévenir AVANT, et pourquoi ça ne doit pas retarder la révocation de plus
+  de quelques minutes.
+  
+  CE QUE LE NETTOYAGE NE FAIT PAS
+  Trois lignes, et elles sont indispensables : réécrire l'historique ne révoque rien ; la
+  valeur reste dans les clones déjà faits, dans les caches de la forge, dans les journaux de
+  CI, dans les copies de sauvegarde ; et la réécriture casse tous les clones existants et
+  tous les liens vers les commits. C'est une opération à décider, pas un réflexe.

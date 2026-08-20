@@ -1,0 +1,127 @@
+# Capacité de l'inventaire du hub — module « Secrets Scanner ».
+# besoin : « un agent qui rédige le post-mortem d'un secret exposé : ce qui s'est passé, l'impact, ce qui change »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : le coupable. Un post-mortem qui désigne celui qui a committé
+# la clé produit une seule chose — la prochaine fuite ne sera pas déclarée. Et il
+# rate la vraie question : pourquoi le système a-t-il permis qu'une clé arrive
+# jusqu'à la branche principale sans que rien ne l'arrête.
+#
+# Le second piège : conclure sur l'impact. « Aucun usage frauduleux constaté » est
+# une phrase qu'on ne peut écrire qu'avec les journaux du fournisseur sous les yeux.
+# Sans eux, la formule honnête est « nous ne savons pas ».
+id: rediger-le-post-mortem-d-une-fuite
+kind: prompt
+title: 'Le post-mortem d''une fuite — sans chercher de coupable'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [securite, incident]
+intent:
+  purpose: >-
+    Rédiger le post-mortem d'un secret exposé : la chronologie factuelle, l'exposition réelle, ce qui a permis que ça arrive, et ce qui change — sans jamais nommer personne.
+  not_for: >-
+    Ce n'est pas une recherche de responsable : un post-mortem qui désigne quelqu'un garantit que la fuite suivante ne sera pas déclarée. Et ce n'est pas la procédure de révocation (`rediger-la-procedure-de-revocation`), qui doit être faite AVANT d'écrire ce document.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: rapport_secrets
+    source: signal
+    required: true
+    description: >-
+      Les motifs de secret trouvés dans le dépôt, avec leur fichier et leur ligne — valeurs caviardées.
+  - name: historique_commits
+    source: repo
+    required: true
+    description: >-
+      Les commits de la période, avec leur auteur, leur date et leur message.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce qui s''est passé'
+      - 'L''exposition'
+      - 'Ce qui a permis que ça arrive'
+      - 'Ce qui change'
+      - 'Ce qu''on ne sait pas'
+spec: |-
+  Tu rédiges le post-mortem d'un secret exposé.
+  
+  Le scan :
+  {{rapport_secrets}}
+  
+  L'historique :
+  {{historique_commits}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce qui s'est passé
+  ## L'exposition
+  ## Ce qui a permis que ça arrive
+  ## Ce qui change
+  ## Ce qu'on ne sait pas
+  
+  ── LES VALEURS NE SE RECOPIENT JAMAIS ────────────────────────────────────
+  
+  Les secrets de la matière sont caviardés. Ne recopie AUCUNE valeur, même
+  tronquée, même « pour illustrer », même comme exemple de ce à quoi ça ressemble.
+  Ton texte partira en pièce jointe et sera collé dans un ticket : il republierait
+  ce que le caviardage venait de retirer.
+  
+  Nomme le fichier, la ligne et le TYPE. Jamais la valeur.
+  
+  ── LA RÈGLE, ET ELLE EST ABSOLUE ─────────────────────────────────────────
+  
+  AUCUN NOM, AUCUN RÔLE NOMINATIF, AUCUNE FORMULATION QUI DÉSIGNE. Pas « l'auteur du commit
+  a », pas « par inattention ». Un post-mortem qui cherche un coupable produit une seule
+  chose : la fuite suivante ne sera pas déclarée, et personne ne la trouvera avant qu'elle
+  serve.
+  
+  Écris au passif ou sur le système : « une clé a été committée », « rien dans la chaîne ne
+  l'a arrêtée ». La question utile n'est pas qui, c'est POURQUOI RIEN N'A ARRÊTÉ ÇA.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUI S'EST PASSÉ
+  La chronologie, factuelle et datée, depuis l'historique : quand la valeur est entrée, dans
+  quel fichier, quand elle a été détectée, quand elle a été révoquée. Les dates sont
+  l'information la plus importante du document — elles donnent la DURÉE d'exposition, qui
+  décide de tout le reste.
+  
+  Si l'historique ne permet pas de dater l'entrée, dis-le : « présent depuis au moins telle
+  date » est honnête, une date inventée ne l'est pas.
+  
+  L'EXPOSITION
+  À quoi la clé donnait accès, et pendant combien de temps. Puis QUI POUVAIT LA VOIR : le
+  dépôt est-il public ou interne, combien de personnes y ont accès, existe-t-il des miroirs,
+  la valeur est-elle passée dans des journaux de CI.
+  
+  N'ÉCRIS PAS « aucun usage frauduleux constaté » sans avoir les journaux du fournisseur. La
+  formule honnête est : « les journaux d'usage n'ont pas été consultés » ou « ils montrent
+  X ». Une absence de constat n'est pas un constat d'absence.
+  
+  CE QUI A PERMIS QUE ÇA ARRIVE
+  Le cœur du document, et il porte sur le SYSTÈME. Cherche : aucun contrôle de secrets dans
+  la chaîne, pas de crochet local, un fichier de configuration non ignoré, une valeur qu'il
+  fallait bien mettre quelque part et aucun coffre disponible, une procédure de démarrage qui
+  demande de coller une clé dans un fichier.
+  
+  La plupart des fuites viennent d'un chemin trop difficile pour bien faire. Dis lequel.
+  
+  CE QUI CHANGE
+  Deux ou trois actions, chacune avec un rôle et un signe de réalisation. Priorité à ce qui
+  rend la fuite IMPOSSIBLE plutôt qu'à ce qui la détecte : un contrôle en chaîne qui bloque
+  avant fusion vaut mieux qu'un scan hebdomadaire, et un coffre disponible vaut mieux que les
+  deux.
+  
+  Pas de « sensibiliser les équipes » : ce n'est pas une action, c'est une absence d'action.
+  
+  CE QU'ON NE SAIT PAS
+  Trois à cinq lignes : si la clé a été utilisée par un tiers, si elle existe ailleurs, si
+  d'autres secrets du même type traînent, et ce que la matière annonce comme non couvert.

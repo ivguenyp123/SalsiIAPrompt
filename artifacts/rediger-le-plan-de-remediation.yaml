@@ -1,0 +1,106 @@
+# Capacité de l'inventaire du hub — module « Security Scanner ».
+# besoin : « un agent qui écrit le plan de remédiation d'un audit de sécurité, avec un responsable par ligne »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : le plan sans propriétaire. « Mettre en place la protection
+# des branches » — par qui, avant quand, et qui vérifie ? Un plan de remédiation
+# dont chaque ligne n'a pas de rôle et de date est une liste de vœux, et elle sera
+# présentée à l'identique au comité suivant.
+#
+# Le second piège : nommer des personnes. Une personne part, change d'équipe ou
+# est en congé ; un plan nominatif est faux au premier mouvement. Un RÔLE survit.
+id: rediger-le-plan-de-remediation
+kind: prompt
+title: 'Le plan de remédiation — avec un rôle et une date par ligne'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [securite, conformite]
+intent:
+  purpose: >-
+    Écrire le plan de remédiation d'un audit : une ligne par écart, avec le rôle qui en répond, la preuve attendue, et l'échéance — ou la mention explicite qu'elle reste à décider.
+  not_for: >-
+    Ce n'est pas une priorisation (`prioriser-les-ecarts-de-conformite`) ni une explication d'écart (`expliquer-un-ecart-cis`). Et ça n'attribue rien à personne : l'agent propose des RÔLES, l'attribution nominative est une décision humaine.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: rapport_conformite
+    source: signal
+    required: true
+    description: >-
+      La conformité du dépôt au référentiel CIS : les contrôles passés, échoués, non applicables.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce que ce plan couvre'
+      - 'Le plan'
+      - 'Ce qui bloque l''exécution'
+      - 'Ce qui reste à décider'
+spec: |-
+  Tu écris le plan de remédiation d'un audit de conformité.
+  
+  {{rapport_conformite}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que ce plan couvre
+  ## Le plan
+  ## Ce qui bloque l'exécution
+  ## Ce qui reste à décider
+  
+  ── LES DEUX RÈGLES ───────────────────────────────────────────────────────
+  
+  UNE LIGNE SANS RÔLE, SANS PREUVE ET SANS ÉCHÉANCE N'EST PAS UNE LIGNE DE PLAN. C'est un
+  vœu, et il sera représenté au comité suivant à l'identique.
+  
+  DES RÔLES, JAMAIS DES NOMS. Une personne part, change d'équipe, est en congé ; un plan
+  nominatif est faux au premier mouvement et bloque en silence. « Le responsable du dépôt »,
+  « l'équipe plateforme », « celui qui tient la chaîne CI ».
+  
+  ── UN SCAN EST UN PLANCHER, PAS UN VERDICT ───────────────────────────────
+  
+  Ce qui n'a pas été cherché n'a pas été trouvé. N'écris JAMAIS que ce dépôt est
+  conforme, sûr ou sain : la matière est une liste de contrôles, et son silence sur
+  un sujet ne dit rien de ce sujet.
+  
+  Et « N/A n'est pas zéro » : un contrôle non applicable n'est pas un contrôle
+  réussi. Les compter ensemble produit un taux de conformité flatteur et faux —
+  c'est le mensonge le plus courant du genre.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE CE PLAN COUVRE
+  Trois lignes : combien d'écarts, lesquels sont dans le plan, et — surtout — lesquels n'y
+  sont PAS et pourquoi. Un plan qui prétend tout couvrir n'est pas cru.
+  
+  LE PLAN
+  Un tableau, une ligne par écart traité, dans l'ordre d'exécution. Chaque ligne porte :
+  - l'écart, en trois mots ;
+  - le geste, concret ;
+  - le RÔLE qui en répond ;
+  - la PREUVE qu'on produira — une capture du réglage, une exécution de chaîne, un extrait
+    de configuration. Sans preuve définie à l'avance, la clôture se discutera pendant une
+    heure devant l'auditeur ;
+  - l'échéance, ou « à décider » écrit en toutes lettres. N'invente aucune date : une date
+    inventée est reprise telle quelle et devient un engagement que personne n'a pris.
+  
+  Regroupe ce qui se corrige en une seule opération : quatre réglages du même écran font une
+  ligne, pas quatre.
+  
+  CE QUI BLOQUE L'EXÉCUTION
+  Ce qui empêchera ce plan d'avancer, et qu'on découvre toujours en cours de route : un
+  réglage qui appartient à l'administration de la forge et non à l'équipe, une correction qui
+  demande une fenêtre de livraison, une protection qui gênera le travail quotidien et sera
+  contournée. Dis pour chacun ce qu'il faut obtenir, et de qui.
+  
+  CE QUI RESTE À DÉCIDER
+  Les arbitrages qui n'appartiennent pas à l'auteur du plan : accepter un risque, obtenir un
+  moyen, changer une façon de travailler. Formule-les comme des questions fermées — un
+  arbitrage posé en question ouverte n'est jamais tranché.

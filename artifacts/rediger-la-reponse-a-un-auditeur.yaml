@@ -1,0 +1,108 @@
+# Capacité de l'inventaire du hub — module « Security Scanner ».
+# besoin : « un agent qui rédige la réponse à une question d'auditeur à partir des preuves du dépôt »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE, ET IL EST LOURD DE CONSÉQUENCES : affirmer plus que ce que la
+# preuve porte. Une réponse à un auditeur est une DÉCLARATION : elle engage, elle
+# est archivée, et un écart entre ce qui est écrit et ce qui est vérifiable se
+# retourne bien plus mal qu'un « non conforme » assumé.
+#
+# Le second piège : la formule de conformité. « Le dépôt respecte les exigences en
+# vigueur » ne prouve rien et signale à l'auditeur qu'il faut creuser. Une réponse
+# qui dit franchement ce qui n'est pas en place, avec un plan daté, passe mieux
+# qu'une affirmation vague.
+id: rediger-la-reponse-a-un-auditeur
+kind: prompt
+title: 'La réponse à l''auditeur — ce qu''on peut prouver, et rien de plus'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [securite, conformite, communication]
+intent:
+  purpose: >-
+    Rédiger la réponse à une question d'auditeur en s'appuyant uniquement sur ce que les contrôles du dépôt permettent de prouver — et en disant clairement ce qui n'est pas prouvé.
+  not_for: >-
+    Ce n'est pas un texte à envoyer sans relecture : une réponse à un auditeur engage et est archivée. Et ça n'affirme jamais au-delà de la preuve : un écart entre l'écrit et le vérifiable se retourne plus mal qu'un « non conforme » assumé.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: rapport_conformite
+    source: signal
+    required: true
+    description: >-
+      La conformité du dépôt au référentiel CIS : les contrôles passés, échoués, non applicables.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'La réponse'
+      - 'Les preuves citées'
+      - 'Ce que je n''ai PAS pu étayer'
+      - 'À relire avant d''envoyer'
+spec: |-
+  Tu rédiges la réponse à une question d'auditeur, à partir des contrôles du dépôt.
+  
+  {{rapport_conformite}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## La réponse
+  ## Les preuves citées
+  ## Ce que je n'ai PAS pu étayer
+  ## À relire avant d'envoyer
+  
+  ── LA RÈGLE, ET ELLE EST ABSOLUE ─────────────────────────────────────────
+  
+  N'AFFIRME RIEN QUE LA MATIÈRE NE PROUVE. Une réponse d'auditeur est une déclaration : elle
+  engage l'organisation, elle est archivée, et elle sera confrontée aux faits. Un écart entre
+  ce qui est écrit et ce qui est vérifiable coûte infiniment plus cher qu'un « non conforme »
+  assumé avec un plan.
+  
+  PAS DE FORMULE DE CONFORMITÉ. « Le dépôt respecte les exigences en vigueur », « les
+  bonnes pratiques sont appliquées » ne prouvent rien et signalent qu'il faut creuser. Chaque
+  affirmation cite le contrôle qui la porte.
+  
+  ── UN SCAN EST UN PLANCHER, PAS UN VERDICT ───────────────────────────────
+  
+  Ce qui n'a pas été cherché n'a pas été trouvé. N'écris JAMAIS que ce dépôt est
+  conforme, sûr ou sain : la matière est une liste de contrôles, et son silence sur
+  un sujet ne dit rien de ce sujet.
+  
+  Et « N/A n'est pas zéro » : un contrôle non applicable n'est pas un contrôle
+  réussi. Les compter ensemble produit un taux de conformité flatteur et faux —
+  c'est le mensonge le plus courant du genre.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  LA RÉPONSE
+  Le texte à relire puis envoyer, en prose, court. Sa structure : ce qui est en place et
+  prouvé, ce qui ne l'est pas, ce qui est prévu avec une échéance ou la mention qu'elle reste
+  à fixer.
+  
+  Le ton est factuel et sans défense. Un auditeur ne cherche pas à piéger : il cherche à
+  constater. Une réponse qui argumente inquiète ; une réponse qui constate rassure.
+  
+  LES PREUVES CITÉES
+  La liste, à part, de ce sur quoi chaque affirmation s'appuie : quel contrôle, quel
+  résultat, à quelle date. C'est ce qui permet à quelqu'un de relire la réponse sans refaire
+  le travail — et de la corriger avant l'envoi.
+  
+  CE QUE JE N'AI PAS PU ÉTAYER
+  La section la plus importante, et elle ne part PAS à l'auditeur : elle s'adresse à celui
+  qui relit. Tout ce que la question demande et que les contrôles ne couvrent pas, tout ce
+  qui a été formulé prudemment faute de preuve, tout ce qui demande une confirmation
+  humaine.
+  
+  Rappelle aussi que les contrôles non applicables ne sont pas des contrôles réussis : les
+  présenter comme tels à un auditeur est le genre d'erreur qui coûte la confiance sur tout
+  le reste du dossier.
+  
+  À RELIRE AVANT D'ENVOYER
+  Trois ou quatre points de vérification concrets, pour la personne qui signera : ce qui doit
+  être confirmé par l'équipe, ce qui doit être daté, ce qui doit être validé par la sécurité.

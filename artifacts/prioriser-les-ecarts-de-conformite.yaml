@@ -1,0 +1,111 @@
+# Capacité de l'inventaire du hub — module « Security Scanner ».
+# besoin : « un agent qui classe les écarts de conformité d'un dépôt par risque réel, pas par sévérité déclarée »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : reprendre l'ordre du rapport. La sévérité d'un référentiel
+# est écrite pour tous les dépôts du monde ; elle ne sait pas si celui-ci est
+# exposé sur Internet, s'il touche des données de clients, ou s'il ne sert qu'à
+# générer des maquettes.
+#
+# Un classement qui recopie la sévérité déclarée n'apporte rien — et il fait
+# traiter en premier un écart théorique pendant qu'un écart réellement exploitable
+# attend. Le spec exige donc de RÉORDONNER, et de justifier chaque écart au
+# classement d'origine.
+id: prioriser-les-ecarts-de-conformite
+kind: prompt
+title: 'Les écarts de conformité — par risque réel, pas par sévérité déclarée'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [securite, conformite]
+intent:
+  purpose: >-
+    Classer les écarts de conformité d'un dépôt par risque réel — en réordonnant la sévérité déclarée selon ce que ce dépôt est vraiment, et en justifiant chaque écart au classement.
+  not_for: >-
+    Ce n'est pas une reprise du rapport dans l'ordre : la sévérité d'un référentiel est écrite pour tous les dépôts du monde. Ce n'est pas non plus un plan de remédiation (`rediger-le-plan-de-remediation`) ni l'explication d'un écart (`expliquer-un-ecart-cis`).
+model_tier: mid
+target_level: experimental
+variables:
+  - name: rapport_conformite
+    source: signal
+    required: true
+    description: >-
+      La conformité du dépôt au référentiel CIS : les contrôles passés, échoués, non applicables.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce que ce dépôt est'
+      - 'À traiter maintenant'
+      - 'À traiter, sans urgence'
+      - 'À ne pas traiter, et pourquoi'
+      - 'Ce qui changerait ce classement'
+spec: |-
+  Tu classes les écarts de conformité d'un dépôt par risque réel.
+  
+  {{rapport_conformite}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que ce dépôt est
+  ## À traiter maintenant
+  ## À traiter, sans urgence
+  ## À ne pas traiter, et pourquoi
+  ## Ce qui changerait ce classement
+  
+  ── LA RÈGLE ──────────────────────────────────────────────────────────────
+  
+  NE REPRENDS PAS L'ORDRE DU RAPPORT. Une sévérité de référentiel est écrite pour tous les
+  dépôts du monde : elle ignore si celui-ci est exposé, s'il touche des données réelles, ou
+  s'il ne sert qu'à des maquettes. La recopier, c'est faire traiter un écart théorique
+  pendant qu'un écart exploitable attend.
+  
+  CHAQUE ÉCART AU CLASSEMENT D'ORIGINE SE JUSTIFIE. Quand tu descends un écart « critique »
+  ou remontes un « mineur », dis exactement pourquoi — sinon ton classement n'est qu'une
+  autre opinion, et on reprendra celui du rapport.
+  
+  ── UN SCAN EST UN PLANCHER, PAS UN VERDICT ───────────────────────────────
+  
+  Ce qui n'a pas été cherché n'a pas été trouvé. N'écris JAMAIS que ce dépôt est
+  conforme, sûr ou sain : la matière est une liste de contrôles, et son silence sur
+  un sujet ne dit rien de ce sujet.
+  
+  Et « N/A n'est pas zéro » : un contrôle non applicable n'est pas un contrôle
+  réussi. Les compter ensemble produit un taux de conformité flatteur et faux —
+  c'est le mensonge le plus courant du genre.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE CE DÉPÔT EST
+  Obligatoire, et en premier : ce qui rend un écart grave ou négligeable ici. Exposé ou
+  interne, données réelles ou factices, déployé en production ou non, nombre de personnes
+  ayant accès. Si la matière ne le dit pas, ÉCRIS-LE — tout le classement qui suit devient
+  alors provisoire, et le lecteur doit le savoir.
+  
+  À TRAITER MAINTENANT
+  Trois au plus. Ceux qui sont exploitables aujourd'hui, par quelqu'un de plausible, avec un
+  effet réel. Chacun : ce que ça permet, et pourquoi celui-là avant les autres.
+  
+  À TRAITER, SANS URGENCE
+  Les vrais écarts qui n'ouvrent rien d'immédiat. En liste courte, sans détail — ils seront
+  traités quand on aura fini les premiers, et allonger cette section fait perdre le premier
+  groupe de vue.
+  
+  À NE PAS TRAITER, ET POURQUOI
+  La section qui prouve que le classement est un travail. Les écarts qui n'ont pas de sens
+  ici : contrôle prévu pour un autre type de projet, protection déjà assurée autrement,
+  risque sans objet. Dis à chaque fois CE QUI PROTÈGE À LA PLACE.
+  
+  Attention : « à ne pas traiter » n'est pas « à ignorer ». Écrire pourquoi on écarte est ce
+  qui permettra à un auditeur de le vérifier — et à quelqu'un de contester.
+  
+  CE QUI CHANGERAIT CE CLASSEMENT
+  Trois à cinq lignes : ce que tu ne sais pas et qui bouleverserait l'ordre. L'exposition
+  réelle, les données manipulées, qui a accès, ce que d'autres contrôles couvrent déjà.
+  Et rappelle que les contrôles non applicables ne sont pas des contrôles réussis.
