@@ -35,6 +35,7 @@ import { jobEnEchec } from '../lib/signaux-ci.js';
 import { rapportDepot } from '../lib/signaux-depot.js';
 import { planDeLivraison } from '../lib/signaux-livraison.js';
 import { analyseFichier, analyseBranche, analyseDepot } from '../lib/signaux-code.js';
+import { analyseRegime } from '../lib/signaux-regime.js';
 import { etatBranche } from '../lib/signaux-branche.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -199,7 +200,16 @@ const INVOCATIONS = {
     fichiers: [{ chemin: 'src/conf.js',
                  contenu: 'const t = "glpat-AbCdEfGhIjKlMnOpQrSt";\nexport default t;\n' }],
     candidats: 40, nonLus: ['assets/logo.png'],
-    maintenant: new Date(MAINTENANT) })
+    maintenant: new Date(MAINTENANT) }),
+
+  /*
+   * Le régime : un arbre qui porte de tout, y compris une clé — c'est l'état où le
+   * signal doit trier par gravité ET refuser de peser quoi que ce soit.
+   */
+  regime_du_depot: () => analyseRegime({
+    depot: DEPOT, ref: 'main',
+    arbre: ['src/index.js', 'libs/sdk.jar', 'node_modules/x/i.js', 'certs/prod.pem'],
+    gitignore: '', maintenant: new Date(MAINTENANT) })
 };
 
 /* ── Le contrat ───────────────────────────────────────────────────────────── */

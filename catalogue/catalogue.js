@@ -50,6 +50,7 @@ import { analyseFichier, resumeCode, analyseBranche, resumeBrancheCode,
          analyseDepot, resumeDepotCode, fichiersARetenir,
          ILLISIBLE, HORS_SOURCE,
          MAX_FICHIERS_BRANCHE } from '../lib/signaux-code.js';
+import { analyseRegime, resumeRegime } from '../lib/signaux-regime.js';
 import { etatBranche, resumeBranche } from '../lib/signaux-branche.js';
 import { BUMPS, environnements as environnementsDe, KUSTOMIZATION_RX } from '../runtime/livraison.js';
 import { preparer as preparerLivraison, executer as executerLivraison,
@@ -987,7 +988,8 @@ const CALCULS = {
   analyse_fichier: (depot, reglages) => matiereAnalyseFichier(depot, reglages),
   etat_branche: (depot, reglages) => matiereEtatBranche(depot, reglages),
   code_de_la_branche: (depot, reglages) => matiereCodeBranche(depot, reglages),
-  code_du_depot: (depot, reglages) => matiereCodeDepot(depot, reglages)
+  code_du_depot: (depot, reglages) => matiereCodeDepot(depot, reglages),
+  regime_du_depot: (depot, reglages) => matiereRegime(depot, reglages)
 };
 
 /** Le résumé d'une ligne, par signal. Sans entrée ici, l'écran n'afficherait rien. */
@@ -1005,7 +1007,8 @@ const RESUMES = {
   analyse_fichier: resumeCode,
   etat_branche: resumeBranche,
   code_de_la_branche: resumeBrancheCode,
-  code_du_depot: resumeDepotCode
+  code_du_depot: resumeDepotCode,
+  regime_du_depot: resumeRegime
 };
 
 async function matiereContributions(depot) {
@@ -1506,6 +1509,25 @@ async function matiereCodeDepot(depot, { dossier = '', branche = '' } = {}) {
 
   return analyseDepot({ depot, ref, dossier, arbre: chemins, fichiers, candidats, nonLus,
                         maintenant: new Date() });
+}
+
+/**
+ * Le régime d'un dépôt : son arbre entier, et son `.gitignore` s'il en a un.
+ *
+ * DEUX APPELS, PAS DIX MILLE. L'arbre suffit à classer — un `.jar` est un `.jar` par son
+ * chemin, quelle que soit sa taille. On ne va donc chercher AUCUN contenu, sauf le
+ * `.gitignore` lui-même : savoir si le superflu est arrivé faute de règle ou malgré elle
+ * change entièrement le conseil qu'on peut donner.
+ *
+ * Le `.gitignore` absent n'est pas une erreur, c'est le constat le plus parlant qui soit.
+ * `getFile` rend `null` sur un 404, et c'est exactement ce qu'on veut lire.
+ */
+async function matiereRegime(depot, { branche = '' } = {}) {
+  const ref = branche || await brancheDe(depot);
+  const chemins = await arbre(depot, ref);
+  const ignore = await forge.getFile(depot, '.gitignore', ref).catch(() => null);
+  return analyseRegime({ depot, ref, arbre: chemins,
+                         gitignore: ignore?.content || '', maintenant: new Date() });
 }
 
 /**
@@ -2187,7 +2209,8 @@ const SIGNAL_LISIBLE = {
   analyse_fichier: 'Le fichier, scanné avant lecture — secrets et chaîne d\'appro',
   etat_branche: 'Où en est cette branche — divergence, dispersion, âge',
   code_de_la_branche: 'Le code changé par cette branche — scanné avant lecture',
-  code_du_depot: 'Le code du dépôt — carte, pile et fichiers retenus, scannés avant lecture'
+  code_du_depot: 'Le code du dépôt — carte, pile et fichiers retenus, scannés avant lecture',
+  regime_du_depot: 'Ce que ce dépôt versionne et ne devrait pas — chemins, jamais des tailles'
 };
 
 /**

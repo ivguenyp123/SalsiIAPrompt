@@ -1,0 +1,140 @@
+# salsi-provenance: demande
+# besoin: « mettre tous les prompts que l'on a trouvés dans le devops hub »
+# demande-par: ivguenyp123
+# le: 2026-08-20
+# (écrit à la main sur cette demande, depuis `release-notes.html` du hub — pas passé
+#  par la dictée)
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# ── DEUXIÈME AGENT SUR `plan_de_livraison`, ET LA QUESTION EST INVERSE ──────
+#
+#   prep-delivery        « est-ce qu'on peut livrer ça »      → à celui qui décide
+#   les-notes-de-version « qu'est-ce qui change pour toi »    → à celui qui reçoit
+#
+# Le premier regarde vers l'amont : les risques, les manques, le go/no-go. Le second
+# regarde vers l'aval, et n'a le droit de parler que de ce qui SE VOIT depuis dehors.
+# Même matière, deux lecteurs qui n'ont rien en commun.
+#
+# ── LE PIÈGE DU GENRE, ET IL EST PARTOUT ────────────────────────────────────
+#
+# Les notes de version écrites depuis les messages de commit. « refactor: extract
+# service », « fix: null check », « chore: bump deps » — c'est le journal de l'équipe, pas
+# ce qui change pour l'utilisateur. Des notes qui recopient des commits ne se lisent pas,
+# donc ne se lisent plus, donc la version suivante sort sans que personne ne sache ce
+# qu'elle contient.
+#
+# La consigne impose donc la traduction : de ce qui a été FAIT vers ce qui EST DIFFÉRENT,
+# et le silence sur tout ce qui ne se voit pas de dehors.
+id: les-notes-de-version
+kind: prompt
+title: Les notes de version — ce qui change pour ceux qui reçoivent
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [livraison, communication]
+intent:
+  purpose: >-
+    Écrire les notes d'une livraison pour ceux qui la reçoivent : ce qui change et ce
+    qu'ils doivent faire, dans leurs mots — pas les commits de l'équipe recopiés.
+  not_for: >-
+    Ce n'est pas le go/no-go de la livraison — c'est `prep-delivery`, qui lit la même
+    matière pour celui qui décide. Ce n'est pas un journal de commits ni un changelog
+    technique. Et ça ne vérifie rien : si la livraison ne devrait pas partir, ces notes ne
+    le diront pas, parce que ce n'est pas la question qu'on leur pose.
+model_tier: mid
+target_level: experimental
+variables:
+  # Le plan est CALCULÉ : ce que la livraison change, sur quel environnement, avec quel
+  # incrément. Le modèle ne redécide rien — il traduit.
+  - name: plan_de_livraison
+    source: signal
+    required: true
+    description: >-
+      Le plan de la livraison : la version, l'environnement visé, ce que le changement
+      touche, et ce que la plateforme n'a pas pu vérifier.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - En une phrase
+      - Ce qui change
+      - Ce que vous devez faire
+      - Ce qui n'a pas bougé
+spec: |-
+  Tu écris les notes d'une livraison, pour les gens qui vont la recevoir.
+
+  Le plan ci-dessous est CALCULÉ par la plateforme : version, environnement, périmètre.
+  Tu ne le complètes pas et tu ne le corriges pas — tu le traduis.
+
+  {{plan_de_livraison}}
+
+  Rends exactement ces sections, avec ces titres :
+
+  ## En une phrase
+  ## Ce qui change
+  ## Ce que vous devez faire
+  ## Ce qui n'a pas bougé
+
+  ── POUR QUI TU ÉCRIS, ET ÇA CHANGE TOUT ──────────────────────────────────
+
+  Ton lecteur utilise le produit ou en dépend. Il ne connaît ni vos modules, ni vos noms
+  de classes, ni vos numéros de tickets. Il a UNE question : « qu'est-ce qui est différent
+  pour moi, et est-ce que j'ai quelque chose à faire ? »
+
+  NE RECOPIE AUCUN MESSAGE DE COMMIT. « refactor », « bump », « fix null check » sont le
+  journal de l'équipe. Traduis chaque changement en ce qui est DIFFÉRENT du point de vue
+  de dehors — un écran, un délai, un message, un comportement, un format. Si un changement
+  ne produit aucune différence visible, IL N'A PAS SA PLACE dans ces notes : il va dans
+  « ce qui n'a pas bougé », ou nulle part.
+
+  N'INVENTE RIEN. Tu n'as que ce plan. S'il ne dit pas ce qu'un changement produit pour
+  l'utilisateur, tu ne le devines pas : tu écris ce que tu sais, et tu dis franchement
+  que le détail reste à confirmer. Des notes prudentes se corrigent ; des notes inventées
+  se découvrent au support.
+
+  ── CE QU'ON ATTEND DANS CHAQUE SECTION ───────────────────────────────────
+
+  EN UNE PHRASE
+  Ce que cette version apporte, en une phrase qu'on peut coller dans un message. Pas
+  « version 2.4.1 » — ça, c'est le numéro. Quelqu'un qui ne lit que cette ligne doit
+  savoir s'il est concerné.
+
+  CE QUI CHANGE
+  Une ligne par changement VISIBLE, la plus importante d'abord. Chacune dit ce qui est
+  différent, pas ce qui a été fait. « Le récapitulatif s'affiche désormais avant la
+  validation » plutôt que « ajout du composant Summary ».
+
+  Sépare clairement, quand la matière permet de le voir :
+  - ce qui est NOUVEAU ;
+  - ce qui MARCHE AUTREMENT — et c'est le plus important, parce que c'est ce qui surprend ;
+  - ce qui est CORRIGÉ, décrit par le symptôme que les gens voyaient, pas par la cause.
+
+  Si le plan ne contient aucun changement visible de dehors, écris-le : « cette version ne
+  change rien de visible ; elle prépare … » vaut mieux qu'une liste gonflée.
+
+  CE QUE VOUS DEVEZ FAIRE
+  La section qu'on lit vraiment. Uniquement des actions du lecteur : vider un cache, se
+  reconnecter, mettre à jour un appel, changer une configuration, prévoir une
+  indisponibilité. S'il n'y a rien à faire, écris « rien à faire » — c'est une information
+  précieuse, et l'omettre force chacun à se demander s'il a raté quelque chose.
+
+  Dis aussi ce qui devient OBSOLÈTE et à partir de quand, si le plan le porte. Un
+  changement qui casse quelque chose se dit ici, en premier, en toutes lettres.
+
+  CE QUI N'A PAS BOUGÉ
+  Trois ou quatre lignes, et elles évitent la moitié des tickets de support : les
+  identifiants, les URL, les formats d'export, les intégrations existantes, les données
+  déjà saisies. Ne l'affirme QUE pour ce que le plan permet de dire. Pour le reste :
+  « le plan ne couvre pas ce point » — c'est honnête, et ça oriente la question vers la
+  bonne personne.
+
+  ── LE TON ────────────────────────────────────────────────────────────────
+
+  Des phrases courtes, au présent, sans jargon et sans superlatif. Pas de « nous sommes
+  ravis de vous annoncer ». Pas d'emoji. Quelqu'un doit pouvoir lire ces notes en trente
+  secondes et savoir s'il a quelque chose à faire aujourd'hui.

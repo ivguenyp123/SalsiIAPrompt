@@ -1,0 +1,149 @@
+# salsi-provenance: demande
+# besoin: « mettre tous les prompts que l'on a trouvés dans le devops hub »
+# demande-par: ivguenyp123
+# le: 2026-08-20
+# (écrit à la main sur cette demande, depuis `feature-flag-manager.html` du hub — pas
+#  passé par la dictée)
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# ── L'OUTIL DU HUB, ET CE QU'IL NE SAIT PAS ─────────────────────────────────
+#
+# `feature-flag-manager.html` classe les drapeaux en ROLLOUT / STABILISATION / CLEANUP et
+# suit leur âge depuis la CONSOLE de flags. Ce qu'aucune console ne peut dire, c'est ce
+# que le drapeau fait AU CODE : combien de chemins il ouvre, ce qui devient mort quand on
+# le fige, et si la branche « désactivé » est encore atteignable après deux ans.
+#
+# La console dit qu'un drapeau est vieux. Le code dit ce que coûte son retrait. Ce sont
+# deux questions, et c'est la seconde qui bloque tout le monde au moment de nettoyer.
+#
+# ── LE PIÈGE DU GENRE ───────────────────────────────────────────────────────
+#
+# Conclure « ce drapeau est mort, retire-le » depuis la seule lecture du code. Un drapeau
+# lu nulle part dans les fichiers LUS peut être piloté depuis la console, lu par un autre
+# service, ou branché par une variable d'environnement construite à l'exécution. La
+# matière est partielle et le dit ; le spec exige donc, pour tout retrait proposé, de
+# nommer ce qu'il faut vérifier dans la console AVANT.
+id: les-feature-flags-a-retirer
+kind: prompt
+title: Les feature flags — lesquels sont morts, et ce que coûte leur retrait
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [code, qualite, depot]
+intent:
+  purpose: >-
+    Lire le code d'un dépôt pour trouver ses feature flags, dire ce que chacun ouvre
+    réellement comme chemins d'exécution, lesquels ont l'air figés depuis longtemps, et
+    ce que leur retrait supprime — ou casse.
+  not_for: >-
+    Ce n'est pas la console de flags et ça ne la remplace pas : l'état réel d'un drapeau
+    (activé où, pour qui, depuis quand) vit là-bas, jamais dans le code. Un drapeau absent
+    des fichiers lus n'est donc pas un drapeau mort. Ce n'est pas non plus un agent de
+    nettoyage général : pour ce qu'un dépôt traîne, c'est `le-regime-du-depot`.
+model_tier: mid
+target_level: experimental
+variables:
+  # Le même signal que la conception et le green coding — c'est LE CODE qu'on interroge,
+  # et le drapeau n'est visible nulle part ailleurs que dans les branches qu'il ouvre.
+  - name: code_du_depot
+    source: signal
+    required: true
+    description: >-
+      La carte des répertoires, la pile détectée, le scan déterministe et le contenu des
+      fichiers retenus. Une partie seulement : la matière dit ce qui n'a pas été lu.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Les drapeaux trouvés
+      - Ce que chacun ouvre
+      - Ceux qui ont l'air figés
+      - À vérifier avant de retirer
+spec: |-
+  Tu lis le code d'un dépôt pour y trouver ses feature flags et dire ce qu'ils coûtent.
+
+  La matière ci-dessous est CALCULÉE : la carte des répertoires porte sur l'arbre entier,
+  les fichiers retenus l'ont été par une règle écrite, les secrets sont caviardés. Elle est
+  PARTIELLE et elle dit en tête ce qui n'a pas été lu.
+
+  {{code_du_depot}}
+
+  Rends exactement ces sections, avec ces titres :
+
+  ## Les drapeaux trouvés
+  ## Ce que chacun ouvre
+  ## Ceux qui ont l'air figés
+  ## À vérifier avant de retirer
+
+  ── LA RÈGLE QUI PRIME SUR TOUTES LES AUTRES ──────────────────────────────
+
+  TU LIS DU CODE, PAS UNE CONSOLE. L'état réel d'un drapeau — activé sur quel
+  environnement, pour quel pourcentage, depuis quelle date — n'est nulle part dans ces
+  fichiers. Tu ne peux donc JAMAIS écrire « ce drapeau est mort » ni « ce drapeau est à
+  100 % ». Ce que tu peux écrire : « ce drapeau n'apparaît qu'à un seul endroit », « la
+  branche désactivée ne contient plus rien », « les deux branches font désormais la même
+  chose » — des constats de CODE, vérifiables dans ce que tu as lu.
+
+  ── CE QU'ON ATTEND DANS CHAQUE SECTION ───────────────────────────────────
+
+  LES DRAPEAUX TROUVÉS
+  La liste, un par ligne, avec SON NOM exact tel qu'il est écrit dans le code, le ou les
+  fichiers où il apparaît, et la façon dont il est lu : appel à une bibliothèque de flags,
+  variable d'environnement, constante, entrée de configuration. Un drapeau lu de deux
+  façons différentes dans deux fichiers est un constat en soi — dis-le.
+
+  Cherche large : `isEnabled`, `isFeatureEnabled`, `unleash`, `launchdarkly`, `flagsmith`,
+  `split`, `getVariant`, `toggle`, `FEATURE_`, `ENABLE_`, `DISABLE_`, `*_ENABLED`, et les
+  fichiers de configuration qui déclarent des drapeaux. Une variable d'environnement qui
+  n'ouvre qu'un `if` est un drapeau, même si personne ne l'appelle comme ça.
+
+  Si tu n'en trouves aucun dans ce que tu as lu, écris-le et arrête-toi là : c'est une
+  réponse, et l'inventer serait le pire des services.
+
+  CE QUE CHACUN OUVRE
+  La section qui n'existe dans aucune console, et la raison d'être de cet agent. Un
+  drapeau, un bloc : combien de CHEMINS D'EXÉCUTION il ouvre, et ce qu'il y a dans chacun.
+  - la branche activée et la branche désactivée font-elles encore deux choses
+    différentes, ou la même ?
+  - le drapeau est-il lu à un seul endroit, ou éparpillé — et si oui, tous ces endroits
+    sont-ils cohérents entre eux ?
+  - y a-t-il des drapeaux IMBRIQUÉS ? Deux drapeaux imbriqués font quatre chemins, dont
+    trois que personne ne teste jamais. C'est le constat le plus utile que tu puisses
+    faire, dis-le fort quand tu le vois.
+  - le code de la branche désactivée est-il encore atteignable, ou est-il devenu mort ?
+
+  CEUX QUI ONT L'AIR FIGÉS
+  Ceux dont le CODE suggère que la décision est prise depuis longtemps : une valeur par
+  défaut en dur, une branche vide, deux branches identiques, un drapeau déclaré et jamais
+  relu, un `if` dont la condition ne peut plus être fausse. Dis à chaque fois CE QUI TE LE
+  FAIT PENSER, à la ligne près.
+
+  Écris « figé » et jamais « mort ». La nuance n'est pas cosmétique : « mort » autorise à
+  supprimer, « figé » demande d'aller vérifier — et c'est bien ce qu'il faut faire.
+
+  À VÉRIFIER AVANT DE RETIRER
+  La section qui empêche l'incident, et elle est obligatoire pour chaque retrait que tu
+  proposes :
+  - dans la CONSOLE de flags : l'état par environnement, la date de dernier changement,
+    et qui l'a fait. Un drapeau à 100 % en production depuis deux ans se retire ; le même
+    à 50 % se retire autrement ;
+  - HORS DE CE DÉPÔT : un drapeau porte souvent le même nom dans un service voisin, et le
+    retirer ici casse là-bas ;
+  - ce que la matière n'a PAS lu — elle en donne le compte. Un drapeau peut être relu dans
+    un fichier écarté ;
+  - l'ordre : on fige la valeur, on livre, on observe, PUIS on retire le code. Retirer le
+    code et le drapeau dans le même changement supprime le retour en arrière le jour où
+    ça se passe mal.
+
+  ── LES RÈGLES DE LECTURE, COMME PARTOUT ──────────────────────────────────
+
+  - Tu vois une PART du dépôt. Un drapeau absent de ce que tu as lu n'est pas absent du
+    dépôt — ne conclus rien sur ce que tu n'as pas vu.
+  - N'ÉCRIS JAMAIS que ce dépôt gère bien ses drapeaux, ni qu'il est propre. Tu lis
+    quelques fichiers sans rien exécuter et sans voir la console.
+  - Ne recopie aucune valeur de secret, même caviardée.

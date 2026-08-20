@@ -1,0 +1,147 @@
+# salsi-provenance: demande
+# besoin: « mettre tous les prompts que l'on a trouvés dans le devops hub »
+# demande-par: ivguenyp123
+# le: 2026-08-20
+# (écrit à la main sur cette demande, depuis `js/repo-diet.js` du hub — pas passé par
+#  la dictée)
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# ── L'OUTIL DU HUB DONT IL VIENT ────────────────────────────────────────────
+#
+# `repo-diet.html` classe l'arborescence d'un dépôt en familles de superflu et affiche
+# des compteurs. Ce qu'il ne fait pas — et qu'aucun compteur ne peut faire — c'est dire
+# PAR OÙ COMMENCER, ce que le retrait casse, et ce qu'il ne suffit PAS de faire.
+#
+# C'est la répartition habituelle : le chiffre au code, l'explication à l'agent.
+#
+# ── LES DEUX PIÈGES DU GENRE, ET ILS SONT NOMMÉS DANS LA CONSIGNE ───────────
+#
+# LE POIDS. « Ce dépôt pèse 400 Mo », « −80 % après nettoyage ». La matière ne porte
+# AUCUN octet : la liste d'arbre des deux forges rend des chemins. Un modèle devant un
+# rapport de régime écrit un tonnage dans sa première phrase s'il n'en est pas empêché,
+# et un tonnage inventé est du faux avec de l'autorité.
+#
+# `git rm` NE SUFFIT PAS. Retirer un fichier de la branche ne le retire pas de
+# l'historique : le clone reste aussi lourd, et une clé versionnée reste lisible par
+# quiconque remonte d'un commit. C'est le contresens le plus coûteux du genre, parce
+# qu'il donne l'impression que c'est réglé.
+id: le-regime-du-depot
+kind: prompt
+title: Le régime du dépôt — ce qu'il traîne et ce qu'on peut jeter
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [qualite, depot, hygiene]
+intent:
+  purpose: >-
+    Lire ce qu'un dépôt versionne et ne devrait pas — binaires livrés, archives, dossiers
+    de dépendances, sorties de build, clés — et dire par où commencer, ce que le retrait
+    casse, et ce qu'il faut faire en plus du `git rm` pour que ça compte vraiment.
+  not_for: >-
+    Ce n'est pas un bilan de poids et ça n'en produira jamais les chiffres : la matière
+    ne porte aucun octet, seulement des chemins. Ce n'est pas non plus une revue de
+    secrets — un `.pem` repéré ici l'est par son NOM ; pour les valeurs de secret dans le
+    contenu des fichiers, c'est `secrets-exposes`. Et ce n'est pas une lecture de code :
+    pour ça, `conception-d-une-branche` ou `green-coding-du-depot`.
+model_tier: mid
+target_level: experimental
+variables:
+  # Le relevé est CALCULÉ : familles, comptes, zones, état du `.gitignore`. Le modèle
+  # n'a rien à recompter — et rien à peser, ce que la matière lui dit en tête.
+  - name: regime_du_depot
+    source: signal
+    required: true
+    description: >-
+      Ce que le dépôt versionne et ne devrait pas : les familles trouvées avec leur
+      gravité et leurs exemples, les zones où ça se concentre, et l'état du `.gitignore`.
+      Des chemins, jamais des tailles.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  # « Ce que ça ne réglera pas » est la section qu'un modèle saute en premier, et c'est
+  # celle qui empêche de croire qu'un `git rm` a suffi. Sans ce critère, elle disparaît.
+  - target: output.sections
+    op: contains
+    value:
+      - Ce que ce dépôt traîne
+      - Par où commencer
+      - Ce que le retrait casse
+      - Ce que ça ne réglera pas
+spec: |-
+  Tu lis le relevé de ce qu'un dépôt versionne et ne devrait pas, et tu dis quoi en faire.
+
+  Le relevé ci-dessous est CALCULÉ : les familles, les comptes et les zones viennent d'une
+  règle écrite, appliquée à l'arborescence entière. Tu n'as rien à recompter.
+
+  {{regime_du_depot}}
+
+  Rends exactement ces sections, avec ces titres :
+
+  ## Ce que ce dépôt traîne
+  ## Par où commencer
+  ## Ce que le retrait casse
+  ## Ce que ça ne réglera pas
+
+  ── DEUX INTERDITS, ET LE PREMIER PRIME SUR TOUT ──────────────────────────
+
+  AUCUN POIDS. Ni Mo, ni Go, ni « le dépôt fera moitié moins », ni « −80 % au clone ».
+  Le relevé porte sur des CHEMINS : aucun octet n'a été lu, et la matière le dit en tête.
+  Tu peux compter des FICHIERS — c'est ce qui est compté — et dire ce qui DOMINE
+  (un dossier de dépendances pèse plus qu'un journal), jamais combien.
+
+  `git rm` NE SUFFIT PAS, ET C'EST LE CONTRESENS À NE PAS LAISSER PASSER. Retirer un
+  fichier de la branche ne le retire pas de l'HISTORIQUE : le clone reste aussi long, et
+  une clé versionnée reste lisible par quiconque remonte d'un commit. Chaque fois que tu
+  proposes un retrait, dis lequel des deux gestes il faut :
+    · `git rm --cached` + `.gitignore` — suffit pour ce qui encombre le travail courant ;
+    · une RÉÉCRITURE D'HISTORIQUE (`git filter-repo`, BFG) — nécessaire dès que la taille
+      du clone ou une fuite est en jeu, et qui casse tous les clones existants : ça se
+      prépare, ça s'annonce, ça ne se fait pas un vendredi.
+
+  ── CE QU'ON ATTEND DANS CHAQUE SECTION ───────────────────────────────────
+
+  CE QUE CE DÉPÔT TRAÎNE
+  En quelques lignes, ce que le relevé montre — GROUPÉ PAR FAMILLE, dans l'ordre de
+  gravité qu'il donne déjà. Dis pour chacune ce qu'elle coûte à qui : le temps de clone
+  d'un nouvel arrivant, la lenteur d'une recherche, le bruit dans les diffs, le risque.
+  Sers-toi des zones : « tout est dans un seul dossier » et « c'est éparpillé partout »
+  n'appellent pas le même geste.
+
+  Si le relevé est vide, écris-le et arrête-toi là. Mais N'ÉCRIS JAMAIS que ce dépôt est
+  propre : le relevé ne cherche que dix familles de chemins, il ne lit aucun contenu et
+  ne voit pas l'historique. « Rien d'une famille connue » n'est pas « rien ».
+
+  PAR OÙ COMMENCER
+  UN geste, le premier, et le plus rentable — pas un plan de nettoyage en douze étapes.
+  Le classement du relevé est un point de départ, pas un ordre de marche : une clé seule
+  passe devant dix mille fichiers de dépendances parce qu'elle est irréversible, mais si
+  le dépôt n'a pas de `.gitignore`, commencer par en poser un évite que le nettoyage soit
+  à refaire le mois prochain. Dis ce que ton geste supprime, et pour qui.
+
+  CE QUE LE RETRAIT CASSE
+  La section qui fait la différence entre un conseil et un incident. Avant de retirer,
+  demande-toi ce qui LIT ces fichiers aujourd'hui :
+  - un binaire versionné est peut-être la dépendance d'un build qui n'a pas de dépôt
+    d'artefacts — le retirer casse la chaîne le jour même ;
+  - un dossier de dépendances committé sert parfois à travailler hors réseau ;
+  - un dump de données peut être le jeu de test d'une suite ;
+  - une réécriture d'historique invalide TOUS les clones et toutes les branches en cours,
+    et casse les liens vers les commits dans les tickets.
+  Tout geste proposé vient avec ce qu'il faut vérifier AVANT. Si tu ne peux
+  pas savoir — la matière ne montre aucun contenu ni aucune chaîne CI — dis ce qu'il
+  faudrait regarder, et où.
+
+  CE QUE ÇA NE RÉGLERA PAS
+  Trois à cinq lignes, et c'est elle qui rend le reste honnête :
+  - l'HISTORIQUE reste — dis-le explicitement dès qu'une clé ou un gros fichier est en
+    jeu, et dis que la révocation d'une clé ne se remplace par aucun nettoyage ;
+  - ce que le relevé NE CHERCHE PAS : un fichier énorme sous un nom banal, un contenu
+    dupliqué, un média sans extension connue. Il n'a que dix familles de chemins ;
+  - ce qu'il ne lit pas : aucun contenu, aucun `.gitignore` règle par règle, aucune
+    branche autre que celle lue.
+
+  Et la règle de lecture de partout : ne recopie aucune valeur de secret. Là où un chemin
+  ressemble à une clé, dis qu'il y a une clé — n'invente pas ce qu'elle contient.
