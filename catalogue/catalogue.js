@@ -46,6 +46,8 @@ import { niveau, pastille } from '../lib/niveau.js';
 import { planDeLivraison, resumeLivraison,
          MAX_RUNS as MAX_RUNS_LIVRAISON } from '../lib/signaux-livraison.js';
 import { analyseFichier, resumeCode, analyseBranche, resumeBrancheCode,
+         analyseDepot, resumeDepotCode, fichiersARetenir,
+         ILLISIBLE, HORS_SOURCE,
          MAX_FICHIERS_BRANCHE } from '../lib/signaux-code.js';
 import { etatBranche, resumeBranche } from '../lib/signaux-branche.js';
 import { BUMPS, environnements as environnementsDe, KUSTOMIZATION_RX } from '../runtime/livraison.js';
@@ -972,7 +974,8 @@ const CALCULS = {
   plan_de_livraison: (depot, reglages) => matiereLivraison(depot, reglages),
   analyse_fichier: (depot, reglages) => matiereAnalyseFichier(depot, reglages),
   etat_branche: (depot, reglages) => matiereEtatBranche(depot, reglages),
-  code_de_la_branche: (depot, reglages) => matiereCodeBranche(depot, reglages)
+  code_de_la_branche: (depot, reglages) => matiereCodeBranche(depot, reglages),
+  code_du_depot: (depot, reglages) => matiereCodeDepot(depot, reglages)
 };
 
 /** Le résumé d'une ligne, par signal. Sans entrée ici, l'écran n'afficherait rien. */
@@ -989,7 +992,8 @@ const RESUMES = {
   plan_de_livraison: resumeLivraison,
   analyse_fichier: resumeCode,
   etat_branche: resumeBranche,
-  code_de_la_branche: resumeBrancheCode
+  code_de_la_branche: resumeBrancheCode,
+  code_du_depot: resumeDepotCode
 };
 
 async function matiereContributions(depot) {
@@ -1426,6 +1430,33 @@ async function matiereCodeBranche(depot, { branche = '' } = {}) {
 }
 
 /**
+ * Le code d'un dépôt : son arbre entier pour la carte, ses fichiers retenus pour la
+ * lecture.
+ *
+ * QUELS fichiers est une règle du signal — `fichiersARetenir`, pure et testée — et non
+ * une décision de cet écran. Deux personnes qui lancent sur le même dépôt lisent donc
+ * les mêmes fichiers, ce qui rend la matière contestable ; et la règle se relit dans un
+ * test plutôt que dans un fichier de trois mille lignes qui parle au DOM.
+ */
+async function matiereCodeDepot(depot, { dossier = '' } = {}) {
+  const ref = await brancheDe(depot);
+  const chemins = await arbre(depot);
+  const { retenus, candidats } = fichiersARetenir(chemins, { dossier });
+
+  const nonLus = [];
+  const fichiers = [];
+  for (const chemin of retenus) {
+    // Un fichier illisible ne fait pas échouer les autres : il est NOMMÉ dans la matière.
+    const lu = await forge.getFile(depot, chemin, ref).catch(() => null);
+    if (!lu) { nonLus.push(chemin); continue; }
+    fichiers.push({ chemin, contenu: lu.content });
+  }
+
+  return analyseDepot({ depot, ref, dossier, arbre: chemins, fichiers, candidats, nonLus,
+                        maintenant: new Date() });
+}
+
+/**
  * L'état d'une branche, comparée à la branche par défaut.
  *
  * La comparaison est LE calcul de ce signal : elle donne l'avance, le retard, les fichiers
@@ -1635,14 +1666,44 @@ const REGLAGES = {
       .filter((c) => !ILLISIBLE.test(c) && !HORS_SOURCE.test(c))
       .slice(0, MAX_FICHIERS_PROPOSES)
       .map((c) => ({ valeur: c, texte: c }))
+  },
+
+  /*
+   * UN DOSSIER DU DÉPÔT — et l'absence de choix est une VALEUR.
+   *
+   * Les répertoires se comptent par dizaines là où les fichiers se comptent par milliers :
+   * une liste déroulante suffit. On ne propose que les répertoires qui portent du code du
+   * projet — proposer `node_modules` serait proposer de lire les dépendances de quelqu'un
+   * d'autre.
+   *
+   * L'invite dit « tout le dépôt » et pas « — choisir — » : ne rien choisir est le cas
+   * courant et un choix légitime, pas un formulaire qu'on aurait oublié de remplir.
+   */
+  dossier: {
+    invite: '— tout le dépôt —',
+    vide: 'Ce dépôt n\'a pas de sous-répertoire de source : il se lit en entier.',
+    options: async (depot) => {
+      const chemins = (await arbre(depot))
+        .filter((c) => !ILLISIBLE.test(c) && !HORS_SOURCE.test(c) && c.includes('/'));
+      const compte = new Map();
+      for (const c of chemins) {
+        const tete = c.split('/')[0];
+        compte.set(tete, (compte.get(tete) || 0) + 1);
+      }
+      return [...compte.entries()]
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .map(([nom, n]) => ({ valeur: nom, texte: `${nom}/  (${n} fichier(s))` }));
+    }
   }
 };
 
-/** Ce qui ne se lit pas comme du texte : le proposer ferait perdre du temps. */
-const ILLISIBLE = /\.(png|jpe?g|gif|ico|svg|webp|woff2?|ttf|eot|mp[34]|mov|avi|zip|tar|gz|rar|7z|pdf|jar|war|class|so|dll|exe|bin|lock)$/i;
-
-/** Ce qui n'est pas du code du projet — dépendances installées, sorties de build. */
-const HORS_SOURCE = /(?:^|\/)(?:node_modules|vendor|dist|build|target|coverage|\.git|out|\.next|\.nuxt|\.cache|__pycache__|\.venv|venv)(?:\/|$)/;
+/*
+ * `ILLISIBLE` et `HORS_SOURCE` vivaient ICI, en double de la règle de choix des fichiers.
+ * Elles viennent maintenant de `lib/signaux-code.js`, qui en fait l'autorité unique : le
+ * choix des fichiers à lire est une règle du SIGNAL, testable sans navigateur, et deux
+ * copies auraient fini par diverger — l'une écartant `node_modules`, l'autre non, sur un
+ * écran où personne ne compare les deux chemins.
+ */
 
 /*
  * Combien de fichiers on propose à la complétion.
@@ -2073,7 +2134,8 @@ const SIGNAL_LISIBLE = {
   plan_de_livraison: 'Ce que la livraison changerait — calculé sur le dépôt',
   analyse_fichier: 'Le fichier, scanné avant lecture — secrets et chaîne d\'appro',
   etat_branche: 'Où en est cette branche — divergence, dispersion, âge',
-  code_de_la_branche: 'Le code changé par cette branche — scanné avant lecture'
+  code_de_la_branche: 'Le code changé par cette branche — scanné avant lecture',
+  code_du_depot: 'Le code du dépôt — carte, pile et fichiers retenus, scannés avant lecture'
 };
 
 /**

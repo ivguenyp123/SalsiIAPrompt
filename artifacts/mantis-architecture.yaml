@@ -12,8 +12,20 @@
 #   outils     create_mr, write_file, trigger_pipeline, bump_image_tag
 #   isolement  ecriture-confirmee
 #   modele     nano
+#   entree     code_du_depot
 #   (entrees, sorties : proposés par le modèle depuis le texte, relus et
 #    acceptés par l'importeur — I003 : « déduit » ne vaut pas « lu »)
+#
+# BRANCHEMENT DE LA MATIÈRE, décidé le 2026-08-20 — après coup, et assumé.
+# À l'import, sa matière se collait à la main (`matiere`, hors vocabulaire) : la
+# plateforme ne savait pas produire « l'analyse d'un dépôt ». Elle le sait depuis
+# que `code_du_depot` existe — carte des répertoires, pile, scan, fichiers retenus
+# par une règle écrite. La variable porte donc un nom du vocabulaire et la source
+# qui va avec, et le panneau de lancement calcule au lieu de demander.
+#
+# CE QUI N'EST PAS FOURNI POUR AUTANT : les « learnings » d'une passe amont, que ce
+# document réclame aussi. Aucun signal ne les produit ici, et aucun ne prétendra le
+# faire. La matière porte le code — pas un historique d'analyse.
 #
 # Elle écrit : Un dépôt. P007 exigera une confirmation humaine à chaque appel.
 #
@@ -38,10 +50,10 @@ model_tier: nano
 isolement: ecriture-confirmee
 target_level: experimental
 variables:
-  - name: matiere
-    source: user
+  - name: code_du_depot
+    source: signal
     required: true
-    description: Le texte collé contient les apprentissages (learnings) et l'état du système, y compris l'analyse de code source et les métadonnées de snapshot.
+    description: "La carte du dépôt, sa pile détectée, le scan déterministe et le contenu des fichiers retenus — calculés par la plateforme. Les « learnings » d'une passe amont, eux, n'ont pas d'équivalent ici : ce qui est fourni est le code, pas un historique d'analyse."
 criteria:
   - target: output.contains_secret
     op: eq
@@ -430,7 +442,7 @@ spec: |-
     - N'écris jamais qu'un code est sûr, ni qu'une vérification a eu lieu. Aucune
       n'a eu lieu : cette capacité est importée et n'a passé aucun banc.
 
-    {{matiere}}
+    {{code_du_depot}}
 tools:
   - id: create_mr
     mode: write

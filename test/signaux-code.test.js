@@ -16,7 +16,9 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { analyseFichier, resumeCode, analyseBranche, resumeBrancheCode, SIGNAUX_CODE,
-         MAX_LIGNES, MAX_LARGEUR, MAX_LIGNES_BRANCHE } from '../lib/signaux-code.js';
+         MAX_LIGNES, MAX_LARGEUR, MAX_LIGNES_BRANCHE,
+         analyseDepot, resumeDepotCode, fichiersARetenir, carteDesZones,
+         MAX_LIGNES_DEPOT } from '../lib/signaux-code.js';
 import { sait, reglagesDe, reglagesComplets } from '../lib/signaux-matiere.js';
 
 const M = new Date('2026-08-18T09:00:00Z');
@@ -269,5 +271,144 @@ describe('le code qu\'une branche a changé', () => {
     const r = surBranche([f('src/a.js', 'a\n')], { touches: 9, nonLus: ['x.png'] });
     assert.match(resumeBrancheCode(r), /1\/9 fichier\(s\)/);
     assert.match(resumeBrancheCode(r), /non lus/);
+  });
+});
+
+/* ══ LE CODE D'UN DÉPÔT ═══════════════════════════════════════════════════════ */
+
+/*
+ * La troisième échelle, et celle où l'erreur coûte le plus cher : un dépôt ne tient pas
+ * dans une fenêtre de contexte. Tout ce qui suit vérifie que la matière DIT ce qu'elle
+ * n'a pas montré — un extrait présenté comme un dépôt ferait écrire « cette application
+ * est faite comme ça » après quarante fichiers sur trois mille.
+ */
+
+const ARBRE = [
+  'package.json', 'README.md', 'src/index.js', 'src/lib/paiement.js', 'src/lib/compte.js',
+  'src/ui/ecran.js', 'test/paiement.test.js', 'docs/archi.md',
+  'node_modules/express/index.js', 'dist/bundle.js', 'assets/logo.png',
+  ...Array.from({ length: 30 }, (_, i) => `migrations/${String(i).padStart(3, '0')}_up.sql`)
+];
+
+describe('la règle de choix des fichiers est écrite, pure et déterministe', () => {
+  test('manifestes, README et points d\'entrée passent devant', () => {
+    const { retenus } = fichiersARetenir(ARBRE, { max: 4 });
+    assert.deepEqual(retenus.slice(0, 3), ['package.json', 'README.md', 'src/index.js']);
+  });
+
+  test('ce qui n\'est pas du code du projet est écarté — et compté à part', () => {
+    const r = fichiersARetenir(ARBRE, { max: 100 });
+    assert.ok(!r.retenus.some((c) => /node_modules|dist\/|\.png$/.test(c)),
+      'ni dépendance installée, ni sortie de build, ni binaire');
+    assert.equal(r.hors, 3, 'les trois écartés sont comptés, pas oubliés');
+  });
+
+  test('deux lectures du même arbre retiennent les mêmes fichiers', () => {
+    // C'est ce qui rend la matière contestable : sans ordre déterministe, deux personnes
+    // obtiendraient deux lectures du même dépôt sans que rien ne le dise.
+    const a = fichiersARetenir(ARBRE, { max: 12 }).retenus;
+    const b = fichiersARetenir([...ARBRE].reverse(), { max: 12 }).retenus;
+    assert.deepEqual(a, b);
+  });
+
+  test('le dossier demandé borne le périmètre, préfixe exact', () => {
+    const r = fichiersARetenir(ARBRE, { dossier: 'src', max: 100 });
+    assert.ok(r.retenus.every((c) => c.startsWith('src/')));
+    assert.equal(r.retenus.length, 4);
+  });
+
+  test('le plafond compte ce qu\'il laisse : `ecartes` n\'est pas silencieux', () => {
+    const r = fichiersARetenir(ARBRE, { max: 5 });
+    assert.equal(r.retenus.length, 5);
+    assert.equal(r.ecartes, r.candidats - 5);
+    assert.ok(r.ecartes > 0);
+  });
+});
+
+describe('la carte porte sur l\'arbre ENTIER — compter n\'est pas lire', () => {
+  test('un répertoire jamais lu figure quand même, avec son compte', () => {
+    // Un agent d'architecture doit savoir qu'il existe un `migrations/` de trente
+    // fichiers, même si aucun n'est lu. L'omettre ferait croire qu'il n'existe pas.
+    const zones = carteDesZones(ARBRE);
+    const mig = zones.find((z) => z.zone === 'migrations');
+    assert.equal(mig.fichiers, 30);
+    assert.equal(zones[0].zone, 'migrations', 'la plus fournie en tête');
+  });
+
+  test('les fichiers de source se comptent séparément du total', () => {
+    const nm = carteDesZones(ARBRE).find((z) => z.zone === 'node_modules');
+    assert.equal(nm.fichiers, 1);
+    assert.equal(nm.source, 0, 'une dépendance installée n\'est pas du code du projet');
+  });
+});
+
+describe('la matière d\'un dépôt dit d\'abord ce qu\'elle n\'a pas montré', () => {
+  const lu = (chemins, contenus = {}) => analyseDepot({
+    depot: DEPOT, ref: 'main', arbre: ARBRE,
+    fichiers: chemins.map((c) => ({ chemin: c, contenu: contenus[c] ?? `// ${c}\nconst a = 1;\n` })),
+    candidats: fichiersARetenir(ARBRE, { max: 1000 }).candidats,
+    maintenant: M
+  });
+
+  test('« CE QUE TU N\'AS PAS SOUS LES YEUX » vient AVANT le contenu', () => {
+    const r = lu(['package.json', 'src/index.js']);
+    assert.ok(r.texte.indexOf('CE QUE TU N\'AS PAS SOUS LES YEUX') < r.texte.indexOf('LES FICHIERS'));
+    assert.match(r.texte, /Tu vois une PARTIE de ce dépôt/);
+    assert.match(r.texte, /dis « non vu » pour le reste — ne le déduis pas/);
+  });
+
+  test('la règle de lecture est ANNONCÉE : un fichier absent n\'est pas un fichier sans importance', () => {
+    assert.match(lu(['package.json']).texte, /n'est pas un fichier sans importance/);
+  });
+
+  test('sans constat, ce n\'est PAS « ce dépôt est sain »', () => {
+    const r = lu(['src/index.js']);
+    assert.equal(r.secrets.length, 0);
+    assert.match(r.texte, /Ce n'est PAS « ce dépôt est sain »/);
+    assert.match(r.texte, /CE QUI N'A PAS ÉTÉ CHERCHÉ/);
+  });
+
+  test('un secret est trouvé, localisé, et ne sort ni en clair ni dans l\'extrait', () => {
+    const r = lu(['src/lib/paiement.js'], { 'src/lib/paiement.js': `const t = '${JETON}';\n` });
+    assert.equal(r.secrets.length, 1);
+    assert.equal(r.secrets[0].fichier, 'src/lib/paiement.js');
+    assert.ok(r.secrets[0].ligne >= 1, 'un risque sans ligne ne se corrige pas');
+    assert.ok(!r.texte.includes(JETON), 'le jeton ne part pas au modèle');
+  });
+
+  test('le budget de lignes est GLOBAL, et ce qu\'il coupe est dit', () => {
+    const gros = 'x\n'.repeat(MAX_LIGNES_DEPOT);
+    const r = lu(['src/index.js', 'src/lib/compte.js'],
+                 { 'src/index.js': gros, 'src/lib/compte.js': gros });
+    assert.equal(r.lignesMontrees, MAX_LIGNES_DEPOT, 'le total est borné, pas chaque fichier');
+    assert.ok(r.lignesCoupees > 0);
+    assert.match(r.texte, /budget global/);
+  });
+
+  test('la pile détectée vient des manifestes LUS, et se dit absente sinon', () => {
+    assert.match(lu(['package.json'], { 'package.json': '{"dependencies":{}}' }).texte,
+                 /PILE DÉTECTÉE : npm/);
+    assert.match(lu(['src/index.js']).texte, /aucun manifeste reconnu/);
+  });
+
+  test('un fichier illisible est NOMMÉ, et ne se confond pas avec le plafond', () => {
+    const r = analyseDepot({ depot: DEPOT, arbre: ARBRE, fichiers: [], candidats: 10,
+                             nonLus: ['src/casse.js'], maintenant: M });
+    assert.match(r.texte, /1 illisible\(s\), et ce n'est pas le plafond : src\/casse\.js/);
+  });
+
+  test('le résumé dit la part lue, jamais un total rassurant', () => {
+    const r = lu(['package.json', 'src/index.js']);
+    assert.match(resumeDepotCode(r), /2\/\d+ fichier\(s\) lus/);
+  });
+});
+
+describe('le signal est déclaré, et son dossier est facultatif', () => {
+  test('`code_du_depot` se calcule, et son réglage n\'est pas requis', () => {
+    assert.equal(sait('code_du_depot'), true);
+    const r = reglagesDe('code_du_depot');
+    assert.deepEqual(r.map((x) => x.nom), ['dossier']);
+    assert.equal(r[0].requis, false, 'tout le dépôt est une valeur, pas un manque');
+    assert.equal(reglagesComplets('code_du_depot', {}), true);
   });
 });

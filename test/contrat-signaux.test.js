@@ -34,7 +34,7 @@ import { revueMr } from '../lib/signaux-revue.js';
 import { jobEnEchec } from '../lib/signaux-ci.js';
 import { rapportDepot } from '../lib/signaux-depot.js';
 import { planDeLivraison } from '../lib/signaux-livraison.js';
-import { analyseFichier, analyseBranche } from '../lib/signaux-code.js';
+import { analyseFichier, analyseBranche, analyseDepot } from '../lib/signaux-code.js';
 import { etatBranche } from '../lib/signaux-branche.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -186,6 +186,19 @@ const INVOCATIONS = {
     fichiers: [{ chemin: 'src/conf.js', ajouts: 12, retraits: 0, statut: 'modifie',
                  contenu: 'const t = "glpat-AbCdEfGhIjKlMnOpQrSt";\nexport default t;\n' }],
     touches: 4, nonLus: ['assets/logo.png'],
+    maintenant: new Date(MAINTENANT) }),
+
+  /*
+   * Même principe qu'au-dessus, à l'échelle du dépôt : on déclare BEAUCOUP plus de
+   * candidats que de fichiers lus. C'est l'état où ce signal doit avouer sa part non
+   * lue — l'erreur qu'il rend possible et qu'aucun autre ne rend aussi facile.
+   */
+  code_du_depot: () => analyseDepot({
+    depot: DEPOT, ref: 'main',
+    arbre: ['package.json', 'src/conf.js', 'node_modules/x/i.js', 'assets/logo.png'],
+    fichiers: [{ chemin: 'src/conf.js',
+                 contenu: 'const t = "glpat-AbCdEfGhIjKlMnOpQrSt";\nexport default t;\n' }],
+    candidats: 40, nonLus: ['assets/logo.png'],
     maintenant: new Date(MAINTENANT) })
 };
 
