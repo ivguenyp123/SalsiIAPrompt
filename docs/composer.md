@@ -1,6 +1,6 @@
 # Composer
 
-**Où** : onglet **🧩 Fabriquer**.
+**Où** : onglet **🧩 Composer**.
 
 L'écran fait **deux choses différentes**, et les confondre est l'erreur la plus coûteuse
 du produit. Choisissez d'abord laquelle.

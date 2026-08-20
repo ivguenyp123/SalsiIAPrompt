@@ -52,6 +52,7 @@ import { analyseFichier, resumeCode, analyseBranche, resumeBrancheCode,
          MAX_FICHIERS_BRANCHE } from '../lib/signaux-code.js';
 import { analyseRegime, resumeRegime } from '../lib/signaux-regime.js';
 import { executionCi, resumeExecution } from '../lib/signaux-execution.js';
+import { rapportVulnerabilites, resumeVulnerabilites } from '../lib/signaux-vulnerabilites.js';
 import { historiquePipelines, resumeHistorique,
          MAX_EXECUTIONS, FENETRE_JOURS as FENETRE_PIPELINES } from '../lib/signaux-pipelines.js';
 import { etatBranche, resumeBranche } from '../lib/signaux-branche.js';
@@ -101,7 +102,7 @@ mountShell({ active: enMiens ? 'miens' : 'catalogue', session, base: '../',
 if (enMiens) {
   document.getElementById('titre').textContent = 'Mes agents';
   document.getElementById('chapo').innerHTML =
-    'Ce que tu as monté <b>pour toi</b> dans Fabriquer. Tu les lances d\'ici, directement — '
+    'Ce que tu as monté <b>pour toi</b> dans Composer. Tu les lances d\'ici, directement — '
     + 'rien ne passe par l\'Admin, parce que rien n\'engage personne d\'autre. '
     + 'Personne ne les voit, et ils ne peuvent pas servir de brique à une suite. '
     + 'Le pré-vol tourne quand même à chaque lancement.';
@@ -993,7 +994,8 @@ const CALCULS = {
   code_de_la_branche: (depot, reglages) => matiereCodeBranche(depot, reglages),
   code_du_depot: (depot, reglages) => matiereCodeDepot(depot, reglages),
   regime_du_depot: (depot, reglages) => matiereRegime(depot, reglages),
-  historique_pipelines: (depot, reglages) => matiereHistoriquePipelines(depot, reglages)
+  historique_pipelines: (depot, reglages) => matiereHistoriquePipelines(depot, reglages),
+  rapport_vulnerabilites: (depot) => matiereVulnerabilites(depot)
 };
 
 /** Le résumé d'une ligne, par signal. Sans entrée ici, l'écran n'afficherait rien. */
@@ -1013,7 +1015,8 @@ const RESUMES = {
   code_de_la_branche: resumeBrancheCode,
   code_du_depot: resumeDepotCode,
   regime_du_depot: resumeRegime,
-  historique_pipelines: resumeHistorique
+  historique_pipelines: resumeHistorique,
+  rapport_vulnerabilites: resumeVulnerabilites
 };
 
 async function matiereContributions(depot) {
@@ -1514,6 +1517,20 @@ async function matiereCodeDepot(depot, { dossier = '', branche = '' } = {}) {
 
   return analyseDepot({ depot, ref, dossier, arbre: chemins, fichiers, candidats, nonLus,
                         maintenant: new Date() });
+}
+
+/**
+ * Les vulnérabilités signalées par la forge.
+ *
+ * `listVulnerabilites` rend `{disponible, liste}` ou `{disponible: false, raison}`. On ne
+ * remplace JAMAIS le second par une liste vide : « personne n'a cherché » et « rien
+ * trouvé » sont deux réponses opposées, et les confondre ferait écrire « aucune
+ * vulnérabilité » sur un dépôt que rien n'a scanné.
+ */
+async function matiereVulnerabilites(depot) {
+  const r = await forge.listVulnerabilites(depot)
+    .catch((e) => ({ disponible: false, raison: raisonCourte(e) }));
+  return rapportVulnerabilites({ depot, ...r, maintenant: new Date() });
 }
 
 /**
@@ -2276,7 +2293,8 @@ const SIGNAL_LISIBLE = {
   code_de_la_branche: 'Le code changé par cette branche — scanné avant lecture',
   code_du_depot: 'Le code du dépôt — carte, pile et fichiers retenus, scannés avant lecture',
   regime_du_depot: 'Ce que ce dépôt versionne et ne devrait pas — chemins, jamais des tailles',
-  historique_pipelines: 'Les exécutions de CI dans le temps — la forme, pas la moyenne'
+  historique_pipelines: 'Les exécutions de CI dans le temps — la forme, pas la moyenne',
+  rapport_vulnerabilites: 'Les failles signalées par la forge — ou le fait que rien n\'a scanné'
 };
 
 /**
@@ -2710,7 +2728,7 @@ function ouvrirExecution(entry) {
      * Ce test portait sur `v.source === 'repo'` : deux agents qui font la même chose se
      * comportaient donc différemment, selon un mot que leur auteur n'a pas choisi
      * consciemment. `expliquer-un-code` déclare `code: signal` et recevait la zone avec le
-     * sélecteur de fichiers ; `analyseur-de-code`, sorti de Fabriquer, déclare `code: repo`
+     * sélecteur de fichiers ; `analyseur-de-code`, sorti de Composer, déclare `code: repo`
      * et ne recevait qu'une ligne — où l'on ne peut ni choisir un fichier, ni même en
      * coller un.
      *

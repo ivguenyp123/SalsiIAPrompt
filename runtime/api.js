@@ -63,7 +63,7 @@ export const LANCABLE = 'artifacts';
 /*
  * Les dossiers PERSONNELS — `mes-agents/<qui>/`, `mes-chaines/<qui>/` — s'y ajoutent
  * pour la recherche, jamais pour le lancement. Vu en vrai : un agent tout juste sauvé
- * depuis Fabriquer s'affichait au catalogue avec son panneau de lancement… et
+ * depuis Composer s'affichait au catalogue avec son panneau de lancement… et
  * l'exécution répondait « introuvable au registre » — un 404 qui déguisait un refus en
  * absence, précisément ce que la recherche dossier par dossier existe pour empêcher.
  * Le fichier EXISTE ; ce qui lui manque est une validation, et c'est ça qu'on dit.

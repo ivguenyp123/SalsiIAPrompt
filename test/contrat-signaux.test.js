@@ -38,6 +38,7 @@ import { analyseFichier, analyseBranche, analyseDepot } from '../lib/signaux-cod
 import { analyseRegime } from '../lib/signaux-regime.js';
 import { historiquePipelines } from '../lib/signaux-pipelines.js';
 import { executionCi } from '../lib/signaux-execution.js';
+import { rapportVulnerabilites } from '../lib/signaux-vulnerabilites.js';
 import { etatBranche } from '../lib/signaux-branche.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -240,7 +241,18 @@ const INVOCATIONS = {
            { nom: 'unit', etape: 'test', statut: 'echec', secondes: 320 },
            { nom: 'build', etape: 'build', statut: 'success', secondes: 210 }],
     jobEchoue: { nom: 'unit', etape: 'test' },
-    log: 'npm ERR! le test a cassé\nJETON=glpat-AbCdEfGhIjKlMnOpQrSt\n' })
+    log: 'npm ERR! le test a cassé\nJETON=glpat-AbCdEfGhIjKlMnOpQrSt\n' }),
+
+  /*
+   * Le cas qui compte : un scan DISPONIBLE avec des failles. Le cas « service absent »
+   * est couvert par son propre test — ici on vérifie que le contrat tient quand il y a
+   * quelque chose à dire.
+   */
+  rapport_vulnerabilites: () => rapportVulnerabilites({
+    depot: DEPOT, disponible: true, maintenant: new Date(MAINTENANT),
+    liste: [{ titre: 'Déni de service dans le parseur', severite: 'high', etat: 'open',
+              paquet: 'left-pad', version: '1.0.0', fichier: 'package.json',
+              identifiants: ['CVE-2026-0001'], decrit: 'Une entrée hostile bloque le processus.' }] })
 };
 
 /* ── Le contrat ───────────────────────────────────────────────────────────── */

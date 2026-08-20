@@ -36,6 +36,7 @@
  *   projectInfo(repo)                                  → { defaultBranch, path, visibility }
  *   listBranches(repo)                                 → [{ name, protectee, default }]
  *   listTree(repo, ref)                                → [chemins]
+ *   listVulnerabilites(repo)                           → { disponible, liste } | { disponible:false, raison }
  *   commitFiles(repo, { branch, message, files })      → { sha, url }   commit ATOMIQUE
  *   createMergeRequest(repo, { source, target, title })→ { number, url }
  */
@@ -598,6 +599,44 @@ function gitlab(session, fetchImpl) {
       }));
     },
 
+    /*
+     * ── LES VULNÉRABILITÉS, ET CE QUE CETTE FORGE NE DONNE PAS ────────────────
+     *
+     * Aucune des deux forges ne rend la même chose, et surtout : sur GitLab, l'API des
+     * vulnérabilités est réservée aux éditions supérieures. Sur une instance CE ou
+     * Premium, elle répond 403 ou 404 — et ce n'est PAS une panne, c'est l'état normal.
+     *
+     * On rend donc un objet qui distingue trois cas, jamais une liste vide pour tous :
+     *
+     *   { disponible: true,  liste: [...] }   la forge répond
+     *   { disponible: false, raison: '…' }    la forge ne fournit pas ce service
+     *
+     * Une liste vide et un service absent ne veulent pas dire la même chose : la première
+     * dit « rien trouvé », la seconde dit « personne n'a cherché ». Les confondre ferait
+     * écrire « aucune vulnérabilité » sur un dépôt que rien n'a jamais scanné, et c'est
+     * exactement le faux que ce registre existe pour empêcher.
+     */
+    listVulnerabilites: async (repo) => {
+      try {
+        const list = await call(`/projects/${encodeURIComponent(repo)}/vulnerabilities`,
+          { params: { per_page: 100 } });
+        return { disponible: true, liste: (list || []).map((v) => ({
+          id: v.id, titre: v.name || v.title || '', severite: String(v.severity || '').toLowerCase(),
+          etat: String(v.state || '').toLowerCase(), paquet: v?.location?.dependency?.package?.name || '',
+          version: v?.location?.dependency?.version || '', fichier: v?.location?.file || '',
+          identifiants: (v.identifiers || []).map((i) => i.name).filter(Boolean),
+          decrit: v.description || '' })) };
+      } catch (error) {
+        if (error.status === 403 || error.status === 404) {
+          return { disponible: false,
+                   raison: 'Cette instance GitLab ne fournit pas de rapport de '
+                         + 'vulnérabilités — l\'API est réservée aux éditions supérieures, '
+                         + 'ou le dépôt n\'a jamais été scanné.' };
+        }
+        throw error;
+      }
+    },
+
     /** Arbre récursif d'une réf — sert à découvrir les overlays sans les deviner. */
     listTree: async (repo, ref) => {
       try {
@@ -992,6 +1031,38 @@ function github(session, fetchImpl) {
         name: b.name, protectee: Boolean(b.protected), default: false,
         sha: b.commit?.sha || '', quand: ''
       }));
+    },
+
+    /*
+     * Les alertes de dépendances de GitHub. Même contrat que sur GitLab : `disponible`
+     * distingue « rien trouvé » de « personne n'a cherché ».
+     *
+     * Un 403 ici veut presque toujours dire que les alertes ne sont pas activées sur le
+     * dépôt, ou que le jeton n'a pas la portée `security_events`. Aucun des deux n'est une
+     * panne, et aucun ne permet d'écrire « aucune vulnérabilité ».
+     */
+    listVulnerabilites: async (repo) => {
+      try {
+        const list = await call(`/repos/${repo}/dependabot/alerts`,
+          { params: { per_page: 100, state: 'open' } });
+        return { disponible: true, liste: (list || []).map((a) => ({
+          id: a.number, titre: a?.security_advisory?.summary || '',
+          severite: String(a?.security_advisory?.severity || '').toLowerCase(),
+          etat: String(a.state || '').toLowerCase(),
+          paquet: a?.dependency?.package?.name || '',
+          version: a?.security_vulnerability?.vulnerable_version_range || '',
+          fichier: a?.dependency?.manifest_path || '',
+          identifiants: (a?.security_advisory?.identifiers || []).map((i) => i.value).filter(Boolean),
+          decrit: a?.security_advisory?.description || '' })) };
+      } catch (error) {
+        if (error.status === 403 || error.status === 404) {
+          return { disponible: false,
+                   raison: 'Les alertes de dépendances ne sont pas disponibles : elles ne '
+                         + 'sont pas activées sur ce dépôt, ou le jeton n\'a pas la portée '
+                         + 'nécessaire pour les lire.' };
+        }
+        throw error;
+      }
     },
 
     listTree: async (repo, ref) => {

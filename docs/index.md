@@ -30,7 +30,7 @@ part en validation.
 **Vous cherchez ce qui existe déjà.** → [Trouver et lancer un agent](catalogue.md)
 Le catalogue, sa recherche, ses étiquettes, et comment lancer un agent sur votre dépôt.
 
-**Vous voulez fabriquer un agent, ou en enchaîner plusieurs.** → [Composer](composer.md)
+**Vous voulez composer un agent, ou en enchaîner plusieurs.** → [Composer](composer.md)
 Deux choses différentes sur le même écran : assembler des **prompts** en un seul agent,
 ou enchaîner des **agents** déjà validés. La page dit laquelle vous voulez.
 

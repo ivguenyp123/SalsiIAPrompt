@@ -53,7 +53,10 @@ describe('ce qu\'il faudra faire pour remplir une entrée', () => {
     assert.equal(SOURCES_ENTREES.scores_maturite, 'signal');
     assert.equal(sait('scores_maturite'), false);
     assert.equal(etatEntree('scores_maturite', avec), 'introuvable');
-    assert.equal(etatEntree('rapport_vulnerabilites', avec), 'introuvable');
+    // `rapport_vulnerabilites` était le second exemple ici. Il a cessé d'être introuvable
+    // le jour où la plateforme a su le calculer — et ce test l'a signalé, ce qui est
+    // exactement son travail. `activite_sprint` prend la place ; il la rendra à son tour.
+    assert.equal(etatEntree('activite_sprint', avec), 'introuvable');
   });
 
   test('un signal qu\'on APPREND à produire cesse d\'être introuvable', () => {

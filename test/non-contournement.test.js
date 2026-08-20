@@ -106,7 +106,7 @@ describe('la validation humaine ne se contourne pas par l\'API', () => {
 
   test('VU LE 2026-08-19 : un BROUILLON PERSONNEL est refusé nommément, pas « introuvable »', async () => {
     /*
-     * Le cas réel : un agent tout juste sauvé depuis Fabriquer (`mes-agents/<qui>/`)
+     * Le cas réel : un agent tout juste sauvé depuis Composer (`mes-agents/<qui>/`)
      * s'affichait au catalogue avec son panneau de lancement, et l'exécution répondait
      * « introuvable au registre ». Le fichier EXISTE ; ce qui lui manque est une
      * validation — et c'est ce que le refus doit dire. Il ne se lance toujours pas :

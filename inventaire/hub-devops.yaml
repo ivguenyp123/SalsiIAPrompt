@@ -68,6 +68,12 @@ familles:
             besoin: "un agent qui rédige en cinq lignes le commentaire DORA pour le comité mensuel"
             entrees: [chiffres_dora]
             sortie: texte
+            # Doublon FONCTIONNEL de `dora-commentaire-comite`, écrit sans le voir : même
+            # matière, mêmes droits, même livrable — cinq lignes pour le comité mensuel.
+            # `L015` ne l'avait pas vu, parce que les deux textes ne se ressemblent pas.
+            # C'est l'empreinte fonctionnelle qui l'a trouvé, et l'artefact en trop a été
+            # supprimé plutôt que gardé « au cas où ».
+            couvert_par: dora-commentaire-comite
           - id: prevoir-l-atteinte-d-un-palier-dora
             titre: Prévoir l'atteinte d'un palier DORA
             besoin: "un agent qui dit ce qu'il faudrait changer pour passer au palier DORA supérieur"

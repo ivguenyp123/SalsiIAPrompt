@@ -28,12 +28,12 @@
  * d'écrire à la main des agents dont on maîtrise la forme.
  */
 const TABS = [
-  { id: 'composer', label: '🧩 Fabriquer', href: 'composer' },
+  { id: 'composer', label: '🧩 Composer', href: 'composer' },
   { id: 'catalogue', label: '🧰 Les agents', href: 'catalogue' },
   /*
    * « Mes agents » — le même écran, ouvert sur le filtre « les miens ».
    *
-   * Ce qu'on sauve chez soi depuis Fabriquer vivait dans `mes-agents/<moi>/`, le Catalogue
+   * Ce qu'on sauve chez soi depuis Composer vivait dans `mes-agents/<moi>/`, le Catalogue
    * savait déjà le lire et le lancer, et RIEN ne passait par l'Admin. Mais il fallait le
    * savoir : la seule porte était une pastille au milieu des filtres, que personne
    * n'ouvre. Un agent qu'on ne retrouve pas est un agent qu'on ne relance pas.

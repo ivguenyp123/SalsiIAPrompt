@@ -23,7 +23,7 @@ C'est **le même écran**, ouvert sur le filtre « les miens ». Pas un second c
 catalogue dupliqué aurait divergé du premier au premier correctif, et il aurait fallu
 corriger le lancement, l'export et le pré-vol à deux endroits.
 
-Ce qu'on y trouve : ce que vous avez assemblé dans **🧩 Fabriquer** puis enregistré avec
+Ce qu'on y trouve : ce que vous avez assemblé dans **🧩 Composer** puis enregistré avec
 **💾 Sauver chez moi**. Le fichier part dans `mes-agents/<vous>/`.
 
 **Rien ne passe par l'Admin, et c'est délibéré.** Ce qui déclenche une validation, ce n'est
@@ -39,7 +39,7 @@ C'est **d'engager les autres**. Sauver chez vous n'engage personne :
 Le jour où vous voulez qu'il serve aux autres, le bouton **📮 Partager** l'envoie en
 validation. Là, quelqu'un le relit — parce que là, il engage.
 
-Depuis Fabriquer, le lien **▶ Le lancer** apparaît juste après l'enregistrement et ouvre
+Depuis Composer, le lien **▶ Le lancer** apparaît juste après l'enregistrement et ouvre
 directement sa fiche : pas besoin de venir le chercher dans une liste.
 
 ## Trouver
