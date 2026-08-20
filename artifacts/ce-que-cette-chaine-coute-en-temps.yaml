@@ -1,0 +1,172 @@
+# salsi-provenance: demande
+# besoin: « puis en inventer d'autres »
+# demande-par: ivguenyp123
+# le: 2026-08-20
+# (inventé sur cette demande — aucun outil du hub ne correspond)
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# ── L'IDÉE, ET ELLE VIENT D'UN CONSTAT RÉEL ─────────────────────────────────
+#
+# Sur une vraie toolchain, le green coding a trouvé dix appels API pour lire une durée
+# que la forge affiche déjà. Ce constat-là est une trouvaille de green coding — il parle
+# de MACHINE. Il en cache un autre, qui parle d'HUMAINS et que personne ne fait :
+#
+#   combien de temps un développeur attend-il cette chaîne, chaque jour, pour rien ?
+#
+# `auditer-une-chaine-ci` dit ce qui est cassé ou risqué. `green-coding-du-depot` dit ce
+# qui brûle des ressources. Aucun ne dit ce que la chaîne coûte en ATTENTE — alors que
+# c'est le seul chiffre que l'équipe ressent tous les jours, et le seul qui décide si
+# les gens attendent le retour de la CI ou passent à autre chose (et perdent le fil).
+#
+# ── LE PIÈGE DU GENRE, ET IL EST ÉNORME ─────────────────────────────────────
+#
+# LES SECONDES INVENTÉES. « Ce job prend 4 minutes », « on gagnerait 12 minutes par
+# pipeline ». La matière est du YAML : elle ne contient AUCUNE durée. Ces chiffres ont
+# l'air d'un résultat de mesure et n'en sont pas — c'est la faute exacte que « le chiffre
+# au code » interdit.
+#
+# Ce qu'on peut lire dans du YAML, en revanche : ce qui est SÉQUENTIEL alors que rien ne
+# l'oblige, ce qui se retélécharge à chaque fois, ce qui bloque la suite sans raison. Le
+# vocabulaire de l'agent est donc structurel — « en série », « en parallèle », « refait
+# à chaque exécution » — et jamais chiffré.
+id: ce-que-cette-chaine-coute-en-temps
+kind: prompt
+title: L'attente — ce que cette chaîne CI fait perdre à l'équipe
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [ci, performance, equipe]
+intent:
+  purpose: >-
+    Lire une chaîne CI pour dire où l'équipe ATTEND : ce qui tourne en série sans raison,
+    ce qui se retélécharge à chaque exécution, ce qui bloque un retour rapide, et ce qui
+    est refait plusieurs fois dans le même pipeline — avec le geste qui raccourcit
+    l'attente, jamais une durée inventée.
+  not_for: >-
+    Ce n'est pas une mesure et ça n'en produira jamais les chiffres : la matière est du
+    YAML, elle ne contient aucune durée. Ce n'est pas un audit de chaîne — pour ce qui est
+    cassé ou risqué, c'est `auditer-une-chaine-ci`. Ni du green coding : celui-là compte
+    les ressources brûlées, celui-ci le temps humain passé à attendre. Les deux constats
+    se recoupent parfois et ne se répondent jamais.
+model_tier: mid
+target_level: experimental
+variables:
+  # La chaîne EST du code du dépôt : les fichiers de jobs, les modèles, les inclusions.
+  # Le même signal que l'audit — deux questions, une matière.
+  - name: code_du_depot
+    source: signal
+    required: true
+    description: >-
+      La carte des répertoires, la pile détectée et le contenu des fichiers retenus —
+      dont les fichiers de chaîne CI. Une partie seulement : la matière dit ce qui n'a
+      pas été lu.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - La forme de l'attente
+      - Ce qui attend pour rien
+      - Ce qui se refait à chaque fois
+      - Le retour le plus rapide
+      - Ce qu'il faudrait chronométrer
+spec: |-
+  Tu lis une chaîne CI pour dire où les gens ATTENDENT.
+
+  La matière ci-dessous est CALCULÉE : la carte porte sur l'arbre entier, les fichiers
+  retenus l'ont été par une règle écrite, les secrets sont caviardés. Elle est PARTIELLE
+  et le dit en tête.
+
+  {{code_du_depot}}
+
+  Rends exactement ces sections, avec ces titres :
+
+  ## La forme de l'attente
+  ## Ce qui attend pour rien
+  ## Ce qui se refait à chaque fois
+  ## Le retour le plus rapide
+  ## Ce qu'il faudrait chronométrer
+
+  ── L'INTERDIT ABSOLU : AUCUNE DURÉE ──────────────────────────────────────
+
+  Ni secondes, ni minutes, ni « on gagnerait 40 % ». Tu lis du YAML : il ne contient
+  AUCUNE durée, et un chiffre non mesuré est du faux avec de l'autorité. C'est l'erreur
+  qui ferait jeter ce rapport, parce que la première personne qui regarde ses vraies
+  durées verra que tes nombres sont inventés — et ne croira plus rien du reste.
+
+  Ce que tu peux dire, et qui se vérifie dans le fichier :
+  - ce qui est EN SÉRIE alors que rien ne l'y oblige ;
+  - ce qui est REFAIT là où un cache existerait ;
+  - ce qui BLOQUE la suite alors que son résultat n'est pas nécessaire tout de suite ;
+  - ce qui tourne AVANT ce qui échoue le plus souvent.
+  Tu peux comparer sans chiffrer : « télécharger une image est plus long que lancer un
+  test unitaire » est vrai partout et n'est pas une mesure. « Ça prend deux minutes »
+  en est une, et tu ne l'as pas faite.
+
+  ── CE QU'ON ATTEND DANS CHAQUE SECTION ───────────────────────────────────
+
+  LA FORME DE L'ATTENTE
+  Le squelette de la chaîne : les étapes dans l'ordre, ce qui est parallèle et ce qui ne
+  l'est pas, ce qui est manuel, ce qui est conditionnel. Puis le chemin CRITIQUE — la
+  suite d'étapes qu'il faut traverser avant d'obtenir un verdict, celle qui décide de
+  l'attente réelle. Tout le reste du rapport s'accroche à ce chemin.
+
+  Dis aussi combien de chaînes différentes existent : celle qui tourne sur une branche de
+  travail et celle qui tourne sur la principale ne coûtent pas la même attente, et
+  c'est la première que les gens subissent dix fois par jour.
+
+  CE QUI ATTEND POUR RIEN
+  Le cœur du rapport. Cherche :
+  - des jobs INDÉPENDANTS placés dans des étapes successives — chacun attend la fin du
+    précédent alors qu'ils pourraient tourner ensemble ;
+  - un job LENT placé avant un job qui échoue souvent : le lint qui casse trois fois par
+    jour devrait tourner AVANT le build, pas après ;
+  - une dépendance déclarée plus large que nécessaire, qui fait attendre toute une étape
+    pour un seul artefact ;
+  - un job qui bloque la chaîne alors que son résultat n'est consulté que le lendemain —
+    un scan de qualité, une publication de rapport ;
+  - une approbation manuelle placée au milieu plutôt qu'à la fin, qui met la chaîne en
+    pause pendant qu'une personne dort.
+  Chaque constat nomme LE JOB et L'ÉTAPE, et dit ce que le changement libère.
+
+  CE QUI SE REFAIT À CHAQUE FOIS
+  Ce qui est retéléchargé, réinstallé, reconstruit à chaque exécution alors que ça ne
+  change presque jamais : des dépendances installées sans cache, un outil installé
+  globalement à chaque job, une image reconstruite au lieu d'être tirée, un cache déclaré
+  mais dont la clé change à chaque exécution — ce dernier est le plus vicieux, parce que
+  tout le monde croit qu'il y a un cache.
+
+  Signale aussi ce qui est fait DEUX FOIS dans le même pipeline : la même compilation
+  dans deux jobs, la même installation dans quatre.
+
+  LE RETOUR LE PLUS RAPIDE
+  UNE proposition, et une seule : celle qui raccourcit le plus l'attente avant le PREMIER
+  verdict utile — pas l'attente totale. Un pipeline complet qui reste long mais qui dit
+  « c'est cassé » en tête de chaîne vaut mieux qu'un pipeline plus court dont le verdict
+  arrive à la fin. Dis ce que ça change pour celui qui pousse : ce qu'il saura plus tôt,
+  et ce qu'il pourra faire pendant le reste.
+
+  CE QU'IL FAUDRAIT CHRONOMÉTRER
+  La section qui rend les autres honnêtes. Les deux ou trois mesures qui transformeraient
+  tes hypothèses en faits, et OÙ elles vivent : la durée par job (l'interface de la forge
+  les affiche déjà), le taux d'échec par job — sans lui, on ne sait pas quel job mettre
+  en tête —, le temps entre le push et le premier verdict, la part du temps passée à
+  attendre un agent d'exécution libre plutôt qu'à travailler.
+
+  Dis aussi ce que tu n'as pas pu lire : la matière annonce ce qui n'a pas été lu, et un
+  fichier de chaîne écarté peut contredire tout ce que tu viens d'écrire.
+
+  ── ET LES RÈGLES DE LECTURE ──────────────────────────────────────────────
+
+  - Si ce dépôt ne porte pas de chaîne CI dans ce que tu as lu, dis-le en une ligne et
+    arrête-toi. N'invente pas une chaîne à partir de la pile détectée.
+  - N'ÉCRIS JAMAIS que cette chaîne est rapide, ni bien optimisée. Tu lis du YAML sans
+    l'exécuter et sans une seule durée.
+  - Ne rejoue pas l'audit : ce qui est CASSÉ ou RISQUÉ appartient à
+    `auditer-une-chaine-ci`. Si un danger te saute aux yeux, une ligne suffit, puis tu
+    reviens à ton sujet.
+  - Ne recopie aucune valeur de secret, même caviardée.

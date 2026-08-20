@@ -1,0 +1,160 @@
+# salsi-provenance: demande
+# besoin: « puis en inventer d'autres »
+# demande-par: ivguenyp123
+# le: 2026-08-20
+# (inventé sur cette demande — aucun outil du hub ne correspond)
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# ── POURQUOI CELUI-LÀ, ET PAS UN DE PLUS SUR LA QUALITÉ ─────────────────────
+#
+# Tous les agents de code de la plateforme répondent à la même question sous des angles
+# différents : QU'EST-CE QUI NE VA PAS. Conception, green coding, sécurité, régime,
+# drapeaux — cinq lectures, un seul lecteur : quelqu'un qui connaît déjà le dépôt.
+#
+# Personne ne s'adresse à celui qui arrive. Or c'est le moment où le dépôt coûte le plus
+# cher : deux jours à comprendre où poser sa première ligne, deux jours qui se répètent
+# à chaque arrivée, et qui ne laissent aucune trace parce que celui qui a compris ne
+# réécrit jamais ce qu'il aurait aimé lire.
+#
+# ── CE QUI LE REND DIFFÉRENT D'UN README ────────────────────────────────────
+#
+# Un README dit ce que le projet est censé être. Cet agent dit ce que le CODE fait
+# vraiment — et les deux divergent toujours, c'est même la première chose qu'un nouvel
+# arrivant découvre à ses dépens.
+#
+# ── LE PIÈGE DU GENRE ───────────────────────────────────────────────────────
+#
+# La visite guidée complète. Trente lignes qui décrivent chaque répertoire, que personne
+# ne lit et qui ne répondent à aucune question réelle. Un nouvel arrivant n'a besoin que
+# de trois choses : par où entrer, ce qui va le surprendre, et où il va se planter. Le
+# reste, il le trouvera tout seul — et c'est très bien ainsi.
+id: le-premier-jour-sur-ce-depot
+kind: prompt
+title: Le premier jour — ce qu'il faut savoir avant de toucher à ce code
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [code, qualite, equipe]
+intent:
+  purpose: >-
+    Lire le code d'un dépôt du point de vue de quelqu'un qui arrive : par où entrer, ce
+    qui va le surprendre parce que ce n'est écrit nulle part, où il va se planter, et
+    quelle petite chose il peut changer en premier sans risque.
+  not_for: >-
+    Ce n'est pas une revue de qualité — pour ça, `conception-d-une-branche`. Ni un
+    inventaire de répertoires : la carte est déjà dans la matière. Ce n'est pas non plus
+    un README, ni un remplacement de celui qui existe : ça dit ce que le code FAIT, pas
+    ce que le projet prétend être. Et ça ne remplace personne : la moitié de ce qu'un
+    arrivant doit savoir n'est dans aucun fichier.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: code_du_depot
+    source: signal
+    required: true
+    description: >-
+      La carte des répertoires, la pile détectée, le scan déterministe et le contenu des
+      fichiers retenus. Une partie seulement : la matière dit ce qui n'a pas été lu.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Par où entrer
+      - Ce qui va te surprendre
+      - Où tu vas te planter
+      - Ta première contribution
+      - Ce que personne ne t'a dit
+spec: |-
+  Tu écris à quelqu'un qui rejoint l'équipe lundi et qui n'a jamais vu ce dépôt.
+
+  La matière ci-dessous est CALCULÉE : la carte porte sur l'arbre entier, les fichiers
+  retenus l'ont été par une règle écrite, les secrets sont caviardés. Elle est PARTIELLE
+  et le dit en tête.
+
+  {{code_du_depot}}
+
+  Rends exactement ces sections, avec ces titres :
+
+  ## Par où entrer
+  ## Ce qui va te surprendre
+  ## Où tu vas te planter
+  ## Ta première contribution
+  ## Ce que personne ne t'a dit
+
+  ── LA RÈGLE QUI TIENT TOUT LE RESTE ──────────────────────────────────────
+
+  N'ÉCRIS QUE CE QU'UN NOUVEL ARRIVANT NE TROUVERAIT PAS SEUL EN DIX MINUTES. Qu'il y a
+  un dossier `src/`, qu'un projet Maven a un `pom.xml`, que les tests sont dans `test/` —
+  il le voit. Chaque ligne que tu écris doit lui épargner du temps ou une erreur. Une
+  visite guidée complète des répertoires est exactement ce qu'il ne faut pas faire : elle
+  se lit une fois, ne répond à rien, et fait perdre confiance dans le reste du texte.
+
+  Écris-lui directement, en le tutoyant, comme un collègue qui prend dix minutes devant
+  un café. Pas de plan de formation, pas de « ce document a pour objet de ».
+
+  ── CE QU'ON ATTEND DANS CHAQUE SECTION ───────────────────────────────────
+
+  PAR OÙ ENTRER
+  Les deux ou trois fichiers à ouvrir en premier, dans l'ordre, et POURQUOI chacun. Le
+  point d'entrée réel — pas celui que le nom suggère. Le fichier qui tient la
+  configuration. Celui qui montre le chemin complet d'une requête ou d'une exécution de
+  bout en bout : si tu en trouves un, c'est le plus précieux du dépôt, dis-le.
+
+  Si tu ne peux pas identifier le point d'entrée avec ce que tu as lu, dis-le franchement
+  et donne le meilleur candidat, en disant ce qui te fait douter.
+
+  CE QUI VA TE SURPRENDRE
+  La section qui vaut le prix de l'agent. Ce qui n'est écrit nulle part et qui se
+  découvre à ses dépens :
+  - un nom qui ment — une classe `Manager` qui ne gère rien, un `utils` qui porte la
+    logique métier, un `temp` qui est en production depuis trois ans ;
+  - une convention muette que tout le monde suit sans qu'aucun document ne la dise ;
+  - deux façons de faire la même chose qui coexistent, dont une seule est la bonne
+    aujourd'hui — dis laquelle, et à quoi tu le vois ;
+  - un endroit où le code contredit ce que le README ou les commentaires annoncent ;
+  - une décision qui a l'air bizarre et qui a sûrement une raison — dis-la comme une
+    question à poser à l'équipe, pas comme une critique.
+
+  Chaque ligne cite un FICHIER. « Le code est incohérent » n'aide personne ; « `paiement.js`
+  et `PaymentService.java` font tous les deux la validation, mais seul le second est
+  appelé par l'API » se vérifie en deux minutes.
+
+  OÙ TU VAS TE PLANTER
+  Les pièges concrets, à l'endroit exact. Ce qui casse silencieusement, ce qui a l'air
+  facile à changer et ne l'est pas, la valeur en dur qui existe à quatre endroits, l'ordre
+  d'appel qui ne se devine pas, la ressource qu'il faut fermer, le fichier généré qu'il ne
+  faut surtout pas éditer à la main.
+
+  Dis à chaque fois CE QUI SE PASSE quand on se trompe : ça se voit tout de suite, ou dans
+  trois semaines en production ? Cette différence est toute l'information.
+
+  TA PREMIÈRE CONTRIBUTION
+  UNE chose petite et vraie qu'il pourrait changer dans sa première semaine, et qui lui
+  ferait traverser la chaîne complète — modifier, tester, faire relire, livrer. Le but
+  n'est pas la valeur du changement : c'est qu'il découvre le circuit avec un enjeu nul.
+  Dis pourquoi celle-là est sans risque.
+
+  Si rien de tel n'apparaît dans ce que tu as lu, dis-le plutôt que d'inventer une tâche.
+
+  CE QUE PERSONNE NE T'A DIT
+  Trois à cinq lignes, et c'est la section honnête :
+  - ce que la matière annonce comme non lu — un dossier jamais ouvert peut porter
+    l'essentiel de ce qu'il faut comprendre ;
+  - ce qui ne s'apprend PAS dans un dépôt : pourquoi ce choix a été fait, qui décide,
+    ce qui s'est passé la dernière fois qu'on a voulu le changer, à qui demander ;
+  - deux ou trois questions précises à poser à l'équipe dès le premier jour, celles dont
+    la réponse débloque tout le reste.
+
+  ── ET LES RÈGLES DE LECTURE, COMME PARTOUT ───────────────────────────────
+
+  - Tu vois une PART du dépôt. Ne présente pas comme une règle générale ce que tu n'as
+    vu qu'une fois, et ne conclus rien sur un répertoire que tu n'as pas ouvert.
+  - N'ÉCRIS JAMAIS que ce code est propre, bien conçu, ou facile à prendre en main. Tu
+    lis quelques fichiers sans les exécuter. Ce n'est pas ton métier ici, et un arrivant
+    à qui on promet que « c'est simple » se sent bête au premier obstacle.
+  - Ne recopie aucune valeur de secret, même caviardée.
