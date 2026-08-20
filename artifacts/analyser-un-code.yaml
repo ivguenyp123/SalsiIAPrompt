@@ -1,0 +1,112 @@
+# Capacité de l'inventaire du hub — module « Repo Analyzer ».
+# besoin : « un agent qui dit ce qui rend un fichier difficile à changer et par où commencer »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : la revue de style. Nommage, longueur des fonctions,
+# imbrication — le linter le fait mieux, sans facture et sans opinion.
+#
+# Ce qui rend un fichier DIFFICILE À CHANGER est autre chose : ce qu'il faut
+# comprendre avant de toucher une ligne, ce qui casse ailleurs quand on le
+# modifie, ce qu'on ne peut pas essayer sans monter tout le reste. C'est une
+# question de coût du prochain changement, pas de propreté.
+id: analyser-un-code
+kind: prompt
+title: Ce fichier — ce qui le rend difficile à changer
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [code, qualite]
+intent:
+  purpose: >-
+    Lire un fichier et dire ce qui rendra le prochain changement coûteux : ce qu'il faut comprendre avant d'y toucher, ce qui casse ailleurs, ce qui ne peut pas s'essayer isolément.
+  not_for: >-
+    Ce n'est pas une revue de style — le linter fait mieux le nommage et l'indentation. Ce n'est pas une revue de sécurité (`analyseur-de-code`) ni une lecture de gaspillage (`green-coding`). Et ce n'est pas un verdict sur la qualité : c'est une estimation du coût du prochain changement.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: code
+    source: repo
+    required: true
+    description: >-
+      Le contenu du fichier choisi.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Ce que fait ce fichier
+      - Ce qu'il faut comprendre avant d'y toucher
+      - Ce qui casse ailleurs
+      - Par où commencer
+      - Ce que je n'ai pas pu juger
+spec: |-
+  Tu lis un fichier pour dire ce qui rendra le prochain changement coûteux.
+  
+  {{code}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que fait ce fichier
+  ## Ce qu'il faut comprendre avant d'y toucher
+  ## Ce qui casse ailleurs
+  ## Par où commencer
+  ## Ce que je n'ai pas pu juger
+  
+  ── LA RÈGLE ──────────────────────────────────────────────────────────────
+  
+  NE REFAIS PAS LE TRAVAIL DU LINTER. Nommage d'une variable locale, indentation, longueur
+  d'une fonction, import inutilisé, guillemets : le linter les traite mieux et sans opinion.
+  Chaque ligne que tu écris là-dessus décrédibilise celles qui comptent.
+  
+  LA QUESTION EST LE COÛT DU PROCHAIN CHANGEMENT, pas la propreté. Un fichier laid mais
+  isolé se change en dix minutes ; un fichier élégant qui porte l'état de trois autres
+  modules coûte une journée et un incident.
+  
+  ── TU LIS UN FICHIER, PAS UN PROJET ──────────────────────────────────────
+  
+  Tu ne vois ni ce qui appelle ce code, ni ce qu'il appelle, ni les tests qui le
+  couvrent, ni son histoire. Beaucoup de ce qui paraît étrange dans un fichier a sa
+  raison ailleurs — une contrainte d'un appelant, un contournement d'une
+  bibliothèque, une décision prise après un incident.
+  
+  Ce qui relève de ce que tu n'as pas sous les yeux se formule en QUESTION, pas en
+  constat. Et n'écris jamais que ce code est propre, bon ou sûr : tu le lis sans
+  l'exécuter.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE FAIT CE FICHIER
+  Trois phrases : son intention, pas sa syntaxe. Si ce n'est pas du code — configuration,
+  données, gabarit — dis-le, signale seulement ce qui s'y voit, et arrête-toi.
+  
+  CE QU'IL FAUT COMPRENDRE AVANT D'Y TOUCHER
+  La section qui vaut le déplacement. Ce qu'un nouvel arrivant doit avoir en tête avant sa
+  première modification :
+  - l'état porté par le fichier, qui l'écrit, qui le lit ;
+  - les invariants tacites — l'ordre d'appel obligatoire, la ressource à fermer, le champ
+    qui doit être rempli avant tel autre ;
+  - les cas particuliers traités, et celui qui a l'air d'être la règle sans l'être ;
+  - les valeurs en dur dont la signification n'est écrite nulle part.
+  Chaque point cite une ligne.
+  
+  CE QUI CASSE AILLEURS
+  Ce qui, modifié ici, se répercute hors du fichier : un format produit, une signature
+  publique, un effet de bord dont quelqu'un dépend, un nom utilisé par réflexion ou par
+  configuration. Tu ne vois pas les appelants : écris « ce qui appelle X devra être vérifié »,
+  jamais « X est appelé à trois endroits ».
+  
+  PAR OÙ COMMENCER
+  UNE proposition, la plus rentable — celle qui rend le prochain changement moins cher, pas
+  celle qui rend le code plus joli. Dis ce qu'elle débloque.
+  
+  Si le fichier est simple et n'a rien de coûteux, écris-le et arrête-toi. Un rapport vide
+  est un bon rapport.
+  
+  CE QUE JE N'AI PAS PU JUGER
+  Trois à cinq lignes : les appelants, les tests existants, l'histoire du fichier, et si un
+  choix bizarre est une erreur ou une contrainte. Si l'extrait est coupé, dis-le.

@@ -1,0 +1,103 @@
+# Capacité de l'inventaire du hub — module « Repo Analyzer ».
+# besoin : « un agent qui liste ce qu'il faut changer pour passer un projet à Java 21 »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : la liste des nouveautés du langage. Records, pattern
+# matching, virtual threads — passionnant, et sans rapport avec la question. Passer
+# à Java 21 n'est pas un projet d'écriture de code : c'est un projet de
+# DÉPENDANCES et d'OUTILLAGE, et ce qui bloque est presque toujours une
+# bibliothèque qui n'a pas suivi.
+#
+# Le second piège : affirmer une compatibilité. La matière donne des versions
+# déclarées ; elle ne dit pas si telle version fonctionne sous Java 21. Le spec
+# exige donc de dire quoi VÉRIFIER, jamais d'affirmer.
+id: preparer-une-migration-java-21
+kind: prompt
+title: Passer à Java 21 — ce qu'il faut changer, et dans quel ordre
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [migration, dependances]
+intent:
+  purpose: >-
+    Lister ce qu'il faut changer pour passer un projet à Java 21 : ce qui bloque, ce qu'il faut vérifier, et dans quel ordre — en partant des dépendances, pas du langage.
+  not_for: >-
+    Ce n'est pas une présentation des nouveautés de Java 21 : la migration est un projet de dépendances et d'outillage, pas d'écriture de code. Et ça n'affirme aucune compatibilité — la matière donne des versions déclarées, pas leur comportement sous une nouvelle JVM.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: inventaire_dependances
+    source: repo
+    required: true
+    description: >-
+      Les dépendances déclarées par les manifestes du projet.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - D'où on part
+      - Ce qui bloque probablement
+      - L'ordre des étapes
+      - Ce qu'il faut vérifier et que je ne peux pas savoir
+spec: |-
+  Tu prépares le passage d'un projet à Java 21.
+  
+  {{inventaire_dependances}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## D'où on part
+  ## Ce qui bloque probablement
+  ## L'ordre des étapes
+  ## Ce qu'il faut vérifier et que je ne peux pas savoir
+  
+  ── LA RÈGLE ──────────────────────────────────────────────────────────────
+  
+  NE PRÉSENTE PAS LES NOUVEAUTÉS DU LANGAGE. Personne ne migre pour écrire des records. Une
+  migration de JVM est un projet de DÉPENDANCES et d'OUTILLAGE : ce qui bloque est une
+  bibliothèque qui n'a pas suivi, un plugin de build trop ancien, un agent d'instrumentation,
+  une image de base.
+  
+  N'AFFIRME AUCUNE COMPATIBILITÉ. Tu vois des versions déclarées, pas leur comportement sous
+  une nouvelle JVM. Écris « à vérifier, voici où », jamais « compatible ».
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  D'OÙ ON PART
+  Ce que les manifestes déclarent : version de Java visée, outil de build et sa version,
+  cadre applicatif principal et sa version, nombre de dépendances. Si la version de départ
+  n'est pas déterminable, dis-le — l'écart entre 8 et 21 et l'écart entre 17 et 21 sont deux
+  projets sans rapport.
+  
+  CE QUI BLOQUE PROBABLEMENT
+  Classé par probabilité de blocage, avec ce qui te le fait penser. Cherche en priorité :
+  - le CADRE APPLICATIF : il impose un plancher de version de JVM, et sa montée entraîne
+    souvent une migration bien plus large que celle de Java ;
+  - les bibliothèques qui manipulent le BYTECODE ou la réflexion profonde — instrumentation,
+    proxys dynamiques, sérialisation, moteurs de test, agents. Ce sont les premières à casser
+    à chaque changement de JVM ;
+  - les MODULES retirés du JDK : ce qui a disparu après Java 8 et qui doit devenir une
+    dépendance explicite ;
+  - les PLUGINS de build, souvent plus bloquants que les dépendances elles-mêmes ;
+  - l'IMAGE DE BASE et l'agent d'exécution de la chaîne CI, qui doivent porter la nouvelle
+    JVM avant tout le reste.
+  
+  L'ORDRE DES ÉTAPES
+  Le seul ordre qui marche : d'abord CONSTRUIRE avec la nouvelle JVM en gardant la cible de
+  compilation ancienne — ça sépare les problèmes d'outillage des problèmes de code. Puis
+  monter les dépendances bloquantes, une par une et livrées séparément. Puis basculer la
+  cible de compilation. Puis seulement, plus tard, utiliser les nouveautés du langage.
+  
+  Chaque étape dit ce qu'on livre et ce qu'on observe avant la suivante.
+  
+  CE QU'IL FAUT VÉRIFIER ET QUE JE NE PEUX PAS SAVOIR
+  Obligatoire : les notes de version de chaque dépendance bloquante ; les avertissements à
+  l'exécution, qui ne se voient qu'en lançant ; le comportement des tests, souvent le
+  premier à casser ; les dépendances transitives, invisibles dans un manifeste ; et le fait
+  que tu n'as exécuté aucune construction.

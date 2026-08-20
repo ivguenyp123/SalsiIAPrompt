@@ -1,0 +1,103 @@
+# Capacité de l'inventaire du hub — module « Repo Analyzer ».
+# besoin : « un agent qui repère dans un fichier ce qui n'est plus appelé nulle part »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE, ET IL EST STRUCTUREL : « plus appelé nulle part » ne se
+# déduit PAS d'un fichier. Un symbole peut être appelé depuis un autre module, par
+# réflexion, par un nom construit à l'exécution, depuis une configuration, un test,
+# un script, ou un autre dépôt entièrement.
+#
+# Un agent qui affirme « ce code est mort » depuis un seul fichier fait supprimer
+# du code vivant. Le spec l'oblige donc à parler de CANDIDATS, et à fournir la
+# preuve à faire pour chacun.
+id: reperer-le-code-mort
+kind: prompt
+title: Le code mort — ce qui en a l'air, et comment le prouver
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [code, qualite]
+intent:
+  purpose: >-
+    Repérer dans un fichier ce qui a l'air de ne plus servir, classé par certitude, avec pour chaque candidat la vérification exacte qui permettrait de le supprimer sans risque.
+  not_for: >-
+    Ce n'est pas une détection de code mort et ça ne peut pas l'être : « plus appelé nulle part » ne se déduit jamais d'un seul fichier. Ce sont des candidats à vérifier, jamais une liste à supprimer.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: code
+    source: repo
+    required: true
+    description: >-
+      Le contenu du fichier choisi.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Mort à l'intérieur du fichier
+      - Candidats à vérifier ailleurs
+      - La vérification à faire
+      - Ce qui ressemble à du code mort et n'en est pas
+spec: |-
+  Tu repères dans un fichier ce qui n'a plus l'air de servir.
+  
+  {{code}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Mort à l'intérieur du fichier
+  ## Candidats à vérifier ailleurs
+  ## La vérification à faire
+  ## Ce qui ressemble à du code mort et n'en est pas
+  
+  ── LA RÈGLE, ET ELLE EST ABSOLUE ─────────────────────────────────────────
+  
+  TU NE PEUX PAS SAVOIR SI QUELQUE CHOSE EST APPELÉ AILLEURS. Un symbole exporté peut être
+  utilisé par un autre module, par réflexion, par un nom construit à l'exécution, depuis un
+  fichier de configuration, un test, un script de déploiement, ou un dépôt entièrement
+  différent.
+  
+  N'écris donc JAMAIS « ce code est mort » pour quoi que ce soit de visible depuis
+  l'extérieur du fichier. Le mot est « candidat », et il vient toujours avec la vérification
+  qui le confirmerait.
+  
+  La seule chose que tu peux affirmer, c'est ce qui est mort À L'INTÉRIEUR du fichier : une
+  fonction privée que rien n'appelle dans ce même fichier, une variable locale jamais lue,
+  une branche que la logique rend inatteignable.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  MORT À L'INTÉRIEUR DU FICHIER
+  Ce que tu peux prouver ici : privé et non appelé, condition toujours fausse, code après un
+  retour, cas d'une énumération traité deux fois. Chacun avec sa ligne. C'est la seule
+  section où tu affirmes.
+  
+  CANDIDATS À VÉRIFIER AILLEURS
+  Ce qui est exporté ou public et n'a aucun usage interne. Classé par PROBABILITÉ, et dis
+  sur quoi tu te fondes : un nom générique exporté est plus suspect qu'un nom métier précis ;
+  un symbole documenté comme public l'est moins ; un nom qui apparaît dans une chaîne de
+  caractères ailleurs ne l'est pas du tout.
+  
+  LA VÉRIFICATION À FAIRE
+  La section qui rend l'agent utile. Chaque candidat reçoit sa vérification : le terme
+  exact à chercher, où, et ce qui compte comme preuve. Rappelle les pièges : la recherche textuelle
+  rate les appels par réflexion et les noms construits par concaténation ; un usage dans un
+  test n'est pas un usage ; un usage dans un autre dépôt ne se voit pas d'ici.
+  
+  CE QUI RESSEMBLE À DU CODE MORT ET N'EN EST PAS
+  Aussi importante que le reste, et elle protège des suppressions catastrophiques : un point
+  d'entrée appelé par la chaîne CI, une implémentation d'interface instanciée par
+  configuration, un gestionnaire enregistré ailleurs, un export d'API publique, une fonction
+  appelée par un nom construit, du code conservé pour un retour arrière. Nomme ce qui, dans
+  CE fichier, tombe dans ces catégories.
+  
+  ── SI LE FICHIER EST PROPRE ──────────────────────────────────────────────
+  
+  Écris-le et arrête-toi. Inventer un candidat pour ne pas rendre une page blanche fait
+  supprimer du code vivant.

@@ -1,0 +1,109 @@
+# Capacité de l'inventaire du hub — module « Repo Analyzer ».
+# besoin : « un agent qui traduit un besoin décrit en français en expression régulière, avec ses cas de test »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : l'expression seule. Elle a l'air juste, elle est copiée,
+# elle marche sur les trois exemples auxquels on pense — et elle rate le quatrième
+# en production.
+#
+# Une expression régulière sans ses CONTRE-EXEMPLES n'est pas livrable. Le spec
+# exige donc les cas qui doivent matcher ET ceux qui ne doivent pas, ces derniers
+# d'abord, parce que ce sont eux qui révèlent les erreurs.
+#
+# Le troisième piège, moins connu : certaines expressions s'effondrent sur une
+# entrée hostile. Une alternance imbriquée peut prendre des minutes sur trente
+# caractères, et c'est un déni de service.
+id: ecrire-une-expression-reguliere
+kind: prompt
+title: Une expression régulière — avec les cas qui la cassent
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [code, outillage]
+intent:
+  purpose: >-
+    Traduire un besoin décrit en français en expression régulière, avec les cas qui doivent matcher, ceux qui ne doivent pas, et ce que l'expression ne saura jamais faire.
+  not_for: >-
+    Ce n'est pas une expression prête à coller sans la tester : aucun de ces cas n'a été exécuté. Et pour valider des données structurées — adresse électronique, URL, date — une expression régulière est presque toujours le mauvais outil ; l'agent le dit quand c'est le cas.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: besoin_metier
+    source: user
+    required: true
+    description: >-
+      Ce que tu décris toi-même — personne d'autre ne peut le relire.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Ce que j'ai compris
+      - L'expression
+      - Ce qui doit matcher
+      - Ce qui ne doit PAS matcher
+      - Ce qu'elle ne saura pas faire
+spec: |-
+  Tu traduis un besoin décrit en français en expression régulière.
+  
+  {{besoin_metier}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que j'ai compris
+  ## L'expression
+  ## Ce qui doit matcher
+  ## Ce qui ne doit PAS matcher
+  ## Ce qu'elle ne saura pas faire
+  
+  ── LA RÈGLE ──────────────────────────────────────────────────────────────
+  
+  UNE EXPRESSION SANS CONTRE-EXEMPLES N'EST PAS LIVRABLE. Elle sera copiée telle quelle,
+  elle marchera sur les trois cas auxquels on pense, et elle ratera le quatrième en
+  production. Les cas qui NE doivent PAS matcher sont ceux qui révèlent les erreurs : ils
+  sont obligatoires, et il en faut au moins autant que de cas positifs.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE J'AI COMPRIS
+  Reformule le besoin en règles explicites, une par ligne : ce qui est obligatoire, ce qui
+  est facultatif, ce qui est interdit, la casse, les limites de début et de fin. C'est ici
+  qu'un malentendu se voit — et un malentendu vu ici coûte une phrase, vu en production il
+  coûte une journée.
+  
+  Si le besoin est ambigu, POSE LA QUESTION plutôt que de trancher. Une expression écrite
+  sur la mauvaise règle est pire que pas d'expression.
+  
+  L'EXPRESSION
+  En bloc de code, avec la SAVEUR précisée — les expressions ne sont pas identiques en
+  JavaScript, Python, Java, PCRE ou dans `grep`. Puis une décomposition, morceau par
+  morceau, en langage clair : quelqu'un doit pouvoir la modifier dans six mois.
+  
+  Préfère la lisibilité à l'astuce. Une expression compacte que personne ne sait relire sera
+  remplacée par une autre, écrite à la va-vite.
+  
+  CE QUI DOIT MATCHER
+  Cinq cas au moins, dont les cas limites : la valeur la plus courte acceptable, la plus
+  longue, avec les caractères spéciaux autorisés, aux bornes.
+  
+  CE QUI NE DOIT PAS MATCHER
+  Au moins autant, et c'est la section décisive : la chaîne vide, une valeur presque
+  correcte, une valeur correcte entourée d'autre chose, une casse différente, un caractère
+  proche mais différent, une injection de saut de ligne. Chaque cas dit POURQUOI il doit
+  être rejeté.
+  
+  CE QU'ELLE NE SAURA PAS FAIRE
+  Trois à cinq lignes, obligatoires :
+  - si le besoin porte sur une adresse électronique, une URL, une date, du HTML ou du JSON,
+    DIS que l'expression régulière est le mauvais outil et nomme le bon. C'est le service le
+    plus utile que tu puisses rendre ici ;
+  - le risque d'EFFONDREMENT sur une entrée hostile : une alternance ou une répétition
+    imbriquée peut prendre des minutes sur quelques dizaines de caractères, et c'est un déni
+    de service quand l'entrée vient de l'extérieur ;
+  - ce qu'aucune expression ne valide : qu'une valeur existe, soit à jour, soit autorisée ;
+  - que ces cas n'ont PAS été exécutés — ils sont à passer dans un test avant usage.

@@ -1,0 +1,96 @@
+# Capacité de l'inventaire du hub — module « Repo Analyzer ».
+# besoin : « un agent qui résume l'état d'un dépôt : activité, contributeurs, langages, points de friction »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : le verdict. « Ce dépôt est en bonne santé », « dépôt à
+# risque ». La matière est une liste de contrôles : ce qui n'a pas été cherché n'a
+# pas été trouvé, et un verdict global transforme un plancher en conclusion.
+#
+# Le second piège : recopier les chiffres. Un résumé qui aligne les valeurs du
+# rapport ne résume rien — il le rallonge. Résumer, c'est choisir ce qu'on garde et
+# dire pourquoi.
+id: resumer-l-etat-d-un-depot
+kind: prompt
+title: L'état de ce dépôt — la photo, en une page
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [depot, comprehension]
+intent:
+  purpose: >-
+    Résumer l'état d'un dépôt en une page : ce qu'il est, comment il vit, où ça frotte — de quoi décider s'il faut aller regarder de plus près.
+  not_for: >-
+    Ce n'est pas un verdict de santé : la matière est une liste de contrôles, et ce qui n'a pas été cherché n'a pas été trouvé. Ce n'est pas non plus un plan d'action (`prioriser-les-corrections-d-un-depot`) ni une synthèse exécutive (`rediger-la-synthese-executive-d-un-rapport`).
+model_tier: mid
+target_level: experimental
+variables:
+  - name: rapport_depot
+    source: signal
+    required: true
+    description: >-
+      L'état du dépôt et ses corrections à faire, calculés par la plateforme.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Ce que c'est
+      - Comment ça vit
+      - Où ça frotte
+      - Ce qu'on ne sait pas
+spec: |-
+  Tu résumes l'état d'un dépôt.
+  
+  Les chiffres ci-dessous sont CALCULÉS par la plateforme.
+  
+  {{rapport_depot}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que c'est
+  ## Comment ça vit
+  ## Où ça frotte
+  ## Ce qu'on ne sait pas
+  
+  ── LES DEUX INTERDITS ────────────────────────────────────────────────────
+  
+  AUCUN VERDICT DE SANTÉ. Ni « bonne santé », ni « à risque », ni note globale. La matière
+  est une liste de contrôles : ce qui n'a pas été cherché n'a pas été trouvé, et un verdict
+  transforme ce plancher en conclusion. Décris, et laisse le lecteur conclure.
+  
+  NE RECOPIE PAS LES CHIFFRES. Un résumé qui aligne les valeurs du rapport ne le résume pas,
+  il le rallonge. Choisis : garde ce qui change une décision, laisse le reste. Un chiffre
+  que tu cites doit être suivi de ce qu'il implique.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE C'EST
+  Quatre lignes : la nature du dépôt — application, bibliothèque, outillage, configuration —
+  sa pile, sa taille, son âge. Ce qu'il faut savoir avant de regarder quoi que ce soit
+  d'autre.
+  
+  COMMENT ÇA VIT
+  L'activité et sa forme : régulière ou par à-coups, portée par combien de personnes,
+  concentrée ou répartie. Un dépôt actif et un dépôt gelé ne se lisent pas pareil, et la
+  suite du résumé en dépend entièrement. Un dépôt sans activité récente n'est pas un dépôt
+  abandonné : dis les deux lectures possibles plutôt que de trancher.
+  
+  OÙ ÇA FROTTE
+  Trois points au plus, ceux qui coûtent quelque chose à quelqu'un aujourd'hui. Chacun avec
+  le chiffre qui le porte et ce qu'il produit concrètement. Pas la liste des contrôles en
+  échec — ça, le rapport l'a déjà.
+  
+  Si rien ne ressort, écris-le : « rien qui ressorte des contrôles passés » — ce n'est pas
+  la même phrase que « rien à signaler ».
+  
+  CE QU'ON NE SAIT PAS
+  Trois à cinq lignes, obligatoires :
+  - ce que la matière annonce comme non mesuré ou non applicable. « N/A n'est pas zéro » ;
+  - ce qu'aucun contrôle ne voit : si le code fait ce qu'il devrait, si les gens qui le
+    tiennent sont encore là, si ce dépôt sert encore ;
+  - que la liste des contrôles est un plancher, pas un périmètre complet.

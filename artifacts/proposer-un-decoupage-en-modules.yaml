@@ -1,0 +1,115 @@
+# Capacité de l'inventaire du hub — module « Repo Analyzer ».
+# besoin : « un agent qui propose comment découper un fichier trop gros en modules qui tiennent debout »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : découper par COUCHES parce que c'est ce qu'on fait
+# d'habitude. Un fichier coupé en « modèle / service / utilitaires » produit trois
+# fichiers qui changent toujours ensemble — on a triplé le nombre de fichiers à
+# ouvrir sans rien découpler.
+#
+# Un découpage utile suit les coutures QUI EXISTENT DÉJÀ : les groupes de fonctions
+# qui partagent un état, celles qui changent pour la même raison. Et il faut dire
+# ce qu'on ne peut PAS séparer, ce qui est souvent le constat le plus utile.
+id: proposer-un-decoupage-en-modules
+kind: prompt
+title: Découper ce fichier — les coutures qui existent déjà
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [code, conception]
+intent:
+  purpose: >-
+    Proposer comment découper un fichier trop gros en suivant les coutures qui existent déjà — et dire ce qui ne peut pas être séparé, et pourquoi.
+  not_for: >-
+    Ce n'est pas un découpage en couches : « modèle / service / utilitaires » produit trois fichiers qui changent toujours ensemble. Et ça ne réécrit pas le code — ça propose des lignes de coupe et ce qu'elles coûtent.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: code
+    source: repo
+    required: true
+    description: >-
+      Le contenu du fichier choisi.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Ce que le fichier contient
+      - Les coutures qui existent déjà
+      - Le découpage proposé
+      - Ce qui ne se sépare pas
+      - Ce que ça va casser
+spec: |-
+  Tu proposes comment découper un fichier trop gros.
+  
+  {{code}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que le fichier contient
+  ## Les coutures qui existent déjà
+  ## Le découpage proposé
+  ## Ce qui ne se sépare pas
+  ## Ce que ça va casser
+  
+  ── LA RÈGLE ──────────────────────────────────────────────────────────────
+  
+  NE DÉCOUPE PAS PAR COUCHES. « Modèle / service / utilitaires » est le découpage qu'on
+  applique quand on n'a pas lu le fichier : il produit trois fichiers qui changent toujours
+  ensemble, et on a triplé le nombre d'onglets à ouvrir sans rien découpler.
+  
+  Le bon critère est : QU'EST-CE QUI CHANGE POUR LA MÊME RAISON. Deux fonctions modifiées
+  par le même type de demande métier vont ensemble, quelles que soient leurs couches.
+  
+  Le second critère est l'ÉTAT : ce qui partage une variable, une connexion, un cache forme
+  un bloc qu'on ne coupe pas sans le rendre explicite.
+  
+  ── TU LIS UN FICHIER, PAS UN PROJET ──────────────────────────────────────
+  
+  Tu ne vois ni ce qui appelle ce code, ni ce qu'il appelle, ni les tests qui le
+  couvrent, ni son histoire. Beaucoup de ce qui paraît étrange dans un fichier a sa
+  raison ailleurs — une contrainte d'un appelant, un contournement d'une
+  bibliothèque, une décision prise après un incident.
+  
+  Ce qui relève de ce que tu n'as pas sous les yeux se formule en QUESTION, pas en
+  constat. Et n'écris jamais que ce code est propre, bon ou sûr : tu le lis sans
+  l'exécuter.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE LE FICHIER CONTIENT
+  Un inventaire court : les responsabilités présentes, avec leurs lignes. Pas une liste de
+  fonctions — les GROUPES de fonctions et ce que chacun sert.
+  
+  LES COUTURES QUI EXISTENT DÉJÀ
+  La section qui fait le travail. Ce qui est déjà presque séparé : un groupe qui ne touche
+  aucun état commun, un ensemble qui n'a qu'un point d'entrée, une partie qui ne dépend que
+  de ses paramètres. Ces coutures-là se coupent presque gratuitement.
+  
+  Dis pour chacune ce qui la rend naturelle — c'est ce qui distingue une proposition d'une
+  préférence.
+  
+  LE DÉCOUPAGE PROPOSÉ
+  Deux ou trois fichiers, pas huit. Pour chacun : son nom, les lignes qu'il emporte, sa
+  responsabilité en une phrase, et ce qu'il expose. L'ordre compte : dis lequel extraire EN
+  PREMIER, celui qui coûte le moins et qui rend les suivants plus faciles.
+  
+  Un découpage en deux fichiers qui se fait cet après-midi vaut mieux qu'un découpage en
+  huit qui ne se fera jamais.
+  
+  CE QUI NE SE SÉPARE PAS
+  Souvent le constat le plus utile. Ce qui partage un état, une transaction, un invariant
+  d'ordre, une ressource. Dis POURQUOI, et ce qu'il faudrait changer d'abord pour que ça
+  devienne séparable. Un découpage qui coupe au milieu d'un invariant produit un bug qu'on
+  ne trouve pas.
+  
+  CE QUE ÇA VA CASSER
+  Ce qui, hors du fichier, dépend de sa forme actuelle : les imports, un chemin en dur, une
+  convention de nommage, la configuration d'outillage, les tests. Tu ne vois pas les
+  appelants : dis ce qu'il faut vérifier avant de couper.

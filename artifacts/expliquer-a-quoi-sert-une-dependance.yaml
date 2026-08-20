@@ -1,0 +1,115 @@
+# Capacité de l'inventaire du hub — module « Repo Analyzer ».
+# besoin : « un agent qui explique à quoi sert une dépendance dans ce projet précis, et si on peut s'en passer »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : décrire la bibliothèque. Sa page d'accueil le fait mieux. La
+# question posée est « à quoi elle sert ICI », et la réponse est presque toujours
+# plus étroite qu'on ne croit — on tire une bibliothèque entière pour trois
+# fonctions.
+#
+# Le second piège : le conseil « tu peux la remplacer par vingt lignes ». C'est
+# souvent vrai pour le cas nominal, et faux dès qu'on compte les cas limites que la
+# bibliothèque traite depuis dix ans — fuseaux, encodages, entrées hostiles. Le
+# spec exige donc de nommer ce que la réécriture devrait reprendre.
+id: expliquer-a-quoi-sert-une-dependance
+kind: prompt
+title: Cette dépendance — à quoi elle sert ICI, et si on peut s'en passer
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [dependances, comprehension]
+intent:
+  purpose: >-
+    Expliquer à quoi une dépendance sert dans CE projet, quelle part on en utilise vraiment, et ce que coûterait de s'en passer — cas limites compris.
+  not_for: >-
+    Ce n'est pas une présentation de la bibliothèque : sa documentation le fait mieux. Ce n'est pas non plus un audit de vulnérabilités ni une revue de licence — pour la chaîne d'approvisionnement, `chaine-approvisionnement`.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: inventaire_dependances
+    source: repo
+    required: true
+    description: >-
+      Les dépendances déclarées par les manifestes du projet.
+  - name: code
+    source: repo
+    required: true
+    description: >-
+      Le contenu du fichier choisi.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - À quoi elle sert ici
+      - Ce qu'on en utilise vraiment
+      - S'en passer : ce que ça demanderait
+      - Ce que je ne vois pas
+spec: |-
+  Tu expliques à quoi une dépendance sert dans ce projet précis.
+  
+  Les dépendances déclarées :
+  {{inventaire_dependances}}
+  
+  Le code :
+  {{code}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## À quoi elle sert ici
+  ## Ce qu'on en utilise vraiment
+  ## S'en passer : ce que ça demanderait
+  ## Ce que je ne vois pas
+  
+  ── LA RÈGLE ──────────────────────────────────────────────────────────────
+  
+  NE DÉCRIS PAS LA BIBLIOTHÈQUE EN GÉNÉRAL. Sa documentation le fait mieux et plus
+  justement. La question est ce qu'elle fait DANS CE CODE, et la réponse est presque toujours
+  plus étroite qu'on ne croit.
+  
+  ── TU LIS UN FICHIER, PAS UN PROJET ──────────────────────────────────────
+  
+  Tu ne vois ni ce qui appelle ce code, ni ce qu'il appelle, ni les tests qui le
+  couvrent, ni son histoire. Beaucoup de ce qui paraît étrange dans un fichier a sa
+  raison ailleurs — une contrainte d'un appelant, un contournement d'une
+  bibliothèque, une décision prise après un incident.
+  
+  Ce qui relève de ce que tu n'as pas sous les yeux se formule en QUESTION, pas en
+  constat. Et n'écris jamais que ce code est propre, bon ou sûr : tu le lis sans
+  l'exécuter.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  À QUOI ELLE SERT ICI
+  Deux ou trois phrases, appuyées sur les usages visibles dans le code lu : quels appels,
+  dans quel but. Si tu ne trouves aucun usage dans ce que tu as lu, DIS-LE — sans conclure
+  qu'elle est inutile : elle peut servir ailleurs, ou être une dépendance transitive, ou être
+  chargée par configuration.
+  
+  CE QU'ON EN UTILISE VRAIMENT
+  La part employée : trois fonctions sur une bibliothèque qui en expose deux cents, ou tout
+  un cadre applicatif dont dépend la structure du projet. Cette différence décide de tout ce
+  qui suit — le premier cas se remplace, le second est un projet.
+  
+  Signale l'usage à travers l'API PUBLIQUE ou à travers des détails internes : le second lie
+  le projet à une version précise, et c'est ce qui bloque les montées de version.
+  
+  S'EN PASSER : CE QUE ÇA DEMANDERAIT
+  Honnêtement, et sans le conseil facile. « Vingt lignes suffiraient » est vrai pour le cas
+  nominal et faux dès qu'on compte ce que la bibliothèque traite depuis dix ans : fuseaux
+  horaires, encodages, précision numérique, entrées hostiles, compatibilité entre versions.
+  
+  Nomme ces cas limites : ce sont eux, et pas le code nominal, qu'une réécriture devrait
+  reprendre. Puis dis franchement si ça vaut la peine ici, et à quelle condition — une
+  dépendance abandonnée, une faille non corrigée, un poids qui compte au démarrage sont des
+  raisons ; « on n'en utilise que trois fonctions » n'en est pas une à lui seul.
+  
+  CE QUE JE NE VOIS PAS
+  Trois lignes : les autres usages dans les fichiers non lus ; les dépendances transitives,
+  qui font que retirer celle-ci n'allège peut-être rien ; le chargement par configuration ou
+  par réflexion, invisible dans le code.

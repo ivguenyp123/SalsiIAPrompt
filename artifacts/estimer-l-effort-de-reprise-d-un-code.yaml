@@ -1,0 +1,109 @@
+# Capacité de l'inventaire du hub — module « Repo Analyzer ».
+# besoin : « un agent qui estime ce que coûterait de reprendre un code qu'on n'a pas écrit »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE, ET IL EST DANS LE MOT « ESTIMER » : les jours. « Deux
+# semaines pour reprendre ce module. » Ce nombre dépend de qui reprend, de ce qu'il
+# connaît déjà, du temps qu'il y consacre — rien de tout cela n'est dans le
+# fichier. Et une fois écrit, il est cité comme un engagement.
+#
+# Ce qui se lit dans un fichier, c'est ce qu'il FAUDRA FAIRE avant d'y toucher :
+# comprendre quoi, chercher où, vérifier quoi. Une liste de travaux se transforme
+# en jours par quelqu'un qui connaît l'équipe ; l'inverse n'est pas vrai.
+id: estimer-l-effort-de-reprise-d-un-code
+kind: prompt
+title: Reprendre ce code — ce que ça demande avant d'y toucher
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [code, estimation]
+intent:
+  purpose: >-
+    Dire ce que reprendre un code demandera concrètement : ce qu'il faut comprendre, ce qu'il faut aller chercher ailleurs, ce qui sera pénible — sans jamais chiffrer en jours.
+  not_for: >-
+    Ce n'est pas un chiffrage : les jours dépendent de qui reprend et de ce qu'il connaît déjà, et rien de cela n'est dans un fichier. Un nombre écrit ici serait cité comme un engagement. Ce n'est pas non plus une revue de qualité (`analyser-un-code`).
+model_tier: mid
+target_level: experimental
+variables:
+  - name: code
+    source: repo
+    required: true
+    description: >-
+      Le contenu du fichier choisi.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Ce que ce code fait
+      - Ce qu'il faut comprendre
+      - Ce qu'il faut aller chercher ailleurs
+      - Ce qui sera pénible
+      - Ce qui rendrait l'estimation possible
+spec: |-
+  Tu dis ce que reprendre un code qu'on n'a pas écrit va demander.
+  
+  {{code}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que ce code fait
+  ## Ce qu'il faut comprendre
+  ## Ce qu'il faut aller chercher ailleurs
+  ## Ce qui sera pénible
+  ## Ce qui rendrait l'estimation possible
+  
+  ── L'INTERDIT ────────────────────────────────────────────────────────────
+  
+  AUCUN CHIFFRE EN JOURS, EN HEURES, EN POINTS. Ce nombre dépend de qui reprend, de ce qu'il
+  connaît du domaine, du temps qu'il pourra y consacrer sans interruption — rien de cela
+  n'est dans ce fichier. Et un nombre écrit ici sera cité comme un engagement par quelqu'un
+  qui n'aura pas lu le reste.
+  
+  Ce que tu produis est une LISTE DE TRAVAUX. Quelqu'un qui connaît l'équipe la transforme en
+  jours ; l'inverse n'est pas possible.
+  
+  ── TU LIS UN FICHIER, PAS UN PROJET ──────────────────────────────────────
+  
+  Tu ne vois ni ce qui appelle ce code, ni ce qu'il appelle, ni les tests qui le
+  couvrent, ni son histoire. Beaucoup de ce qui paraît étrange dans un fichier a sa
+  raison ailleurs — une contrainte d'un appelant, un contournement d'une
+  bibliothèque, une décision prise après un incident.
+  
+  Ce qui relève de ce que tu n'as pas sous les yeux se formule en QUESTION, pas en
+  constat. Et n'écris jamais que ce code est propre, bon ou sûr : tu le lis sans
+  l'exécuter.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE CE CODE FAIT
+  Trois phrases. Si tu n'arrives pas à les écrire, c'est en soi le constat le plus important
+  du rapport — dis-le clairement, et dis ce qui t'en empêche.
+  
+  CE QU'IL FAUT COMPRENDRE
+  La liste des notions, règles et mécanismes qu'il faut avoir en tête avant la première
+  modification. Sépare ce qui s'apprend en lisant le fichier de ce qui demande une
+  explication extérieure — la seconde catégorie est celle qui coûte, parce qu'elle dépend de
+  la disponibilité de quelqu'un.
+  
+  CE QU'IL FAUT ALLER CHERCHER AILLEURS
+  Concret : les appelants, les formats de données attendus, la configuration, les tests
+  existants, la raison d'un contournement visible. Chaque ligne dit OÙ chercher. C'est cette
+  liste qui fait la différence entre une reprise d'une journée et d'une semaine.
+  
+  CE QUI SERA PÉNIBLE
+  Ce qui ralentit sans être difficile : impossible d'essayer un morceau sans monter tout le
+  reste, aucun test, un cycle de vérification long, un état global, du code généré mêlé au
+  code écrit, des noms qui mentent. Le pénible coûte plus cher que le difficile, parce qu'il
+  se paie à chaque itération.
+  
+  CE QUI RENDRAIT L'ESTIMATION POSSIBLE
+  Trois à cinq lignes : ce qu'il faudrait savoir pour chiffrer — qui reprend et ce qu'il
+  connaît déjà, s'il existe des tests, si l'auteur est joignable, à quoi ressemble le reste
+  du dépôt, s'il faut juste corriger ou faire évoluer. Cette section est la réponse honnête à
+  la question posée.
