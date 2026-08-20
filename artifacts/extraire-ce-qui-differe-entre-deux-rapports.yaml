@@ -1,0 +1,103 @@
+# Capacité de l'inventaire du hub — module « Générateur de rapport × Générateur de rapport ».
+# besoin : « un agent qui dit ce qui différencie deux rapports de dépôt et laisse tomber ce qu'ils ont en commun »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : le classement. Dès qu'on met deux dépôts côte à côte,
+# « différent » devient « moins bien », et le document circule comme un palmarès.
+#
+# Le second piège : présenter un écart de mesure comme un écart de qualité. Un
+# dépôt où un contrôle ne s'applique pas et un dépôt où il échoue produisent deux
+# lignes très différentes qu'un tableau met côte à côte sans distinction.
+id: extraire-ce-qui-differe-entre-deux-rapports
+kind: prompt
+title: 'Ce qui différencie ces deux dépôts — et rien de ce qu''ils partagent'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [depot, comparaison]
+intent:
+  purpose: >-
+    Dire ce qui différencie deux dépôts, en laissant de côté tout ce qu'ils partagent — et en distinguant un écart réel d'un écart de mesure.
+  not_for: >-
+    Ce n'est pas un classement : « différent » n'est pas « moins bien », et un dépôt qui ne fait pas la même chose n'a aucune raison d'avoir les mêmes chiffres. Ce n'est pas non plus une fusion (`fusionner-deux-rapports-de-depot`).
+model_tier: mid
+target_level: experimental
+variables:
+  - name: rapport_depot
+    source: signal
+    required: true
+    description: >-
+      L'état du dépôt et ses corrections à faire, calculés par la plateforme.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce qui les rend différents au départ'
+      - 'Les écarts réels'
+      - 'Les écarts qui n''en sont pas'
+      - 'Ce qui est transposable'
+spec: |-
+  Tu dis ce qui différencie deux rapports de dépôt.
+  
+  {{rapport_depot}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce qui les rend différents au départ
+  ## Les écarts réels
+  ## Les écarts qui n'en sont pas
+  ## Ce qui est transposable
+  
+  ── PLUSIEURS RAPPORTS, ET ILS NE SE COMPARENT PAS TOUJOURS ───────────────
+  
+  Deux rapports peuvent porter sur des périmètres différents, avoir été calculés à
+  des dates différentes, ou ne pas avoir passé les mêmes contrôles. Un chiffre
+  comparé à un autre qui ne mesure pas la même chose produit un écart inventé.
+  
+  Vérifie donc d'abord ce qui est comparable, dis ce qui ne l'est pas, et ne
+  recompose JAMAIS un total à partir de plusieurs rapports — additionner des taux
+  n'a aucun sens, et un total recomposé sera cité comme s'il avait été mesuré.
+  
+  ── L'INTERDIT ────────────────────────────────────────────────────────────
+  
+  AUCUN CLASSEMENT. Ni « A est meilleur », ni « B est en retard », ni note, ni podium. Deux
+  dépôts qui ne font pas la même chose n'ont aucune raison d'avoir les mêmes chiffres. Le mot
+  autorisé est « différent », suivi de ce qui l'explique.
+  
+  NE LISTE PAS CE QU'ILS PARTAGENT. C'est précisément ce qu'on te demande de laisser tomber.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUI LES REND DIFFÉRENTS AU DÉPART
+  Avant tout écart : la nature de chaque dépôt, sa taille, son âge, son activité. Sans cette
+  mise en contexte, tous les écarts qui suivent seront lus comme des jugements. Si la matière
+  ne permet pas de la faire, écris-le — et dis que la comparaison est alors à prendre avec
+  précaution.
+  
+  LES ÉCARTS RÉELS
+  Ceux qui portent une information : une pratique présente d'un côté et absente de l'autre,
+  une protection qui existe ici et pas là, une différence d'activité ou de concentration.
+  Chacun avec les deux valeurs et, si tu peux, ce qui l'expliquerait.
+  
+  Ne retiens que les écarts qui SORTENT du bruit. Deux valeurs proches ne sont pas une
+  différence, et les présenter comme telle fabrique du sens là où il n'y en a pas.
+  
+  LES ÉCARTS QUI N'EN SONT PAS
+  La section qui protège du contresens. Ce qui apparaît comme un écart et n'en est pas :
+  - un contrôle NON APPLICABLE d'un côté, échoué de l'autre — ce sont deux états sans rapport,
+    et « N/A n'est pas zéro » ;
+  - un dénominateur très différent : dix fichiers contre trois mille rendent tout pourcentage
+    incomparable ;
+  - des dates de calcul différentes ;
+  - un contrôle qui n'a pas tourné du tout d'un côté.
+  
+  CE QUI EST TRANSPOSABLE
+  La seule section actionnable : si l'un fait quelque chose que l'autre gagnerait à essayer,
+  dis quoi et à quelle condition. La plupart des pratiques ne se transposent pas telles
+  quelles — dis-le quand c'est le cas, plutôt que de recommander un alignement.

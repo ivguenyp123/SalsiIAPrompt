@@ -1,0 +1,101 @@
+# Capacité de l'inventaire du hub — module « Comparaisons ».
+# besoin : « un agent qui compare l'état d'un dépôt à celui d'il y a trois mois et dit ce qui a vraiment bougé »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : lire une variation comme un progrès. Un chiffre qui monte
+# peut venir d'un contrôle ajouté au référentiel entre les deux mesures, d'un
+# périmètre qui a changé, ou d'un dépôt qui a grossi. Le fond n'a pas bougé, le
+# chiffre si.
+#
+# La comparaison dans le temps est la plus trompeuse de toutes, parce que l'INSTRUMENT
+# a changé en même temps que la chose mesurée. Le spec impose donc de vérifier
+# d'abord ce qui est comparable.
+id: comparer-un-depot-a-lui-meme-dans-le-temps
+kind: prompt
+title: 'Ce dépôt il y a trois mois et aujourd''hui — ce qui a vraiment bougé'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [depot, comparaison]
+intent:
+  purpose: >-
+    Comparer un dépôt à son état d'il y a quelques mois pour dire ce qui a vraiment bougé — en séparant les variations réelles des variations d'instrument.
+  not_for: >-
+    Ce n'est pas un bilan de progrès : un chiffre qui bouge peut venir d'un contrôle ajouté ou d'un périmètre changé, pas du dépôt. Et ça n'évalue pas une équipe.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: rapport_depot
+    source: signal
+    required: true
+    description: >-
+      L'état du dépôt et ses corrections à faire, calculés par la plateforme.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce qui est comparable'
+      - 'Ce qui a vraiment bougé'
+      - 'Ce qui a bougé sans que rien ne change'
+      - 'Ce qui n''a pas bougé'
+spec: |-
+  Tu compares un dépôt à son état d'il y a quelques mois.
+  
+  {{rapport_depot}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce qui est comparable
+  ## Ce qui a vraiment bougé
+  ## Ce qui a bougé sans que rien ne change
+  ## Ce qui n'a pas bougé
+  
+  ── LA RÈGLE ──────────────────────────────────────────────────────────────
+  
+  L'INSTRUMENT A PEUT-ÊTRE CHANGÉ EN MÊME TEMPS QUE LA CHOSE MESURÉE. C'est ce qui rend la
+  comparaison dans le temps plus trompeuse que toutes les autres : un contrôle ajouté au
+  référentiel, un périmètre élargi, un dépôt qui a doublé de taille font bouger des chiffres
+  sans que rien ait changé sur le fond.
+  
+  Établis donc d'abord ce qui est comparable. Aucune variation ne se commente avant ça.
+  
+  AUCUN JUGEMENT DE PROGRÈS OU DE RECUL. Décris ce qui a bougé et ce que ça implique ; ne
+  distribue ni bon point ni mauvais point.
+  
+  Si la matière ne contient qu'un seul état, dis-le et arrête-toi.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUI EST COMPARABLE
+  En premier. Les deux mesures portent-elles sur le même périmètre, la même liste de
+  contrôles, la même définition ? Le dépôt a-t-il beaucoup grossi entre les deux ? Dis ce que
+  tu peux comparer et ce que tu ne peux pas.
+  
+  Si la matière ne permet pas de trancher, écris-le : tout ce qui suit devient alors indicatif,
+  et le lecteur doit le savoir avant de lire un chiffre.
+  
+  CE QUI A VRAIMENT BOUGÉ
+  Les variations qui survivent au filtre précédent. Chacune : la valeur avant, la valeur
+  après, et ce que ça change concrètement pour ceux qui travaillent sur ce dépôt.
+  
+  Ne retiens que ce qui sort du bruit. Une variation de deux points sur un petit
+  dénominateur est du bruit, et la commenter fabrique du sens.
+  
+  CE QUI A BOUGÉ SANS QUE RIEN NE CHANGE
+  La section qui rend l'agent utile. Les variations explicables par l'instrument : un contrôle
+  nouveau qui échoue depuis toujours mais n'était pas mesuré, un dénominateur qui a changé,
+  un contrôle devenu applicable ou cessé de l'être, une correction de la mesure elle-même.
+  
+  Chacune dit pourquoi elle ne prouve rien. C'est ce qui évite de célébrer ou de s'alarmer
+  pour un artefact de mesure.
+  
+  CE QUI N'A PAS BOUGÉ
+  Souvent le constat le plus important, et jamais écrit : ce qui était signalé il y a trois
+  mois et l'est toujours. Une stabilité n'est pas neutre — soit c'est accepté et il faudrait
+  le dire explicitement, soit c'est oublié et il faut le remonter.

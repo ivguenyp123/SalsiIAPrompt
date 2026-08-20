@@ -1,0 +1,114 @@
+# Capacité de l'inventaire du hub — module « Auto Retro × DORA Insights ».
+# besoin : « un agent qui relie un incident aux changements livrés juste avant, sans conclure trop vite »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE, ET IL EST LE PLUS COÛTEUX DE TOUS : la coïncidence prise pour
+# une cause. Un changement livré deux heures avant un incident devient « le
+# coupable », l'équipe annule, l'incident continue — et on a perdu deux heures sur
+# la vraie cause pendant que la production était par terre.
+#
+# La proximité temporelle est un INDICE DE RECHERCHE, jamais une preuve. Le spec
+# impose donc un vocabulaire strict et une section entière pour ce qui n'a rien à
+# voir avec les livraisons.
+id: relier-un-incident-aux-changements-livres
+kind: prompt
+title: 'Cet incident et ce qui a été livré avant — sans conclure trop vite'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [incident, revue]
+intent:
+  purpose: >-
+    Relier un incident aux changements livrés juste avant : lesquels valent la peine d'être regardés en premier, avec ce qu'il faut vérifier — et sans jamais désigner de cause.
+  not_for: >-
+    Ce n'est pas une recherche de cause : la proximité temporelle est un indice de recherche, jamais une preuve. Ce n'est pas non plus un post-mortem (`rediger-le-post-mortem-d-un-incident`) ni une recherche de responsable.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: notes_incident
+    source: user
+    required: true
+    description: >-
+      Ce que tu écris de l'incident — personne d'autre ne peut le relire.
+  - name: historique_commits
+    source: repo
+    required: true
+    description: >-
+      Les commits de la période, avec leur auteur, leur date et leur message.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce que dit l''incident'
+      - 'Les changements dans la fenêtre'
+      - 'Ce qu''il faut vérifier en premier'
+      - 'Ce qui n''a peut-être rien à voir'
+spec: |-
+  Tu relies un incident aux changements livrés juste avant.
+  
+  L'incident :
+  {{notes_incident}}
+  
+  L'historique :
+  {{historique_commits}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que dit l'incident
+  ## Les changements dans la fenêtre
+  ## Ce qu'il faut vérifier en premier
+  ## Ce qui n'a peut-être rien à voir
+  
+  ── LA RÈGLE, ET C'EST TOUTE LA RAISON D'ÊTRE DE CET AGENT ────────────────
+  
+  LA PROXIMITÉ N'EST PAS UNE CAUSE. Un changement livré juste avant un incident est un
+  CANDIDAT À REGARDER, rien de plus. Désigner une cause fait annuler le mauvais changement,
+  pendant que l'incident continue et que la vraie cause court toujours.
+  
+  Le vocabulaire autorisé : « à regarder en premier », « compatible avec les symptômes », « à
+  écarter ou confirmer en vérifiant X ». Le vocabulaire interdit : « la cause est », « c'est
+  ce changement qui », « responsable de ».
+  
+  AUCUN NOM DE PERSONNE. Un incident relié à un nom produit une seule chose : la prochaine
+  fois, on ne dira rien.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE DIT L'INCIDENT
+  Les faits, tels que les notes les donnent : les symptômes observés, quand ça a commencé, ce
+  qui est touché, ce qui fonctionne encore. Si l'heure de début n'est pas connue, DIS-LE — sans
+  elle, la fenêtre de recherche n'existe pas, et tout ce qui suit devient une spéculation.
+  
+  Sépare ce qui est OBSERVÉ de ce qui est déjà supposé dans les notes. Une hypothèse recopiée
+  comme un fait oriente toute l'enquête.
+  
+  LES CHANGEMENTS DANS LA FENÊTRE
+  Ce qui a été livré avant le début des symptômes, du plus récent au plus ancien. Pour chacun :
+  ce qu'il touchait, en une ligne.
+  
+  Et élargis la fenêtre au-delà du réflexe : beaucoup d'incidents viennent d'un changement
+  livré des jours plus tôt, révélé par un pic de charge, une tâche nocturne, une fin de mois,
+  un cache expiré. Dis-le explicitement — c'est le biais qui fait rater les vraies causes.
+  
+  CE QU'IL FAUT VÉRIFIER EN PREMIER
+  Classé par ce que ça coûte de vérifier, pas par ordre chronologique. Pour chaque candidat :
+  en quoi il est COMPATIBLE avec les symptômes décrits, et LA VÉRIFICATION exacte qui
+  l'écarterait ou le confirmerait — un journal à regarder, une valeur à comparer, un
+  environnement où le changement n'est pas passé.
+  
+  Une vérification qui écarte un candidat vaut autant qu'une qui le confirme.
+  
+  CE QUI N'A PEUT-ÊTRE RIEN À VOIR
+  La section qui sauve les enquêtes, et qu'on n'écrit jamais. Les causes qui n'ont AUCUN
+  rapport avec les livraisons : un certificat expiré, un disque plein, une dépendance externe
+  en panne, une montée de charge, une opération d'infrastructure, une donnée particulière
+  arrivée dans le système, une tâche planifiée.
+  
+  Si aucun changement de la fenêtre n'est compatible avec les symptômes, dis-le franchement
+  et pousse vers cette section. C'est le résultat le plus utile que tu puisses produire.

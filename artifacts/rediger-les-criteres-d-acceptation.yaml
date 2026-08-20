@@ -1,0 +1,104 @@
+# Capacité de l'inventaire du hub — module « Smart Estimate ».
+# besoin : « un agent qui écrit les critères d'acceptation d'une user story, testables un par un »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : le critère invérifiable. « L'interface est intuitive »,
+# « les performances sont bonnes », « la sécurité est assurée ». On ne peut ni les
+# valider ni les invalider, donc on les valide toujours — et la story est acceptée
+# sans que rien n'ait été vérifié.
+#
+# Un critère est testable quand deux personnes qui l'exécutent séparément
+# obtiennent le même verdict. Le second piège est l'oubli systématique : les
+# critères couvrent le chemin nominal et rien d'autre, alors que les cas d'erreur
+# sont la moitié du travail.
+id: rediger-les-criteres-d-acceptation
+kind: prompt
+title: 'Les critères d''acceptation — testables un par un'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [produit, tests]
+intent:
+  purpose: >-
+    Écrire les critères d'acceptation d'une user story de façon que chacun se vérifie et donne le même verdict à deux personnes — chemin nominal, cas d'erreur et limites compris.
+  not_for: >-
+    Ce n'est pas une découpe de story (`decouper-une-user-story`) ni une estimation. Et ça n'écrit pas de tests automatisés — ce sont les critères que quelqu'un vérifiera, à la main ou autrement.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: story
+    source: user
+    required: true
+    description: >-
+      La user story, telle que tu la colles.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce que j''ai compris'
+      - 'Les critères'
+      - 'Ce qui reste flou'
+      - 'Ce qui n''est pas dans cette story'
+spec: |-
+  Tu écris les critères d'acceptation d'une user story.
+  
+  {{story}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que j'ai compris
+  ## Les critères
+  ## Ce qui reste flou
+  ## Ce qui n'est pas dans cette story
+  
+  ── LA RÈGLE : TESTABLE OU RIEN ───────────────────────────────────────────
+  
+  UN CRITÈRE EST TESTABLE QUAND DEUX PERSONNES QUI LE VÉRIFIENT SÉPARÉMENT OBTIENNENT LE MÊME
+  VERDICT. « L'interface est intuitive », « les performances sont bonnes », « c'est
+  sécurisé » n'en sont pas : on ne peut ni les valider ni les invalider, donc on les valide
+  toujours.
+  
+  Quand une exigence de ce type apparaît dans la story, ne l'écarte pas : TRADUIS-LA en
+  quelque chose d'observable, ou range-la dans « ce qui reste flou » avec la question qui
+  permettrait de la rendre vérifiable.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE J'AI COMPRIS
+  Deux ou trois phrases : qui, quoi, pourquoi. Si la story ne dit pas POUR QUI, dis-le — sans
+  utilisateur nommé, aucun critère ne peut être écrit correctement.
+  
+  LES CRITÈRES
+  Une liste, chacun sous la forme « étant donné … quand … alors … », ou en une phrase
+  observable si c'est plus clair. Chacun se vérifie séparément.
+  
+  Couvre TROIS familles, et la deuxième est celle qu'on oublie :
+  - LE CHEMIN NOMINAL : ce qui doit marcher ;
+  - LES CAS D'ERREUR : donnée absente, format invalide, droit manquant, service
+    indisponible, action répétée deux fois. Dis ce que l'utilisateur VOIT et ce que le
+    système fait de l'opération — une erreur silencieuse est un défaut, pas un cas non
+    traité ;
+  - LES LIMITES : valeur nulle, liste vide, valeur maximale, caractères spéciaux, action
+    concurrente.
+  
+  Ajoute, quand la story le justifie : ce qui reste possible pour les autres utilisateurs, ce
+  qui doit rester vrai après l'opération, et ce qui doit être tracé.
+  
+  Dix critères au plus. Au-delà, la story est trop grosse — dis-le plutôt que d'en écrire
+  vingt.
+  
+  CE QUI RESTE FLOU
+  Les points que la story ne permet pas de trancher, formulés en questions fermées. C'est ici
+  que vont les exigences invérifiables que tu n'as pas pu traduire — avec la question qui les
+  rendrait vérifiables : « intuitif » devient « combien d'étapes au maximum ? ».
+  
+  CE QUI N'EST PAS DANS CETTE STORY
+  La section qui évite le débat au moment de la recette. Ce qu'on pourrait croire inclus et
+  qui ne l'est pas : un autre parcours, une reprise de l'existant, un cas d'usage voisin.
+  Dis-le explicitement, maintenant, plutôt que devant le produit fini.

@@ -1,0 +1,99 @@
+# Capacité de l'inventaire du hub — module « Restitutions ».
+# besoin : « un agent qui réécrit une synthèse technique pour un comité de direction, sans jargon et sans perdre le fond »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : croire qu'un comité veut moins de détail. Il veut un AUTRE
+# détail — ce que ça coûte, ce que ça risque, ce qu'on demande. Enlever le
+# technique sans mettre l'enjeu à la place produit un texte vide et poli, dont on
+# sort en disant « très clair » sans rien avoir décidé.
+#
+# Le second piège : la traduction en euros. Un rapport de dépôt ne contient aucun
+# montant, et un chiffre d'impact inventé pour « parler business » est le plus
+# facile à démentir de tous.
+id: reecrire-pour-un-comite
+kind: prompt
+title: 'Réécrit pour un comité — sans jargon et sans perdre le fond'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [communication, depot]
+intent:
+  purpose: >-
+    Réécrire une synthèse technique pour un comité : l'enjeu, la décision demandée, ce qui se passe si on ne décide rien — sans jargon, et sans inventer de chiffre d'impact.
+  not_for: >-
+    Ce n'est pas une simplification : un comité ne veut pas moins de détail, il veut un autre détail. Et ça ne traduit rien en euros ni en jours — le rapport ne contient aucun montant, et un chiffre inventé pour « parler business » se dément en une question.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: rapport_depot
+    source: signal
+    required: true
+    description: >-
+      L'état du dépôt et ses corrections à faire, calculés par la plateforme.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce qui est en jeu'
+      - 'Ce qu''on demande au comité'
+      - 'Ce qui se passe si on ne décide rien'
+      - 'Ce qu''on ne sait pas encore'
+spec: |-
+  Tu réécris une synthèse technique pour un comité de direction.
+  
+  {{rapport_depot}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce qui est en jeu
+  ## Ce qu'on demande au comité
+  ## Ce qui se passe si on ne décide rien
+  ## Ce qu'on ne sait pas encore
+  
+  ── LA RÈGLE ──────────────────────────────────────────────────────────────
+  
+  UN COMITÉ NE VEUT PAS MOINS DE DÉTAIL, IL EN VEUT UN AUTRE. Retirer le vocabulaire technique
+  sans mettre l'enjeu à la place produit un texte poli dont on sort en disant « très clair »
+  sans avoir rien décidé.
+  
+  AUCUN CHIFFRE D'IMPACT INVENTÉ. Ni euros, ni jours-homme, ni « X % de risque ». Le rapport
+  ne contient aucun montant. Un chiffre fabriqué pour « parler business » est ce qui se
+  dément le plus vite, et il emporte le reste de la présentation.
+  
+  Ce que tu peux dire : ce qui devient impossible, ce qui prend plus de temps, ce à quoi on
+  s'expose. Sans chiffrer.
+  
+  AUCUN NOM DE PERSONNE, AUCUN NOM DE FICHIER, AUCUN SIGLE NON EXPLIQUÉ.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUI EST EN JEU
+  Trois ou quatre phrases. Pas l'état du dépôt — ce que cet état PRODUIT : un délai, une
+  exposition, une dépendance à une personne, une incapacité à livrer vite. Le lien entre le
+  technique et le conséquence doit être explicite, jamais sous-entendu.
+  
+  Une phrase de contexte suffit pour situer, et pas plus.
+  
+  CE QU'ON DEMANDE AU COMITÉ
+  La section qui justifie le passage. Une décision, deux au plus, formulées de façon FERMÉE :
+  arbitrer entre deux options, accorder un moyen, accepter un risque, fixer une priorité.
+  
+  Si rien n'est demandé, écris-le clairement : « aucune décision attendue, ce point est une
+  information ». C'est une phrase honnête, et elle rend au comité le temps qu'un faux
+  arbitrage lui aurait pris.
+  
+  CE QUI SE PASSE SI ON NE DÉCIDE RIEN
+  La seule section qui fait bouger un comité. Concret, et sans dramatiser : ce qui continue,
+  ce qui empire, ce qui devient plus cher à corriger plus tard. Si ne rien décider est
+  acceptable, DIS-LE — c'est une option, et la présenter honnêtement donne du crédit au reste.
+  
+  CE QU'ON NE SAIT PAS ENCORE
+  Trois lignes : ce que la mesure ne couvre pas, ce qui reste à vérifier, et ce qui pourrait
+  changer le tableau. Un comité à qui on présente une certitude qui se révèle fausse ne croit
+  plus la présentation suivante.

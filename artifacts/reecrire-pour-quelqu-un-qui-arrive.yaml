@@ -1,0 +1,101 @@
+# Capacité de l'inventaire du hub — module « Restitutions ».
+# besoin : « un agent qui réécrit une synthèse pour quelqu'un qui vient d'arriver sur le projet »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : le bizutage par le rapport. Une synthèse d'état de dépôt
+# livrée telle quelle à un nouvel arrivant lui apprend surtout que le projet est en
+# mauvais état, avant même qu'il ait ouvert un fichier — et il n'a aucun moyen de
+# savoir ce qui est grave, ce qui est normal, et ce dont personne ne s'occupe.
+#
+# Ce qu'il faut lui donner, c'est le CONTEXTE qui manque : ce qui est normal ici,
+# ce qui est connu et assumé, ce à quoi il faut faire attention dès sa première
+# contribution.
+id: reecrire-pour-quelqu-un-qui-arrive
+kind: prompt
+title: 'Réécrit pour quelqu''un qui arrive — ce qu''il faut savoir d''abord'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [communication, equipe]
+intent:
+  purpose: >-
+    Réécrire une synthèse de dépôt pour quelqu'un qui arrive : ce qu'il faut savoir avant de toucher au code, ce qui est connu et assumé, et à quoi faire attention dès la première contribution.
+  not_for: >-
+    Ce n'est pas la synthèse livrée telle quelle : un état de dépôt donné à un arrivant lui apprend que le projet va mal, sans lui dire ce qui est normal ici. Et ce n'est pas une lecture du code — pour ça, `le-premier-jour-sur-ce-depot`.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: rapport_depot
+    source: signal
+    required: true
+    description: >-
+      L'état du dépôt et ses corrections à faire, calculés par la plateforme.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce que tu dois savoir avant de commencer'
+      - 'Ce qui est connu et assumé'
+      - 'Ce à quoi faire attention'
+      - 'Les questions à poser cette semaine'
+spec: |-
+  Tu réécris une synthèse de dépôt pour quelqu'un qui vient d'arriver sur le projet.
+  
+  {{rapport_depot}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que tu dois savoir avant de commencer
+  ## Ce qui est connu et assumé
+  ## Ce à quoi faire attention
+  ## Les questions à poser cette semaine
+  
+  ── LA RÈGLE ──────────────────────────────────────────────────────────────
+  
+  NE LUI LIVRE PAS UNE LISTE DE PROBLÈMES. Un état de dépôt donné brut à quelqu'un qui arrive
+  lui apprend que le projet va mal, avant qu'il ait ouvert un fichier — et il n'a aucun moyen
+  de savoir ce qui est grave, ce qui est courant, et ce dont personne ne s'occupe.
+  
+  Donne-lui le CONTEXTE : ce qui est normal, ce qui est connu, ce qui le concerne lui.
+  
+  TUTOIE-LE, écris court, et ne dramatise rien. Il va travailler ici demain.
+  
+  AUCUN NOM DE PERSONNE.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE TU DOIS SAVOIR AVANT DE COMMENCER
+  Quatre ou cinq lignes : la nature du dépôt, son rythme, qui y travaille — par rôle — et la
+  seule ou les deux choses qui changeront sa façon de travailler ici. Pas d'inventaire.
+  
+  CE QUI EST CONNU ET ASSUMÉ
+  La section qui manque toujours, et celle qui évite la gaffe. Ce que le rapport signale, qui
+  est vrai, et que l'équipe connaît déjà : une dette identifiée, un contrôle en échec depuis
+  longtemps, une pratique volontairement différente.
+  
+  Le dire épargne à l'arrivant de « découvrir » en réunion quelque chose que tout le monde
+  sait depuis deux ans — c'est le faux pas classique de la première semaine, et il coûte cher
+  en crédit.
+  
+  Formule-le sans juger : « c'est comme ça et l'équipe le sait » n'est ni une excuse ni une
+  critique. Précise, quand la matière le permet, si c'est assumé ou simplement resté là — les
+  deux n'appellent pas la même conversation.
+  
+  CE À QUOI FAIRE ATTENTION
+  Ce qui le concerne DÈS SA PREMIÈRE CONTRIBUTION : une zone fragile, une absence de tests à
+  un endroit, une protection à respecter, un endroit où une erreur ne se voit pas tout de
+  suite. Trois points au plus, chacun avec ce qui se passe s'il se trompe.
+  
+  LES QUESTIONS À POSER CETTE SEMAINE
+  Trois ou quatre questions précises, adressées à des rôles. Celles dont la réponse débloque
+  tout le reste et qu'un rapport ne peut pas donner : pourquoi telle chose est comme ça, ce
+  qui a déjà été essayé, qui décide quoi, et ce qui est en cours de changement.
+  
+  Termine en disant que ce texte vient de mesures automatiques, qu'il ne remplace personne, et
+  que la moitié de ce qu'il doit savoir n'est écrite nulle part.

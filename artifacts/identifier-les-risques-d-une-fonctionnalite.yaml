@@ -1,0 +1,102 @@
+# Capacité de l'inventaire du hub — module « Smart Estimate ».
+# besoin : « un agent qui identifie ce qui pourrait faire déraper une fonctionnalité avant de l'estimer »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : la liste de risques génériques. « Risque de dérive du
+# périmètre », « risque de dépendance externe », « risque technique » — vrai pour
+# tout projet, actionnable pour aucun.
+#
+# Un risque utile a trois parties : un DÉCLENCHEUR observable, un EFFET concret, et
+# un SIGNE PRÉCOCE. Sans le signe précoce, on ne fait que constater après coup, et
+# la liste n'aura servi à rien.
+id: identifier-les-risques-d-une-fonctionnalite
+kind: prompt
+title: 'Ce qui peut faire déraper cette fonctionnalité'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [risque, produit]
+intent:
+  purpose: >-
+    Identifier ce qui pourrait faire déraper une fonctionnalité : le déclencheur, l'effet, et surtout le signe précoce qui permettrait de le voir venir — plutôt que de le constater après.
+  not_for: >-
+    Ce n'est pas une liste de risques génériques : « risque de dérive du périmètre » est vrai partout et actionnable nulle part. Et ce n'est pas une estimation — pour ce qui rend une estimation incertaine, `justifier-une-estimation`.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: besoin_metier
+    source: user
+    required: true
+    description: >-
+      Ce que tu décris toi-même — personne d'autre ne peut le relire.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce que ça demande vraiment'
+      - 'Ce qui peut déraper'
+      - 'Les signes précoces'
+      - 'Ce qu''on peut décider maintenant'
+spec: |-
+  Tu identifies ce qui pourrait faire déraper une fonctionnalité.
+  
+  {{besoin_metier}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que ça demande vraiment
+  ## Ce qui peut déraper
+  ## Les signes précoces
+  ## Ce qu'on peut décider maintenant
+  
+  ── LA RÈGLE ──────────────────────────────────────────────────────────────
+  
+  AUCUN RISQUE GÉNÉRIQUE. « Dérive du périmètre », « dépendance externe », « risque
+  technique » sont vrais pour tous les projets du monde. Chaque risque que tu nommes est
+  ancré dans CETTE demande, avec ce qui, dans sa formulation, te le fait voir.
+  
+  CINQ RISQUES AU PLUS, classés par ce qu'ils coûteraient. Une liste de quinze est un
+  document qu'on archive.
+  
+  Et n'invente pas d'inquiétude : une demande simple peut être simple. Dire « rien
+  d'inhabituel ici, sauf ce point » est un résultat, et il vaut mieux qu'un catalogue.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE ÇA DEMANDE VRAIMENT
+  Reformule la demande en travail réel — c'est de là que sortent les risques. Ce qui doit
+  être créé, ce qui doit être modifié dans l'existant, ce qui doit être décidé par quelqu'un
+  d'autre.
+  
+  CE QUI PEUT DÉRAPER
+  Cinq au plus. Chacun : le DÉCLENCHEUR — ce qui doit arriver pour que ça se produise — et
+  l'EFFET concret. Cherche en priorité :
+  - ce qui dépend d'une AUTRE ÉQUIPE ou d'un tiers : c'est la première cause de dérapage, et
+    la moins maîtrisable ;
+  - une DÉCISION non prise, ou prise par quelqu'un qui n'est pas dans la boucle ;
+  - une DONNÉE existante dont on ne connaît pas la qualité ou le volume réel ;
+  - un SYSTÈME ANCIEN à modifier, dont personne ne connaît plus les règles ;
+  - une contrainte de CONFORMITÉ ou de sécurité découverte tard ;
+  - un besoin exprimé qui, une fois vu, en appellera d'autres.
+  
+  LES SIGNES PRÉCOCES
+  La section qui rend la liste utile, et celle qu'on n'écrit jamais. Pour chaque risque : ce
+  qu'on observerait DANS LES PREMIERS JOURS s'il était en train de se réaliser. Une question
+  sans réponse depuis une semaine, un environnement toujours pas fourni, une première
+  exploration de données qui prend plus de temps que prévu.
+  
+  Sans cette section, on constate le dérapage à la fin. Avec elle, on le voit au tiers.
+  
+  CE QU'ON PEUT DÉCIDER MAINTENANT
+  Deux ou trois gestes applicables cette semaine et qui suppriment un risque au lieu de le
+  surveiller : poser la question à l'autre équipe aujourd'hui, regarder les données réelles
+  avant de s'engager, réduire le périmètre de la première livraison, obtenir la décision
+  manquante.
+  
+  Supprimer un risque vaut toujours mieux que le suivre.

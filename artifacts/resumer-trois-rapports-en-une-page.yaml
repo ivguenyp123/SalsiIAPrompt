@@ -1,0 +1,101 @@
+# Capacité de l'inventaire du hub — module « Générateur de rapport × Générateur de rapport ».
+# besoin : « un agent qui résume trois rapports de dépôt en une page, avec ce qui demande une décision »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : la page qui n'en est pas une. On demande une page, on reçoit
+# trois pages parce qu'il « fallait tout couvrir ». Un résumé qui ne tient pas dans
+# sa contrainte n'a pas résumé.
+#
+# Le second piège : le résumé sans décision. Trois rapports condensés en une page
+# de constats laissent le lecteur exactement où il était — la seule chose qui
+# justifie de condenser, c'est de faire remonter ce qui demande un arbitrage.
+id: resumer-trois-rapports-en-une-page
+kind: prompt
+title: 'Trois rapports en une page — avec ce qui demande une décision'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [depot, communication]
+intent:
+  purpose: >-
+    Résumer trois rapports de dépôt en une page : ce qui demande une décision, ce qui est en cours, ce qui peut attendre — et ce que le résumé a laissé de côté.
+  not_for: >-
+    Ce n'est pas une consolidation de tribu (`consolider-les-rapports-d-une-tribu`) ni une fusion (`fusionner-deux-rapports-de-depot`). Et ce n'est pas un état des lieux : un résumé qui ne fait pas remonter de décision laisse le lecteur là où il était.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: rapport_depot
+    source: signal
+    required: true
+    description: >-
+      L'état du dépôt et ses corrections à faire, calculés par la plateforme.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce qui demande une décision'
+      - 'Ce qui avance'
+      - 'Ce qui peut attendre'
+      - 'Ce que ce résumé a laissé de côté'
+spec: |-
+  Tu résumes trois rapports de dépôt en une page.
+  
+  {{rapport_depot}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce qui demande une décision
+  ## Ce qui avance
+  ## Ce qui peut attendre
+  ## Ce que ce résumé a laissé de côté
+  
+  ── PLUSIEURS RAPPORTS, ET ILS NE SE COMPARENT PAS TOUJOURS ───────────────
+  
+  Deux rapports peuvent porter sur des périmètres différents, avoir été calculés à
+  des dates différentes, ou ne pas avoir passé les mêmes contrôles. Un chiffre
+  comparé à un autre qui ne mesure pas la même chose produit un écart inventé.
+  
+  Vérifie donc d'abord ce qui est comparable, dis ce qui ne l'est pas, et ne
+  recompose JAMAIS un total à partir de plusieurs rapports — additionner des taux
+  n'a aucun sens, et un total recomposé sera cité comme s'il avait été mesuré.
+  
+  ── LES DEUX RÈGLES ───────────────────────────────────────────────────────
+  
+  UNE PAGE. Ce qui n'y tient pas va dans la dernière section, nommé. Un résumé qui déborde
+  n'a pas résumé — il a recopié.
+  
+  LA DÉCISION VIENT EN PREMIER. C'est la seule chose qui justifie de condenser trois
+  rapports : faire remonter ce qui ne peut pas être tranché par ceux qui les ont lus. Si rien
+  ne demande de décision, ÉCRIS-LE en tête — c'est une excellente nouvelle et elle rend du
+  temps à tout le monde.
+  
+  Pas de classement entre les dépôts, pas de total recomposé.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUI DEMANDE UNE DÉCISION
+  Trois points au plus. Chacun : ce qui est en jeu, quelle décision est attendue, et ce qui
+  se passe si rien n'est décidé. Une ligne sans cette dernière partie n'est pas une décision,
+  c'est une information — elle appartient à une autre section.
+  
+  Nomme le dépôt concerné, ou dis que ça concerne les trois.
+  
+  CE QUI AVANCE
+  Court, factuel, sans félicitations. Ce qui a bougé dans le bon sens et ce que ça a libéré.
+  Cette section existe pour que le document ne soit pas exclusivement une liste de problèmes —
+  un rapport qui ne dit jamais rien de positif finit par ne plus être lu du tout.
+  
+  CE QUI PEUT ATTENDRE
+  Nommé, en une liste courte. Dire ce qui n'est pas urgent est aussi utile que dire ce qui
+  l'est : sans cette section, tout est traité au même niveau, donc rien n'est traité.
+  
+  CE QUE CE RÉSUMÉ A LAISSÉ DE CÔTÉ
+  Obligatoire. Ce qui n'a pas tenu dans la page, ce que les rapports annoncent comme non
+  mesuré, et ce qui n'est pas comparable entre eux. C'est cette section qui autorise à faire
+  confiance au reste — un résumé qui prétend tout couvrir n'est pas cru.

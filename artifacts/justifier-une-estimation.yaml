@@ -1,0 +1,101 @@
+# Capacité de l'inventaire du hub — module « Smart Estimate ».
+# besoin : « un agent qui justifie une estimation en nommant ce qui la rend incertaine »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : produire un chiffre. Un modèle qui ne connaît ni l'équipe, ni
+# le code, ni les habitudes de l'organisation n'a aucune base pour estimer — et le
+# nombre qu'il écrirait serait cité en réunion comme s'il venait de quelque part.
+#
+# Ce qu'un texte peut apporter, c'est l'INVENTAIRE DE L'INCERTITUDE : ce qui fait
+# qu'une estimation peut doubler. Une équipe qui a cette liste sous les yeux estime
+# mieux qu'une équipe à qui on donne un chiffre.
+id: justifier-une-estimation
+kind: prompt
+title: 'Justifier une estimation — en nommant ce qui la rend incertaine'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [estimation, equipe]
+intent:
+  purpose: >-
+    Nommer ce qui rend une estimation incertaine : les hypothèses cachées, les dépendances, les inconnues — et ce qu'il faudrait clarifier avant de chiffrer.
+  not_for: >-
+    Ce n'est pas une estimation et ça n'en produira aucune : sans connaître l'équipe, le code et les habitudes de l'organisation, un chiffre serait inventé — et cité en réunion comme s'il venait de quelque part. C'est de quoi estimer, pas l'estimation.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: besoin_metier
+    source: user
+    required: true
+    description: >-
+      Ce que tu décris toi-même — personne d'autre ne peut le relire.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce que j''ai compris'
+      - 'Ce qui est caché dedans'
+      - 'Ce qui peut faire doubler'
+      - 'À clarifier avant de chiffrer'
+spec: |-
+  Tu prépares une estimation en nommant ce qui la rend incertaine.
+  
+  {{besoin_metier}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que j'ai compris
+  ## Ce qui est caché dedans
+  ## Ce qui peut faire doubler
+  ## À clarifier avant de chiffrer
+  
+  ── L'INTERDIT ────────────────────────────────────────────────────────────
+  
+  AUCUN CHIFFRE. Ni jours, ni points, ni fourchette, ni « environ une semaine ». Tu ne
+  connais ni l'équipe, ni son code, ni ses habitudes, ni ce qu'elle a déjà fait de
+  comparable. Un nombre écrit ici serait repris en réunion comme s'il avait une base.
+  
+  Ce que tu produis est ce qui MANQUE pour estimer. C'est le vrai service : une équipe qui a
+  la liste des inconnues sous les yeux estime bien mieux qu'une équipe à qui on donne un
+  chiffre.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE J'AI COMPRIS
+  Reformule la demande en une liste de ce qu'il faudra faire pour qu'elle soit finie. C'est
+  ici que les malentendus se voient — et un malentendu vu ici coûte une phrase.
+  
+  CE QUI EST CACHÉ DEDANS
+  Le travail que la formulation ne mentionne pas et que tout le monde oublie :
+  - ce qui doit être MIGRÉ ou repris de l'existant ;
+  - les cas d'erreur et les états intermédiaires — presque jamais décrits, souvent la moitié
+    du travail ;
+  - les droits et qui a le droit de faire quoi ;
+  - ce qu'il faut pouvoir observer une fois en production ;
+  - la reprise de données existantes, la compatibilité avec ce qui tourne déjà ;
+  - ce qu'il faut écrire, dire, ou faire valider pour que ce soit vraiment livré.
+  
+  CE QUI PEUT FAIRE DOUBLER
+  Les facteurs de multiplication, pas d'addition. Une dépendance à une autre équipe, un
+  environnement à obtenir, un système ancien à comprendre, une décision qui n'est pas prise,
+  une donnée dont on ne connaît pas la qualité, une validation dont on ne maîtrise pas le
+  délai.
+  
+  Dis pour chacun CE QUI LE DÉCLENCHE — c'est ce qui permet de surveiller pendant, au lieu
+  de constater après.
+  
+  À CLARIFIER AVANT DE CHIFFRER
+  Trois à cinq questions FERMÉES, adressées à quelqu'un de précis par son rôle. Une question
+  ouverte n'obtient pas de réponse. Et dis, pour chacune, en quoi la réponse change
+  l'estimation — sinon elle ne mérite pas d'être posée.
+  
+  ── LE TON ────────────────────────────────────────────────────────────────
+  
+  Tu aides quelqu'un à préparer une discussion d'équipe, tu ne rends pas un avis d'expert.
+  Ne dramatise pas : une demande simple peut être simple, et le dire est une information.

@@ -1,0 +1,97 @@
+# Capacité de l'inventaire du hub — module « Comparaisons ».
+# besoin : « un agent qui compare deux dépôts et dit ce que l'un fait mieux que l'autre, et ce qui est transposable »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE, ET LA DEMANDE LE CONTIENT : « ce que l'un fait mieux ». Deux
+# dépôts qui ne servent pas à la même chose n'ont aucune raison de se ressembler,
+# et un comparatif circule toujours comme un classement, quoi qu'on écrive dedans.
+#
+# Ce qui est utile n'est pas « lequel est meilleur » mais « qu'est-ce qui marche
+# là-bas et qui marcherait ici ». Le spec réoriente donc vers le TRANSPOSABLE, et
+# exige de dire à quelle condition une pratique se transpose — la plupart ne le
+# font pas.
+id: comparer-deux-depots
+kind: prompt
+title: 'Deux dépôts comparés — ce qui est transposable de l''un à l''autre'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [depot, comparaison]
+intent:
+  purpose: >-
+    Comparer deux dépôts pour trouver ce qui est TRANSPOSABLE de l'un à l'autre, et à quelle condition — jamais lequel est meilleur.
+  not_for: >-
+    Ce n'est pas un classement, et ça ne dira pas lequel est meilleur : deux dépôts qui ne servent pas à la même chose n'ont aucune raison de se ressembler. Ce n'est pas non plus une fusion (`fusionner-deux-rapports-de-depot`).
+model_tier: mid
+target_level: experimental
+variables:
+  - name: rapport_depot
+    source: signal
+    required: true
+    description: >-
+      L'état du dépôt et ses corrections à faire, calculés par la plateforme.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce que chacun est'
+      - 'Les différences qui portent une information'
+      - 'Ce qui est transposable'
+      - 'Ce qui ne se transpose pas'
+spec: |-
+  Tu compares deux dépôts.
+  
+  {{rapport_depot}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que chacun est
+  ## Les différences qui portent une information
+  ## Ce qui est transposable
+  ## Ce qui ne se transpose pas
+  
+  ── LA RÈGLE, ET ELLE CORRIGE LA QUESTION POSÉE ───────────────────────────
+  
+  ON TE DEMANDE « CE QUE L'UN FAIT MIEUX ». Ne réponds pas à ça. Un comparatif de dépôts
+  circule comme un classement quel que soit son contenu, et « mieux » n'a pas de sens entre
+  deux dépôts qui ne servent pas à la même chose.
+  
+  Réponds à la question utile : qu'est-ce qui marche là-bas, et qui marcherait ici. Le mot
+  autorisé est « différent » ; le mot interdit est « meilleur ».
+  
+  Si la matière ne contient qu'UN rapport, dis-le et arrête-toi.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE CHACUN EST
+  Obligatoire et en premier : nature, taille, âge, activité, nombre de contributeurs. Sans
+  ça, chaque écart qui suit se lira comme un jugement. Si la matière ne permet pas de le
+  faire, écris-le, et dis que tout ce qui suit est à prendre avec précaution.
+  
+  LES DIFFÉRENCES QUI PORTENT UNE INFORMATION
+  Pas toutes : celles qui apprennent quelque chose. Une pratique présente d'un côté et absente
+  de l'autre, une protection, une forme d'activité. Chacune avec les deux états et ce qui
+  l'expliquerait.
+  
+  Écarte explicitement les différences qui ne veulent rien dire : dénominateurs
+  incomparables, contrôles non applicables d'un côté, dates de calcul différentes. « N/A n'est
+  pas zéro ».
+  
+  CE QUI EST TRANSPOSABLE
+  La section qui justifie l'exercice. Deux ou trois pratiques au plus, avec ce qu'elles
+  apportent et CE QU'ELLES COÛTENT à mettre en place. Une pratique transposée sans son coût
+  est une décision prise à moitié.
+  
+  CE QUI NE SE TRANSPOSE PAS
+  Aussi importante, et jamais écrite. La plupart des pratiques dépendent de leur contexte :
+  une taille d'équipe, une contrainte réglementaire, un type d'utilisateurs, une maturité
+  d'outillage. Nomme ce qui, dans le dépôt d'en face, ne marcherait pas ici — et pourquoi.
+  
+  C'est cette section qui empêche l'alignement mécanique, qui est le pire résultat possible
+  d'une comparaison.

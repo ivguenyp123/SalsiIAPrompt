@@ -1,0 +1,103 @@
+# Capacité de l'inventaire du hub — module « Comparaisons ».
+# besoin : « un agent qui compare deux .gitlab-ci.yml et dit ce que l'un fait que l'autre ne fait pas »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : comparer les fichiers au lieu des GARANTIES. Deux chaînes
+# peuvent être écrites très différemment et protéger exactement les mêmes choses ;
+# deux chaînes qui se ressemblent peuvent ne pas garantir la même chose du tout,
+# parce qu'un job se déclenche sur des branches différentes.
+#
+# Le second piège : conclure qu'une chaîne est meilleure. Une chaîne plus riche sur
+# un projet qui n'en a pas besoin coûte du temps à chaque exécution.
+id: comparer-deux-configurations-de-ci
+kind: prompt
+title: 'Deux chaînes CI comparées — ce que l''une fait et pas l''autre'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [ci, comparaison]
+intent:
+  purpose: >-
+    Comparer deux chaînes CI par ce qu'elles GARANTISSENT, pas par ce qu'elles contiennent — et dire ce qui vaudrait la peine d'être repris, à quelle condition.
+  not_for: >-
+    Ce n'est pas une comparaison de fichiers : deux chaînes écrites différemment peuvent protéger les mêmes choses. Et ce n'est pas un classement — une chaîne plus riche sur un projet qui n'en a pas besoin coûte du temps à chaque exécution.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: config_ci
+    source: repo
+    required: true
+    description: >-
+      Le ou les fichiers de configuration de la chaîne CI.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce que chacune garantit'
+      - 'Ce que l''une fait et pas l''autre'
+      - 'Les fausses différences'
+      - 'Ce qui vaudrait la peine d''être repris'
+spec: |-
+  Tu compares deux chaînes CI.
+  
+  {{config_ci}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que chacune garantit
+  ## Ce que l'une fait et pas l'autre
+  ## Les fausses différences
+  ## Ce qui vaudrait la peine d'être repris
+  
+  ── LA RÈGLE ──────────────────────────────────────────────────────────────
+  
+  COMPARE LES GARANTIES, PAS LES FICHIERS. Deux chaînes écrites différemment peuvent protéger
+  exactement les mêmes choses ; deux chaînes qui se ressemblent peuvent garantir des choses
+  très différentes, parce qu'un job ne se déclenche pas sur les mêmes branches.
+  
+  REGARDE TOUJOURS LES CONDITIONS DE DÉCLENCHEMENT. Un job présent des deux côtés mais qui ne
+  tourne que sur la branche principale d'un côté et sur toutes les branches de l'autre est
+  une VRAIE différence — et c'est la plus fréquente, la plus invisible, et celle qui décide
+  si un défaut est attrapé avant ou après la fusion.
+  
+  Si la matière ne contient qu'une seule chaîne, dis-le et arrête-toi.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE CHACUNE GARANTIT
+  Pour chaque chaîne, en quelques lignes : ce qui est vérifié avant qu'un changement soit
+  fusionné, ce qui est vérifié avant qu'il atteigne un environnement. En langage de
+  protection, pas de noms de jobs.
+  
+  CE QUE L'UNE FAIT ET PAS L'AUTRE
+  Les différences de garantie réelles. Chacune : ce qui est couvert d'un côté, ce qui passe de
+  l'autre, et CE QUE ÇA LAISSE PASSER concrètement. Une différence sans conséquence nommée
+  n'est pas une différence utile.
+  
+  Inclus les différences de DÉCLENCHEMENT et d'effet — bloquant d'un côté, informatif de
+  l'autre — qui sont aussi importantes que la présence d'un job.
+  
+  LES FAUSSES DIFFÉRENCES
+  La section qui évite l'alignement inutile : ce qui est écrit autrement mais protège pareil,
+  ce qui est couvert ailleurs — dans un modèle inclus, dans une règle de projet, dans un
+  crochet — et ce qui ne s'applique tout simplement pas à l'autre pile.
+  
+  CE QUI VAUDRAIT LA PEINE D'ÊTRE REPRIS
+  Deux points au plus, avec ce que ça apporterait ET ce que ça coûte en temps d'exécution.
+  Une chaîne qui gagne un contrôle perd des minutes à chaque changement : dire les deux est
+  ce qui permet de décider.
+  
+  Et dis franchement ce qui ne vaut PAS la peine d'être aligné — un projet différent n'a pas
+  besoin des mêmes protections.
+  
+  ── LA LIMITE ─────────────────────────────────────────────────────────────
+  
+  Tu ne vois ni les modèles inclus depuis d'autres dépôts, ni les variables définies dans
+  l'interface des projets, ni les règles de protection de branche. Chacun de ces trois peut
+  annuler une différence que tu viens de signaler. Dis-le à la fin.

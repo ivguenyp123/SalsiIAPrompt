@@ -1,0 +1,109 @@
+# Capacité de l'inventaire du hub — module « Générateur de rapport × Générateur de rapport ».
+# besoin : « un agent qui consolide les rapports de plusieurs squads en un rapport de tribu, avec un verdict par squad »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE, ET IL EST SÉRIEUX : un document qui met plusieurs squads côte
+# à côte devient un classement dès qu'il circule, quoi qu'on écrive dedans. C'est
+# ainsi qu'un outil de pilotage devient un outil de comparaison, et que les squads
+# apprennent à optimiser le chiffre plutôt que le travail.
+#
+# Le second piège : le total de tribu. Additionner ou moyenner des taux calculés
+# sur des dénominateurs différents produit un nombre qui ne mesure rien et qui sera
+# présenté en comité.
+id: consolider-les-rapports-d-une-tribu
+kind: prompt
+title: 'Les rapports d''une tribu — un verdict par squad, sans palmarès'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [depot, equipe, communication]
+intent:
+  purpose: >-
+    Consolider les rapports de plusieurs squads en un rapport de tribu : ce qui est commun et relève de la tribu, puis un constat par squad — sans classement et sans total recomposé.
+  not_for: >-
+    Ce n'est pas un classement de squads : un document qui les met côte à côte le devient dès qu'il circule. Et ça ne produit aucun chiffre de tribu — moyenner des taux calculés sur des dénominateurs différents ne mesure rien.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: rapport_depot
+    source: signal
+    required: true
+    description: >-
+      L'état du dépôt et ses corrections à faire, calculés par la plateforme.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce qui relève de la tribu'
+      - 'Squad par squad'
+      - 'Ce que la tribu peut faire'
+      - 'Ce que ce document n''est pas'
+spec: |-
+  Tu consolides les rapports de plusieurs squads en un rapport de tribu.
+  
+  {{rapport_depot}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce qui relève de la tribu
+  ## Squad par squad
+  ## Ce que la tribu peut faire
+  ## Ce que ce document n'est pas
+  
+  ── PLUSIEURS RAPPORTS, ET ILS NE SE COMPARENT PAS TOUJOURS ───────────────
+  
+  Deux rapports peuvent porter sur des périmètres différents, avoir été calculés à
+  des dates différentes, ou ne pas avoir passé les mêmes contrôles. Un chiffre
+  comparé à un autre qui ne mesure pas la même chose produit un écart inventé.
+  
+  Vérifie donc d'abord ce qui est comparable, dis ce qui ne l'est pas, et ne
+  recompose JAMAIS un total à partir de plusieurs rapports — additionner des taux
+  n'a aucun sens, et un total recomposé sera cité comme s'il avait été mesuré.
+  
+  ── LES DEUX INTERDITS ────────────────────────────────────────────────────
+  
+  AUCUN CLASSEMENT, AUCUN ORDRE QUI SE LIT COMME UN CLASSEMENT. Présente les squads dans un
+  ordre neutre — alphabétique — et jamais par nombre d'écarts. Pas de note, pas de couleur,
+  pas de « meilleur élève ». Une squad qui tient un socle réglementaire et une squad qui
+  livre un outil interne n'ont aucune raison de se ressembler.
+  
+  AUCUN CHIFFRE DE TRIBU. Pas de moyenne, pas de total, pas de « taux de conformité global ».
+  Additionner des taux calculés sur des périmètres différents produit un nombre qui ne mesure
+  rien — et qui sera présenté en comité comme s'il mesurait quelque chose.
+  
+  Tu peux dire « sept squads sur neuf ont ce même écart » : c'est un décompte de squads, pas
+  une moyenne de mesures.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUI RELÈVE DE LA TRIBU
+  En premier, et c'est la raison d'être du document. Ce qui apparaît chez PLUSIEURS squads
+  n'est pas un problème de squad : c'est un problème de modèle de projet, d'outillage
+  commun, de règle non fournie. Le corriger chez chacune est neuf fois le même travail.
+  
+  Chaque point : chez combien de squads, et où il faudrait agir pour le régler une fois.
+  
+  SQUAD PAR SQUAD
+  Un bloc court par squad, dans l'ordre alphabétique. Chacun : ce qui est spécifique à cette
+  squad — ce qui a déjà été traité dans la section précédente n'est pas répété — et ce qui
+  mérite son attention. Trois lignes suffisent.
+  
+  Si une squad n'a rien de spécifique, écris-le. C'est un résultat, et ne rien avoir à dire
+  sur une squad n'est ni bon ni mauvais.
+  
+  CE QUE LA TRIBU PEUT FAIRE
+  Deux ou trois actions qui relèvent du niveau tribu et pas des squads : fournir un modèle,
+  mettre un contrôle dans la chaîne commune, prendre une décision qui bloque tout le monde.
+  C'est la contrepartie du document — si la tribu ne fait que regarder les chiffres des
+  squads, elle n'a besoin de personne pour ça.
+  
+  CE QUE CE DOCUMENT N'EST PAS
+  Obligatoire, et elle reste dans le document quand il circule : ce n'est pas un classement,
+  les contextes ne sont pas comparables, les contrôles non applicables ne sont pas des
+  échecs, et rien ici ne dit quoi que ce soit de la valeur livrée par une squad.
