@@ -51,6 +51,7 @@ import { analyseFichier, resumeCode, analyseBranche, resumeBrancheCode,
          ILLISIBLE, HORS_SOURCE,
          MAX_FICHIERS_BRANCHE } from '../lib/signaux-code.js';
 import { analyseRegime, resumeRegime } from '../lib/signaux-regime.js';
+import { executionCi, resumeExecution } from '../lib/signaux-execution.js';
 import { historiquePipelines, resumeHistorique,
          MAX_EXECUTIONS, FENETRE_JOURS as FENETRE_PIPELINES } from '../lib/signaux-pipelines.js';
 import { etatBranche, resumeBranche } from '../lib/signaux-branche.js';
@@ -1516,6 +1517,22 @@ async function matiereCodeDepot(depot, { dossier = '', branche = '' } = {}) {
 }
 
 /**
+ * Une exécution de CI : ses jobs, leurs durées, et le log de ce qui a échoué.
+ *
+ * DEUX APPELS AU PLUS. Les jobs donnent déjà les durées — c'est le cœur de la question. Le
+ * log n'est lu QUE pour le premier job en échec : lire celui d'un job qui a réussi
+ * coûterait des mégaoctets pour une information que personne n'a demandée, et c'est la
+ * même règle que `job_en_echec`.
+ */
+async function matiereExecution(depot, run) {
+  const jobs = await forge.listJobs(depot, run.id).catch(() => []);
+  const echoue = jobs.find((j) => j.statut === 'echec') || null;
+  // `null` et non `''` : « pas lisible » et « vide » n'envoient pas chercher la même chose.
+  const log = echoue ? await forge.jobLog(depot, echoue.id).catch(() => null) : null;
+  return executionCi({ depot, run, jobs, jobEchoue: echoue, log });
+}
+
+/**
  * L'historique des exécutions de CI, sur une fenêtre.
  *
  * UN SEUL APPEL, et c'est délibéré : la liste des exécutions suffit à lire une forme. Aller
@@ -1659,6 +1676,28 @@ const LISTES = {
     lister: (depot) => forge.listPullRequests(depot),
     calculer: (depot, p) => matiereRevue(depot, p),
     resume: resumeRevue
+  },
+  /*
+   * TOUTES les exécutions, pas seulement celles qui ont échoué.
+   *
+   * `run` déroule les pipelines en échec — c'est ce qu'il faut pour en expliquer un. Ici
+   * on cherche où passe le temps, et le pipeline à ouvrir est presque toujours un
+   * pipeline RÉUSSI mais trop long. Deux listes parce que ce sont deux questions.
+   */
+  execution: {
+    attente: 'Lecture des pipelines de',
+    aucun: 'Aucune exécution de CI récente sur ce dépôt.',
+    invite: (n) => `— choisir parmi ${n} exécution(s) —`,
+    etiquette: (r) => `${r.branche || '(sans branche)'} · ${dateCourte(r.debut || r.quand)}`
+                    + ` · ${r.statut || '?'}`,
+    cle: (r) => String(r.id),
+    choisir: 'Choisis l\'exécution à ouvrir.',
+    illisible: 'Pipelines illisibles',
+    enCours: (r) => `Lecture des jobs de ${r.branche || 'cette exécution'}…`,
+    echec: 'Jobs illisibles',
+    lister: (depot) => forge.listRuns(depot, { perPage: MAX_RUNS_LISTES }),
+    calculer: (depot, run) => matiereExecution(depot, run),
+    resume: resumeExecution
   },
   run: {
     attente: 'Lecture des pipelines de',
@@ -2227,6 +2266,7 @@ const SIGNAL_LISIBLE = {
   chiffres_dora: 'Les quatre métriques DORA — mesurées sur 30 jours',
   activite_du_jour: 'L\'activité de la semaine et le Health Score — calculés sur 7 jours',
   job_en_echec: 'Le pipeline en échec à expliquer — choisi dans la liste',
+  pipeline_log: 'Une exécution de CI, job par job — durées mesurées et log de l\'échec',
   rapport_depot: 'L\'état du dépôt et ses corrections à faire — 25 contrôles',
   parc_securite: 'La conformité du parc — auditée sur les dépôts cochés',
   revue_mr: 'La merge request à relire — choisie dans la liste',

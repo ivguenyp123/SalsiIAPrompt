@@ -1,0 +1,131 @@
+# Capacité de l'inventaire du hub — module « Pipeline Generator ».
+# besoin : « un agent qui propose comment raccourcir un pipeline trop long, sans rien retirer aux contrôles »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : additionner les durées. Des jobs qui tournent en parallèle
+# s'additionnent dans le temps machine et JAMAIS dans l'attente. Une chaîne dont
+# les jobs totalisent quarante minutes peut rendre son verdict en huit — et
+# « réduire le temps machine de moitié » sans toucher au job le plus long de chaque
+# étape fait gagner exactement zéro seconde à celui qui attend.
+#
+# La matière calcule donc les deux totaux séparément. Tout ce que cet agent
+# propose doit viser le TEMPS SUBI.
+#
+# Le second piège, et la demande le nomme : retirer un contrôle. C'est la façon la
+# plus rapide de raccourcir une chaîne, et la seule qu'on interdise ici.
+id: reduire-la-duree-d-un-pipeline
+kind: prompt
+title: 'Raccourcir ce pipeline — sans rien retirer aux contrôles'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [ci, performance]
+intent:
+  purpose: >-
+    Proposer comment raccourcir une chaîne CI en visant le temps réellement attendu — le job le plus long de chaque étape — sans retirer un seul contrôle.
+  not_for: >-
+    Ce n'est pas une optimisation du temps machine : réduire la somme des durées sans toucher au chemin critique ne fait gagner aucune seconde à qui attend. Et ça ne retire aucun contrôle. Pour une lecture structurelle sans mesure, `ce-que-cette-chaine-coute-en-temps`.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: config_ci
+    source: repo
+    required: true
+    description: >-
+      Le ou les fichiers de configuration de la chaîne CI.
+  - name: pipeline_log
+    source: signal
+    required: true
+    description: >-
+      undefined
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Où passe le temps subi'
+      - 'Ce qui se raccourcit sans rien perdre'
+      - 'Ce qui se déplace plutôt que de se raccourcir'
+      - 'Ce que je refuse de proposer'
+      - 'Ce qu''une seule exécution ne prouve pas'
+spec: |-
+  Tu proposes comment raccourcir une chaîne CI.
+  
+  La chaîne :
+  {{config_ci}}
+  
+  Une exécution, job par job :
+  {{pipeline_log}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Où passe le temps subi
+  ## Ce qui se raccourcit sans rien perdre
+  ## Ce qui se déplace plutôt que de se raccourcir
+  ## Ce que je refuse de proposer
+  ## Ce qu'une seule exécution ne prouve pas
+  
+  ── LES DEUX RÈGLES, ET LA PREMIÈRE DÉCIDE DE TOUT ────────────────────────
+  
+  VISE LE TEMPS SUBI, PAS LE TEMPS MACHINE. La matière les calcule séparément parce qu'ils ne
+  mesurent pas la même chose : les jobs d'une même étape tournent ensemble. Raccourcir un job
+  qui n'est pas le plus long de son étape ne fait gagner AUCUNE seconde à celui qui attend —
+  seulement de l'agent d'exécution.
+  
+  Chaque proposition doit donc dire combien de temps SUBI elle retire, et sur quelle étape.
+  
+  NE RETIRE AUCUN CONTRÔLE. C'est la façon la plus rapide de raccourcir une chaîne, et elle
+  est interdite ici. Déplacer un contrôle, le paralléliser, le rendre non bloquant tout en le
+  gardant : oui. Le supprimer : non — et la quatrième section existe pour dire ce que tu as
+  refusé.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  OÙ PASSE LE TEMPS SUBI
+  Étape par étape, le job le plus long — c'est lui, et lui seul, qui porte l'attente. Dis
+  quelle étape pèse le plus, et quelle part du total elle représente.
+  
+  Puis croise avec la configuration : ce job est-il seul dans son étape, attend-il quelque
+  chose, dépend-il d'un artefact du job précédent ? C'est le croisement qui produit les
+  propositions — les durées seules ne disent pas pourquoi.
+  
+  CE QUI SE RACCOURCIT SANS RIEN PERDRE
+  Trois propositions au plus, chacune avec l'étape visée et le temps subi qu'elle retire.
+  Cherche en priorité :
+  - un CACHE absent ou dont la clé change à chaque exécution — le second est le plus vicieux,
+    tout le monde croit qu'il y a un cache ;
+  - une INSTALLATION refaite à chaque fois : un outil installé globalement, des dépendances
+    retéléchargées. Une image préparée le supprime entièrement ;
+  - une IMAGE lourde tirée à chaque job ;
+  - des jobs INDÉPENDANTS placés dans des étapes successives : les mettre dans la même étape
+    supprime toute l'attente du plus court ;
+  - un job qui attend un ARTEFACT dont il n'a pas besoin — la dépendance déclarée est plus
+    large que la dépendance réelle ;
+  - du travail FAIT DEUX FOIS dans la même exécution.
+  
+  CE QUI SE DÉPLACE PLUTÔT QUE DE SE RACCOURCIR
+  La section qui change le plus l'expérience sans rien accélérer. Le verdict utile n'est pas
+  la fin de la chaîne : c'est le premier « c'est cassé ».
+  - mettre en tête ce qui échoue le plus souvent et coûte le moins — le lint avant le build ;
+  - rendre non bloquant, tout en le gardant, ce dont le résultat n'est consulté que plus tard ;
+  - sortir de la chaîne de branche ce qui n'a de sens qu'avant une livraison.
+  Dis pour chacun ce que le développeur saura PLUS TÔT.
+  
+  CE QUE JE REFUSE DE PROPOSER
+  Obligatoire, et elle protège la chaîne. Nomme ce qu'on serait tenté de faire et que tu
+  écartes : supprimer un scan, réduire la couverture, ne lancer les tests que sur la branche
+  principale, désactiver un contrôle « le temps de », augmenter le parallélisme au point de
+  saturer les agents. Dis pour chacun ce qu'on perdrait.
+  
+  CE QU'UNE SEULE EXÉCUTION NE PROUVE PAS
+  Trois à cinq lignes : tu lis UNE exécution, et un job lent ce jour-là a peut-être attendu
+  un agent libre ou un miroir de paquets. Le temps d'attente en file n'est pas compté — le
+  temps réellement écoulé est supérieur au temps subi calculé. Et les durées ne disent pas
+  POURQUOI un job est long.
+  
+  Propose de regarder trois ou quatre exécutions avant d'engager quoi que ce soit de coûteux.

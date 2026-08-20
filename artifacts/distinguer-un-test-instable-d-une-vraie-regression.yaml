@@ -1,0 +1,144 @@
+# Capacité de l'inventaire du hub — module « DORA Insights ».
+# besoin : « un agent qui dit si un test qui échoue est instable ou s'il a trouvé une vraie régression »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE, ET IL EST ASYMÉTRIQUE : conclure « c'est instable, relance ».
+# C'est ce que tout le monde espère entendre, et c'est la conclusion qui coûte le
+# plus cher quand elle est fausse — on relance, ça passe, la régression part en
+# production. L'erreur inverse coûte vingt minutes d'enquête inutile.
+#
+# Le spec impose donc que le doute penche vers la RÉGRESSION, et interdit de
+# conclure à l'instabilité sans un motif observable.
+#
+# Le second piège : croire que le log tranche. Il dit CE QUI a échoué, jamais si ça
+# échoue toujours. C'est l'historique qui porte la répétition, et le log qui porte
+# la nature — il faut les deux, et c'est pour ça que cet agent a deux matières.
+id: distinguer-un-test-instable-d-une-vraie-regression
+kind: prompt
+title: 'Ce test qui échoue — instable, ou vraie régression ?'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [ci, tests]
+intent:
+  purpose: >-
+    Dire si un échec de CI ressemble à une instabilité ou à une vraie régression, en croisant ce qui a échoué dans cette exécution et la forme des échecs dans le temps.
+  not_for: >-
+    Ce n'est pas un verdict qui autorise à relancer : conclure à tort « c'est instable » fait partir une régression en production. Et ce n'est pas un diagnostic de cause — pour expliquer un échec, `expliquer-un-pipeline-en-echec`.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: pipeline_log
+    source: signal
+    required: true
+    description: >-
+      undefined
+  - name: historique_pipelines
+    source: signal
+    required: true
+    description: >-
+      undefined
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce qui a échoué'
+      - 'Ce que dit l''historique'
+      - 'Ce qui penche vers l''instabilité'
+      - 'Ce qui penche vers la régression'
+      - 'Ce qu''il faut vérifier avant de relancer'
+spec: |-
+  Tu dis si un échec de CI ressemble à une instabilité ou à une vraie régression.
+  
+  L'exécution qui a échoué :
+  {{pipeline_log}}
+  
+  L'historique des exécutions :
+  {{historique_pipelines}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce qui a échoué
+  ## Ce que dit l'historique
+  ## Ce qui penche vers l'instabilité
+  ## Ce qui penche vers la régression
+  ## Ce qu'il faut vérifier avant de relancer
+  
+  ── L'ASYMÉTRIE, ET ELLE DÉCIDE DE TOUT ───────────────────────────────────
+  
+  LES DEUX ERREURS NE COÛTENT PAS PAREIL. Conclure « instable » à tort fait relancer, passer,
+  et livrer une régression. Conclure « régression » à tort fait perdre vingt minutes.
+  
+  DANS LE DOUTE, TU PENCHES VERS LA RÉGRESSION. Et tu n'écris jamais « c'est instable » sans
+  un motif OBSERVABLE — pas parce que c'est plausible, parce que la matière le montre.
+  
+  Écris toujours « penche vers », jamais « est ». Tu produis un faisceau, pas une preuve.
+  
+  ── LES DEUX MATIÈRES NE DISENT PAS LA MÊME CHOSE ─────────────────────────
+  
+  Le log dit CE QUI a échoué : quel job, quel test, quel message. Il ne dit jamais si ça
+  échoue toujours.
+  
+  L'historique dit la RÉPÉTITION : quand, sur quelles branches, en série ou isolément. Il ne
+  dit jamais ce qui a cassé.
+  
+  Il faut les deux, et la conclusion vient de leur croisement. Si l'une des deux manque ou
+  est vide, DIS-LE : une conclusion tirée d'une seule est bien plus fragile.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUI A ÉCHOUÉ
+  Depuis l'exécution : quel job, à quelle étape, et ce que l'extrait du log montre — le
+  message d'erreur, le test nommé. Reste factuel : recopie ce qui est écrit, ne l'interprète
+  pas encore.
+  
+  Si le log n'a pas pu être lu, dis-le tout de suite : ce n'est pas un log vide, la cause
+  reste entièrement inconnue, et tout ce qui suit repose alors sur la seule forme.
+  
+  Ne recopie AUCUNE valeur caviardée.
+  
+  CE QUE DIT L'HISTORIQUE
+  Le même job, la même branche : ces échecs reviennent-ils ? Sont-ils groupés en série ou
+  dispersés ? Y a-t-il une date à partir de laquelle ça a commencé ? Le taux d'échec a-t-il
+  une marche d'escalier ?
+  
+  CE QUI PENCHE VERS L'INSTABILITÉ
+  Les motifs observables, et seulement eux :
+  - des échecs DISPERSÉS, entrecoupés de succès sur la même branche sans changement ;
+  - des échecs sur des branches sans rapport, au même moment ;
+  - un message d'erreur qui parle d'ATTENTE, de délai dépassé, de réseau, de port occupé, de
+    ressource déjà prise — la signature classique d'un test qui dépend du temps ou d'un
+    ordre ;
+  - une durée du job très variable d'une exécution à l'autre ;
+  - un taux d'échec constant depuis longtemps, sans marche.
+  
+  Si aucun de ces motifs n'apparaît, cette section dit « rien ne penche vers l'instabilité ».
+  C'est une conclusion forte, et elle doit être écrite.
+  
+  CE QUI PENCHE VERS LA RÉGRESSION
+  - une SÉRIE d'échecs consécutifs sur la même branche : le signe le plus net ;
+  - une MARCHE D'ESCALIER — ça passait, ça ne passe plus à partir d'une date. Nomme-la ;
+  - des échecs apparaissant sur PLUSIEURS branches au même moment, ce qui pointe vers
+    quelque chose de commun : une dépendance, une image, la branche principale ;
+  - un message d'erreur qui décrit une VALEUR fausse, une assertion, un type — pas une
+    attente ;
+  - l'échec sur une branche de production alors que les branches de travail passent.
+  
+  CE QU'IL FAUT VÉRIFIER AVANT DE RELANCER
+  La section obligatoire, et la seule qui tranche vraiment :
+  - le même test a-t-il déjà échoué PUIS réussi sans qu'aucun code ne change ;
+  - que fait la même exécution sur le même commit, si elle existe ;
+  - relancer SANS RIEN MODIFIER — mais un test instable qui passe ne prouve rien : ça écarte
+    la régression, ça ne l'élimine pas ;
+  - ouvrir le log en entier : l'extrait est découpé autour de l'erreur, et la vraie cause
+    est parfois trois cents lignes plus haut.
+  
+  Et dis-le clairement : une relance qui passe ne clôt pas le sujet. Un test instable est un
+  défaut à corriger, pas un obstacle à contourner — chaque relance apprend à l'équipe que le
+  rouge n'est pas sérieux, et c'est ce qui fait rater le vrai.

@@ -37,6 +37,7 @@ import { planDeLivraison } from '../lib/signaux-livraison.js';
 import { analyseFichier, analyseBranche, analyseDepot } from '../lib/signaux-code.js';
 import { analyseRegime } from '../lib/signaux-regime.js';
 import { historiquePipelines } from '../lib/signaux-pipelines.js';
+import { executionCi } from '../lib/signaux-execution.js';
 import { etatBranche } from '../lib/signaux-branche.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -225,7 +226,21 @@ const INVOCATIONS = {
       { id: 3, quand: '2026-08-19T12:00:00Z', statut: 'failed', branche: 'feat/x', secondes: 110 },
       { id: 4, quand: '2026-08-20T09:00:00Z', statut: 'canceled', branche: 'main', secondes: 0 }
     ],
-    maintenant: new Date(MAINTENANT) })
+    maintenant: new Date(MAINTENANT) }),
+
+  /*
+   * Une exécution : des jobs parallèles dans une même étape ET un échec avec un log qui
+   * porte un secret. C'est l'état où le signal doit tenir ses deux règles — les deux
+   * totaux distincts, et la valeur caviardée avant lecture.
+   */
+  pipeline_log: () => executionCi({
+    depot: DEPOT,
+    run: { id: 7, branche: 'main', statut: 'echec', quand: MAINTENANT, sha: 'abc1234' },
+    jobs: [{ nom: 'lint', etape: 'test', statut: 'success', secondes: 40 },
+           { nom: 'unit', etape: 'test', statut: 'echec', secondes: 320 },
+           { nom: 'build', etape: 'build', statut: 'success', secondes: 210 }],
+    jobEchoue: { nom: 'unit', etape: 'test' },
+    log: 'npm ERR! le test a cassé\nJETON=glpat-AbCdEfGhIjKlMnOpQrSt\n' })
 };
 
 /* ── Le contrat ───────────────────────────────────────────────────────────── */
