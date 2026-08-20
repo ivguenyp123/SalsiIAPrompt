@@ -56,6 +56,18 @@ describe('un chemin tombe dans une famille, et toujours la même', () => {
     assert.equal(familleDe('node_modules/pkg/test/fixture.pem').id, 'cles');
   });
 
+  test('le stockage de git lui-même est HORS du relevé', () => {
+    /*
+     * Vu en navigateur : `.git/logs/HEAD` remonté en « Journaux et traces ». C'en est un,
+     * mais git ne le VERSIONNE pas — proposer de l'ignorer n'a aucun sens. Une forge ne
+     * rend jamais ces chemins ; un dossier zippé depuis un poste, si.
+     */
+    assert.equal(familleDe('.git/logs/HEAD'), null);
+    assert.equal(familleDe('.git/objects/pack/x.pack'), null);
+    assert.equal(familleDe('sous-module/.git/logs/refs/heads/master'), null);
+    assert.equal(familleDe('.github/workflows/ci.yml'), null, 'et .github n\'est pas .git');
+  });
+
   test('du code ordinaire n\'appartient à aucune famille', () => {
     for (const c of ['src/index.js', 'README.md', 'pom.xml', 'lib/paiement.py',
                      'jobs/deploy.yaml', 'Dockerfile']) {
