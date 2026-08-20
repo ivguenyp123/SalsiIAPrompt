@@ -53,6 +53,7 @@ import { analyseFichier, resumeCode, analyseBranche, resumeBrancheCode,
 import { analyseRegime, resumeRegime } from '../lib/signaux-regime.js';
 import { executionCi, resumeExecution } from '../lib/signaux-execution.js';
 import { rapportVulnerabilites, resumeVulnerabilites } from '../lib/signaux-vulnerabilites.js';
+import { ficheDe, matieres as matieresDe, voisins, direLeRapprochement } from '../lib/capacites.js';
 import { historiquePipelines, resumeHistorique,
          MAX_EXECUTIONS, FENETRE_JOURS as FENETRE_PIPELINES } from '../lib/signaux-pipelines.js';
 import { etatBranche, resumeBranche } from '../lib/signaux-branche.js';
@@ -224,6 +225,7 @@ async function load() {
   items = [...items, ...await chargerMiens(repo)];
 
   renderTags();
+  renderMatieres();
   render();
 
   /*
@@ -327,12 +329,37 @@ function renderFilters() {
   }
 }
 
+/*
+ * ── LE FILTRE PAR MATIÈRE, ET POURQUOI IL N'EST PAS UNE ÉTIQUETTE DE PLUS ────
+ *
+ * Une étiquette dit DE QUOI un agent parle — `ci`, `securite`, `revue`. Elle est écrite à
+ * la main, elle est libre, et deux personnes n'étiquettent pas pareil.
+ *
+ * La matière dit CE QU'IL FAUT AVOIR pour le lancer, dans un vocabulaire fermé que le
+ * linter vérifie. C'est la seule chose qui ÉCARTE vraiment : un agent qui réclame une
+ * matière qu'on n'a pas ne se lancera pas, quel que soit son intérêt.
+ *
+ * À cent quarante agents, c'est ce filtre-là qui fait passer d'un mur de cartes à une
+ * question qu'on sait poser : « j'ai un diff sous la main, qui sait le lire ».
+ */
+let matieresRetenues = [];
+
+const porteMatieres = (artifact) => {
+  if (!matieresRetenues.length) return true;
+  if (!artifact) return false;
+  const entrees = (artifact.variables || []).map((v) => v.name);
+  // OU et non ET : on retient un agent dès qu'il sait lire l'UNE des matières cochées.
+  // Un ET exigerait qu'il les lise TOUTES, ce que presque aucun agent ne fait.
+  return matieresRetenues.some((m) => entrees.includes(m));
+};
+
 const passesFilter = (entry) =>
   (filter === 'tout' ? true
    : filter === 'ko' ? (entry.report?.blocked || !entry.artifact)
    : filter === 'miens' ? entry.personnel === true
    : entry.artifact?.kind === filter)
-  && porteEtiquettes(entry.artifact, tagsRetenus);
+  && porteEtiquettes(entry.artifact, tagsRetenus)
+  && porteMatieres(entry.artifact);
 
 /*
  * Le nuage d'étiquettes, DÉRIVÉ du registre.
@@ -364,6 +391,43 @@ function renderTags() {
   if (tagsRetenus.length) {
     const v = el('button', { className: 'vider', textContent: `✕ ${tagsRetenus.length} filtre(s)` });
     v.onclick = () => { tagsRetenus = []; renderTags(); render(); };
+    host.append(v);
+  }
+}
+
+/**
+ * Les matières du registre, avec combien d'agents savent lire chacune.
+ *
+ * Le compte n'est pas décoratif : une matière lue par trois agents et une lue par dix-sept
+ * ne posent pas le même problème de choix, et c'est justement là qu'il faut aider.
+ */
+function renderMatieres() {
+  const host = $('matieres');
+  if (!host) return;
+  host.textContent = '';
+  const fiches = items.map((e) => e.artifact).filter(Boolean).map(ficheDe);
+  const tous = matieresDe(fiches).filter((m) => m.n >= 2);
+  if (!tous.length) return;
+
+  host.append(el('span', { className: 'titre', textContent: 'Ce que j\'ai sous la main' }));
+
+  for (const { entree, n } of tous.slice(0, 14)) {
+    const on = matieresRetenues.includes(entree);
+    const b = el('button', { className: on ? 'on' : '' },
+      entree, el('span', { className: 'n', textContent: String(n) }));
+    b.onclick = () => {
+      matieresRetenues = on ? matieresRetenues.filter((m) => m !== entree)
+                            : [...matieresRetenues, entree];
+      renderMatieres();
+      render();
+    };
+    host.append(b);
+  }
+
+  if (matieresRetenues.length) {
+    const v = el('button', { className: 'vider',
+                             textContent: `✕ ${matieresRetenues.length} matière(s)` });
+    v.onclick = () => { matieresRetenues = []; renderMatieres(); render(); };
     host.append(v);
   }
 }
@@ -566,6 +630,56 @@ function openSheet(entry) {
       ul.append(el('li', {}, f.severity === ERROR ? '🔴 ' : '🟡 ', el('code', { textContent: f.code }), ` ${f.message}`));
     }
     body.append(section('Constats du linter', ul));
+  }
+
+  /*
+   * ── LES VOISINS FONCTIONNELS, ET POURQUOI ILS SONT DANS LA FICHE ──────────
+   *
+   * C'est le moment où quelqu'un décide s'il prend cet agent ou s'il en écrit un autre. À
+   * cent quarante agents, il ne peut pas savoir que cinq autres lisent déjà la même
+   * matière — et c'est ainsi qu'on obtient trente-huit variantes de « relire une MR ».
+   *
+   * La parenté est calculée sur ce qui est DÉCLARÉ — matière, sections, droits — jamais
+   * sur le texte. La similarité de texte se trompe dans les deux sens : elle rapproche
+   * deux agents qui partagent nos tournures maison, et rate deux agents écrits avec des
+   * mots différents qui font exactement la même chose.
+   *
+   * Aucun verdict n'est rendu. La réserve qui suit la liste n'est pas une politesse : le
+   * seul signal qui trancherait — « sur les mêmes cas d'or, ils rendent la même chose » —
+   * n'a jamais été mesuré, et le taire laisserait supprimer un agent sur une ressemblance.
+   */
+  const fiches = items.map((e) => e.artifact).filter(Boolean).map(ficheDe);
+  const proches = voisins(ficheDe(artifact), fiches);
+  if (proches.length) {
+    const bloc = el('div', { className: 'voisins' },
+      el('h4', { textContent: `${proches.length} agent(s) lisent une matière proche` }));
+
+    for (const v of proches) {
+      const r = v.rapprochement;
+      const quoi = [
+        r.memeEmpreinte ? 'même empreinte fonctionnelle'
+          : (r.memeMatiere ? 'même matière' : `${r.entrees?.commun || 0} entrée(s) commune(s)`),
+        r.sections ? `${r.sections.commun} section(s) commune(s) sur ${r.sections.total}` : '',
+        r.moinsDeDroits === v.id ? 'demande moins de droits' : ''
+      ].filter(Boolean).join(' · ');
+
+      const b = el('button', { className: 'v' },
+        el('span', { textContent: v.titre || v.id }),
+        el('small', { textContent: quoi }));
+      b.onclick = () => {
+        const cible = items.find((e) => e.artifact?.id === v.id);
+        if (cible) openSheet(cible);
+      };
+      bloc.append(b);
+    }
+
+    bloc.append(el('p', { className: 'reserve', textContent:
+      'Une matière commune n\'est pas un doublon : deux agents peuvent lire la même chose '
+      + 'et dire des choses très différentes. Ce que ce rapprochement ne dit PAS, c\'est '
+      + 'qu\'ils rendent la même chose — aucun cas d\'or n\'a été joué. Il indique où '
+      + 'regarder avant d\'en écrire un de plus, jamais lequel supprimer.' }));
+
+    body.append(bloc);
   }
 
   inner.append(body);
