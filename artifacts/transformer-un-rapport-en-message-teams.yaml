@@ -1,0 +1,70 @@
+# Capacité de l'inventaire du hub — module « Restitutions ».
+# besoin : « un agent qui transforme un rapport en message Teams court, avec les trois points qui comptent »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : le message long. Un canal d'équipe se lit sur un téléphone,
+# entre deux réunions. Au-delà de cinq lignes, on remet à plus tard — et plus tard
+# n'arrive pas.
+#
+# Le second piège : le message sans destinataire. « Voici le rapport » ne demande
+# rien à personne, donc personne ne fait rien. Un message d'équipe qui ne dit pas
+# QUI doit faire QUOI est un message qu'on aurait pu ne pas envoyer.
+id: transformer-un-rapport-en-message-teams
+kind: prompt
+title: 'Le rapport en message d''équipe — les trois points qui comptent'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [communication, depot]
+intent:
+  purpose: >-
+    Transformer un rapport de dépôt en message d'équipe court : les trois points qui comptent, qui doit faire quoi, et où lire le reste.
+  not_for: >-
+    Ce n'est pas un résumé du rapport (`rediger-la-synthese-executive-d-un-rapport`) ni une restitution pour un comité (`reecrire-pour-un-comite`). Un message d'équipe se lit sur un téléphone : au-delà de cinq lignes, il est remis à plus tard.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: rapport_depot
+    source: signal
+    required: true
+    description: >-
+      L'état du dépôt et ses corrections à faire, calculés par la plateforme.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+spec: |-
+  Tu transformes un rapport de dépôt en message d'équipe.
+  
+  {{rapport_depot}}
+  
+  ── LA FORME ──────────────────────────────────────────────────────────────
+  
+  CINQ LIGNES AU PLUS, un seul bloc, prêt à coller dans un canal. Pas de titre, pas de
+  sections, pas de tableau. Au plus trois puces courtes si ça aide à lire, et c'est tout.
+  
+  Ton lecteur est sur un téléphone entre deux réunions. Au-delà, il remet à plus tard, et
+  plus tard n'arrive jamais.
+  
+  ── CE QUE LE MESSAGE CONTIENT ────────────────────────────────────────────
+  
+  1. UNE PHRASE d'accroche qui dit de quoi il s'agit et si quelqu'un est concerné.
+  2. LES TROIS POINTS qui comptent, un par ligne, chacun avec sa conséquence en quelques
+     mots. Trois, pas huit : au-delà, on ne retient rien.
+  3. QUI DOIT FAIRE QUOI — par rôle, jamais par nom. Un message qui ne demande rien à
+     personne est un message que personne ne traite. S'il n'y a rien à faire, écris « rien à
+     faire, c'est pour information » : c'est une information utile.
+  4. OÙ LIRE LE RESTE, en une demi-ligne.
+  
+  ── LES INTERDITS ─────────────────────────────────────────────────────────
+  
+  - Aucun nom de personne. Un canal d'équipe est public dans l'équipe, et un nom dans un
+    message de constat se lit comme une désignation.
+  - Aucun emoji d'alerte, aucune majuscule d'insistance, aucun point d'exclamation. Une
+    urgence annoncée en majuscules deux fois de suite cesse d'être crue.
+  - Aucun jargon de la mesure : parle de ce que ça produit, pas du nom du contrôle.
+  - Aucun chiffre absent de la matière, et « N/A n'est pas zéro » : ce qui n'a pas été mesuré
+    se dit non mesuré. Dans cinq lignes, c'est souvent le seul mot qui manque pour être juste.

@@ -1,0 +1,79 @@
+# Capacité de l'inventaire du hub — module « Incidents ».
+# besoin : « un agent qui résume un incident en trois lignes pour la revue du lundi »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : le récit. Un incident se raconte volontiers en vingt lignes
+# — on y était, c'était intense — et la revue du lundi n'en retient rien.
+#
+# Le second piège, et il est plus sérieux : glisser une cause dans le résumé. « Un
+# déploiement a provoqué une coupure » fige une hypothèse comme un fait, avant
+# l'analyse, et personne ne la remettra en question ensuite. Trois lignes ne
+# laissent pas la place aux nuances : elles ne portent donc que des FAITS.
+id: resumer-un-incident
+kind: prompt
+title: 'Cet incident en trois lignes — pour la revue du lundi'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [incident, communication]
+intent:
+  purpose: >-
+    Résumer un incident en trois lignes pour une revue : ce qui s'est passé, ce que ça a touché, où ça en est — sans jamais figer une cause.
+  not_for: >-
+    Ce n'est pas un post-mortem (`rediger-le-post-mortem-d-un-incident`) ni une communication aux utilisateurs (`rediger-la-communication-d-incident`). Et ça ne dit aucune cause : trois lignes ne laissent pas la place aux nuances, donc elles ne portent que des faits.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: notes_incident
+    source: user
+    required: true
+    description: >-
+      Ce que tu écris de l'incident — personne d'autre ne peut le relire.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+spec: |-
+  Tu résumes un incident en trois lignes, pour la revue du lundi.
+  
+  {{notes_incident}}
+  
+  ── LA FORME ──────────────────────────────────────────────────────────────
+  
+  TROIS LIGNES. Pas de titre, pas de puces, pas de sections. Trois phrases, un bloc.
+  
+  ── PAS DE COUPABLE, JAMAIS ───────────────────────────────────────────────
+  
+  Aucun nom, aucune formulation qui désigne, aucun « par inattention », aucun
+  « l'auteur de ». Un texte d'incident qui cherche un responsable produit une seule
+  chose : le prochain incident sera déclaré plus tard, ou pas du tout.
+  
+  Écris au passif ou sur le système. La question utile n'est jamais QUI, c'est
+  POURQUOI RIEN N'A ARRÊTÉ ÇA.
+  
+  ── CE QUE LES TROIS LIGNES DISENT ────────────────────────────────────────
+  
+  1. CE QUI S'EST PASSÉ, observé : le symptôme, quand ça a commencé, combien de temps.
+  2. CE QUE ÇA A TOUCHÉ : quel service, quels utilisateurs, quelle ampleur. Si l'ampleur
+     n'est pas connue, dis-le — « ampleur non établie » est un fait, une estimation inventée
+     n'en est pas un.
+  3. OÙ ÇA EN EST : résolu, contourné, en cours — et ce qui reste à faire, s'il reste
+     quelque chose.
+  
+  ── L'INTERDIT ────────────────────────────────────────────────────────────
+  
+  AUCUNE CAUSE. Ni « à la suite d'un déploiement », ni « à cause de ». Une cause glissée dans
+  un résumé de trois lignes devient la version officielle avant même l'analyse, et personne
+  ne la remet en question ensuite.
+  
+  Si les notes contiennent déjà une hypothèse, tu peux écrire « piste en cours d'examen : … »
+  — jamais l'affirmer.
+  
+  AUCUN CHIFFRE ABSENT DES NOTES. Pas de durée arrondie, pas de nombre d'utilisateurs estimé,
+  pas de « quelques minutes » quand l'heure exacte n'est pas connue.
+  
+  Et aucun superlatif : « incident majeur », « critique » sont des qualifications qui
+  appartiennent à un processus, pas à un résumé.

@@ -1,0 +1,132 @@
+# Capacité de l'inventaire du hub — module « Incidents ».
+# besoin : « un agent qui rédige un post-mortem sans chercher de coupable : faits, impact, ce qui change »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : le coupable, même sans le nommer. « Un manque de vigilance
+# lors de la relecture » désigne aussi sûrement qu'un nom. Un post-mortem qui
+# cherche un responsable garantit que le prochain incident sera déclaré plus tard.
+#
+# Le second piège : « sensibiliser les équipes », « être plus vigilant ». Ce ne sont
+# pas des actions, ce sont des absences d'action — elles ne changent rien et
+# occupent la place de ce qui aurait marché.
+#
+# Le troisième : la cause unique. Les incidents ont presque toujours plusieurs
+# conditions dont aucune ne suffisait seule, et c'est ça qu'il faut décrire.
+id: rediger-le-post-mortem-d-un-incident
+kind: prompt
+title: 'Le post-mortem — faits, impact, ce qui change'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [incident, equipe]
+intent:
+  purpose: >-
+    Rédiger le post-mortem d'un incident : la chronologie factuelle, l'impact, les conditions qui ont permis qu'il arrive et qu'il dure — et ce qui change, avec des actions vérifiables.
+  not_for: >-
+    Ce n'est pas une recherche de responsable, et aucune formulation ne doit pouvoir se lire ainsi. Ce n'est pas non plus un résumé (`resumer-un-incident`) ni une communication aux utilisateurs.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: notes_incident
+    source: user
+    required: true
+    description: >-
+      Ce que tu écris de l'incident — personne d'autre ne peut le relire.
+  - name: historique_commits
+    source: repo
+    required: true
+    description: >-
+      Les commits de la période, avec leur auteur, leur date et leur message.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce qui s''est passé'
+      - 'L''impact'
+      - 'Ce qui a permis que ça arrive'
+      - 'Ce qui a fait que ça a duré'
+      - 'Ce qui change'
+      - 'Ce qu''on ne sait pas'
+spec: |-
+  Tu rédiges le post-mortem d'un incident.
+  
+  Les notes :
+  {{notes_incident}}
+  
+  L'historique :
+  {{historique_commits}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce qui s'est passé
+  ## L'impact
+  ## Ce qui a permis que ça arrive
+  ## Ce qui a fait que ça a duré
+  ## Ce qui change
+  ## Ce qu'on ne sait pas
+  
+  ── PAS DE COUPABLE, JAMAIS ───────────────────────────────────────────────
+  
+  Aucun nom, aucune formulation qui désigne, aucun « par inattention », aucun
+  « l'auteur de ». Un texte d'incident qui cherche un responsable produit une seule
+  chose : le prochain incident sera déclaré plus tard, ou pas du tout.
+  
+  Écris au passif ou sur le système. La question utile n'est jamais QUI, c'est
+  POURQUOI RIEN N'A ARRÊTÉ ÇA.
+  
+  ── LES DEUX AUTRES RÈGLES ────────────────────────────────────────────────
+  
+  PAS DE CAUSE UNIQUE. Un incident arrive presque toujours parce que PLUSIEURS conditions
+  étaient réunies, dont aucune ne suffisait seule. Chercher « la » cause fait corriger un
+  maillon et laisse les autres en place. Décris les conditions.
+  
+  PAS D'ACTION QUI N'EN EST PAS. « Sensibiliser », « être plus vigilant », « mieux
+  communiquer » ne changent rien et occupent la place de ce qui aurait marché. Une action est
+  quelque chose qu'on peut constater fait ou pas fait.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUI S'EST PASSÉ
+  La chronologie, datée et factuelle : le premier symptôme, la détection, le diagnostic, le
+  rétablissement. Sépare ce qui a été OBSERVÉ de ce qui a été SUPPOSÉ pendant l'incident —
+  une supposition recopiée comme un fait fausse toute l'analyse.
+  
+  L'écart entre le début et la DÉTECTION est souvent le chiffre le plus instructif du
+  document. S'il est grand, c'est déjà un constat.
+  
+  L'IMPACT
+  Ce qui a été touché, pour qui, pendant combien de temps. Et ce qui a été perdu ou dégradé
+  sans être visible : des données non écrites, des messages non partis, des opérations
+  rejouées. Si l'impact n'est pas mesuré, écris-le plutôt que de l'estimer.
+  
+  CE QUI A PERMIS QUE ÇA ARRIVE
+  Les conditions, pas le coupable. Ce qui n'a pas arrêté le problème : aucun contrôle à cet
+  endroit, un test qui ne couvrait pas ce cas, une différence entre les environnements, une
+  configuration divergente, un changement livré sans possibilité de retour arrière.
+  
+  Sers-toi de l'historique pour situer, jamais pour désigner.
+  
+  CE QUI A FAIT QUE ÇA A DURÉ
+  La section qu'on saute et qui vaut souvent plus que la précédente. Un incident se paie en
+  DURÉE : rien n'a alerté, personne ne savait qui appeler, le journal ne disait rien
+  d'exploitable, le retour arrière n'avait jamais été essayé, une seule personne savait
+  intervenir.
+  
+  Réduire la durée est presque toujours plus rentable que d'empêcher la cause — parce qu'il y
+  aura d'autres causes.
+  
+  CE QUI CHANGE
+  Trois actions au plus, chacune avec un rôle, une échéance ou « à décider », et un état
+  observable qui dira qu'elle est faite. Priorité à ce qui rend l'incident IMPOSSIBLE, puis à
+  ce qui le rend plus COURT, puis à ce qui le rend plus VISIBLE.
+  
+  CE QU'ON NE SAIT PAS
+  Obligatoire : ce qui n'a pas pu être établi, ce qui reste une hypothèse, et ce qu'il
+  faudrait pour trancher. Un post-mortem qui prétend tout savoir n'est pas relu par ceux qui
+  y étaient — ils savent bien que non.

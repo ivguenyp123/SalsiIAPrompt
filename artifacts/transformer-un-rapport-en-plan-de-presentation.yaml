@@ -1,0 +1,100 @@
+# Capacité de l'inventaire du hub — module « Restitutions ».
+# besoin : « un agent qui transforme un rapport en plan de présentation, une idée par diapositive »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : la diapositive fourre-tout. Un rapport découpé en sections
+# donne des diapositives qui contiennent chacune six idées, qu'on lit à voix haute
+# pendant que la salle lit aussi — et personne n'écoute.
+#
+# Une idée par diapositive, un titre qui EST cette idée. Et un plan de
+# présentation qui ne dit pas ce qu'on demande à la salle est une présentation dont
+# tout le monde sort sans rien décider.
+id: transformer-un-rapport-en-plan-de-presentation
+kind: prompt
+title: 'Le rapport en plan de présentation — une idée par diapositive'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [communication, depot]
+intent:
+  purpose: >-
+    Transformer un rapport de dépôt en plan de présentation : une idée par diapositive, un titre qui est cette idée, et une demande claire à la fin.
+  not_for: >-
+    Ce n'est pas le rapport découpé en sections : une diapositive qui porte six idées est lue par la salle pendant qu'on la commente, et personne n'écoute. Et ça n'écrit pas les diapositives — c'est le plan.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: rapport_depot
+    source: signal
+    required: true
+    description: >-
+      L'état du dépôt et ses corrections à faire, calculés par la plateforme.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'À qui on parle'
+      - 'Le plan'
+      - 'Ce qu''on ne montre pas'
+      - 'Les questions qui viendront'
+spec: |-
+  Tu transformes un rapport de dépôt en plan de présentation.
+  
+  {{rapport_depot}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## À qui on parle
+  ## Le plan
+  ## Ce qu'on ne montre pas
+  ## Les questions qui viendront
+  
+  ── LA RÈGLE ──────────────────────────────────────────────────────────────
+  
+  UNE IDÉE PAR DIAPOSITIVE, ET LE TITRE EST CETTE IDÉE. « Résultats du scan » n'est pas un
+  titre, c'est une étiquette de classeur. « Trois dépôts sur cinq acceptent une poussée
+  directe en production » en est un : la salle a compris avant qu'on ouvre la bouche.
+  
+  HUIT DIAPOSITIVES AU PLUS. Au-delà, on lit au lieu de parler.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  À QUI ON PARLE
+  Deux lignes. Ce que la salle connaît déjà, ce qu'elle doit décider ou retenir. Tout le plan
+  en dépend : la même matière donne deux présentations très différentes selon qu'on parle à
+  des développeurs ou à des décideurs. Si tu dois supposer, dis-le.
+  
+  LE PLAN
+  Une ligne par diapositive, numérotées. Chacune :
+  - LE TITRE, qui est l'idée elle-même ;
+  - CE QU'ON MONTRE : un chiffre, une liste courte, un schéma — et rien d'autre ;
+  - CE QU'ON DIT PAR-DESSUS, en une phrase. C'est le vrai contenu ; la diapositive n'est
+    qu'un appui.
+  
+  La structure qui marche : d'abord POURQUOI ON EST LÀ, puis le CONSTAT en deux ou trois
+  diapositives, puis CE QU'ON PROPOSE, puis CE QU'ON DEMANDE. Ne commence jamais par la
+  méthodologie : personne ne l'écoute et ça consomme l'attention du début, qui est la seule
+  qui vaille.
+  
+  LA DERNIÈRE DIAPOSITIVE DIT CE QU'ON DEMANDE À LA SALLE. Une décision, un moyen, un
+  arbitrage — ou explicitement « rien, c'est une information ». Une présentation sans demande
+  est une présentation dont tout le monde sort content et après laquelle rien ne se passe.
+  
+  CE QU'ON NE MONTRE PAS
+  Ce que le rapport contient et que tu as écarté, avec la raison : trop technique pour cette
+  salle, trop détaillé, hors sujet, ou nécessitant un contexte qu'on n'a pas le temps de
+  donner. À garder pour les questions.
+  
+  LES QUESTIONS QUI VIENDRONT
+  Trois ou quatre, avec leur réponse en une ligne. Les évidentes : « d'où viennent ces
+  chiffres ? », « pourquoi c'est comme ça ? », « combien ça coûte de corriger ? », « est-ce
+  qu'on est les seuls ? ».
+  
+  Prépare aussi la réponse honnête à « en êtes-vous sûr » : dire ce que la mesure ne couvre
+  pas AVANT qu'on te le demande vaut infiniment mieux que de le concéder après.

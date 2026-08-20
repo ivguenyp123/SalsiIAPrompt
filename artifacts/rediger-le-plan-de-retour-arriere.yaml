@@ -1,0 +1,119 @@
+# Capacité de l'inventaire du hub — module « Livraison ».
+# besoin : « un agent qui écrit le plan de retour arrière d'une livraison, avant de la lancer »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : « il suffit de redéployer la version précédente ». C'est vrai
+# pour le code et faux pour tout le reste — une migration passée, une donnée
+# transformée, un message envoyé, un appel fait à un tiers ne reviennent pas.
+#
+# Un plan de retour arrière qui ne distingue pas ces deux natures donne une fausse
+# assurance au moment exact où on en a le plus besoin. Le spec impose donc de
+# nommer, en premier, CE QUI NE REVIENDRA PAS.
+id: rediger-le-plan-de-retour-arriere
+kind: prompt
+title: 'Le plan de retour arrière — écrit avant de livrer'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [livraison, risque]
+intent:
+  purpose: >-
+    Écrire le plan de retour arrière d'une livraison avant de la lancer : ce qui revient, ce qui ne revient pas, les étapes dans l'ordre, et ce qu'il faut avoir vérifié avant.
+  not_for: >-
+    Ce n'est pas un go/no-go de livraison (`prep-delivery`) ni une évaluation de risque (`evaluer-le-risque-d-une-mr`). Et ce n'est pas un plan éprouvé : rien n'a été exécuté, et un retour arrière qui n'a jamais été essayé n'est pas un retour arrière.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: diff
+    source: repo
+    required: true
+    description: >-
+      Le changement à lire, tel que la forge le rend.
+  - name: environnements
+    source: repo
+    required: true
+    description: >-
+      Les environnements de déploiement du projet.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce qui ne reviendra pas'
+      - 'Le retour arrière, dans l''ordre'
+      - 'Quand décider'
+      - 'À vérifier avant de livrer'
+spec: |-
+  Tu écris le plan de retour arrière d'une livraison, avant qu'elle soit lancée.
+  
+  Le changement :
+  {{diff}}
+  
+  Les environnements :
+  {{environnements}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce qui ne reviendra pas
+  ## Le retour arrière, dans l'ordre
+  ## Quand décider
+  ## À vérifier avant de livrer
+  
+  ── LA RÈGLE, ET ELLE DÉCIDE DE L'ORDRE DES SECTIONS ──────────────────────
+  
+  « IL SUFFIT DE REDÉPLOYER LA VERSION PRÉCÉDENTE » EST VRAI POUR LE CODE ET FAUX POUR TOUT
+  LE RESTE. Une migration de schéma passée, une donnée transformée, un message envoyé, un
+  appel fait à un tiers, un fichier écrit, un cache invalidé ne reviennent pas.
+  
+  Ce qui ne revient pas vient donc EN PREMIER. Un plan qui commence par les étapes donne une
+  fausse assurance au moment où on en a le plus besoin.
+  
+  RIEN DE CE QUE TU ÉCRIS N'A ÉTÉ EXÉCUTÉ. Un retour arrière jamais essayé n'est pas un
+  retour arrière : c'est une intention. Dis-le.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUI NE REVIENDRA PAS
+  Depuis le diff, ce qui est irréversible ou partiellement réversible :
+  - une migration de base — dis si elle est compatible avec l'ancienne version du code, ce
+    qui est LA question qui décide de tout ;
+  - une donnée transformée ou supprimée ;
+  - ce qui est parti vers l'extérieur : message, notification, appel à un tiers, fichier
+    déposé ;
+  - un état conservé : cache, session, file d'attente, index ;
+  - un changement de format que l'ancienne version ne saura pas relire.
+  
+  Si rien n'est irréversible, écris-le : c'est une excellente nouvelle et elle change le
+  niveau de vigilance de toute la livraison.
+  
+  LE RETOUR ARRIÈRE, DANS L'ORDRE
+  Numéroté, avec pour chaque étape ce qu'on fait et comment on vérifie que c'est fait.
+  Couvre : ce qu'on remet en place, dans quel ordre entre le code et les données, ce qu'on
+  doit couper d'abord, ce qu'on doit prévenir.
+  
+  Signale les étapes qui DEMANDENT UN DROIT particulier ou une personne précise — c'est ce
+  qui bloque un retour arrière à deux heures du matin, et ça se prépare maintenant.
+  
+  Si un retour arrière complet n'est pas possible, dis-le franchement et décris la voie de
+  contournement : couper une fonctionnalité, revenir partiellement, geler. Une demi-solution
+  annoncée vaut mieux qu'un plan complet qui ne marchera pas.
+  
+  QUAND DÉCIDER
+  Les critères qui déclenchent le retour arrière — un indicateur, un seuil, une durée — et
+  QUI décide, par rôle. Sans ça, on discute pendant que ça dure.
+  
+  Et la règle qui sauve les nuits : au-delà d'un certain temps passé à chercher, on revient
+  en arrière et on cherche ensuite, au calme. Fixe cette limite ici.
+  
+  À VÉRIFIER AVANT DE LIVRER
+  Trois ou quatre points : que le retour arrière ait été essayé au moins une fois sur un
+  environnement de test, que les droits nécessaires soient disponibles au moment de la
+  livraison, que la version précédente soit encore déployable, et que quelqu'un soit joignable.
+  
+  Rappelle que ce plan n'a jamais été exécuté, et que l'essayer une fois vaut mieux que de le
+  relire dix.

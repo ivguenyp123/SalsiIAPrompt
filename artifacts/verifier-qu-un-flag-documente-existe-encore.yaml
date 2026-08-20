@@ -1,0 +1,116 @@
+# Capacité de l'inventaire du hub — module « Cohérence ».
+# besoin : « un agent qui vérifie que les feature flags documentés existent encore dans le code, et l'inverse »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LES DEUX ÉCARTS N'ONT RIEN À VOIR, ET C'EST TOUT L'INTÉRÊT :
+#
+# Un drapeau DÉCLARÉ et absent du code est une entrée fantôme dans la console.
+# Quelqu'un la basculera un jour en croyant agir sur le produit, et rien ne se
+# passera — ou pire, il conclura que le produit ne répond plus.
+#
+# Un drapeau DANS LE CODE et absent de la déclaration est bien plus grave : c'est
+# un interrupteur que personne ne sait actionner, dont la valeur par défaut décide
+# seule, et qui n'apparaît sur aucun tableau de bord.
+#
+# LE PIÈGE : conclure « absent » depuis une lecture partielle du code. La matière
+# ne montre qu'une partie des fichiers.
+id: verifier-qu-un-flag-documente-existe-encore
+kind: prompt
+title: 'Les drapeaux documentés existent-ils encore — et l''inverse'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [livraison, qualite]
+intent:
+  purpose: >-
+    Vérifier la correspondance entre les feature flags déclarés et ceux présents dans le code, dans les deux sens — en distinguant l'entrée fantôme de l'interrupteur non déclaré.
+  not_for: >-
+    Ce n'est pas un audit des drapeaux figés (`les-feature-flags-a-retirer`) ni un plan de retrait. Et ça ne conclut à aucune absence définitive : le code lu est partiel.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: inventaire_flags
+    source: repo
+    required: true
+    description: >-
+      Les feature flags déclarés, avec leur état et leur âge.
+  - name: code
+    source: repo
+    required: true
+    description: >-
+      Le contenu du fichier choisi.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ceux qui correspondent'
+      - 'Déclarés mais introuvables dans le code lu'
+      - 'Dans le code mais non déclarés'
+      - 'Ce qu''il faut vérifier'
+spec: |-
+  Tu vérifies la correspondance entre les feature flags déclarés et ceux du code.
+  
+  Les drapeaux déclarés :
+  {{inventaire_flags}}
+  
+  Le code :
+  {{code}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ceux qui correspondent
+  ## Déclarés mais introuvables dans le code lu
+  ## Dans le code mais non déclarés
+  ## Ce qu'il faut vérifier
+  
+  ── LA RÈGLE ──────────────────────────────────────────────────────────────
+  
+  TU NE LIS QU'UNE PARTIE DU CODE. « Introuvable dans le code lu » n'est pas « absent du
+  projet » : un drapeau peut être lu dans un fichier que tu n'as pas, dans un autre service,
+  ou par un nom construit à l'exécution.
+  
+  Le titre de la deuxième section porte cette réserve, et elle doit se retrouver dans chaque
+  ligne. Un rapport qui conclut à l'absence fait supprimer une entrée de console qui pilotait
+  quelque chose.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CEUX QUI CORRESPONDENT
+  La liste courte, sans détail : nom, et où il est lu. Cette section existe pour qu'on n'y
+  revienne pas.
+  
+  Signale quand même les correspondances SUSPECTES : un nom déclaré et un nom du code qui se
+  ressemblent sans être identiques — une casse différente, un tiret contre un souligné, un
+  préfixe. Ce n'est pas une correspondance, c'est un bug latent, et il ne se voit que là.
+  
+  DÉCLARÉS MAIS INTROUVABLES DANS LE CODE LU
+  Les entrées fantômes possibles. Pour chacune : depuis quand elle est déclarée si la matière
+  le dit, et ce que ça produit — quelqu'un la basculera un jour et rien ne se passera, ce qui
+  mène à conclure que le produit ne répond plus, et fait chercher au mauvais endroit pendant
+  une heure.
+  
+  Chaque ligne dit ce qu'il faut chercher avant de conclure.
+  
+  DANS LE CODE MAIS NON DÉCLARÉS
+  Le cas le plus grave, et il vient toujours en second alors qu'il devrait inquiéter
+  davantage : un interrupteur que personne ne sait actionner. Sa valeur par défaut décide
+  seule, il n'apparaît sur aucun tableau de bord, et le jour où il faut couper en urgence, il
+  faut livrer du code.
+  
+  Pour chacun : où il est lu, quelle est sa valeur par défaut si elle est visible, et ce qui
+  se passe si personne ne peut le changer.
+  
+  Un drapeau branché sur une variable d'environnement compte ici : c'est un drapeau, même si
+  personne ne l'appelle comme ça.
+  
+  CE QU'IL FAUT VÉRIFIER
+  Concret : chercher le nom exact dans les fichiers non lus et dans les autres dépôts, vérifier
+  si le nom est construit par concaténation, regarder dans la console la date du dernier
+  changement de chaque entrée fantôme. Et pour les non déclarés : les déclarer, ce qui est
+  souvent le geste le plus rentable de tout le rapport.

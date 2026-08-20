@@ -1,0 +1,105 @@
+# Capacité de l'inventaire du hub — module « Cohérence ».
+# besoin : « un agent qui vérifie qu'un README décrit encore ce que le code fait vraiment »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : traiter tout écart comme une erreur de documentation. Quand
+# la doc et le code divergent, ce n'est pas toujours la doc qui a tort — parfois
+# c'est le code qui a dérivé, et la doc décrit ce qui était voulu.
+#
+# Le second piège, plus important : tous les écarts ne se valent pas. Une commande
+# de démarrage fausse bloque un arrivant dès la première heure ; une phrase
+# d'introduction datée ne gêne personne. Le spec impose donc de classer par ce que
+# l'écart COÛTE, pas par sa taille.
+id: verifier-que-la-doc-dit-ce-que-le-code-fait
+kind: prompt
+title: 'La doc dit-elle encore ce que le code fait ?'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [qualite, comprehension]
+intent:
+  purpose: >-
+    Vérifier qu'une documentation décrit encore ce que le code fait, en classant les écarts par ce qu'ils coûtent — et sans présumer lequel des deux a tort.
+  not_for: >-
+    Ce n'est pas une correction de la documentation : quand la doc et le code divergent, ce n'est pas toujours la doc qui a tort. Et ce n'est pas une lecture de code (`analyser-un-code`).
+model_tier: mid
+target_level: experimental
+variables:
+  - name: code
+    source: repo
+    required: true
+    description: >-
+      Le contenu du fichier choisi.
+  - name: rapport_depot
+    source: signal
+    required: true
+    description: >-
+      L'état du dépôt et ses corrections à faire, calculés par la plateforme.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce que la doc promet'
+      - 'Les écarts qui coûtent'
+      - 'Les écarts sans conséquence'
+      - 'Ce que je n''ai pas pu vérifier'
+spec: |-
+  Tu vérifies qu'une documentation décrit encore ce que le code fait.
+  
+  Le code :
+  {{code}}
+  
+  L'état du dépôt :
+  {{rapport_depot}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que la doc promet
+  ## Les écarts qui coûtent
+  ## Les écarts sans conséquence
+  ## Ce que je n'ai pas pu vérifier
+  
+  ── LES DEUX RÈGLES ───────────────────────────────────────────────────────
+  
+  NE PRÉSUME PAS QUE LA DOC A TORT. Un écart a deux lectures : la doc n'a pas suivi, ou le
+  code a dérivé de ce qui était voulu. La seconde est la plus intéressante, et personne ne la
+  regarde jamais. Présente les deux, et dis laquelle te paraît la plus probable et pourquoi.
+  
+  CLASSE PAR CE QUE L'ÉCART COÛTE, pas par sa taille. Une commande de démarrage fausse bloque
+  un arrivant dès la première heure ; un paragraphe d'introduction daté ne gêne personne. Un
+  rapport qui les met sur le même plan fait tout ignorer.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE LA DOC PROMET
+  Ce que la documentation affirme et qui est VÉRIFIABLE dans ce que tu as lu : une commande,
+  un prérequis, un comportement, un nom de fichier, une option, un format. Laisse de côté ce
+  qui relève de l'intention générale — ça ne se vérifie pas.
+  
+  Si tu n'as pas de documentation dans la matière, dis-le en une ligne et arrête-toi.
+  
+  LES ÉCARTS QUI COÛTENT
+  Ceux qui font perdre du temps ou produisent une erreur, du plus coûteux au moins. Cherche en
+  priorité :
+  - une COMMANDE qui n'existe plus ou a changé — le pire de tous, il bloque au premier
+    contact ;
+  - un PRÉREQUIS dont la version ne correspond plus ;
+  - une option, une variable d'environnement ou un chemin renommé ;
+  - un comportement décrit qui n'est plus celui du code ;
+  - une étape manquante que le code exige.
+  Chacun : ce que la doc dit, ce que le code fait, et ce qui arrive à celui qui suit la doc.
+  
+  LES ÉCARTS SANS CONSÉQUENCE
+  En une liste courte, sans détail. Ce qui est faux mais ne gêne personne. Cette section
+  existe pour qu'on ne s'en occupe PAS — et c'est elle qui rend la précédente crédible.
+  
+  CE QUE JE N'AI PAS PU VÉRIFIER
+  Trois lignes : la doc parle de choses que tu ne vois pas dans le code lu, tu n'as rien
+  exécuté — donc une commande peut être correcte et échouer pour une autre raison — et tu ne
+  sais pas laquelle des deux sources fait autorité dans cette équipe.

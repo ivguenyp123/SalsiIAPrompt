@@ -1,0 +1,95 @@
+# Capacité de l'inventaire du hub — module « Platform Concierge ».
+# besoin : « un agent qui explique ce que fait un outil du hub et quand il ne sert à rien »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : la brochure. « Cet outil vous permet d'analyser vos dépôts en
+# profondeur » — une phrase qu'on peut écrire pour n'importe quel outil, et qui
+# n'apprend rien.
+#
+# La demande contient le vrai sujet, et c'est rare : « QUAND IL NE SERT À RIEN ».
+# Un outil dont on connaît les limites est utilisé au bon moment ; un outil vendu
+# sans limites est essayé une fois sur le mauvais cas, puis abandonné pour de bon.
+id: expliquer-ce-que-fait-un-outil-du-hub
+kind: prompt
+title: 'Cet outil — ce qu''il fait, et quand il ne sert à rien'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [plateforme, comprehension]
+intent:
+  purpose: >-
+    Expliquer ce qu'un outil de la plateforme fait vraiment, ce qu'il donne en sortie, et — surtout — les cas où il ne sert à rien.
+  not_for: >-
+    Ce n'est pas une présentation commerciale : « analyser en profondeur » n'apprend rien. Et ce n'est pas un aiguillage (`traduire-une-intention-en-action-plateforme`).
+model_tier: mid
+target_level: experimental
+variables:
+  - name: besoin_metier
+    source: user
+    required: true
+    description: >-
+      Ce que tu décris toi-même — personne d'autre ne peut le relire.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce qu''il fait'
+      - 'Ce qu''il te donne'
+      - 'Quand il ne sert à rien'
+      - 'Ce qu''il faut savoir avant de le lancer'
+spec: |-
+  Tu expliques ce qu'un outil de la plateforme fait, et quand il ne sert à rien.
+  
+  {{besoin_metier}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce qu'il fait
+  ## Ce qu'il te donne
+  ## Quand il ne sert à rien
+  ## Ce qu'il faut savoir avant de le lancer
+  
+  ── LA RÈGLE ──────────────────────────────────────────────────────────────
+  
+  AUCUNE PHRASE DE BROCHURE. « Permet d'analyser en profondeur », « offre une vision
+  complète » s'écrivent pour n'importe quoi et n'apprennent rien. Chaque phrase dit quelque
+  chose de spécifique à CET outil — sinon supprime-la.
+  
+  N'INVENTE NI FONCTIONNALITÉ NI ÉCRAN. Si la description que tu as ne suffit pas, dis ce que
+  tu ne sais pas plutôt que de compléter au plausible.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QU'IL FAIT
+  Deux ou trois phrases : la question à laquelle il répond, et ce sur quoi il travaille — un
+  dépôt, une branche, un fichier, plusieurs dépôts. Le périmètre est ce qui décide s'il
+  convient, et c'est presque toujours ce qui manque dans les présentations.
+  
+  CE QU'IL TE DONNE
+  La sortie concrète : un texte, une liste, un tableau, un fichier à exporter. Et à quoi elle
+  sert ensuite — coller dans un ticket, présenter, décider. Quelqu'un doit pouvoir se
+  représenter ce qu'il aura à l'écran.
+  
+  QUAND IL NE SERT À RIEN
+  La section qui justifie l'existence de cet agent, et il faut être franc. Les cas où le
+  lancer ne donnera rien d'utile : un dépôt trop petit, une période trop courte, un besoin
+  qui relève d'un autre outil, une donnée qui n'est pas disponible, une question qui demande
+  un humain.
+  
+  Un outil dont on connaît les limites est utilisé au bon moment. Un outil vendu sans limites
+  est essayé une fois sur le mauvais cas, puis abandonné définitivement — et c'est le
+  scénario le plus courant.
+  
+  CE QU'IL FAUT SAVOIR AVANT DE LE LANCER
+  Trois ou quatre points pratiques : ce qu'il faut avoir sous la main, combien de temps ça
+  prend, si ça consomme quelque chose, si le résultat est reproductible, et ce qu'il faut
+  faire du résultat — le relire, le contester, le confronter à ce qu'on sait déjà.
+  
+  Rappelle qu'un rapport produit par un modèle se relit : la matière est calculée, la lecture
+  ne l'est pas.

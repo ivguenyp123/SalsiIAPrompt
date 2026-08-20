@@ -1,0 +1,105 @@
+# Capacité de l'inventaire du hub — module « Cohérence ».
+# besoin : « un agent qui vérifie qu'un pipeline correspond à la stack réellement présente dans le dépôt »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : signaler l'excès de zèle comme un défaut. Une chaîne qui
+# contient un job pour une technologie absente est certes incohérente, mais elle ne
+# casse rien — le job ne trouve rien et passe. Le vrai problème est l'inverse : un
+# langage, un manifeste ou un répertoire présent dans le dépôt que RIEN dans la
+# chaîne ne vérifie. Là, du code part en production sans qu'aucun filet ne l'ait vu.
+#
+# Le spec ordonne donc les deux dans le bon sens, et met le silencieux en premier.
+id: verifier-la-coherence-entre-la-ci-et-la-stack
+kind: prompt
+title: 'La chaîne CI correspond-elle à ce qu''il y a dans le dépôt ?'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [ci, qualite]
+intent:
+  purpose: >-
+    Vérifier qu'une chaîne CI correspond à ce que le dépôt contient vraiment : ce qui est présent et jamais vérifié — le cas grave — et ce que la chaîne traite en vain.
+  not_for: >-
+    Ce n'est pas un audit de chaîne (`auditer-une-chaine-ci`) ni une proposition de jobs manquants (`proposer-les-jobs-manquants`). Ici on vérifie une correspondance : ce qui est dans le dépôt et ce que la chaîne regarde.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: config_ci
+    source: repo
+    required: true
+    description: >-
+      Le ou les fichiers de configuration de la chaîne CI.
+  - name: inventaire_fichiers
+    source: repo
+    required: true
+    description: >-
+      La liste des fichiers suivis par git.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce que le dépôt contient'
+      - 'Ce qui n''est jamais vérifié'
+      - 'Ce que la chaîne traite en vain'
+      - 'Ce que je ne vois pas'
+spec: |-
+  Tu vérifies qu'une chaîne CI correspond à ce que le dépôt contient.
+  
+  La chaîne :
+  {{config_ci}}
+  
+  Les fichiers :
+  {{inventaire_fichiers}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que le dépôt contient
+  ## Ce qui n'est jamais vérifié
+  ## Ce que la chaîne traite en vain
+  ## Ce que je ne vois pas
+  
+  ── L'ORDRE EST LE CONTENU ────────────────────────────────────────────────
+  
+  LE CAS GRAVE EST LE SILENCE, PAS L'EXCÈS. Un job qui cherche une technologie absente ne
+  trouve rien et passe : c'est du temps perdu, rien de plus. Un langage, un manifeste ou un
+  répertoire présent dans le dépôt que RIEN ne vérifie, c'est du code qui part en production
+  sans filet.
+  
+  « Ce qui n'est jamais vérifié » vient donc en premier, toujours.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE LE DÉPÔT CONTIENT
+  Depuis la liste des fichiers : les manifestes présents, les langages, les répertoires de
+  code, ce qui indique un conteneur, une infrastructure décrite, des tests, des scripts de
+  base de données. Factuel et court — c'est la référence pour les deux sections suivantes.
+  
+  CE QUI N'EST JAMAIS VÉRIFIÉ
+  Ce qui est dans le dépôt et qu'aucun job ne regarde. Pour chacun : ce qui est présent, ce
+  qu'aucun job ne fait, et ce que ça laisse passer.
+  
+  Regarde aussi les CONDITIONS, pas seulement la présence des jobs : un job qui existe mais ne
+  se déclenche pas sur les branches de travail ne vérifie rien là où il faudrait — le défaut
+  est attrapé après la fusion, ou jamais. C'est le cas le plus fréquent, et il est invisible
+  si on se contente de lire la liste des jobs.
+  
+  Cherche en particulier : un second langage arrivé après l'écriture de la chaîne, un
+  répertoire de tests jamais exécuté, un manifeste dont les dépendances ne sont pas
+  contrôlées, des scripts de migration jamais validés, des fichiers d'infrastructure jamais
+  lus.
+  
+  CE QUE LA CHAÎNE TRAITE EN VAIN
+  Les jobs qui visent quelque chose d'absent, ou qui ne trouvent rien. Sans dramatiser : ça
+  coûte du temps d'exécution et ça donne une fausse impression de couverture — c'est ce
+  second point qui compte, parce qu'un job vert qui n'a rien vérifié rassure à tort.
+  
+  CE QUE JE NE VOIS PAS
+  Trois lignes : les modèles inclus depuis d'autres dépôts, qui peuvent contenir tout ce que
+  tu crois manquant ; les variables définies dans l'interface du projet, qui activent ou
+  désactivent des jobs ; et le fait que tu n'as vu aucune exécution réelle.

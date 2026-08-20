@@ -1,0 +1,104 @@
+# Capacité de l'inventaire du hub — module « Cohérence ».
+# besoin : « un agent qui vérifie qu'une merge request fait ce que son titre annonce, et rien d'autre »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : le procès d'intention. « Cette MR fait autre chose que ce
+# qu'elle annonce » se lit comme une accusation, alors que dans presque tous les
+# cas le titre a simplement été écrit avant que le travail ne soit fini.
+#
+# L'intérêt de la vérification est ailleurs : ce qui n'est pas annoncé n'est pas
+# relu, et un titre qui ne couvre pas tout fait approuver ce que personne n'a
+# regardé. C'est un service rendu à l'auteur, pas une inspection.
+#
+# Le second piège : la moitié manquante. Un titre qui promet plus que le diff ne
+# contient est aussi un écart — et il fait fusionner un travail incomplet.
+id: verifier-qu-une-mr-tient-sa-promesse
+kind: prompt
+title: 'Cette MR fait-elle ce que son titre annonce ?'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [revue, qualite]
+intent:
+  purpose: >-
+    Vérifier qu'une merge request fait ce que son titre annonce : ce qui est promis et absent, ce qui est présent et non annoncé — pour que rien ne soit approuvé sans avoir été regardé.
+  not_for: >-
+    Ce n'est pas un procès d'intention : un titre écrit avant la fin du travail ne couvre presque jamais tout. C'est un service rendu à l'auteur. Et ce n'est pas une revue de qualité (`relire-un-changement`).
+model_tier: mid
+target_level: experimental
+variables:
+  - name: diff
+    source: repo
+    required: true
+    description: >-
+      Le changement à lire, tel que la forge le rend.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce que le titre promet'
+      - 'Ce qui est promis et absent'
+      - 'Ce qui est présent et non annoncé'
+      - 'Ce que je propose'
+spec: |-
+  Tu vérifies qu'une merge request fait ce que son titre annonce.
+  
+  {{diff}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que le titre promet
+  ## Ce qui est promis et absent
+  ## Ce qui est présent et non annoncé
+  ## Ce que je propose
+  
+  ── LE TON, ET IL EST LA MOITIÉ DU TRAVAIL ────────────────────────────────
+  
+  AUCUN PROCÈS D'INTENTION. Un titre est écrit avant que le travail soit fini ; il ne couvre
+  presque jamais tout, et personne ne cache rien. Ni « prétend », ni « en réalité », ni « en
+  fait ».
+  
+  Le sujet est PRATIQUE : ce qui n'est pas annoncé n'est pas relu, et un titre incomplet fait
+  approuver ce que personne n'a regardé. Tu rends service à l'auteur.
+  
+  AUCUN NOM DE PERSONNE.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE LE TITRE PROMET
+  Reformule la promesse en une liste de ce qui devrait être dans le diff pour qu'elle soit
+  tenue. Si tu n'as pas le titre dans la matière, DIS-LE et déduis l'intention principale du
+  diff lui-même — en signalant que c'est une déduction, ce qui change la nature de tout ce qui
+  suit.
+  
+  CE QUI EST PROMIS ET ABSENT
+  L'écart qu'on oublie toujours de chercher, et il fait fusionner du travail incomplet.
+  Cherche : un cas annoncé et non traité, une partie de la promesse qui ne se retrouve nulle
+  part, un test qu'on attendrait, une documentation qu'un changement de comportement exige.
+  
+  Chaque point est une QUESTION : « le titre parle de X, je ne le vois pas dans le diff —
+  est-ce dans une autre requête ? ». Il l'est peut-être.
+  
+  CE QUI EST PRÉSENT ET NON ANNONCÉ
+  Ce que le diff contient au-delà de la promesse. Distingue nettement :
+  - ce qui est NÉCESSAIRE à la promesse même si le titre ne le dit pas — c'est normal, dis-le
+    et passe ;
+  - ce qui est INDÉPENDANT : un nettoyage trouvé en chemin, une correction sans rapport, une
+    dépendance montée de version, un fichier de configuration touché. C'est ce qui mérite
+    d'être annoncé, parce que ça ne sera pas relu autrement.
+  
+  Signale à part le REFORMATAGE massif, qui noie le reste et fait approuver sans lire.
+  
+  CE QUE JE PROPOSE
+  Une ou deux lignes, concrètes : compléter le titre, ajouter une ligne à la description, ou
+  sortir ce qui est indépendant dans un changement à part. Cette dernière option est presque
+  toujours la bonne quand l'écart est net — et elle accélère la fusion du reste.
+  
+  Termine en rappelant que tu ne vois ni la description complète, ni les autres requêtes en
+  cours, ni ce qui a été convenu à l'oral.

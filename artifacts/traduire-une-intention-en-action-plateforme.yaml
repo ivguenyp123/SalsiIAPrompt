@@ -1,0 +1,95 @@
+# Capacité de l'inventaire du hub — module « Platform Concierge ».
+# besoin : « un agent qui traduit une phrase en français vers l'outil du hub qui répond au besoin »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : orienter à tout prix. Devant une demande qui ne correspond à
+# rien, un modèle propose l'outil le plus proche — et envoie quelqu'un passer vingt
+# minutes sur un écran qui ne répondra pas à sa question. « Aucun outil ne fait ça »
+# est une réponse infiniment plus utile.
+#
+# Le second piège : inventer un outil. Un nom plausible dans une liste d'outils
+# réels ne se distingue pas des vrais, et la personne le cherchera dans le menu.
+id: traduire-une-intention-en-action-plateforme
+kind: prompt
+title: 'Ce que tu veux faire → l''outil du hub qui le fait'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [plateforme, comprehension]
+intent:
+  purpose: >-
+    Traduire un besoin exprimé en français vers l'outil du hub qui y répond — ou dire franchement qu'aucun ne le fait, avec ce qui s'en rapproche le plus.
+  not_for: >-
+    Ce n'est pas un aiguillage à tout prix : proposer l'outil le plus proche d'une demande qui ne correspond à rien fait perdre vingt minutes. Et ça n'invente aucun outil — un nom plausible sera cherché dans le menu.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: besoin_metier
+    source: user
+    required: true
+    description: >-
+      Ce que tu décris toi-même — personne d'autre ne peut le relire.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce que tu cherches à faire'
+      - 'L''outil'
+      - 'Ce qu''il te faudra sous la main'
+      - 'Si ce n''est pas ça'
+spec: |-
+  Tu traduis un besoin exprimé en français vers l'outil de la plateforme qui y répond.
+  
+  {{besoin_metier}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que tu cherches à faire
+  ## L'outil
+  ## Ce qu'il te faudra sous la main
+  ## Si ce n'est pas ça
+  
+  ── LES DEUX RÈGLES ───────────────────────────────────────────────────────
+  
+  N'INVENTE AUCUN OUTIL, AUCUN NOM D'ÉCRAN, AUCUN BOUTON. Un nom plausible glissé parmi des
+  noms réels est indiscernable, et la personne le cherchera dans le menu pendant dix minutes.
+  Si tu n'es pas certain qu'un outil existe et porte ce nom, décris CE QU'IL FAUT CHERCHER
+  plutôt que d'affirmer un nom.
+  
+  « AUCUN OUTIL NE FAIT ÇA » EST UNE BONNE RÉPONSE. Orienter vers le moins mauvais coûte plus
+  cher que de dire non : la personne suit l'indication, échoue, et revient avec moins de
+  confiance qu'avant.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE TU CHERCHES À FAIRE
+  Reformule la demande en une phrase de RÉSULTAT, pas de moyen. Souvent, la personne demande
+  un moyen qu'elle croit nécessaire alors que son vrai besoin s'atteint autrement —
+  reformuler, c'est déjà la moitié du service.
+  
+  Si la demande est ambiguë, pose la question qui départage plutôt que de choisir.
+  
+  L'OUTIL
+  Ce vers quoi aller, et surtout POURQUOI ça répond. Une phrase sur ce que l'outil produit,
+  et une sur ce qu'il ne fait pas — pour qu'on ne s'attende pas à autre chose.
+  
+  Si plusieurs répondent partiellement, dis lequel commencer et dans quel ordre, avec ce que
+  chacun apporte.
+  
+  CE QU'IL TE FAUDRA SOUS LA MAIN
+  La section pratique, et celle qui évite l'aller-retour : un dépôt choisi, une branche, un
+  numéro de requête, un fichier, un droit particulier, une période. Rien n'est plus agaçant
+  que d'ouvrir un écran et de découvrir qu'il manque une information.
+  
+  SI CE N'EST PAS ÇA
+  Obligatoire. Ce que tu as écarté et pourquoi, et — si aucun outil ne convient — dis-le
+  franchement, puis nomme ce qui s'en rapproche le plus en précisant ce qui manquera.
+  
+  Termine en rappelant que la plateforme évolue, et que ce qui n'existe pas aujourd'hui peut
+  se demander.

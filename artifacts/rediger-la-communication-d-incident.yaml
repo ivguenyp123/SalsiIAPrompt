@@ -1,0 +1,99 @@
+# Capacité de l'inventaire du hub — module « Incidents ».
+# besoin : « un agent qui rédige le message envoyé aux utilisateurs pendant un incident, sans promettre de délai »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE, ET LA DEMANDE LE NOMME : le délai promis. « Rétablissement
+# prévu dans une heure » est repris partout, et quand l'heure passe, on a deux
+# problèmes au lieu d'un — l'incident, et une parole qui ne vaut plus rien.
+#
+# Le second piège : le message qui rassure sans informer. « Nos équipes sont
+# mobilisées » ne dit à personne s'il doit arrêter ce qu'il fait, ni si son travail
+# de ce matin est perdu. C'est pourtant la seule chose que le lecteur veut savoir.
+#
+# Le troisième : la cause technique. Elle n'intéresse pas, elle inquiète, et elle
+# est souvent fausse au moment où on écrit.
+id: rediger-la-communication-d-incident
+kind: prompt
+title: 'Le message aux utilisateurs — sans promettre de délai'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [incident, communication]
+intent:
+  purpose: >-
+    Rédiger le message envoyé aux utilisateurs pendant un incident : ce qui ne marche pas, ce qu'ils doivent faire, quand ils auront des nouvelles — sans jamais promettre de délai de rétablissement.
+  not_for: >-
+    Ce n'est pas un post-mortem ni un résumé interne. Et ça ne promet aucun délai : quand l'heure annoncée passe, on a deux problèmes au lieu d'un.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: notes_incident
+    source: user
+    required: true
+    description: >-
+      Ce que tu écris de l'incident — personne d'autre ne peut le relire.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Le message'
+      - 'Ce que j''ai volontairement omis'
+      - 'Avant d''envoyer'
+spec: |-
+  Tu rédiges le message envoyé aux utilisateurs pendant un incident.
+  
+  {{notes_incident}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Le message
+  ## Ce que j'ai volontairement omis
+  ## Avant d'envoyer
+  
+  ── LES TROIS INTERDITS ───────────────────────────────────────────────────
+  
+  AUCUN DÉLAI DE RÉTABLISSEMENT. Ni « dans l'heure », ni « en fin de matinée », ni « très
+  prochainement » qui n'engage à rien et ne rassure personne. Ce qu'on promet à la place est
+  la PROCHAINE COMMUNICATION — « nous vous informons à 15 h, même s'il n'y a rien de
+  nouveau ». C'est tenable, ça se vérifie, et ça suffit.
+  
+  AUCUNE CAUSE TECHNIQUE. Elle n'intéresse pas le lecteur, elle l'inquiète, et pendant un
+  incident elle est souvent fausse.
+  
+  AUCUN NOM, AUCUN PRESTATAIRE, AUCUNE DÉSIGNATION. Ce message peut sortir de l'entreprise.
+  
+  ── LE MESSAGE ────────────────────────────────────────────────────────────
+  
+  Cinq lignes au plus, prêtes à envoyer, dans cet ordre :
+  
+  1. CE QUI NE MARCHE PAS, en langage d'usage : ce que les gens n'arrivent pas à faire. Pas le
+     nom du composant.
+  2. QUI EST CONCERNÉ, et — tout aussi important — QUI NE L'EST PAS. Rassurer ceux qui ne
+     sont pas touchés divise le nombre d'appels par deux.
+  3. CE QU'IL FAUT FAIRE MAINTENANT : attendre, ne pas réessayer, ne pas ressaisir, utiliser
+     telle autre voie. C'est la seule ligne vraiment actionnable, et c'est celle qu'on oublie.
+  4. CE QU'IL ADVIENT DU TRAVAIL EN COURS : perdu, conservé, à refaire, en attente. Si ce
+     n'est pas connu, dis-le franchement — l'incertitude annoncée se supporte, la mauvaise
+     surprise non.
+  5. QUAND ON REDONNERA DES NOUVELLES, avec une heure.
+  
+  Ton : factuel, direct, sans excuse appuyée ni « nos équipes sont pleinement mobilisées ».
+  Une excuse sobre en fin de message suffit. Aucun emoji.
+  
+  ── CE QUE J'AI VOLONTAIREMENT OMIS ───────────────────────────────────────
+  
+  Cette section NE PART PAS avec le message : elle est pour celui qui l'envoie. Ce que les
+  notes contiennent et que tu as écarté — la cause supposée, les détails techniques, l'ampleur
+  non confirmée — avec la raison.
+  
+  ── AVANT D'ENVOYER ───────────────────────────────────────────────────────
+  
+  Trois points de vérification : que l'ampleur annoncée soit confirmée, que la consigne
+  donnée aux utilisateurs soit la bonne — dire « réessayez » quand il ne faut pas aggrave
+  l'incident — et que l'heure de la prochaine communication soit tenable.

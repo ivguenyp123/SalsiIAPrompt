@@ -1,0 +1,93 @@
+# Capacité de l'inventaire du hub — module « Restitutions ».
+# besoin : « un agent qui transforme les actions d'un rapport en tickets prêts à créer, un par action »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : un ticket par ligne de rapport. Quarante tickets créés d'un
+# coup encombrent un backlog pour deux ans, personne ne les priorise, et ils
+# finissent fermés en masse « pour faire le ménage » — en emportant les trois qui
+# comptaient.
+#
+# Le second piège : le ticket sans critère de fin. « Améliorer la couverture de
+# tests » ne se ferme jamais. Un ticket a besoin d'un état final observable, sinon
+# il vit indéfiniment.
+id: transformer-un-rapport-en-tickets
+kind: prompt
+title: 'Le rapport en tickets — un par action, prêts à créer'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [depot, produit]
+intent:
+  purpose: >-
+    Transformer les actions d'un rapport en tickets prêts à créer : peu, chacun avec un état final observable et de quoi être fait sans revenir au rapport.
+  not_for: >-
+    Ce n'est pas un ticket par ligne de rapport : quarante tickets créés d'un coup encombrent un backlog pour deux ans et finissent fermés en masse. Et ce n'est pas une priorisation (`prioriser-les-corrections-d-un-depot`).
+model_tier: mid
+target_level: experimental
+variables:
+  - name: rapport_depot
+    source: signal
+    required: true
+    description: >-
+      L'état du dépôt et ses corrections à faire, calculés par la plateforme.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce que je propose de créer'
+      - 'Les tickets'
+      - 'Ce que je n''ai pas transformé'
+spec: |-
+  Tu transformes les actions d'un rapport de dépôt en tickets.
+  
+  {{rapport_depot}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que je propose de créer
+  ## Les tickets
+  ## Ce que je n'ai pas transformé
+  
+  ── LES DEUX RÈGLES ───────────────────────────────────────────────────────
+  
+  CINQ TICKETS AU PLUS. Un backlog qui reçoit quarante tickets d'un coup ne les priorise pas :
+  il les enterre, puis les ferme en masse un jour de ménage, en emportant les trois qui
+  comptaient.
+  
+  CHAQUE TICKET A UN ÉTAT FINAL OBSERVABLE. « Améliorer la couverture de tests » ne se ferme
+  jamais. « Le job de tests échoue quand la couverture du module de facturation passe sous le
+  seuil » se ferme le jour où c'est vrai.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE JE PROPOSE DE CRÉER
+  Trois lignes : combien de tickets, sur quel critère tu as choisi, et ce que tu as laissé de
+  côté. Un lecteur doit pouvoir contester ta sélection avant de créer quoi que ce soit.
+  
+  LES TICKETS
+  Un bloc par ticket, prêt à copier. Chacun :
+  - un TITRE qui dit l'état visé, pas le problème. « Protéger la branche principale contre
+    les poussées directes », pas « pas de protection de branche » ;
+  - LE CONTEXTE en deux phrases : ce qui a été constaté et ce que ça laisse passer. Le
+    ticket doit être compréhensible SANS le rapport — dans trois mois, le rapport n'existera
+    plus ;
+  - CE QU'IL FAUT FAIRE, concret ;
+  - COMMENT ON SAURA QUE C'EST FINI : l'état observable ;
+  - CE QUE ÇA VA GÊNER, quand la correction a un coût pour l'équipe. Un ticket qui cache ça
+    est rouvert deux semaines plus tard.
+  
+  Regroupe ce qui se corrige d'un seul geste : quatre réglages du même écran font UN ticket.
+  Quatre tickets pour quatre cases à cocher, c'est trois tickets de trop.
+  
+  CE QUE JE N'AI PAS TRANSFORMÉ
+  Obligatoire, et c'est ce qui rend la sélection crédible. Ce que le rapport signale et que
+  tu n'as pas transformé, avec la raison : trop vague pour un ticket, dépend d'une décision
+  qui n'est pas prise, relève d'une autre équipe, ou ne mérite tout simplement pas un ticket.
+  
+  Un rapport dont tout devient ticket n'a pas été lu.
