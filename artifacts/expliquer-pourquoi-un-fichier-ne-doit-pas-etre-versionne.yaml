@@ -1,0 +1,96 @@
+# Capacité de l'inventaire du hub — module « Repo Diet ».
+# besoin : « un agent qui explique pourquoi un fichier n'a rien à faire dans un dépôt git »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : réciter la règle. « Les binaires ne se versionnent pas » —
+# c'est vrai, ça ne convainc personne, et surtout ça ne dit pas ce qu'il faut faire
+# à la place. Or celui qui a committé ce fichier avait une raison : il fallait bien
+# qu'il soit quelque part.
+#
+# Un texte qui explique sans proposer l'alternative fait retirer le fichier… puis
+# le fait revenir trois semaines plus tard.
+id: expliquer-pourquoi-un-fichier-ne-doit-pas-etre-versionne
+kind: prompt
+title: 'Pourquoi ce fichier n''a rien à faire dans git'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [depot, hygiene, comprehension]
+intent:
+  purpose: >-
+    Expliquer pourquoi un fichier n'a rien à faire dans un dépôt git : ce que ça coûte concrètement, où il devrait vivre à la place, et ce que son retrait ne réglera pas.
+  not_for: >-
+    Ce n'est pas un rappel de règle : « les binaires ne se versionnent pas » ne convainc personne et ne dit pas où le mettre. Et ce n'est pas un relevé complet du dépôt — pour ça, `le-regime-du-depot`.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: inventaire_fichiers
+    source: repo
+    required: true
+    description: >-
+      La liste des fichiers suivis par git.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce que c''est'
+      - 'Ce que ça coûte'
+      - 'Où ça devrait vivre'
+      - 'Ce que le retrait ne réglera pas'
+spec: |-
+  Tu expliques pourquoi un fichier n'a rien à faire dans un dépôt git.
+  
+  {{inventaire_fichiers}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que c'est
+  ## Ce que ça coûte
+  ## Où ça devrait vivre
+  ## Ce que le retrait ne réglera pas
+  
+  ── LA RÈGLE ──────────────────────────────────────────────────────────────
+  
+  NE RÉCITE PAS LA RÈGLE. « Les binaires ne se versionnent pas » est vrai et sans effet.
+  Celui qui a committé ce fichier avait une raison — il fallait bien qu'il soit quelque part,
+  et souvent il n'y avait pas d'autre endroit disponible. Un texte qui explique sans proposer
+  l'alternative fait retirer le fichier, puis le fait revenir.
+  
+  Écris sans reproche et sans nommer personne.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE C'EST
+  En deux phrases, sans jargon : ce qu'est ce type de fichier et d'où il vient — produit par
+  un build, installé par un gestionnaire de dépendances, généré par un éditeur, exporté d'une
+  base. Cette origine décide de tout ce qui suit.
+  
+  CE QUE ÇA COÛTE
+  Concret, pas moral. Selon le cas :
+  - git garde CHAQUE VERSION : un fichier binaire modifié cinquante fois pèse cinquante fois,
+    parce que git ne sait pas le compresser par différences comme il le fait pour du texte ;
+  - le clone rallonge pour tout le monde, à chaque fois, y compris pour la chaîne CI ;
+  - les diffs deviennent illisibles, et une relecture qui affiche un binaire est une
+    relecture qu'on abandonne ;
+  - deux personnes qui régénèrent le même fichier produisent un conflit qui ne se résout pas ;
+  - et pour une clé, un dump ou un fichier de configuration d'environnement : ce n'est plus
+    une question de poids mais d'exposition.
+  Ne prends que ce qui s'applique.
+  
+  OÙ ÇA DEVRAIT VIVRE
+  La section utile, et elle est obligatoire. Un dépôt d'artefacts pour un binaire produit,
+  un manifeste de dépendances pour ce qui s'installe, Git LFS pour un média nécessaire au
+  projet, un coffre pour un secret, un stockage d'objets pour une donnée. Dis lequel, et ce
+  que ça demande de mettre en place — si l'alternative n'existe pas encore, c'est ÇA le vrai
+  sujet, et le dire évite un débat inutile sur la discipline des gens.
+  
+  CE QUE LE RETRAIT NE RÉGLERA PAS
+  Trois lignes : l'historique garde le fichier, donc le clone reste aussi long ; s'il
+  s'agissait d'un secret, il faut le révoquer et non le retirer ; et quelque chose lit
+  peut-être ce fichier aujourd'hui — une chaîne CI, un script — qu'il faut vérifier avant.

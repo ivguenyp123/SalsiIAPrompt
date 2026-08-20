@@ -1,0 +1,112 @@
+# Capacité de l'inventaire du hub — module « Repo Diet ».
+# besoin : « un agent qui propose un .gitignore adapté aux fichiers réellement présents dans le dépôt »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : le .gitignore générique de trois cents lignes copié depuis
+# un modèle. Il couvre douze langages dont onze absents, personne ne le relit, et
+# il finit par ignorer un fichier qu'on voulait versionner.
+#
+# Le second piège, et c'est le contresens central : un .gitignore N'ENLÈVE PAS ce
+# que git suit déjà. C'est le cas le plus fréquent — la règle est ajoutée après —
+# et un agent qui ne le dit pas laisse croire que le nettoyage est fait.
+id: proposer-un-gitignore
+kind: prompt
+title: 'Un .gitignore pour ce dépôt-là — et ce qu''il n''enlèvera pas'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [depot, hygiene]
+intent:
+  purpose: >-
+    Proposer un `.gitignore` taillé pour les fichiers réellement présents et la pile réellement utilisée — et dire ce qui restera suivi malgré lui, avec le geste qui le retire.
+  not_for: >-
+    Ce n'est pas un modèle générique multi-langages : il couvre ce qui n'existe pas et finit par ignorer ce qu'on voulait versionner. Et ce n'est pas un nettoyage : un `.gitignore` n'enlève rien de ce que git suit déjà — pour ça, `le-regime-du-depot`.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: inventaire_fichiers
+    source: repo
+    required: true
+    description: >-
+      La liste des fichiers suivis par git.
+  - name: stack
+    source: repo
+    required: true
+    description: >-
+      La pile technique du projet, telle que ses manifestes la déclarent.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce que ce dépôt porte vraiment'
+      - 'Le fichier'
+      - 'Ce qui restera suivi malgré lui'
+      - 'Ce que je n''ai pas ignoré, exprès'
+spec: |-
+  Tu proposes un `.gitignore` pour ce dépôt.
+  
+  Les fichiers suivis :
+  {{inventaire_fichiers}}
+  
+  La pile :
+  {{stack}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que ce dépôt porte vraiment
+  ## Le fichier
+  ## Ce qui restera suivi malgré lui
+  ## Ce que je n'ai pas ignoré, exprès
+  
+  ── LES DEUX RÈGLES ───────────────────────────────────────────────────────
+  
+  PAS DE MODÈLE GÉNÉRIQUE. N'écris que des règles qui correspondent à ce que ce dépôt
+  contient ou produit vraiment. Trois cents lignes couvrant douze langages ne sont pas
+  relues, et le jour où une règle trop large ignore un fichier qu'on voulait versionner,
+  personne ne saura d'où elle vient.
+  
+  UN `.gitignore` N'ENLÈVE RIEN DE CE QUI EST DÉJÀ SUIVI. C'est le contresens central du
+  genre, et le cas le plus fréquent — la règle est presque toujours ajoutée après coup. Une
+  section entière lui est réservée.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE CE DÉPÔT PORTE VRAIMENT
+  Ce que la liste des fichiers montre : les sorties de build présentes, les dossiers de
+  dépendances, les réglages d'éditeur, les journaux. Et ce que la pile PRODUIRA même si ce
+  n'est pas encore là. Les deux justifient des règles, mais pas les mêmes — dis lesquelles
+  viennent de quoi.
+  
+  LE FICHIER
+  En bloc de code, groupé par famille avec un commentaire par groupe. Court. Chaque règle
+  correspond à quelque chose de nommé dans la section précédente.
+  
+  Fais attention à la PORTÉE : `build/` à la racine et `build/` n'importe où ne veulent pas
+  dire la même chose, et une règle trop large est celle qui fera disparaître un fichier
+  légitime. Préfère précis à commode.
+  
+  CE QUI RESTERA SUIVI MALGRÉ LUI
+  La section décisive. Les fichiers de la liste que les nouvelles règles couvrent mais que
+  git suit DÉJÀ : ils resteront versionnés, et le dépôt n'aura pas maigri d'un octet.
+  
+  Donne le geste — `git rm --cached` sur ces chemins, en un commit séparé et annoncé, parce
+  qu'il fera disparaître des fichiers chez tous ceux qui tirent. Et rappelle que l'historique
+  les garde de toute façon.
+  
+  CE QUE JE N'AI PAS IGNORÉ, EXPRÈS
+  Ce qu'on ignore souvent à tort et qu'il vaut mieux versionner ici : un fichier de
+  verrouillage de dépendances, une configuration d'éditeur partagée volontairement, un
+  répertoire vide gardé par un fichier témoin, un fichier d'exemple de configuration. Dis
+  pourquoi.
+  
+  ── ET SI TU NE PEUX PAS TRANCHER ─────────────────────────────────────────
+  
+  Un fichier dont tu ne peux pas dire s'il est produit ou écrit à la main ne va pas dans le
+  fichier : il va dans la dernière section, avec la question à poser. Ignorer par erreur un
+  fichier écrit à la main est le pire résultat possible.

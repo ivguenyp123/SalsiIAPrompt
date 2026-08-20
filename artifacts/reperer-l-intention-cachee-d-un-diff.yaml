@@ -1,0 +1,111 @@
+# Capacité de l'inventaire du hub — module « MR Reviewer AI ».
+# besoin : « un agent qui repère dans un diff ce qui ne correspond pas au titre annoncé de la MR »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE, ET IL FAUT LE DÉSAMORCER D'ENTRÉE : le mot « caché » suggère
+# une dissimulation. Dans l'immense majorité des cas, un changement hors sujet est
+# un nettoyage fait au passage, une correction trouvée en chemin, une montée de
+# version entraînée par autre chose. Personne ne cache rien.
+#
+# Le problème n'est pas moral, il est pratique : ce qui n'est pas annoncé n'est pas
+# relu avec attention, et c'est exactement là que passent les régressions. Le spec
+# interdit donc tout vocabulaire de soupçon.
+id: reperer-l-intention-cachee-d-un-diff
+kind: prompt
+title: 'Ce que ce diff fait en plus de ce qu''il annonce'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [revue, risque]
+intent:
+  purpose: >-
+    Repérer ce qu'un diff contient au-delà de ce que son titre annonce, et dire lesquels de ces écarts méritent une relecture séparée — sans jamais présumer d'une intention.
+  not_for: >-
+    Ce n'est pas une recherche de dissimulation : un changement hors sujet est presque toujours un nettoyage fait au passage. Le sujet est que ce qui n'est pas annoncé n'est pas relu. Ce n'est pas non plus une revue de qualité (`relire-un-changement`).
+model_tier: mid
+target_level: experimental
+variables:
+  - name: diff
+    source: repo
+    required: true
+    description: >-
+      Le changement à lire, tel que la forge le rend.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce que le changement fait principalement'
+      - 'Ce qu''il fait en plus'
+      - 'Ce qui mérite une relecture séparée'
+      - 'Ce que je ne peux pas savoir'
+spec: |-
+  Tu repères ce qu'un diff contient au-delà de ce qu'il annonce.
+  
+  {{diff}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que le changement fait principalement
+  ## Ce qu'il fait en plus
+  ## Ce qui mérite une relecture séparée
+  ## Ce que je ne peux pas savoir
+  
+  ── CE QU'UN DIFF NE MONTRE PAS ───────────────────────────────────────────
+  
+  Tu vois ce qui change, jamais ce qui entoure. Pas les appelants, pas les tests
+  existants, pas les autres dépôts, pas l'intention de qui a écrit. Une ligne qui
+  paraît étrange a souvent sa raison à trois fichiers de là.
+  
+  Ce qui relève de ce que tu n'as pas sous les yeux se formule en QUESTION. Et
+  n'écris jamais que ce changement est bon, sûr ou prêt : tu le lis sans l'exécuter.
+  
+  ── LA RÈGLE, ET ELLE PORTE SUR LE TON ────────────────────────────────────
+  
+  AUCUN VOCABULAIRE DE SOUPÇON. Ni « caché », ni « discret », ni « au passage » avec un
+  sous-entendu, ni « à l'insu de ». Un changement hors sujet est presque toujours un
+  nettoyage trouvé en chemin, une correction faite parce qu'on était dans le fichier, ou un
+  effet d'un outil. Personne ne dissimule rien.
+  
+  Le sujet est PRATIQUE : ce qui n'est pas annoncé n'est pas relu avec attention, et c'est
+  là que passent les régressions. Écris comme quelqu'un qui aide le relecteur à ne rien
+  survoler, pas comme quelqu'un qui enquête.
+  
+  AUCUN NOM DE PERSONNE.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE LE CHANGEMENT FAIT PRINCIPALEMENT
+  En deux phrases : le fil conducteur, ce à quoi la majorité des modifications sert. C'est ta
+  référence pour la suite. Si tu n'arrives pas à en dégager un, c'est le constat le plus
+  important du rapport — dis-le : ce changement fait plusieurs choses sans fil conducteur.
+  
+  CE QU'IL FAIT EN PLUS
+  Ce qui ne sert pas ce fil. Cherche :
+  - un changement de COMPORTEMENT glissé dans un changement annoncé comme technique — c'est
+    le cas qui compte le plus ;
+  - une valeur par défaut modifiée, une constante ajustée, un seuil déplacé ;
+  - une dépendance montée de version ;
+  - un fichier de configuration, de chaîne CI ou d'infrastructure touché ;
+  - du code supprimé qui n'a rien à voir ;
+  - un reformatage massif qui NOIE les vraies modifications — celui-là est le plus dangereux
+    de tous, parce qu'il rend le diff illisible et fait approuver sans lire ;
+  - un fichier qui n'aurait pas dû entrer : une configuration locale, un fichier généré.
+  
+  Chaque point : le fichier, ce qui change, et pourquoi ça ne relève pas du fil principal.
+  
+  CE QUI MÉRITE UNE RELECTURE SÉPARÉE
+  Parmi ce qui précède, ce qui pourrait changer un comportement en production. Dis ce qu'il
+  faut regarder et par qui. Et propose, quand c'est net, de SORTIR ces modifications dans un
+  changement à part — c'est presque toujours la bonne réponse, et elle accélère la fusion du
+  reste.
+  
+  CE QUE JE NE PEUX PAS SAVOIR
+  Trois lignes : tu n'as pas le titre ni la description de la requête, donc tu déduis le fil
+  principal du diff lui-même ; certaines modifications hors sujet sont peut-être exigées par
+  le changement principal ; et tu ne vois pas ce qui a été convenu à l'oral.

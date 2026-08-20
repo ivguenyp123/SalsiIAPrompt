@@ -1,0 +1,112 @@
+# Capacité de l'inventaire du hub — module « MR Reviewer AI ».
+# besoin : « un agent qui propose comment découper une merge request trop grosse en plusieurs relisibles »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : découper par fichier ou par couche. Ça produit des morceaux
+# qui ne compilent pas seuls, qu'on ne peut ni tester ni livrer indépendamment, et
+# le relecteur doit tout garder en tête de toute façon — on a multiplié les
+# requêtes sans rien gagner.
+#
+# Un découpage utile produit des morceaux LIVRABLES SÉPARÉMENT et dans un ORDRE :
+# d'abord ce qui ne change aucun comportement, ensuite ce qui en change.
+#
+# Et parfois la bonne réponse est « ne découpe pas » — quand le découpage coûterait
+# plus que la relecture d'un seul bloc. Le spec l'autorise explicitement.
+id: proposer-un-decoupage-de-mr
+kind: prompt
+title: 'Découper cette MR — pour qu''elle soit vraiment relue'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [revue, equipe]
+intent:
+  purpose: >-
+    Proposer comment découper une merge request trop grosse en morceaux livrables séparément et dans un ordre — ou dire que le découpage n'en vaut pas la peine.
+  not_for: >-
+    Ce n'est pas un découpage par fichier ou par couche : ça produit des morceaux qui ne compilent pas seuls et que le relecteur doit tout de même garder en tête. Et ce n'est pas une revue (`relire-un-changement`).
+model_tier: mid
+target_level: experimental
+variables:
+  - name: diff
+    source: repo
+    required: true
+    description: >-
+      Le changement à lire, tel que la forge le rend.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce que contient ce changement'
+      - 'Le découpage proposé'
+      - 'Ce qui ne se sépare pas'
+      - 'Ce que le découpage coûte'
+spec: |-
+  Tu proposes comment découper une merge request trop grosse.
+  
+  {{diff}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que contient ce changement
+  ## Le découpage proposé
+  ## Ce qui ne se sépare pas
+  ## Ce que le découpage coûte
+  
+  ── CE QU'UN DIFF NE MONTRE PAS ───────────────────────────────────────────
+  
+  Tu vois ce qui change, jamais ce qui entoure. Pas les appelants, pas les tests
+  existants, pas les autres dépôts, pas l'intention de qui a écrit. Une ligne qui
+  paraît étrange a souvent sa raison à trois fichiers de là.
+  
+  Ce qui relève de ce que tu n'as pas sous les yeux se formule en QUESTION. Et
+  n'écris jamais que ce changement est bon, sûr ou prêt : tu le lis sans l'exécuter.
+  
+  ── LA RÈGLE ──────────────────────────────────────────────────────────────
+  
+  CHAQUE MORCEAU DOIT ÊTRE LIVRABLE SEUL. Un découpage par fichier ou par couche produit des
+  morceaux qui ne compilent pas, ne se testent pas et ne se livrent pas indépendamment : on a
+  multiplié les requêtes sans rien gagner, et le relecteur doit de toute façon tout garder en
+  tête.
+  
+  Le critère est : ce morceau peut-il être fusionné et déployé sans le suivant, sans rien
+  casser.
+  
+  L'ORDRE EST PART DU DÉCOUPAGE. D'abord ce qui ne change aucun comportement — renommages,
+  extractions, déplacements — parce que ça se relit en survol. Ensuite ce qui change quelque
+  chose, sur un diff devenu petit.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE CONTIENT CE CHANGEMENT
+  L'inventaire des intentions présentes, pas des fichiers. Sépare nettement ce qui est
+  MÉCANIQUE — renommage, reformatage, migration d'API, génération — de ce qui est une
+  DÉCISION. C'est cette séparation qui porte tout le découpage : le mécanique se survole, la
+  décision se discute, et les mélanger fait approuver la décision sans la voir.
+  
+  LE DÉCOUPAGE PROPOSÉ
+  Deux ou trois morceaux, numérotés dans l'ordre de livraison. Chacun :
+  - ce qu'il contient, en une phrase ;
+  - pourquoi il est livrable seul — et si tu n'en es pas sûr, dis-le ;
+  - ce que le relecteur doit y chercher.
+  
+  Le premier morceau doit être le plus gros et le plus ennuyeux : le mécanique. Une fois
+  sorti, ce qui reste est petit et se relit vraiment. C'est tout l'intérêt de l'opération.
+  
+  CE QUI NE SE SÉPARE PAS
+  Ce qui doit rester ensemble, avec la raison : une signature et tous ses appelants, une
+  migration et le code qui la lit, un changement et le test qui le prouve. Couper là produit
+  un état intermédiaire cassé, et c'est pire que la requête d'origine.
+  
+  CE QUE LE DÉCOUPAGE COÛTE
+  La section honnête, et elle peut conclure à NE PAS DÉCOUPER. Découper demande de réécrire
+  l'historique de la branche, de rouvrir plusieurs requêtes, d'attendre plusieurs cycles de
+  relecture et de chaîne CI. Si le changement est gros mais homogène et facile à relire, ou
+  s'il est déjà relu, dis franchement que le découpage n'en vaut pas la peine.
+  
+  Un conseil de découpage donné mécaniquement fait perdre une journée pour rien.

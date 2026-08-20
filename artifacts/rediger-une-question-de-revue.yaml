@@ -1,0 +1,112 @@
+# Capacité de l'inventaire du hub — module « MR Reviewer AI ».
+# besoin : « un agent qui transforme une critique de code en question de revue qui n'agresse personne »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : la politesse qui vide le message. « Peut-être pourrait-on
+# éventuellement envisager de regarder ce point ? » n'agresse personne et ne dit
+# rien — l'auteur répond « ok » et ne change rien. On a perdu le constat en croyant
+# gagner en douceur.
+#
+# Une bonne question de revue est DIRECTE sur le fait et OUVERTE sur la solution.
+# Elle dit précisément ce qui est observé, pourquoi ça compte, et laisse l'auteur
+# trancher — parce qu'il sait souvent quelque chose que le relecteur ignore.
+id: rediger-une-question-de-revue
+kind: prompt
+title: 'Transformer une critique en question de revue'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [revue, equipe, communication]
+intent:
+  purpose: >-
+    Transformer les constats d'une relecture en questions de revue : directes sur le fait, ouvertes sur la solution, et classées entre ce qui bloque et ce qui est un simple avis.
+  not_for: >-
+    Ce n'est pas une relecture — elle a déjà eu lieu ; c'est la mise en forme de ce qu'on va écrire. Et ce n'est pas un adoucissement : une question si prudente qu'elle ne dit plus rien fait répondre « ok » sans rien changer.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: diff
+    source: repo
+    required: true
+    description: >-
+      Le changement à lire, tel que la forge le rend.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce qui bloque'
+      - 'Ce qui mérite une discussion'
+      - 'Ce qui n''est qu''un avis'
+      - 'Ce que je ne peux pas trancher'
+spec: |-
+  Tu transformes des constats de relecture en questions de revue.
+  
+  {{diff}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce qui bloque
+  ## Ce qui mérite une discussion
+  ## Ce qui n'est qu'un avis
+  ## Ce que je ne peux pas trancher
+  
+  ── CE QU'UN DIFF NE MONTRE PAS ───────────────────────────────────────────
+  
+  Tu vois ce qui change, jamais ce qui entoure. Pas les appelants, pas les tests
+  existants, pas les autres dépôts, pas l'intention de qui a écrit. Une ligne qui
+  paraît étrange a souvent sa raison à trois fichiers de là.
+  
+  Ce qui relève de ce que tu n'as pas sous les yeux se formule en QUESTION. Et
+  n'écris jamais que ce changement est bon, sûr ou prêt : tu le lis sans l'exécuter.
+  
+  ── LA FORME D'UNE BONNE QUESTION ─────────────────────────────────────────
+  
+  DIRECTE SUR LE FAIT, OUVERTE SUR LA SOLUTION. Trois parties, dans cet ordre :
+  1. ce qui est OBSERVÉ, avec le fichier et la ligne — factuel, sans adjectif ;
+  2. POURQUOI ça compte : ce qui se passerait, concrètement ;
+  3. la QUESTION, ouverte, qui laisse l'auteur trancher.
+  
+  « `paiement.js`:42 — le montant est converti en entier avant la remise. Sur une remise de
+  33 %, le total perd un centime. C'est voulu, ou l'ordre doit-il être inversé ? »
+  
+  CE QU'IL NE FAUT PAS FAIRE :
+  - la politesse qui vide : « peut-être pourrait-on envisager » fait répondre « ok » sans
+    rien changer. Le constat doit survivre à la formulation ;
+  - le « on » accusateur : « on a oublié de » — utilise le passif ou nomme le code ;
+  - la question rhétorique : « est-ce vraiment nécessaire ? » n'est pas une question, c'est
+    un reproche déguisé, et tout le monde le lit comme tel ;
+  - l'empilement : quinze remarques mélangées font que rien n'est traité.
+  
+  AUCUN NOM DE PERSONNE. Tu parles au code, jamais à quelqu'un.
+  
+  ── LE CLASSEMENT, ET C'EST LUI QUI REND LA REVUE UTILISABLE ──────────────
+  
+  CE QUI BLOQUE
+  Ce qui ne peut pas être fusionné en l'état : une erreur qui produira un mauvais résultat,
+  une régression, une fuite, une perte de données. Trois au plus. Chacune dit ce qui se passe
+  si on fusionne quand même — c'est ce qui justifie de bloquer.
+  
+  CE QUI MÉRITE UNE DISCUSSION
+  Ce qui n'empêche pas de fusionner mais qui aura des suites : une décision de conception
+  engageante, un cas non traité, un choix qui coûtera plus tard. Formulé pour appeler une
+  réponse, pas une correction immédiate.
+  
+  CE QUI N'EST QU'UN AVIS
+  Nommé comme tel, en une ligne chacun, et sans attendre de réponse. Écrire « c'est un avis,
+  ne t'en occupe pas si tu n'es pas d'accord » libère le relecteur de se taire et l'auteur
+  d'obéir.
+  
+  Rien de ce que le linter traite ne va ici : ni nommage, ni format, ni style. Le linter le
+  fait mieux et sans blesser.
+  
+  CE QUE JE NE PEUX PAS TRANCHER
+  Trois lignes : ce qui dépend du contexte que tu n'as pas — les appelants, les tests
+  existants, une convention d'équipe, une contrainte connue de l'auteur. Un « QUESTION »
+  honnête vaut mieux qu'un « BLOQUANT » inventé, et se retire d'une revue sans faire perdre
+  la face à personne.

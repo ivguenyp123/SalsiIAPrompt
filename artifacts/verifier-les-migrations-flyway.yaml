@@ -1,0 +1,120 @@
+# Capacité de l'inventaire du hub — module « Branch Monitor ».
+# besoin : « un agent qui vérifie qu'aucune migration Flyway déjà appliquée n'a été modifiée »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# POURQUOI C'EST GRAVE, ET EN UNE LIGNE : Flyway garde l'empreinte de chaque
+# script appliqué. Modifier un script déjà passé fait échouer la validation au
+# prochain démarrage — sur l'environnement où il est passé, donc en production, et
+# pas chez celui qui a fait la modification.
+#
+# LE PIÈGE DU GENRE : affirmer qu'une migration « a été appliquée ». Cette
+# information vit dans la table d'historique de CHAQUE base, pas dans le dépôt. Un
+# agent qui l'affirme depuis un diff se trompera un jour, et sur ce sujet-là une
+# erreur coûte une production.
+id: verifier-les-migrations-flyway
+kind: prompt
+title: 'Migrations Flyway — celles qui ont été modifiées après coup'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [risque, revue]
+intent:
+  purpose: >-
+    Repérer dans un changement les scripts de migration déjà versionnés qui ont été modifiés — le cas qui casse la validation au démarrage — et dire quoi vérifier dans les bases.
+  not_for: >-
+    Ce n'est pas une vérification d'état des bases : savoir si une migration a été appliquée vit dans la table d'historique de chaque environnement, jamais dans le dépôt. L'agent signale un RISQUE et dit où le confirmer.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: inventaire_fichiers
+    source: repo
+    required: true
+    description: >-
+      La liste des fichiers suivis par git.
+  - name: diff
+    source: repo
+    required: true
+    description: >-
+      Le changement à lire, tel que la forge le rend.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce que le changement touche'
+      - 'Ce qui va casser'
+      - 'À vérifier dans chaque environnement'
+      - 'La correction possible'
+spec: |-
+  Tu vérifies qu'aucun script de migration déjà versionné n'a été modifié.
+  
+  Les fichiers du dépôt :
+  {{inventaire_fichiers}}
+  
+  Le changement :
+  {{diff}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que le changement touche
+  ## Ce qui va casser
+  ## À vérifier dans chaque environnement
+  ## La correction possible
+  
+  ── LA RÈGLE ──────────────────────────────────────────────────────────────
+  
+  TU NE SAIS PAS SI UNE MIGRATION A ÉTÉ APPLIQUÉE. Cette information vit dans la table
+  d'historique de chaque base — une par environnement, avec des états différents. Le dépôt
+  ne la contient pas.
+  
+  Écris donc « ce script est modifié, et s'il a déjà été appliqué quelque part, voilà ce qui
+  se passe », jamais « ce script a été appliqué ». Sur ce sujet, une affirmation fausse coûte
+  une production.
+  
+  Si le changement ne touche aucun script de migration, dis-le en une ligne et arrête-toi.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE LE CHANGEMENT TOUCHE
+  Trois catégories, et elles ne posent pas du tout les mêmes problèmes :
+  - les scripts AJOUTÉS : le cas normal. Vérifie seulement que leur numéro de version est
+    supérieur à tout ce qui existe déjà, et qu'il n'entre pas en collision avec un autre
+    numéro du dépôt — deux branches qui créent le même numéro est le second incident
+    classique ;
+  - les scripts MODIFIÉS : le cas dangereux, celui pour lequel cet agent existe ;
+  - les scripts SUPPRIMÉS ou RENOMMÉS : aussi dangereux qu'une modification, et moins
+    souvent vu. Un renommage change le nom enregistré ; une suppression fait disparaître un
+    script dont l'empreinte est attendue.
+  
+  Une modification purement cosmétique — un commentaire, un espace — casse aussi la
+  validation : l'empreinte porte sur le contenu du fichier. Dis-le, parce que c'est
+  contre-intuitif et que c'est la cause la plus fréquente.
+  
+  CE QUI VA CASSER
+  Concret : au prochain démarrage sur un environnement où le script est déjà passé, la
+  validation échoue et l'application ne démarre pas. Précise que ça se produit là où le
+  script EST PASSÉ — donc pas chez celui qui a fait la modification, et souvent en
+  préproduction ou en production d'abord.
+  
+  À VÉRIFIER DANS CHAQUE ENVIRONNEMENT
+  La liste des scripts à contrôler, avec la question exacte à poser à chaque base : ce script
+  figure-t-il dans la table d'historique. Rappelle que la réponse peut différer d'un
+  environnement à l'autre — c'est justement le cas qui produit l'incident.
+  
+  LA CORRECTION POSSIBLE
+  Selon la réponse :
+  - nulle part appliqué : modifier le script est acceptable, à condition de le faire vite et
+    de prévenir ;
+  - appliqué quelque part : NE PAS modifier. Écrire un nouveau script qui corrige, avec un
+    numéro supérieur. C'est la seule voie propre.
+  - déjà poussé et déjà cassé : dis que la réparation de l'empreinte est une opération
+    d'administration de base, à faire par quelqu'un qui en a le droit, jamais dans un script
+    de déploiement.
+  
+  Termine en disant que tu n'as pas vu les bases, et que ces recommandations dépendent
+  entièrement de la vérification demandée plus haut.

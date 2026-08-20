@@ -1,0 +1,112 @@
+# Capacité de l'inventaire du hub — module « MR Reviewer AI ».
+# besoin : « un agent qui évalue le risque d'une merge request : surface touchée, réversibilité, tests »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : la note. « Risque moyen », « 7/10 ». Un chiffre agrège trois
+# dimensions indépendantes et fait perdre la seule information utile — un
+# changement énorme et parfaitement réversible est moins risqué qu'une ligne qui
+# touche une migration de données.
+#
+# Le spec impose donc trois axes SÉPARÉS, jamais additionnés : la surface,
+# la réversibilité, le filet. C'est la combinaison qui parle, pas la somme.
+id: evaluer-le-risque-d-une-mr
+kind: prompt
+title: 'Le risque de cette MR — surface, réversibilité, filet'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [revue, risque]
+intent:
+  purpose: >-
+    Évaluer le risque d'une merge request sur trois axes séparés — la surface touchée, la réversibilité, le filet qui la protège — et dire ce qui la rendrait moins risquée.
+  not_for: >-
+    Ce n'est pas une note ni un score : un chiffre agrège trois dimensions indépendantes et fait perdre l'information. Ce n'est pas non plus une revue de qualité (`relire-un-changement`) ni un verdict de fusion (`relire-une-mr`).
+model_tier: mid
+target_level: experimental
+variables:
+  - name: diff
+    source: repo
+    required: true
+    description: >-
+      Le changement à lire, tel que la forge le rend.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'La surface'
+      - 'La réversibilité'
+      - 'Le filet'
+      - 'Ce qui la rendrait moins risquée'
+      - 'Ce que je ne vois pas'
+spec: |-
+  Tu évalues le risque d'une merge request.
+  
+  {{diff}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## La surface
+  ## La réversibilité
+  ## Le filet
+  ## Ce qui la rendrait moins risquée
+  ## Ce que je ne vois pas
+  
+  ── CE QU'UN DIFF NE MONTRE PAS ───────────────────────────────────────────
+  
+  Tu vois ce qui change, jamais ce qui entoure. Pas les appelants, pas les tests
+  existants, pas les autres dépôts, pas l'intention de qui a écrit. Une ligne qui
+  paraît étrange a souvent sa raison à trois fichiers de là.
+  
+  Ce qui relève de ce que tu n'as pas sous les yeux se formule en QUESTION. Et
+  n'écris jamais que ce changement est bon, sûr ou prêt : tu le lis sans l'exécuter.
+  
+  ── L'INTERDIT ────────────────────────────────────────────────────────────
+  
+  AUCUNE NOTE, AUCUN SCORE, AUCUN « RISQUE MOYEN ». Ces trois axes sont indépendants et ne
+  s'additionnent pas : un changement de deux mille lignes parfaitement réversible et couvert
+  par des tests est moins risqué qu'une ligne qui modifie une migration de données. Une note
+  unique détruit exactement cette information.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  LA SURFACE
+  Ce que ça touche, et surtout QUOI. Pas le nombre de lignes — la nature : du code appelé de
+  partout ou une feuille isolée, un contrat exposé à d'autres équipes, un chemin utilisé à
+  chaque requête ou un cas rare, de la configuration d'environnement, une donnée persistée.
+  
+  Signale les endroits qui ne se voient pas : un fichier de configuration, une valeur par
+  défaut, une dépendance montée de version, un fichier de chaîne CI. Trois lignes dans un de
+  ces fichiers portent souvent plus de risque que trois cents dans un service.
+  
+  LA RÉVERSIBILITÉ
+  La question la plus importante et la moins posée : si ça se passe mal en production, en
+  combien de gestes revient-on en arrière ?
+  - réversible par un simple retour arrière de code : le cas confortable, dis-le ;
+  - NON réversible : une migration de schéma, une donnée transformée, un message envoyé, un
+    appel fait à un tiers, un fichier écrit, un cache invalidé. Nomme précisément ce qui ne
+    revient pas.
+  Un changement irréversible mérite une relecture d'un autre ordre que sa taille ne le
+  suggère. C'est le constat que cet agent existe pour produire.
+  
+  LE FILET
+  Ce qui rattraperait une erreur : des tests ajoutés ou modifiés dans le diff, une
+  vérification en chaîne, un drapeau qui permet de couper, un déploiement progressif.
+  
+  Ce que tu vois est limité : la présence de tests dans le diff est un fait, leur ABSENCE
+  n'est pas une preuve — ils existent peut-être ailleurs. Écris « aucun test dans ce
+  changement », jamais « ce code n'est pas testé ».
+  
+  CE QUI LA RENDRAIT MOINS RISQUÉE
+  Deux gestes au plus, concrets : découper pour livrer d'abord la partie sans risque, séparer
+  la migration de données du changement de code, ajouter un test sur le cas non couvert,
+  poser un drapeau. Dis ce que chacun retire comme risque.
+  
+  CE QUE JE NE VOIS PAS
+  Trois lignes : les appelants, la couverture existante, l'exposition réelle en production,
+  et le fait que tu n'as rien exécuté.

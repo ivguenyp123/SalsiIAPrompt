@@ -1,0 +1,108 @@
+# Capacité de l'inventaire du hub — module « Branch Monitor ».
+# besoin : « un agent qui déduit la convention de nommage réellement pratiquée et l'écrit noir sur blanc »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : proposer LA bonne convention, celle des articles de blog.
+# Une convention imposée d'en haut renomme les habitudes de tout le monde sans rien
+# apporter, et elle sera suivie trois semaines.
+#
+# Ce qu'on demande ici est l'inverse : LIRE ce qui se pratique déjà et l'écrire.
+# Une convention qui décrit l'usage majoritaire est adoptée le jour même, parce que
+# la plupart des gens la respectent déjà sans le savoir.
+#
+# Le second piège : présenter une majorité comme une règle. Si 60 % des branches
+# suivent un motif, la convention n'existe pas encore — le dire est plus utile que
+# de la décréter.
+id: rediger-la-convention-de-nommage-de-branches
+kind: prompt
+title: 'La convention de nommage — celle qu''on pratique déjà'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [equipe, qualite]
+intent:
+  purpose: >-
+    Déduire la convention de nommage de branches réellement pratiquée dans ce dépôt et l'écrire noir sur blanc, avec les proportions observées et ce qui reste à trancher.
+  not_for: >-
+    Ce n'est pas une convention idéale importée d'ailleurs : une règle imposée renomme les habitudes de tout le monde et tient trois semaines. Et ça ne décrète rien — une majorité observée n'est pas une règle, et l'agent le dit.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: inventaire_branches
+    source: repo
+    required: true
+    description: >-
+      Les branches du dépôt, avec leur âge et leur divergence.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce qui se pratique'
+      - 'La convention proposée'
+      - 'Ce qui n''est pas tranché'
+      - 'Comment la faire tenir'
+spec: |-
+  Tu déduis la convention de nommage de branches réellement pratiquée, et tu l'écris.
+  
+  {{inventaire_branches}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce qui se pratique
+  ## La convention proposée
+  ## Ce qui n'est pas tranché
+  ## Comment la faire tenir
+  
+  ── LA RÈGLE ──────────────────────────────────────────────────────────────
+  
+  TU DÉCRIS, TU N'IMPOSES PAS. La convention que tu proposes doit être celle que la majorité
+  suit DÉJÀ. Une règle importée d'ailleurs oblige tout le monde à changer d'habitude sans
+  rien gagner, et elle sera abandonnée avant la fin du mois.
+  
+  DONNE LES PROPORTIONS, TOUJOURS. « La plupart des branches commencent par un type suivi
+  d'un slash — vingt-huit sur trente-cinq » se discute ; « les branches commencent par un
+  type » est faux dès le premier contre-exemple, et quelqu'un le trouvera.
+  
+  Et si aucun motif ne domine vraiment, DIS-LE : « il n'y a pas de convention à ce jour »
+  est un constat utile, bien plus honnête qu'une règle décrétée à partir de 40 % des cas.
+  
+  AUCUN NOM DE PERSONNE, et aucun jugement sur les branches mal nommées.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUI SE PRATIQUE
+  L'observation, chiffrée. Regarde : la présence d'un préfixe de type, le séparateur employé,
+  la casse, la présence d'une référence de ticket et sa position, la longueur habituelle, la
+  langue. Chaque constat avec sa proportion.
+  
+  Signale les groupes minoritaires cohérents : deux personnes qui suivent le même autre
+  motif ne sont pas du désordre, c'est une deuxième convention — et c'est ce qu'il faudra
+  trancher.
+  
+  LA CONVENTION PROPOSÉE
+  Écrite comme une règle, courte, avec deux ou trois exemples tirés des VRAIES branches du
+  dépôt. Des exemples réels valent dix explications, et ils prouvent que la règle n'est pas
+  inventée.
+  
+  Précise ce qui est OBLIGATOIRE et ce qui est CONSEILLÉ. Tout rendre obligatoire fait
+  échouer la fusion pour une majuscule, et c'est ainsi qu'une convention se fait désactiver.
+  
+  CE QUI N'EST PAS TRANCHÉ
+  La section honnête : ce sur quoi deux pratiques coexistent sans qu'aucune ne domine, ce que
+  la matière ne permet pas d'observer. C'est ce que l'équipe doit décider, et l'écrire vaut
+  mieux que de choisir à sa place.
+  
+  COMMENT LA FAIRE TENIR
+  Deux ou trois lignes. Une convention écrite nulle part n'existe pas ; une convention
+  vérifiée automatiquement se respecte. Dis où l'écrire — le CONTRIBUTING — et si une
+  vérification en chaîne se justifie, en pesant honnêtement le coût : refuser une fusion pour
+  un nom de branche est agaçant, et l'agacement produit des contournements.
+  
+  Et rappelle que renommer les branches EXISTANTES n'a aucun intérêt : la convention vaut
+  pour les prochaines.

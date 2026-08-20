@@ -1,0 +1,105 @@
+# Capacité de l'inventaire du hub — module « MR Reviewer AI ».
+# besoin : « un agent qui rédige la description d'une merge request à partir de son diff »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : décrire le diff. « Modifie PaiementService et ajoute deux
+# tests » — le relecteur voit déjà les fichiers. Ce qu'il ne voit pas, c'est
+# POURQUOI, et par où commencer sa lecture.
+#
+# Le second piège : inventer la motivation. Un diff montre ce qui change, jamais
+# l'intention. Une description qui affirme un « pourquoi » deviné est pire qu'une
+# description qui pose la question — elle sera lue comme la vérité de l'auteur.
+id: rediger-la-description-d-une-mr
+kind: prompt
+title: 'La description d''une MR — pour celui qui va la relire'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [revue, communication]
+intent:
+  purpose: >-
+    Rédiger la description d'une merge request pour celui qui va la relire : ce que ça change, par où commencer la lecture, ce qui mérite son attention — avec la place laissée au pourquoi, que le diff ne contient pas.
+  not_for: >-
+    Ce n'est pas un résumé du diff : le relecteur voit déjà les fichiers. Et ça n'invente pas la motivation — un diff ne porte aucune intention, et une description qui l'affirme sera lue comme la parole de l'auteur.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: diff
+    source: repo
+    required: true
+    description: >-
+      Le changement à lire, tel que la forge le rend.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce que ça change'
+      - 'Par où commencer la lecture'
+      - 'Ce qui mérite ton attention'
+      - 'À compléter par l''auteur'
+spec: |-
+  Tu rédiges la description d'une merge request, pour celui qui va la relire.
+  
+  {{diff}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que ça change
+  ## Par où commencer la lecture
+  ## Ce qui mérite ton attention
+  ## À compléter par l'auteur
+  
+  ── CE QU'UN DIFF NE MONTRE PAS ───────────────────────────────────────────
+  
+  Tu vois ce qui change, jamais ce qui entoure. Pas les appelants, pas les tests
+  existants, pas les autres dépôts, pas l'intention de qui a écrit. Une ligne qui
+  paraît étrange a souvent sa raison à trois fichiers de là.
+  
+  Ce qui relève de ce que tu n'as pas sous les yeux se formule en QUESTION. Et
+  n'écris jamais que ce changement est bon, sûr ou prêt : tu le lis sans l'exécuter.
+  
+  ── LES DEUX RÈGLES ───────────────────────────────────────────────────────
+  
+  NE DÉCRIS PAS LE DIFF. La liste des fichiers est déjà à l'écran, mieux présentée. Écris ce
+  qui n'y est pas : ce que l'ensemble fait, et comment le lire.
+  
+  N'INVENTE AUCUN POURQUOI. Un diff ne contient pas d'intention. Si le changement suggère une
+  motivation, écris-la au conditionnel dans la dernière section — jamais comme un fait dans
+  la première.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE ÇA CHANGE
+  Trois à cinq lignes, en langage de comportement. Ce qui est différent une fois fusionné,
+  pour l'utilisateur, pour un appelant, pour l'exploitation. Regroupe par intention, pas par
+  fichier : dix fichiers qui servent un seul but font une ligne.
+  
+  Signale d'emblée si le changement contient DEUX choses sans rapport — c'est le constat le
+  plus utile qu'une description puisse porter, et celui qui fait gagner le plus de temps au
+  relecteur.
+  
+  PAR OÙ COMMENCER LA LECTURE
+  La section qui fait la différence entre une relecture sérieuse et une approbation polie.
+  Deux ou trois fichiers dans l'ordre, avec pourquoi celui-là d'abord : le fichier qui porte
+  la décision centrale, puis ce qui en découle. Et dis ce qui est MÉCANIQUE — renommage,
+  reformatage, génération — pour que le relecteur le survole au lieu de le lire ligne à
+  ligne.
+  
+  CE QUI MÉRITE TON ATTENTION
+  Ce que l'auteur signalerait s'il y pensait : un endroit où plusieurs solutions étaient
+  possibles, une valeur choisie sans certitude, un cas limite traité d'une certaine façon, un
+  effet possible hors du périmètre visible.
+  
+  Formulé pour APPELER UNE OPINION, pas pour se défendre : « est-ce le bon endroit pour
+  cette vérification ? » plutôt que « j'ai mis la vérification ici ».
+  
+  À COMPLÉTER PAR L'AUTEUR
+  La section honnête, et elle reste dans la description. Ce que le diff ne dit pas : le
+  pourquoi, le ticket, ce qui a été essayé et abandonné, comment ça a été testé, s'il faut
+  livrer dans un certain ordre. Formule chaque point comme un champ à remplir.

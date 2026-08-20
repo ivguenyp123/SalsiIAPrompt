@@ -1,0 +1,107 @@
+# Capacité de l'inventaire du hub — module « Repo Diet ».
+# besoin : « un agent qui estime ce qu'on gagne à nettoyer un dépôt, en poids et en temps de clone »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# ── LA DEMANDE CONTIENT UNE PROMESSE INTENABLE, ET L'AGENT LE DIT ───────────
+#
+# L'entrée d'inventaire demande une estimation « en poids et en temps de clone ».
+# La matière ne porte AUCUN octet : la liste d'arbre des deux forges rend des
+# chemins, et GitLab n'expose pas de taille. Une seconde de clone n'est mesurable
+# nulle part ici.
+#
+# On n'écarte pas la capacité pour autant — la question derrière est bonne : est-ce
+# que ça vaut le coup. Mais l'agent répond avec ce qu'il a, dit ce qu'il n'a pas, et
+# donne la commande exacte qui produirait les vrais chiffres. « Déduit ne vaut pas
+# mesuré », et une estimation inventée sur un sujet de poids se fait démentir en
+# trente secondes par un `du -sh`.
+id: estimer-le-gain-d-un-nettoyage
+kind: prompt
+title: 'Ce que le nettoyage rapportera — et ce qui ne se chiffre pas d''ici'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [depot, hygiene]
+intent:
+  purpose: >-
+    Dire ce qu'un nettoyage de dépôt rapporterait vraiment — en fichiers, en lisibilité, en risque — et donner les commandes qui produiraient les chiffres de poids qu'aucune matière ici ne contient.
+  not_for: >-
+    Ce n'est pas un chiffrage en mégaoctets ni en secondes de clone : la matière ne porte aucun octet, et un tel chiffre serait inventé. Ce n'est pas non plus le relevé complet (`le-regime-du-depot`) ni la procédure de retrait.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: inventaire_fichiers
+    source: repo
+    required: true
+    description: >-
+      La liste des fichiers suivis par git.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce qui se compte ici'
+      - 'Ce que le nettoyage change vraiment'
+      - 'Ce que je ne peux pas chiffrer'
+      - 'Les commandes qui donneraient les vrais chiffres'
+spec: |-
+  Tu dis ce qu'un nettoyage de ce dépôt rapporterait.
+  
+  {{inventaire_fichiers}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce qui se compte ici
+  ## Ce que le nettoyage change vraiment
+  ## Ce que je ne peux pas chiffrer
+  ## Les commandes qui donneraient les vrais chiffres
+  
+  ── L'INTERDIT, ET IL PORTE SUR LA QUESTION POSÉE ─────────────────────────
+  
+  ON TE DEMANDE UN GAIN « EN POIDS ET EN TEMPS DE CLONE ». TU N'AS AUCUN OCTET. La liste
+  donne des chemins, pas des tailles ; aucune durée n'a été mesurée.
+  
+  N'écris donc ni mégaoctets, ni secondes, ni pourcentage de réduction. Dis-le franchement
+  dès la première section, et compense avec la dernière : les commandes exactes qui
+  produiront ces chiffres en trente secondes chez celui qui lit.
+  
+  Un chiffre inventé sur un sujet de poids est démenti immédiatement par un `du -sh`, et il
+  emporte avec lui la crédibilité de tout le reste du rapport.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUI SE COMPTE ICI
+  Ce que tu peux compter, et rien d'autre : combien de fichiers relèvent d'une famille qui
+  n'a rien à faire dans un dépôt, dans quelles zones ils se concentrent, quelle part du
+  nombre total ils représentent. Des FICHIERS, jamais des octets.
+  
+  Dis en une phrase, ici, que les tailles ne sont pas dans la matière.
+  
+  CE QUE LE NETTOYAGE CHANGE VRAIMENT
+  Le gain non chiffrable mais réel, et souvent plus important que le poids :
+  - les recherches dans le dépôt cessent de remonter du bruit ;
+  - les diffs redeviennent lisibles, donc les relectures se font vraiment ;
+  - un nouvel arrivant voit le code au lieu de voir un entrepôt ;
+  - les conflits sur des fichiers régénérés disparaissent ;
+  - et s'il y a une clé ou un dump : ce n'est pas un gain de poids, c'est une exposition qui
+    s'arrête — dis-le à part, ça ne se met pas dans la même balance.
+  
+  Dis aussi ce que le nettoyage NE change pas : le temps de clone reste identique tant que
+  l'historique n'est pas réécrit, ce qui est une tout autre opération.
+  
+  CE QUE JE NE PEUX PAS CHIFFRER
+  Explicite : le poids du dépôt, la taille de chaque famille, le temps de clone avant et
+  après, le coût de stockage. Aucun de ces chiffres n'est déductible de ce que tu as.
+  
+  LES COMMANDES QUI DONNERAIENT LES VRAIS CHIFFRES
+  La section qui rend l'agent utile malgré la limite. Les commandes concrètes, prêtes à
+  coller, qui mesurent : la taille du dépôt cloné, la taille de l'objet git, les plus gros
+  objets de l'historique, le temps d'un clone. Dis pour chacune ce qu'elle répond.
+  
+  Précise que les plus gros objets de l'HISTORIQUE et les plus gros fichiers ACTUELS sont
+  deux mesures différentes — et que c'est la première qui décide si une réécriture
+  d'historique se justifie.

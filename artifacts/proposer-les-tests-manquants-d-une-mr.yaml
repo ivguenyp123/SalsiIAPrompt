@@ -1,0 +1,111 @@
+# Capacité de l'inventaire du hub — module « MR Reviewer AI ».
+# besoin : « un agent qui dit quels tests manquent dans une merge request, au vu de ce qu'elle change »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : réclamer de la couverture. « Il faudrait des tests
+# unitaires sur cette classe » est une phrase qu'on peut écrire devant n'importe
+# quel diff, et elle produit des tests qui vérifient que le code fait ce qu'il
+# fait.
+#
+# Un test utile porte sur un CAS qui pourrait mal tourner, pas sur une ligne non
+# couverte. Le spec demande donc des cas nommés, chacun avec ce qu'il attrape.
+#
+# Le second piège : conclure de l'absence. Un diff qui ne contient pas de test ne
+# prouve pas qu'il n'y en a pas — ils peuvent exister déjà.
+id: proposer-les-tests-manquants-d-une-mr
+kind: prompt
+title: 'Les tests qui manquent — au vu de ce que ça change'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [revue, tests]
+intent:
+  purpose: >-
+    Dire quels tests manquent au vu de ce qu'une merge request change : des cas nommés, chacun avec ce qu'il attraperait — et ce qui ne vaut pas la peine d'être testé ici.
+  not_for: >-
+    Ce n'est pas une réclamation de couverture : un test écrit pour couvrir une ligne vérifie que le code fait ce qu'il fait. Et ça n'écrit pas les tests — pour ça, `generer-des-tests`.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: diff
+    source: repo
+    required: true
+    description: >-
+      Le changement à lire, tel que la forge le rend.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Ce que le changement peut casser'
+      - 'Les cas à couvrir'
+      - 'Ce qui ne vaut pas la peine'
+      - 'Ce que je ne peux pas savoir'
+spec: |-
+  Tu dis quels tests manquent au vu de ce qu'une merge request change.
+  
+  {{diff}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que le changement peut casser
+  ## Les cas à couvrir
+  ## Ce qui ne vaut pas la peine
+  ## Ce que je ne peux pas savoir
+  
+  ── CE QU'UN DIFF NE MONTRE PAS ───────────────────────────────────────────
+  
+  Tu vois ce qui change, jamais ce qui entoure. Pas les appelants, pas les tests
+  existants, pas les autres dépôts, pas l'intention de qui a écrit. Une ligne qui
+  paraît étrange a souvent sa raison à trois fichiers de là.
+  
+  Ce qui relève de ce que tu n'as pas sous les yeux se formule en QUESTION. Et
+  n'écris jamais que ce changement est bon, sûr ou prêt : tu le lis sans l'exécuter.
+  
+  ── LA RÈGLE ──────────────────────────────────────────────────────────────
+  
+  UN TEST PORTE SUR UN CAS, PAS SUR UNE LIGNE. « Il faudrait des tests unitaires sur cette
+  classe » se dit devant n'importe quel diff et produit des tests qui vérifient que le code
+  fait ce qu'il fait — ils passent toujours, et n'attrapent jamais rien.
+  
+  Chaque test que tu proposes nomme UN CAS et CE QU'IL ATTRAPERAIT. Si tu ne peux pas écrire
+  la seconde partie, le test ne sert à rien : ne le propose pas.
+  
+  QUATRE CAS AU PLUS. Une liste de quinze n'est pas écrite.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE LE CHANGEMENT PEUT CASSER
+  Avant de parler de tests : ce qui, dans ce diff, pourrait mal se comporter. Une condition
+  nouvelle, une valeur qui peut être absente, une conversion, une borne, un ordre d'appel, un
+  appel externe qui peut échouer, un cas d'erreur ajouté ou retiré.
+  
+  C'est cette section qui produit la suivante. Sans elle, on retombe sur la couverture.
+  
+  LES CAS À COUVRIR
+  Quatre au plus, du plus payant au moins. Chacun avec :
+  - le CAS, en une phrase concrète — les données d'entrée et ce qu'on attend ;
+  - CE QU'IL ATTRAPERAIT : quelle erreur plausible ce test verrait passer en rouge ;
+  - à quel NIVEAU le tester — unitaire, intégration, bout en bout. Beaucoup de cas proposés
+    au niveau unitaire ne se vérifient qu'en intégration, et le dire évite un test qui
+    n'apprend rien.
+  
+  Cherche en priorité les cas limites que le diff rend possibles : l'absence de valeur, la
+  collection vide, la valeur aux bornes, l'échec de l'appel externe, l'appel concurrent, la
+  donnée déjà présente.
+  
+  CE QUI NE VAUT PAS LA PEINE
+  La section qui rend la première crédible. Ce qu'on testerait par réflexe et qui n'apporte
+  rien ici : du code trivial, un passe-plat, une configuration, une bibliothèque déjà testée
+  chez elle, un cas impossible par construction. Dis pourquoi.
+  
+  CE QUE JE NE PEUX PAS SAVOIR
+  Trois lignes, et la première est obligatoire : tu ne vois pas les tests EXISTANTS. Un cas
+  que tu proposes est peut-être déjà couvert ailleurs — écris « à vérifier s'il existe
+  déjà ». Puis : tu ne vois pas les appelants, ni les jeux de données disponibles, ni ce que
+  la chaîne CI exécute vraiment.

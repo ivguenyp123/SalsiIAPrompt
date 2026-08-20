@@ -1,0 +1,100 @@
+# Capacité de l'inventaire du hub — module « Branch Monitor ».
+# besoin : « un agent qui rédige le message annonçant la suppression de branches, avec le délai de grâce »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : l'annonce qui liste quarante branches et donne trois jours.
+# Personne ne lit quarante lignes, personne ne réagit en trois jours, et la
+# suppression détruit du travail que quelqu'un comptait reprendre.
+#
+# Le second piège : dire « supprimées » sans dire que c'est RÉCUPÉRABLE. Une
+# branche fusionnée dont on supprime la référence n'est pas perdue — le commit
+# existe toujours. Le dire calme immédiatement la moitié des inquiétudes, et évite
+# les demandes en urgence.
+id: rediger-l-annonce-de-suppression-de-branches
+kind: prompt
+title: 'L''annonce de suppression de branches — avec un vrai délai de grâce'
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [equipe, communication]
+intent:
+  purpose: >-
+    Rédiger le message qui annonce une suppression de branches : ce qui part, comment garder quelque chose, jusqu'à quand — et le fait que rien de fusionné n'est réellement perdu.
+  not_for: >-
+    Ce n'est pas l'analyse des branches (`verification-branches-mortes`, `identifie-les-branches-mortes`) ni une décision de supprimer. C'est le message qui accompagne une décision déjà prise.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: inventaire_branches
+    source: repo
+    required: true
+    description: >-
+      Les branches du dépôt, avec leur âge et leur divergence.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - 'Le message'
+      - 'Les branches concernées'
+      - 'Ce qu''il faut vérifier avant d''envoyer'
+spec: |-
+  Tu rédiges le message annonçant une suppression de branches.
+  
+  {{inventaire_branches}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Le message
+  ## Les branches concernées
+  ## Ce qu'il faut vérifier avant d'envoyer
+  
+  ── LES DEUX RÈGLES ───────────────────────────────────────────────────────
+  
+  LE MESSAGE EST COURT, LA LISTE EST À PART. Une annonce qui commence par quarante lignes de
+  noms de branches n'est pas lue, et la personne concernée par la troisième ne le saura
+  jamais. Le message tient en un paragraphe ; la liste est en dessous, ou en lien.
+  
+  DIS QUE C'EST RÉCUPÉRABLE. Supprimer une référence de branche ne détruit pas les commits :
+  tant qu'ils ont été fusionnés, le travail est dans l'historique de la branche principale.
+  Et même pour du non fusionné, la référence est récupérable pendant un temps. Le dire calme
+  la moitié des inquiétudes et évite les demandes en urgence — l'omettre transforme une
+  opération d'hygiène en incident social.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  LE MESSAGE
+  Prêt à coller dans un canal d'équipe. Un paragraphe, et dans cet ordre :
+  - CE QUI VA SE PASSER et pourquoi, en une phrase — sans sermon sur l'hygiène des dépôts ;
+  - CE QUI EST CONCERNÉ, décrit par un CRITÈRE et non par une liste : « les branches
+    fusionnées depuis plus de trois mois ». Un critère se vérifie soi-même, une liste se
+    parcourt ;
+  - COMMENT GARDER quelque chose : le geste exact, en une ligne, que quelqu'un peut faire
+    sans réfléchir ;
+  - LA DATE, précise. Pas « prochainement ». Et un délai qui traverse un cycle de congés
+    raisonnable — deux semaines au minimum, davantage en période de vacances ;
+  - QUE RIEN DE FUSIONNÉ N'EST PERDU, en une phrase, et à qui écrire en cas de doute.
+  
+  Pas d'emoji, pas de ton comminatoire. C'est une opération de ménage, pas une mise en
+  demeure.
+  
+  LES BRANCHES CONCERNÉES
+  La liste, à part du message. Groupée par situation — fusionnées, jamais fusionnées et
+  inactives, sans propriétaire identifiable — parce que ces trois groupes n'appellent pas la
+  même réaction.
+  
+  Et signale à part celles qui ne devraient PAS partir même si le critère les attrape : une
+  branche de version, une branche de correctif de production, une branche qui porte du
+  travail non fusionné et récent. Un critère automatique n'a pas de jugement ; c'est là que
+  tu sers.
+  
+  CE QU'IL FAUT VÉRIFIER AVANT D'ENVOYER
+  Trois ou quatre points : qu'aucune branche protégée ne soit dans la liste, qu'aucune ne
+  serve de cible à une requête de fusion ouverte, qu'aucune ne soit référencée dans une
+  configuration de déploiement, et que la date proposée ne tombe pas en pleine période de
+  congés.
