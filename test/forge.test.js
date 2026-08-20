@@ -66,17 +66,54 @@ describe('GitLab', () => {
     assert.equal(fetchImpl.calls[0].params.membership, 'true');
   });
 
-  test('listFiles normalise l\'arbre GitLab', async () => {
+  test('listFiles normalise l\'arbre GitLab, et rend l\'empreinte du blob', async () => {
+    /*
+     * `sha` n'est pas décoratif : c'est lui qui permet de ne pas relire un fichier
+     * inchangé. Sans lui, ouvrir le catalogue coûtait un appel par artefact — cent
+     * quarante-deux appels, et la limite de la forge atteinte en une poignée de visites.
+     */
     const fetchImpl = fakeFetch({ '/api/v4/projects/42/repository/tree': [
-      { name: 'a.yaml', path: 'artifacts/a.yaml', type: 'blob' },
+      { name: 'a.yaml', path: 'artifacts/a.yaml', type: 'blob', id: 'abc123' },
       { name: 'sous', path: 'artifacts/sous', type: 'tree' }
     ] });
     const files = await createForge(GITLAB, fetchImpl).listFiles('42', 'artifacts');
     assert.deepEqual(files, [
-      { name: 'a.yaml', path: 'artifacts/a.yaml', type: 'file' },
-      { name: 'sous', path: 'artifacts/sous', type: 'dir' }
+      { name: 'a.yaml', path: 'artifacts/a.yaml', sha: 'abc123', type: 'file' },
+      { name: 'sous', path: 'artifacts/sous', sha: '', type: 'dir' }
     ]);
     assert.equal(fetchImpl.calls[0].params.ref, 'main');
+  });
+
+  test('une liste GitLab NE S\'ARRÊTE PAS à cent', async () => {
+    /*
+     * LE DÉFAUT QUI MENT PLUTÔT QUE DE CASSER.
+     *
+     * `per_page: 100` sans page suivante : tant que le registre tenait sous cent
+     * artefacts, personne ne l'a vu. À cent quarante-deux, GitLab en rendait cent et le
+     * catalogue annonçait « 100 capacités » sans un mot sur les quarante-deux absentes.
+     *
+     * Le même défaut rendait faux tout ce que `code_du_depot` dit de la carte d'un dépôt
+     * de plus de cent fichiers — c'est-à-dire de presque tous.
+     */
+    const page1 = Array.from({ length: 100 }, (_, i) =>
+      ({ name: `f${i}.yaml`, path: `artifacts/f${i}.yaml`, type: 'blob', id: `s${i}` }));
+    const page2 = [{ name: 'dernier.yaml', path: 'artifacts/dernier.yaml', type: 'blob', id: 'z' }];
+
+    let appels = 0;
+    const fetchImpl = fakeFetch({});
+    const parPage = { 1: page1, 2: page2 };
+    const enrobe = async (url, opts) => {
+      appels += 1;
+      const page = Number(new URL(url).searchParams.get('page')) || 1;
+      return { ok: true, status: 200, json: async () => parPage[page] || [],
+               text: async () => '', headers: { get: () => null } };
+    };
+    enrobe.calls = fetchImpl.calls;
+
+    const files = await createForge(GITLAB, enrobe).listFiles('42', 'artifacts');
+    assert.equal(files.length, 101, 'la page suivante est bien allée chercher le dernier');
+    assert.equal(appels, 2, 'et on s\'arrête dès qu\'une page revient incomplète');
+    assert.equal(files.at(-1).name, 'dernier.yaml');
   });
 
   test('un fichier absent renvoie null, ce n\'est pas une erreur', async () => {

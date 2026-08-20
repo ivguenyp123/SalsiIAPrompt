@@ -54,6 +54,7 @@ import { analyseRegime, resumeRegime } from '../lib/signaux-regime.js';
 import { executionCi, resumeExecution } from '../lib/signaux-execution.js';
 import { rapportVulnerabilites, resumeVulnerabilites } from '../lib/signaux-vulnerabilites.js';
 import { ficheDe, matieres as matieresDe, voisins, direLeRapprochement } from '../lib/capacites.js';
+import { cacheFichiers, stockageLocal } from '../lib/cache-fichiers.js';
 import { historiquePipelines, resumeHistorique,
          MAX_EXECUTIONS, FENETRE_JOURS as FENETRE_PIPELINES } from '../lib/signaux-pipelines.js';
 import { etatBranche, resumeBranche } from '../lib/signaux-branche.js';
@@ -200,8 +201,7 @@ async function load() {
   // Chargement en parallèle : un fichier illisible ne doit pas emporter les autres.
   items = (await Promise.all(files.map(async (file) => {
     try {
-      const found = await forge.getFile(repo, file.path);
-      const artifact = yaml.parse(found.content);
+      const artifact = yaml.parse(await contenuDe(repo, file));
       // L'index est calculé UNE FOIS. Replier les accents de cent trente artefacts à
       // chaque touche du clavier se sent.
       return { file, artifact, index: indexer(artifact),
@@ -254,6 +254,34 @@ async function load() {
  * Le lint tourne dessus exactement comme sur le reste : le fichier a beau être à moi, il
  * n'a aucun privilège. Et le pré-vol tournera au lancement, où qu'il vive.
  */
+/**
+ * ── UN APPEL PAR ARTEFACT, C'ÉTAIT LA LIMITE D'APPELS AU BOUT DE QUELQUES VISITES ──
+ *
+ * À quarante-cinq agents, lire chaque fichier à chaque ouverture ne se voyait pas. À cent
+ * quarante-deux, quelques visites suffisent à épuiser le quota de la forge — et alors
+ * TOUT s'arrête pendant une heure, y compris ce qui n'a rien à voir avec le catalogue.
+ *
+ * Le listing rend déjà, en UN appel, le chemin ET l'empreinte de chaque fichier. Une
+ * empreinte inchangée veut dire un contenu inchangé : c'est la définition d'un objet git,
+ * pas une heuristique. On peut donc servir depuis le cache sans rien revérifier.
+ *
+ * Une forge qui ne rendrait pas d'empreinte retombe sur l'appel : `lu(undefined)` rend
+ * `null` et `range(undefined, …)` refuse. Le cache devient sans effet — jamais faux.
+ */
+const cache = cacheFichiers(stockageLocal());
+
+/** Ce que cette ouverture a coûté. Affiché au survol du compte — un chiffre, pas une promesse. */
+const cout = { servis: 0, appels: 0 };
+
+async function contenuDe(repo, file) {
+  const garde = cache.lu(file.sha);
+  if (garde !== null) { cout.servis += 1; return garde; }
+  cout.appels += 1;
+  const contenu = (await forge.getFile(repo, file.path)).content;
+  cache.range(file.sha, contenu);
+  return contenu;
+}
+
 async function chargerMiens(repo) {
   const qui = session.username;
   const dossiers = [dossierMien(qui, 'prompt'), dossierMien(qui, 'chain')];
@@ -265,7 +293,7 @@ async function chargerMiens(repo) {
 
       return (await Promise.all(fichiers.map(async (file) => {
         try {
-          const artifact = yaml.parse((await forge.getFile(repo, file.path)).content);
+          const artifact = yaml.parse(await contenuDe(repo, file));
           if (!artifact?.id) return null;
           return { file, artifact, index: indexer(artifact), personnel: true,
                    report: lint(artifact, { ...ctx, artifacts: [] }) };
@@ -441,6 +469,18 @@ function render() {
   $('count').textContent = trouves.length === items.length
     ? `${items.length} capacité(s)`
     : `${trouves.length} sur ${items.length}`;
+
+  /*
+   * CE QUE L'OUVERTURE A COÛTÉ, au survol.
+   *
+   * La limite d'appels de la forge est arrivée pour de vrai, et elle arrête tout pendant
+   * une heure. Le chiffre est donc écrit quelque part — sinon la seule façon de savoir si
+   * le cache sert est de la retoucher.
+   */
+  $('count').title = `Cette ouverture : ${cout.appels} appel(s) de lecture à la forge`
+    + `${cout.servis ? `, ${cout.servis} fichier(s) servi(s) depuis le cache local` : ''}.`
+    + ` Le cache tient ${cache.etat().entrees} fichier(s), classés par empreinte : une`
+    + ' empreinte change dès que le contenu change, donc rien de périmé ne peut être servi.';
 
   const host = $('cards');
   host.textContent = '';

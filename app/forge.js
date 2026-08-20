@@ -244,6 +244,36 @@ const ATTENTE = [400, 1200];
 const A_REESSAYER = (statut) => statut === 429 || statut >= 500;
 const dormir = (ms) => new Promise((r) => { setTimeout(r, ms); });
 
+/*
+ * ── LA TRONCATURE SILENCIEUSE À CENT ─────────────────────────────────────────
+ *
+ * `per_page: 100` était partout, et sans page suivante. Tant que le registre tenait sous
+ * cent artefacts, personne ne l'a vu. À cent quarante-deux, GitLab en rendait CENT — et le
+ * catalogue affichait cent agents en annonçant « 100 capacités », sans un mot sur les
+ * quarante-deux manquants.
+ *
+ * C'est le pire genre de panne : elle ne casse rien, elle ment. Le même défaut frappait
+ * l'arbre d'un dépôt, où il rendait faux tout ce que `code_du_depot` et `regime_du_depot`
+ * disent de la carte — sur n'importe quel dépôt de plus de cent fichiers.
+ *
+ * `toutesLesPages` suit la pagination jusqu'à ce qu'une page revienne incomplète. Le
+ * plafond de sécurité est haut mais réel : un dépôt de cinquante mille fichiers ne doit
+ * pas se lire en cinq cents appels sans que personne l'ait décidé.
+ */
+const MAX_PAGES = 20;
+
+async function toutesLesPages(call, path, params = {}) {
+  const parPage = params.per_page || 100;
+  const tout = [];
+  for (let page = 1; page <= MAX_PAGES; page += 1) {
+    const lot = await call(path, { params: { ...params, per_page: parPage, page } });
+    if (!Array.isArray(lot) || !lot.length) break;
+    tout.push(...lot);
+    if (lot.length < parPage) break;   // page incomplète : c'était la dernière
+  }
+  return tout;
+}
+
 function makeCaller({ base, headers, host, scopeHint }, fetchImpl) {
   return async function call(path, { params, body, method = 'GET', texte = false } = {}) {
     const url = new URL(base + path);
@@ -383,9 +413,12 @@ function gitlab(session, fetchImpl) {
 
     listFiles: async (repo, path, ref = 'main') => {
       try {
-        const list = await call(`/projects/${encodeURIComponent(repo)}/repository/tree`,
-          { params: { path, ref, per_page: 100 } });
-        return list.map((e) => ({ name: e.name, path: e.path, type: e.type === 'tree' ? 'dir' : 'file' }));
+        const list = await toutesLesPages(call,
+          `/projects/${encodeURIComponent(repo)}/repository/tree`, { path, ref });
+        // `id` est l'empreinte du blob : elle permet de ne pas relire un fichier inchangé,
+        // et c'est ce qui fait passer le chargement du catalogue de N appels à un seul.
+        return list.map((e) => ({ name: e.name, path: e.path, sha: e.id || '',
+                                  type: e.type === 'tree' ? 'dir' : 'file' }));
       } catch (error) {
         if (error.status === 404) return [];   // dossier absent = registre encore vide
         throw error;
@@ -640,8 +673,8 @@ function gitlab(session, fetchImpl) {
     /** Arbre récursif d'une réf — sert à découvrir les overlays sans les deviner. */
     listTree: async (repo, ref) => {
       try {
-        const list = await call(`/projects/${encodeURIComponent(repo)}/repository/tree`,
-          { params: { recursive: true, ref, per_page: 100 } });
+        const list = await toutesLesPages(call,
+          `/projects/${encodeURIComponent(repo)}/repository/tree`, { recursive: true, ref });
         return list.filter((e) => e.type === 'blob').map((e) => e.path);
       } catch (error) {
         if (error.status === 404) return [];
@@ -796,7 +829,8 @@ function github(session, fetchImpl) {
         const list = await call(`/repos/${repo}/contents/${path}`, { params: { ref } });
         // Sur un fichier, GitHub renvoie un objet et non un tableau.
         if (!Array.isArray(list)) return [];
-        return list.map((e) => ({ name: e.name, path: e.path, type: e.type === 'dir' ? 'dir' : 'file' }));
+        return list.map((e) => ({ name: e.name, path: e.path, sha: e.sha || '',
+                                  type: e.type === 'dir' ? 'dir' : 'file' }));
       } catch (error) {
         if (error.status === 404) return [];   // dossier absent = registre encore vide
         throw error;
