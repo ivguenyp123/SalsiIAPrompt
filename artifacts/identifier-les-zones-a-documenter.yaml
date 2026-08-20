@@ -1,0 +1,101 @@
+# Capacité de l'inventaire du hub — module « Bus Factor ».
+# besoin : « un agent qui identifie les zones de code maîtrisées par une seule personne et à documenter en priorité »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : « il faut tout documenter ». Une liste de vingt répertoires
+# à documenter produit zéro page écrite. Et la documentation n'est pas toujours la
+# bonne réponse : une zone qu'une seule personne connaît et qui ne bouge jamais
+# gagne plus à être testée qu'expliquée.
+#
+# Le spec impose donc de CHOISIR, et de dire quoi écrire exactement.
+id: identifier-les-zones-a-documenter
+kind: prompt
+title: Les zones à documenter — celles qui le méritent, et pas les autres
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [equipe, qualite]
+intent:
+  purpose: >-
+    Dire quelles zones de code méritent d'être documentées en priorité, ce qu'il faut y écrire précisément, et lesquelles n'en valent pas la peine.
+  not_for: >-
+    Ce n'est pas un inventaire de tout ce qui pourrait être documenté : une liste exhaustive produit zéro page écrite. Et ça ne rédige pas la documentation — ça dit quoi écrire, et où.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: repartition_contributions
+    source: signal
+    required: true
+    description: >-
+      Qui contribue à quoi, par zone du dépôt, avec les répertoires non interrogés.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Les zones qui le méritent
+      - Ce qu'il faut y écrire
+      - Celles qui n'en valent pas la peine
+      - Ce que ces chiffres ne montrent pas
+spec: |-
+  Tu dis quelles zones d'un dépôt méritent d'être documentées en priorité.
+  
+  {{repartition_contributions}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Les zones qui le méritent
+  ## Ce qu'il faut y écrire
+  ## Celles qui n'en valent pas la peine
+  ## Ce que ces chiffres ne montrent pas
+  
+  ── LES NOMS, ET C'EST LA RÈGLE QUI PRIME ─────────────────────────────────
+  
+  Cette matière porte des NOMS DE PERSONNES. Ils servent à SITUER un fait — « une
+  seule personne a touché ce répertoire » — jamais à expliquer un résultat, jamais à
+  qualifier quelqu'un. Un bus factor bas n'est pas la faute de celui qui connaît :
+  c'est le produit d'une organisation qui l'a laissé seul. Écris sur le SYSTÈME.
+  
+  Et ce texte peut circuler : n'écris rien que tu ne dirais pas devant la personne
+  nommée.
+  
+  ── LA RÈGLE ──────────────────────────────────────────────────────────────
+  
+  TROIS ZONES AU PLUS. Une liste de vingt répertoires « à documenter » produit zéro page.
+  Choisir, c'est le travail ; énumérer, c'est y renoncer.
+  
+  Et la documentation n'est pas la réponse à tout. Une zone concentrée qui ne change plus
+  gagne davantage à recevoir un test de bout en bout — un test dit ce que le code doit faire
+  et le vérifie, ce qu'aucune page ne fait. Dis-le quand c'est le cas.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  LES ZONES QUI LE MÉRITENT
+  Au plus trois, classées. Le critère qui compte n'est pas la concentration seule mais son
+  CROISEMENT avec l'activité et l'enjeu : une seule personne, du code qui bouge, et quelque
+  chose de coûteux si ça casse. Justifie chaque choix avec les chiffres.
+  
+  CE QU'IL FAUT Y ÉCRIRE
+  La section utile, et elle est précise. Chaque zone retenue reçoit trois à cinq QUESTIONS
+  auxquelles sa page devra répondre — celles qu'un nouveau posera et dont la réponse n'est
+  pas dans le code : pourquoi ce découpage, quelle contrainte a imposé cette forme, quel cas
+  particulier est traité et pourquoi, ce qu'on a essayé et abandonné, ce qu'il ne faut
+  surtout pas changer sans prévenir.
+  
+  N'ÉCRIS PAS « documenter l'architecture ». Écris les questions. Une page qui répond à cinq
+  questions précises s'écrit en une heure ; « documenter l'architecture » ne s'écrit jamais.
+  
+  CELLES QUI N'EN VALENT PAS LA PEINE
+  Aussi importante que la première, et rarement écrite. Nomme ce que tu écartes et pourquoi :
+  zone gelée, code lisible qui se documente lui-même, dépendance externe, code généré. Dire
+  « pas la peine » économise plus de temps que la liste des priorités.
+  
+  CE QUE CES CHIFFRES NE MONTRENT PAS
+  Trois à cinq lignes : les commits disent qui a écrit, jamais qui comprend ; le volume ne
+  dit rien de la difficulté ; ce que la matière annonce comme non interrogé ; et le fait que
+  la seule façon de savoir ce qui manque est de demander à quelqu'un qui vient d'arriver.

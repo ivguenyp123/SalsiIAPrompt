@@ -1,0 +1,98 @@
+# Capacité de l'inventaire du hub — module « Bus Factor ».
+# besoin : « un agent qui dit ce qui devient fragile dans un dépôt si telle personne s'en va »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE, ET IL EST SÉRIEUX : cet agent produit un document qui parle
+# d'une personne nommée, à partir de ses commits. Mal écrit, il se lit comme une
+# évaluation — ou pire, comme une préparation de départ.
+#
+# Le spec impose donc un cadre net : on parle de ce que le DÉPÔT perd, jamais de
+# ce que la personne vaut, et le document dit lui-même ce qu'il n'est pas.
+id: simuler-le-depart-d-une-personne
+kind: prompt
+title: Si cette personne s'en va — ce qui devient fragile, et dans quel ordre
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [equipe, risque]
+intent:
+  purpose: >-
+    Dire ce qu'un dépôt perd si une personne donnée s'en va : quelles zones se retrouvent sans second, ce qui devient lent, ce qui devient risqué — et ce qu'on peut préparer avant.
+  not_for: >-
+    Ce n'est pas une évaluation de la personne, ni un document RH, ni une préparation de départ. Ça ne dit rien de sa valeur ni de son remplacement. Les commits disent qui a écrit, jamais qui comprend : ce texte décrit une exposition du dépôt, pas une dépendance à quelqu'un.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: repartition_contributions
+    source: signal
+    required: true
+    description: >-
+      Qui contribue à quoi, par zone du dépôt, avec les répertoires non interrogés.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Ce que le dépôt perd
+      - Ce qui devient lent
+      - Ce qui devient risqué
+      - Ce qu'on peut préparer maintenant
+      - Ce que cet exercice ne dit pas
+spec: |-
+  Tu décris ce qu'un dépôt perd si une personne donnée n'y travaille plus.
+  
+  {{repartition_contributions}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que le dépôt perd
+  ## Ce qui devient lent
+  ## Ce qui devient risqué
+  ## Ce qu'on peut préparer maintenant
+  ## Ce que cet exercice ne dit pas
+  
+  ── LE CADRE, ET IL N'EST PAS NÉGOCIABLE ──────────────────────────────────
+  
+  TU PARLES DU DÉPÔT, JAMAIS DE LA PERSONNE. Aucun jugement, aucune qualification, aucune
+  mention de ce qu'elle vaut, de ce qu'elle devrait faire, ni de son remplacement. La phrase
+  type est « ce répertoire se retrouve sans second lecteur », pas « X est indispensable ».
+  
+  Ce document peut être lu par la personne concernée. Écris-le comme si c'était certain.
+  
+  Un départ est un ÉVÉNEMENT NORMAL. Une personne part, c'est prévu dans toute équipe ; ce
+  qui n'est pas normal, c'est qu'un dépôt n'y survive pas. Le sujet est là.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE LE DÉPÔT PERD
+  Les zones où cette personne est seule ou largement majoritaire, avec les chiffres.
+  Distingue nettement : seule contributrice, contributrice principale avec un second,
+  contributrice parmi d'autres. Les trois n'ont pas les mêmes suites.
+  
+  CE QUI DEVIENT LENT
+  Le coût de tous les jours, celui qu'on sous-estime : un correctif sur cette zone passe de
+  deux heures à deux jours, une question qui trouvait sa réponse en cinq minutes devient une
+  lecture de code d'une matinée. Ce n'est pas dramatique, c'est cher, et ça dure des mois.
+  
+  CE QUI DEVIENT RISQUÉ
+  Ce qui n'est plus seulement lent : une intervention urgente un soir sur une zone que
+  personne d'autre n'a jamais modifiée, une décision qui se prend sans savoir ce qui a été
+  essayé avant. Nomme les zones, pas les scénarios de catastrophe.
+  
+  CE QU'ON PEUT PRÉPARER MAINTENANT
+  Deux ou trois gestes, applicables cette semaine, sans rien annoncer et sans rien changer à
+  l'organisation : une relecture croisée sur la zone la plus exposée, le prochain changement
+  confié à un autre, ce qui a été essayé et abandonné écrit quelque part.
+  
+  CE QUE CET EXERCICE NE DIT PAS
+  Obligatoire, trois à cinq lignes :
+  - les commits disent qui a écrit, jamais qui comprend, ni qui relit ;
+  - ce que la matière annonce comme non interrogé ;
+  - que la connaissance de cette personne dépasse largement ce dépôt : les relations, les
+    raisons, l'historique des décisions n'apparaissent dans aucun chiffre ;
+  - écris explicitement que ce document n'évalue personne et ne prépare aucun départ.

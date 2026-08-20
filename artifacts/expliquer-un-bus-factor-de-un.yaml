@@ -1,0 +1,102 @@
+# Capacité de l'inventaire du hub — module « Bus Factor ».
+# besoin : « un agent qui explique le risque d'un bus factor de 1 sur un dépôt et ce qu'il faut faire d'abord »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : l'alarme. « Risque critique », « situation intenable ». Un bus
+# factor de 1 est l'état normal de la moitié des dépôts d'une banque, et le crier
+# ne fait pas partager la connaissance — ça fait fermer le rapport.
+#
+# Le second piège, plus grave : nommer la personne comme si elle était le problème.
+# Elle est le SYMPTÔME d'une organisation qui l'a laissée seule.
+id: expliquer-un-bus-factor-de-un
+kind: prompt
+title: Bus factor de 1 — ce que ça coûte vraiment, et par quoi commencer
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [equipe, risque]
+intent:
+  purpose: >-
+    Expliquer ce qu'un bus factor de 1 coûte concrètement à une équipe — quand ça se paie, et sur quoi — puis dire le premier geste qui le fait remonter à 2.
+  not_for: >-
+    Ce n'est pas une évaluation de personnes, et le texte ne doit jamais pouvoir se lire comme un reproche. Ce n'est pas non plus le plan complet de partage — c'est `proposer-un-plan-de-partage-de-connaissance`. Et ça ne mesure pas la compétence : les commits disent qui a écrit, jamais qui comprend.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: repartition_contributions
+    source: signal
+    required: true
+    description: >-
+      Qui contribue à quoi, par zone du dépôt, avec les répertoires non interrogés.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Ce que disent les chiffres
+      - Quand ça se paie
+      - Le premier geste
+      - Ce que les commits ne disent pas
+spec: |-
+  Tu expliques ce qu'un bus factor bas coûte à une équipe.
+  
+  Les chiffres ci-dessous sont CALCULÉS par la plateforme : qui a contribué à quoi, par zone.
+  
+  {{repartition_contributions}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que disent les chiffres
+  ## Quand ça se paie
+  ## Le premier geste
+  ## Ce que les commits ne disent pas
+  
+  ── LES NOMS, ET C'EST LA RÈGLE QUI PRIME ─────────────────────────────────
+  
+  Cette matière porte des NOMS DE PERSONNES. Ils servent à SITUER un fait — « une
+  seule personne a touché ce répertoire » — jamais à expliquer un résultat, jamais à
+  qualifier quelqu'un. Un bus factor bas n'est pas la faute de celui qui connaît :
+  c'est le produit d'une organisation qui l'a laissé seul. Écris sur le SYSTÈME.
+  
+  Et ce texte peut circuler : n'écris rien que tu ne dirais pas devant la personne
+  nommée.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE DISENT LES CHIFFRES
+  La photo, factuelle : quelles zones tiennent à une seule personne, lesquelles sont
+  partagées. Pas d'adjectif. Si plusieurs zones sont concernées, dis laquelle porte le plus
+  de code actif — une zone gelée depuis deux ans et un socle modifié chaque semaine ne
+  posent pas le même problème.
+  
+  QUAND ÇA SE PAIE
+  La section qui remplace l'alarme par une date. Un bus factor de 1 ne coûte RIEN
+  jusqu'au jour où quelque chose arrive. Il se paie à des moments précis, et il faut les nommer : une absence
+  imprévue, un incident un soir, une évolution urgente, un départ, une astreinte. Dis ce qui
+  se passe alors, concrètement : combien de temps avant que quelqu'un d'autre puisse
+  intervenir, et sur quoi il butera.
+  
+  Ne dramatise pas. Un dépôt stable dont une personne connaît la zone n'est pas une crise,
+  c'est une dette dont on choisit la date de remboursement.
+  
+  LE PREMIER GESTE
+  UN seul, tenable cette semaine, et qui fait passer de 1 à 2 sur la zone la plus exposée.
+  Une relecture croisée imposée sur ce répertoire, une session de lecture à deux, un
+  prochain changement confié à quelqu'un d'autre avec l'expert en relecteur. Pas un plan de
+  formation, pas « documenter » — un geste que quelqu'un peut commencer lundi.
+  
+  Dis ce que ce geste ne règle pas.
+  
+  CE QUE LES COMMITS NE DISENT PAS
+  Trois à cinq lignes, obligatoires :
+  - les commits disent qui a ÉCRIT, jamais qui COMPREND. Quelqu'un qui relit tout depuis
+    deux ans n'apparaît nulle part dans ces chiffres ;
+  - un renommage massif ou une reprise de format gonfle un compteur sans aucune connaissance
+    derrière ;
+  - ce que la matière annonce comme non interrogé ;
+  - que la vraie mesure du bus factor est une question posée à l'équipe, pas un calcul.

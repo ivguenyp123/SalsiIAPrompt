@@ -1,0 +1,98 @@
+# Capacité de l'inventaire du hub — module « Bus Factor ».
+# besoin : « un agent qui propose un plan de partage de connaissance à partir de la répartition des contributions »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : le plan de formation. Six ateliers, un wiki, du pair
+# programming « à mettre en place ». Rien de tout ça ne survit à la troisième
+# semaine, parce que ça s'ajoute au travail au lieu de s'y greffer.
+#
+# Le partage qui tient est celui qui passe par du travail RÉEL déjà prévu.
+id: proposer-un-plan-de-partage-de-connaissance
+kind: prompt
+title: Partager la connaissance — un plan qui tienne trois mois
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [equipe, risque]
+intent:
+  purpose: >-
+    Proposer un plan de partage de connaissance qui se greffe sur le travail déjà prévu — zone par zone, avec qui apprend de qui, et à quel signe on saura que ça a marché.
+  not_for: >-
+    Ce n'est pas un plan de formation ni un calendrier d'ateliers : ce qui s'ajoute au travail ne survit pas au premier imprévu. Ce n'est pas non plus une évaluation de personnes, et ça ne dit pas qui doit partir ou rester.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: repartition_contributions
+    source: signal
+    required: true
+    description: >-
+      Qui contribue à quoi, par zone du dépôt, avec les répertoires non interrogés.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Les zones à découpler
+      - Le plan, greffé sur du travail réel
+      - Ce qui le fera échouer
+      - À quoi on verra que ça marche
+spec: |-
+  Tu proposes un plan de partage de connaissance à partir de la répartition des contributions.
+  
+  {{repartition_contributions}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Les zones à découpler
+  ## Le plan, greffé sur du travail réel
+  ## Ce qui le fera échouer
+  ## À quoi on verra que ça marche
+  
+  ── LES NOMS, ET C'EST LA RÈGLE QUI PRIME ─────────────────────────────────
+  
+  Cette matière porte des NOMS DE PERSONNES. Ils servent à SITUER un fait — « une
+  seule personne a touché ce répertoire » — jamais à expliquer un résultat, jamais à
+  qualifier quelqu'un. Un bus factor bas n'est pas la faute de celui qui connaît :
+  c'est le produit d'une organisation qui l'a laissé seul. Écris sur le SYSTÈME.
+  
+  Et ce texte peut circuler : n'écris rien que tu ne dirais pas devant la personne
+  nommée.
+  
+  ── LA RÈGLE QUI FAIT LA DIFFÉRENCE ───────────────────────────────────────
+  
+  AUCUN ATELIER, AUCUN WIKI, AUCUNE FORMATION. Tout ce qui s'AJOUTE au travail est abandonné
+  à la troisième semaine — pas par mauvaise volonté, parce que la production passe devant.
+  Un plan qui tient se greffe sur du travail DÉJÀ PRÉVU : le prochain correctif de cette
+  zone est écrit par quelqu'un d'autre, l'expert relit ; la prochaine astreinte est doublée ;
+  la prochaine évolution est découpée pour qu'un morceau soit confiable à confier.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  LES ZONES À DÉCOUPLER
+  Pas toutes : deux ou trois, choisies. Le critère n'est pas « la plus concentrée » mais
+  « la plus concentrée ET la plus vivante ». Une zone qui ne bouge plus depuis deux ans peut
+  attendre ; un socle modifié chaque semaine, non. Dis pourquoi tu écartes les autres —
+  c'est ce qui rend le plan crédible.
+  
+  LE PLAN, GREFFÉ SUR DU TRAVAIL RÉEL
+  Trois actions au plus, dans l'ordre, chacune avec :
+  - la zone visée ;
+  - QUI apprend et QUI transmet — par rôle si la matière ne permet pas de trancher ;
+  - sur quel travail réel elle se greffe ;
+  - combien de temps ça coûte à l'expert, honnêtement. Transmettre ralentit : le nier fait
+    refuser le plan au premier sprint tendu.
+  
+  CE QUI LE FERA ÉCHOUER
+  Nomme-les : l'expert reste le chemin le plus rapide et on continue de l'appeler ; celui
+  qui apprend n'a pas le droit à l'erreur sur cette zone ; l'urgence rend la relecture
+  croisée « exceptionnellement » facultative. Dis ce qui protège de chacune.
+  
+  À QUOI ON VERRA QUE ÇA MARCHE
+  Un signe OBSERVABLE, dans trois mois, dans ces mêmes chiffres : un deuxième nom apparaît
+  sur la zone, la part du premier contributeur baisse. Pas « l'équipe se sentira plus à
+  l'aise » — ça ne se vérifie pas, donc ça ne se décide pas.
