@@ -1,0 +1,123 @@
+# Capacité de l'inventaire du hub — module « Pipeline Generator ».
+# besoin : « un agent qui écrit un .gitlab-ci.yml pour une stack donnée, avec build, test et déploiement »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : la chaîne complète. Douze jobs, du scan de licence, de la
+# signature d'image, trois environnements — sur un projet qui démarre. Personne ne
+# la relit, personne ne la comprend, et au premier échec on commente le job plutôt
+# que de le corriger.
+#
+# Le second piège : les valeurs inventées. Un nom d'image, un chemin d'artefact,
+# un nom de variable de projet plausibles mais faux passent inaperçus jusqu'à la
+# première exécution.
+id: generer-un-gitlab-ci
+kind: prompt
+title: Un .gitlab-ci.yml pour cette pile — le plus petit qui marche
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [ci, livraison]
+intent:
+  purpose: >-
+    Écrire le plus petit `.gitlab-ci.yml` qui fasse vraiment le travail pour la pile déclarée — build, test, déploiement — en nommant tout ce qu'il a fallu supposer.
+  not_for: >-
+    Ce n'est pas une chaîne de production prête à pousser : rien n'a été exécuté, et les valeurs d'environnement sont supposées. Ce n'est pas non plus un audit d'une chaîne existante (`auditer-une-chaine-ci`) ni une proposition de jobs manquants (`proposer-les-jobs-manquants`).
+model_tier: mid
+target_level: experimental
+variables:
+  - name: stack
+    source: repo
+    required: true
+    description: >-
+      La pile technique du projet, telle que ses manifestes la déclarent.
+  - name: environnements
+    source: repo
+    required: true
+    description: >-
+      Les environnements de déploiement du projet.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Ce que cette chaîne fait
+      - Le fichier
+      - Ce que j'ai supposé
+      - À vérifier avant de pousser
+spec: |-
+  Tu écris un `.gitlab-ci.yml` pour un projet, à partir de sa pile et de ses environnements.
+  
+  La pile :
+  {{stack}}
+  
+  Les environnements :
+  {{environnements}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que cette chaîne fait
+  ## Le fichier
+  ## Ce que j'ai supposé
+  ## À vérifier avant de pousser
+  
+  ── LA RÈGLE : LE PLUS PETIT QUI MARCHE ───────────────────────────────────
+  
+  Écris la chaîne MINIMALE qui fait vraiment le travail. Pas de scan de licence, pas de
+  signature d'image, pas de matrice de versions, pas de trois environnements « au cas où ».
+  Une chaîne trop riche sur un projet qui démarre n'est pas relue, pas comprise, et au
+  premier échec on commente le job au lieu de le corriger.
+  
+  Tout ce que tu ajoutes au-delà du minimum doit se justifier en une phrase, dans la
+  première section. Ce que tu as CHOISI de ne pas mettre se dit aussi : c'est ce qui montre
+  que le minimum est un choix et non un oubli.
+  
+  ── CE QUE TU PRODUIS N'A JAMAIS TOURNÉ ───────────────────────────────────
+  
+  Tu écris du YAML que personne n'a exécuté. Il ne s'agit pas d'une précaution de
+  style : un fichier de chaîne CI livré comme s'il était éprouvé sera copié tel
+  quel, poussé, et cassera la première exécution — et c'est ta faute, pas celle de
+  qui l'a copié.
+  
+  Termine donc TOUJOURS par ce qu'il faut vérifier avant de le pousser, et
+  signale nommément tout ce que tu as dû supposer : un nom d'image, un nom de
+  variable de projet, un chemin d'artefact, une version d'outil.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE CETTE CHAÎNE FAIT
+  Cinq lignes : les étapes, dans l'ordre, ce qui déclenche quoi, ce qui est manuel. Puis, en
+  une ligne, ce que tu as volontairement laissé de côté et pourquoi.
+  
+  LE FICHIER
+  Le YAML, en un seul bloc de code, complet et cohérent — pas d'extrait, pas de « … ».
+  Chaque job porte un commentaire d'une ligne qui dit à quoi il sert : quelqu'un le lira
+  dans six mois sans toi.
+  
+  Utilise des variables pour tout ce qui change d'un projet à l'autre, en tête de fichier.
+  Les valeurs en dur sont ce qui rend une chaîne non réutilisable, et c'est aussi ce qui
+  finit par contenir un secret.
+  
+  CE QUE J'AI SUPPOSÉ
+  La liste, nommée, de tout ce que la matière ne donnait pas et que tu as choisi : le nom de
+  l'image de base, la version de l'outil, le chemin des artefacts, le nom des variables de
+  projet, la commande de test. Chaque ligne dit où vérifier la vraie valeur.
+  
+  Une supposition avouée se corrige en dix secondes ; une supposition muette casse la
+  première exécution.
+  
+  À VÉRIFIER AVANT DE POUSSER
+  Trois à cinq lignes, concrètes : les variables de projet à créer, les droits nécessaires,
+  l'agent d'exécution disponible, et le fait de lancer d'abord sur une branche de travail.
+  
+  ── LES INTERDITS ─────────────────────────────────────────────────────────
+  
+  - AUCUN SECRET dans le fichier, jamais, même en exemple. Une variable de projet, et un
+    commentaire qui dit où la créer.
+  - N'ÉCRIS PAS que cette chaîne est prête, testée ou éprouvée.
+  - Si la matière ne suffit pas à déterminer la pile, dis-le et arrête-toi : une chaîne
+    écrite pour la mauvaise pile coûte plus cher que pas de chaîne du tout.

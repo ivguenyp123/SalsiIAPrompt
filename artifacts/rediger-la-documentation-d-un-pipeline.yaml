@@ -1,0 +1,98 @@
+# Capacité de l'inventaire du hub — module « Pipeline Generator ».
+# besoin : « un agent qui documente un pipeline existant : ce que chaque étape fait, et quand elle se déclenche »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : la documentation qui recopie le fichier. Elle devient fausse
+# au premier changement, et une doc fausse est pire que pas de doc — on la croit.
+#
+# Une doc de pipeline utile ne documente pas la SYNTAXE mais les DÉCISIONS : ce
+# qui se déclenche quand, ce qui bloque quoi, ce qu'il faut faire quand ça casse.
+# Ça, ça survit à une réécriture du YAML.
+id: rediger-la-documentation-d-un-pipeline
+kind: prompt
+title: La doc de ce pipeline — ce que chaque étape fait, et quand
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [ci, comprehension]
+intent:
+  purpose: >-
+    Documenter un pipeline existant pour ceux qui vivent avec : les étapes, leurs déclenchements, ce qui bloque quoi, et quoi faire quand ça casse.
+  not_for: >-
+    Ce n'est pas une paraphrase du YAML — une doc qui recopie le fichier devient fausse au premier changement, et une doc fausse est pire que pas de doc. Ce n'est pas un audit (`auditer-une-chaine-ci`) ni un diagnostic d'échec.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: config_ci
+    source: repo
+    required: true
+    description: >-
+      Le ou les fichiers de configuration de la chaîne CI.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - À quoi sert cette chaîne
+      - Les étapes
+      - Ce qui déclenche quoi
+      - Quand ça casse
+      - Ce que cette doc ne couvre pas
+spec: |-
+  Tu documentes un pipeline existant, pour ceux qui devront vivre avec.
+  
+  {{config_ci}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## À quoi sert cette chaîne
+  ## Les étapes
+  ## Ce qui déclenche quoi
+  ## Quand ça casse
+  ## Ce que cette doc ne couvre pas
+  
+  ── LA RÈGLE ──────────────────────────────────────────────────────────────
+  
+  NE DOCUMENTE PAS LA SYNTAXE, DOCUMENTE LES DÉCISIONS. Une doc qui recopie le fichier est
+  fausse au premier changement, et une doc fausse coûte plus cher que pas de doc : on la
+  croit. Ce qui survit à une réécriture du YAML, c'est pourquoi cette étape existe, ce
+  qu'elle bloque, et quoi faire quand elle échoue.
+  
+  Écris pour quelqu'un qui arrive dans l'équipe et dont le pipeline vient de casser un
+  vendredi soir.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  À QUOI SERT CETTE CHAÎNE
+  Trois phrases : ce qu'elle garantit avant qu'un changement atteigne les utilisateurs. Le
+  contrat, pas le mécanisme.
+  
+  LES ÉTAPES
+  Une par bloc court, dans l'ordre d'exécution. Chacune : ce qu'elle vérifie ou produit, ce
+  qu'elle attend en entrée, ce qu'elle laisse derrière elle. Pas de recopie de commande.
+  
+  CE QUI DÉCLENCHE QUOI
+  Un tableau ou une liste claire : sur une branche de travail, sur la branche principale,
+  sur un tag, sur une planification, en manuel. Ligne par ligne, ce qui tourne et ce qui ne
+  tourne pas. C'est l'information la plus demandée d'une chaîne CI et la plus difficile à
+  extraire d'un YAML.
+  
+  Nomme les variables qui activent ou désactivent des étapes, et leur valeur par défaut. Un
+  job invisible parce qu'une variable vaut `false` quelque part est la première cause de
+  « mais pourquoi ça n'a pas tourné ».
+  
+  QUAND ÇA CASSE
+  Étape par étape, les échecs les plus courants et le premier geste : ce qui est réessayable
+  sans risque, ce qui demande de corriger avant, ce qui ne doit JAMAIS être relancé
+  aveuglément — un déploiement partiel, une migration. Dis aussi ce qui est bloquant pour la
+  suite et ce qui ne l'est pas.
+  
+  CE QUE CETTE DOC NE COUVRE PAS
+  Trois lignes : les modèles inclus depuis un autre dépôt que tu n'as pas lus, les variables
+  définies dans l'interface du projet et invisibles ici, les règles de protection de branche,
+  et le fait que tu n'as vu aucune exécution réelle.

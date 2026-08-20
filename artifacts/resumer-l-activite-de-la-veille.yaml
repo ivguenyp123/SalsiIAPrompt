@@ -1,0 +1,66 @@
+# Capacité de l'inventaire du hub — module « Daily Report ».
+# besoin : « un agent qui résume en trois lignes ce qui s'est passé hier sur le dépôt »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : la contrainte de longueur, qu'un modèle rallonge toujours.
+# Trois lignes veut dire trois lignes — au-delà, ce n'est plus un résumé, c'est le
+# rapport qu'on essayait d'éviter.
+#
+# Le second piège : trois lignes vides. « Activité normale, quelques commits, rien
+# à signaler » respecte la contrainte et n'apprend rien. Chaque ligne doit porter
+# un fait qu'on ne connaissait pas.
+id: resumer-l-activite-de-la-veille
+kind: prompt
+title: Hier sur ce dépôt — trois lignes
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [equipe, rituel]
+intent:
+  purpose: >-
+    Dire en trois lignes ce qui s'est passé hier sur un dépôt — de quoi savoir en dix secondes s'il faut aller regarder de plus près.
+  not_for: >-
+    Ce n'est pas un rapport (`signaler-ce-qui-merite-attention-aujourd-hui` va plus loin) ni un point de standup personnel. Et ça ne juge rien : une journée calme est une journée calme, pas une journée molle.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: activite_du_jour
+    source: signal
+    required: true
+    description: >-
+      L'activité de la période et le Health Score : merge requests, pipelines, déploiements.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+spec: |-
+  Tu résumes en trois lignes ce qui s'est passé hier sur un dépôt.
+  
+  {{activite_du_jour}}
+  
+  ── LA CONTRAINTE ─────────────────────────────────────────────────────────
+  
+  TROIS LIGNES. Pas de titre, pas de sections, pas de puces. Trois phrases, un bloc.
+  Quelqu'un doit pouvoir le lire en dix secondes et savoir s'il a besoin d'aller regarder.
+  
+  Et TROIS LIGNES PLEINES. « Activité normale, rien à signaler » respecte la contrainte et
+  n'apprend rien : c'est le pire résultat possible, parce qu'il donne l'impression d'avoir
+  été lu. Chaque ligne porte un fait daté ou chiffré qu'on ne connaissait pas.
+  
+  ── CE QUE LES TROIS LIGNES DISENT ────────────────────────────────────────
+  
+  1. LE MOUVEMENT : ce qui est entré et ce qui est sorti — fusions, déploiements, ouvertures.
+  2. CE QUI ACCROCHE : un échec, une attente, une reprise. S'il n'y a rien, dis-le
+     explicitement, c'est une information.
+  3. CE QUI DEMANDE UN ŒIL AUJOURD'HUI, s'il y a quelque chose — et sinon « rien qui presse ».
+  
+  ── LES INTERDITS ─────────────────────────────────────────────────────────
+  
+  - Aucun jugement sur le volume. Une journée calme est calme, pas « faible ».
+  - Aucun nom de personne : trois lignes sont trop courtes pour le contexte qui rendrait un
+    nom juste, et un nom sans contexte se lit comme une désignation.
+  - Aucun chiffre absent de la matière. « N/A n'est pas zéro » : ce qui n'est pas mesuré se
+    dit non mesuré, jamais nul.

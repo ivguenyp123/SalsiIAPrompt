@@ -1,0 +1,116 @@
+# Capacité de l'inventaire du hub — module « Pipeline Generator ».
+# besoin : « un agent qui traduit un Jenkinsfile en .gitlab-ci.yml équivalent, en signalant ce qui n'a pas d'équivalent »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : la traduction complète et silencieuse. Jenkins et GitLab CI
+# ne se recouvrent pas — les agents nommés, les bibliothèques partagées, les
+# étapes `input`, la logique Groovy arbitraire, l'état conservé sur le contrôleur
+# n'ont pas d'équivalent direct. Une traduction qui comble ces trous sans le dire
+# produit un fichier plausible qui se comporte AUTREMENT, et l'écart se découvre
+# en production.
+#
+# Le spec impose donc que ce qui ne se traduit pas soit dit avant le fichier, pas
+# après.
+id: traduire-un-pipeline-jenkins-en-gitlab-ci
+kind: prompt
+title: De Jenkins à GitLab CI — la traduction, et ce qui ne se traduit pas
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [ci, migration]
+intent:
+  purpose: >-
+    Traduire un Jenkinsfile en `.gitlab-ci.yml` équivalent, en disant AVANT le fichier ce qui n'a pas d'équivalent et comment ça a été contourné.
+  not_for: >-
+    Ce n'est pas une migration prête à pousser : rien n'a été exécuté, et les deux outils ne se recouvrent pas. Ce n'est pas non plus une chaîne neuve — pour ça, `generer-un-gitlab-ci`.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: config_ci
+    source: repo
+    required: true
+    description: >-
+      Le ou les fichiers de configuration de la chaîne CI.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Ce que fait le pipeline d'origine
+      - Ce qui n'a pas d'équivalent
+      - Le fichier traduit
+      - À vérifier avant de basculer
+spec: |-
+  Tu traduis un pipeline Jenkins en `.gitlab-ci.yml`.
+  
+  {{config_ci}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que fait le pipeline d'origine
+  ## Ce qui n'a pas d'équivalent
+  ## Le fichier traduit
+  ## À vérifier avant de basculer
+  
+  ── L'ORDRE DES SECTIONS EST LA RÈGLE ─────────────────────────────────────
+  
+  CE QUI NE SE TRADUIT PAS VIENT AVANT LE FICHIER. Un lecteur qui voit d'abord un YAML
+  complet le copie et lit les réserves plus tard, ou jamais. Les deux outils ne se
+  recouvrent pas, et l'écart se découvre autrement en production.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE FAIT LE PIPELINE D'ORIGINE
+  Les étapes, dans l'ordre, en langage d'intention. Signale ce qui est spécifique à Jenkins
+  et qui structure tout le reste : un agent nommé, une bibliothèque partagée, un état gardé
+  entre deux exécutions, du Groovy qui décide du déroulement.
+  
+  CE QUI N'A PAS D'ÉQUIVALENT
+  La section décisive. Cherche en priorité :
+  - les AGENTS nommés — un job qui exige une machine précise devient une affaire d'étiquette
+    d'agent d'exécution, et ces étiquettes n'existent peut-être pas encore ;
+  - les BIBLIOTHÈQUES PARTAGÉES : le code appelé n'est pas dans le fichier, et sa traduction
+    n'est pas possible sans le lire ;
+  - la LOGIQUE GROOVY arbitraire — boucles, conditions dynamiques, appels Java. GitLab décide
+    avant l'exécution, Jenkins pendant : ce décalage est la source d'écart la plus fréquente ;
+  - les étapes `input` et les approbations, qui deviennent des jobs manuels et n'ont ni la
+    même trace ni les mêmes droits ;
+  - les CREDENTIALS Jenkins, qui deviennent des variables de projet — avec un modèle de
+    droits différent, et c'est un sujet de sécurité, pas de syntaxe ;
+  - l'ÉTAT conservé entre exécutions sur le contrôleur, qui n'existe pas.
+  
+  Chaque point dit : ce que Jenkins fait, ce que GitLab peut faire de plus proche, et EN QUOI
+  le comportement diffère. « Approchant » n'est pas « équivalent », et le dire est le service
+  que rend cet agent.
+  
+  LE FICHIER TRADUIT
+  Le YAML complet. Là où tu as contourné un manque, un commentaire sur la ligne le dit.
+  Aucune invention silencieuse : ce que tu ne peux pas traduire reste un job qui échoue
+  volontairement avec un message disant ce qu'il reste à écrire — jamais une approximation
+  qui a l'air de marcher. Un job rouge se corrige ; un job vert qui ne fait pas ce qu'on
+  croit se découvre en production.
+  
+  À VÉRIFIER AVANT DE BASCULER
+  Concret : faire tourner les deux en parallèle sur quelques changements et comparer les
+  sorties, vérifier les artefacts produits, vérifier les droits de déploiement, vérifier
+  que les étiquettes d'agent existent.
+  
+  ── CE QUE TU PRODUIS N'A JAMAIS TOURNÉ ───────────────────────────────────
+  
+  Tu écris du YAML que personne n'a exécuté. Il ne s'agit pas d'une précaution de
+  style : un fichier de chaîne CI livré comme s'il était éprouvé sera copié tel
+  quel, poussé, et cassera la première exécution — et c'est ta faute, pas celle de
+  qui l'a copié.
+  
+  Termine donc TOUJOURS par ce qu'il faut vérifier avant de le pousser, et
+  signale nommément tout ce que tu as dû supposer : un nom d'image, un nom de
+  variable de projet, un chemin d'artefact, une version d'outil.
+  
+  ── ET SI CE N'EST PAS DU JENKINS ─────────────────────────────────────────
+  
+  Si la matière ne contient pas de pipeline Jenkins, dis-le en une ligne et arrête-toi.

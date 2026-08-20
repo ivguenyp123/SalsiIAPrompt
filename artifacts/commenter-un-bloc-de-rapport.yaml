@@ -1,0 +1,87 @@
+# Capacité de l'inventaire du hub — module « Générateur de rapport ».
+# besoin : « un agent qui commente un bloc de rapport en disant ce que les chiffres signifient vraiment »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : la paraphrase. « Le dépôt compte 12 contrôles en échec, ce
+# qui indique 12 contrôles en échec. » Un commentaire qui redit le chiffre en
+# prose n'ajoute rien et allonge le rapport, ce qui le rend moins lu.
+#
+# Un commentaire utile fait UNE de ces trois choses : il dit ce que le chiffre
+# IMPLIQUE, il dit pourquoi il n'est PAS ce qu'on croit, ou il dit ce qu'il faut
+# regarder à côté pour l'interpréter. Sinon il se tait — et le spec l'y autorise
+# explicitement.
+id: commenter-un-bloc-de-rapport
+kind: prompt
+title: Ce bloc de rapport — ce que les chiffres veulent vraiment dire
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [communication, depot]
+intent:
+  purpose: >-
+    Commenter un bloc de rapport de dépôt : ce que le chiffre implique concrètement, ce qui pourrait le rendre trompeur, et ce qu'il faut regarder à côté pour le lire juste.
+  not_for: >-
+    Ce n'est pas une paraphrase du chiffre, et ce n'est pas une synthèse — c'est `rediger-la-synthese-executive-d-un-rapport`. Ça ne propose pas de correctif non plus : `prioriser-les-corrections-d-un-depot` s'en charge.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: rapport_depot
+    source: signal
+    required: true
+    description: >-
+      L'état du dépôt et ses corrections à faire, calculés par la plateforme.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Ce que ce chiffre implique
+      - Ce qui pourrait le rendre trompeur
+      - Ce qu'il faut regarder à côté
+spec: |-
+  Tu commentes un bloc d'un rapport de dépôt.
+  
+  {{rapport_depot}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que ce chiffre implique
+  ## Ce qui pourrait le rendre trompeur
+  ## Ce qu'il faut regarder à côté
+  
+  ── L'INTERDIT QUI DÉFINIT CET AGENT ──────────────────────────────────────
+  
+  NE REDIS PAS LE CHIFFRE. « 12 contrôles en échec, ce qui montre que 12 contrôles sont en
+  échec » est une phrase qui coûte une ligne au rapport et n'apporte rien. Un chiffre est
+  déjà affiché ; le commenter, c'est ajouter ce qui n'est pas affiché.
+  
+  ET SI TU N'AS RIEN À AJOUTER, DIS-LE. « Ce chiffre se lit tel quel, rien à ajouter » est
+  une réponse parfaitement acceptable, et bien meilleure qu'un paragraphe de remplissage.
+  Un rapport dont chaque bloc porte un commentaire creux perd la confiance qu'on accorde aux
+  commentaires qui comptent.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE CE CHIFFRE IMPLIQUE
+  La conséquence concrète, pour quelqu'un qui travaille sur ce dépôt : ce qui devient plus
+  lent, plus risqué, plus cher — ou ce que ça débloque. Pas la définition du contrôle, sa
+  suite.
+  
+  CE QUI POURRAIT LE RENDRE TROMPEUR
+  La section la plus utile, et celle qu'un rapport automatique n'a jamais. Un chiffre a
+  presque toujours une lecture qui le retourne :
+  - un dénominateur qui gonfle ou écrase — quelques fichiers ou quelques milliers ;
+  - un contrôle NON APPLICABLE compté comme un échec, ou l'inverse. « N/A n'est pas zéro » ;
+  - une période trop courte, ou qui contient un événement exceptionnel ;
+  - un chiffre qui mesure la DÉCLARATION et non la pratique — une règle écrite dans un
+    fichier n'est pas une règle appliquée.
+  Ne récite pas cette liste : ne retiens que ce qui s'applique ici.
+  
+  CE QU'IL FAUT REGARDER À CÔTÉ
+  Un ou deux autres éléments de la matière qui, croisés avec celui-ci, changent son sens.
+  C'est le geste qu'un lecteur pressé ne fera pas et que ce commentaire lui épargne.

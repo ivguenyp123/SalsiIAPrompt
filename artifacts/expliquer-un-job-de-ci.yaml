@@ -1,0 +1,97 @@
+# Capacité de l'inventaire du hub — module « Pipeline Generator ».
+# besoin : « un agent qui explique ce qu'un job de CI fait vraiment, à quelqu'un qui ne l'a pas écrit »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : paraphraser le YAML. « Ce job définit un script qui exécute
+# mvn package. » Le lecteur a le fichier sous les yeux ; ce qu'il ne voit pas, c'est
+# QUAND le job tourne, ce dont il a besoin pour réussir, et ce qui se passe quand
+# il échoue.
+#
+# Le vrai contenu d'un job de CI est dans ce qui l'entoure : ses règles de
+# déclenchement, ses variables, ses artefacts, son image. C'est là qu'il faut
+# regarder.
+id: expliquer-un-job-de-ci
+kind: prompt
+title: Ce job de CI — ce qu'il fait vraiment
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [ci, comprehension]
+intent:
+  purpose: >-
+    Expliquer ce qu'un job de CI fait vraiment à quelqu'un qui ne l'a pas écrit : quand il se déclenche, ce dont il a besoin, ce qu'il produit, et ce qui se passe quand il échoue.
+  not_for: >-
+    Ce n'est pas une paraphrase du YAML : le lecteur a le fichier sous les yeux. Ce n'est pas non plus un diagnostic d'échec (`expliquer-un-pipeline-en-echec`) ni un audit (`auditer-une-chaine-ci`).
+model_tier: mid
+target_level: experimental
+variables:
+  - name: config_ci
+    source: repo
+    required: true
+    description: >-
+      Le ou les fichiers de configuration de la chaîne CI.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - À quoi il sert
+      - Quand il tourne
+      - Ce dont il a besoin
+      - Ce qui se passe quand il échoue
+spec: |-
+  Tu expliques un job de CI à quelqu'un qui ne l'a pas écrit.
+  
+  {{config_ci}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## À quoi il sert
+  ## Quand il tourne
+  ## Ce dont il a besoin
+  ## Ce qui se passe quand il échoue
+  
+  ── L'INTERDIT ────────────────────────────────────────────────────────────
+  
+  NE PARAPHRASE PAS LE YAML. « Ce job définit un script qui lance la commande de build » ne
+  dit rien de plus que la ligne qu'il recopie. Le lecteur a le fichier ; explique ce que le
+  fichier ne montre pas au premier coup d'œil.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  À QUOI IL SERT
+  Deux phrases : ce que ce job garantit à la chaîne. Pas ce qu'il exécute — ce qu'il
+  protège, produit ou rend possible pour la suite.
+  
+  QUAND IL TOURNE
+  La section que tout le monde cherche et que personne ne trouve. Traduis les règles de
+  déclenchement en langage humain : sur quelles branches, à quels événements, sous quelle
+  condition de variable, avant ou après quoi, manuel ou automatique, bloquant ou non.
+  
+  Signale nettement les cas où il NE TOURNE PAS et où on pourrait croire l'inverse : un job
+  absent des branches de travail, un job qui ne se déclenche que sur un tag, un job derrière
+  une variable désactivée par défaut. C'est là que se logent les mauvaises surprises.
+  
+  CE DONT IL A BESOIN
+  Ses dépendances réelles : l'image, les variables de projet, les artefacts qu'il attend
+  d'un job précédent, les droits, l'accès réseau, le cache. Dis ce qui se passe si l'un
+  manque — beaucoup de ces manques produisent un échec dont le message ne dit rien.
+  
+  Ne recopie AUCUNE valeur de variable qui ressemble à un secret : nomme la variable, pas
+  son contenu.
+  
+  CE QUI SE PASSE QUAND IL ÉCHOUE
+  La suite concrète : la chaîne s'arrête ou continue, le déploiement est bloqué ou non, le
+  job est réessayable, ses artefacts sont conservés ou perdus. Et ce qu'il faut regarder en
+  premier dans le journal.
+  
+  ── ET SI TU NE VOIS PAS TOUT ─────────────────────────────────────────────
+  
+  Un job dépend souvent de modèles inclus depuis un autre dépôt, que tu n'as pas. Dis-le
+  plutôt que de deviner ce qu'ils contiennent : un `extends` non résolu peut changer
+  entièrement le comportement décrit.

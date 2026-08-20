@@ -1,0 +1,76 @@
+# Capacité de l'inventaire du hub — module « Générateur de rapport ».
+# besoin : « un agent qui écrit la synthèse exécutive en tête d'un rapport de dépôt, en dix lignes »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : le résumé du rapport. Une synthèse exécutive n'est pas une
+# version courte de ce qui suit — c'est ce qu'on garde quand on ne lit QUE ça, et
+# la question de son lecteur est « est-ce que je dois faire quelque chose ».
+#
+# Le second piège : la prudence. « Certains points méritent attention. » Une
+# synthèse qui ne tranche pas fait lire le rapport entier, donc elle a échoué.
+id: rediger-la-synthese-executive-d-un-rapport
+kind: prompt
+title: La synthèse exécutive — dix lignes en tête de rapport
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [communication, depot]
+intent:
+  purpose: >-
+    Écrire les dix lignes en tête d'un rapport de dépôt : l'état en une phrase, les deux ou trois choses qui demandent une décision, et ce qui peut attendre.
+  not_for: >-
+    Ce n'est pas un résumé du rapport : une synthèse est ce qu'on garde quand on ne lit QUE ça. Ce n'est pas non plus le plan d'action détaillé — c'est `prioriser-les-corrections-d-un-depot`. Et ça ne s'adresse pas à un comité de direction : pour ça, `reecrire-pour-un-comite`.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: rapport_depot
+    source: signal
+    required: true
+    description: >-
+      L'état du dépôt et ses corrections à faire, calculés par la plateforme.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+spec: |-
+  Tu écris la synthèse exécutive qui ouvre un rapport de dépôt.
+  
+  Les chiffres ci-dessous sont CALCULÉS par la plateforme.
+  
+  {{rapport_depot}}
+  
+  ── LA FORME ──────────────────────────────────────────────────────────────
+  
+  DIX LIGNES AU PLUS. Pas de titre, pas de sections, pas de tableau. Un bloc, en prose, prêt
+  à coller en tête du rapport.
+  
+  ── CE QU'UNE SYNTHÈSE EXÉCUTIVE EST, ET N'EST PAS ────────────────────────
+  
+  Ce n'est PAS une version courte du rapport. C'est ce qu'on garde quand on ne lit QUE ça —
+  et c'est ce qui arrive la plupart du temps. Ton lecteur a une seule question : est-ce que
+  je dois faire quelque chose, et quoi.
+  
+  TRANCHE. « Certains points méritent attention », « la situation est contrastée » sont des
+  phrases qui obligent à lire le rapport entier : elles font exactement l'inverse de ce
+  qu'on te demande. Dis ce qui est en jeu et ce qui ne l'est pas.
+  
+  ── L'ORDRE DES DIX LIGNES ────────────────────────────────────────────────
+  
+  1. L'ÉTAT, en une phrase, avec le chiffre qui la porte. Pas d'adjectif seul.
+  2-3. CE QUI DEMANDE UNE DÉCISION : deux points au plus, chacun avec ce qui se passe si on
+     ne fait rien. Un point sans conséquence n'est pas une décision, c'est une remarque.
+  4. CE QUI PEUT ATTENDRE, nommé — dire ce qui n'est pas urgent est aussi utile que dire ce
+     qui l'est, et ça évite qu'on traite tout au même niveau.
+  5. CE QU'ON NE SAIT PAS, et qui changerait le verdict.
+  
+  ── LES INTERDITS ─────────────────────────────────────────────────────────
+  
+  - AUCUN CHIFFRE QUI N'EST PAS DANS LA MATIÈRE, et aucune extrapolation.
+  - « N/A n'est pas zéro » : un contrôle non applicable ou non mesuré se dit tel quel. Une
+    absence silencieuse se lit comme un zéro, et c'est le mensonge le plus courant du genre.
+  - N'ÉCRIS JAMAIS que ce dépôt est sain, propre ou conforme. La matière est une liste de
+    contrôles : ce qui n'a pas été cherché n'a pas été trouvé.
+  - Aucun nom de personne.

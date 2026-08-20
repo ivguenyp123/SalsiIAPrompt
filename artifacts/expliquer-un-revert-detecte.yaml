@@ -1,0 +1,110 @@
+# Capacité de l'inventaire du hub — module « Daily Report ».
+# besoin : « un agent qui explique ce qu'un revert détecté dans l'historique dit du changement d'origine »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : traiter un revert comme un échec, et chercher ce qui a été
+# mal fait. Un revert est le plus souvent une BONNE décision — quelqu'un a vu un
+# problème et a rendu la production saine en dix minutes plutôt qu'en deux heures
+# de correctif. Un rapport qui le présente comme une faute apprend à l'équipe à
+# préférer le correctif risqué, ce qui est exactement l'inverse du but.
+#
+# Le second piège : conclure sur la CAUSE. Le diff dit ce qui a été annulé, jamais
+# pourquoi.
+id: expliquer-un-revert-detecte
+kind: prompt
+title: Ce revert — ce qu'il dit du changement d'origine
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [revue, qualite]
+intent:
+  purpose: >-
+    Lire un revert et le changement qu'il annule pour dire ce qui a été retiré, ce que ça suggère du changement d'origine, et ce qu'il faut vérifier avant de le retenter.
+  not_for: >-
+    Ce n'est pas un constat d'échec : un revert rapide est presque toujours une bonne décision. Ce n'est pas non plus une enquête sur la cause — le diff dit ce qui a été annulé, jamais pourquoi — ni une revue du changement d'origine (`relire-un-changement`).
+model_tier: mid
+target_level: experimental
+variables:
+  - name: diff
+    source: repo
+    required: true
+    description: >-
+      Le changement à lire, tel que la forge le rend.
+  - name: historique_commits
+    source: repo
+    required: true
+    description: >-
+      Les commits de la période, avec leur auteur, leur date et leur message.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Ce qui a été annulé
+      - Ce que ça suggère
+      - Ce qu'il reste à vérifier
+      - Ce que le diff ne dit pas
+spec: |-
+  Tu lis un revert et l'historique autour, pour dire ce qu'il apprend.
+  
+  Le changement annulé :
+  {{diff}}
+  
+  L'historique autour :
+  {{historique_commits}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce qui a été annulé
+  ## Ce que ça suggère
+  ## Ce qu'il reste à vérifier
+  ## Ce que le diff ne dit pas
+  
+  ── LE CADRE ──────────────────────────────────────────────────────────────
+  
+  UN REVERT N'EST PAS UNE FAUTE. C'est souvent la meilleure décision disponible : rendre la
+  production saine en dix minutes vaut mieux qu'un correctif écrit sous pression. N'écris
+  rien qui puisse se lire comme un reproche — un rapport qui blâme les reverts apprend à
+  l'équipe à préférer le correctif risqué.
+  
+  Aucun nom de personne, et aucune recherche de responsable.
+  
+  TU NE CONNAIS PAS LA CAUSE. Le diff dit CE QUI a été annulé ; il ne dit jamais pourquoi.
+  Écris « ce qui a été annulé touche X, ce qui rend plausible un problème de Y » — jamais
+  « le revert a été fait parce que ».
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUI A ÉTÉ ANNULÉ
+  Le contenu du changement retiré, en langage d'intention et non de diff : ce qu'il
+  apportait, ce qu'il touchait, quelle surface. Dis si l'annulation est TOTALE ou PARTIELLE —
+  un revert partiel laisse un état intermédiaire que personne n'a jamais conçu, et c'est le
+  constat le plus important que tu puisses faire.
+  
+  CE QUE ÇA SUGGÈRE
+  Des hypothèses, présentées comme telles, tirées de ce que le changement touchait : une
+  dépendance non anticipée, un cas non couvert, un effet de bord sur un appelant, une
+  migration de données, une différence d'environnement. Chaque hypothèse dit ce qui la
+  confirmerait.
+  
+  Regarde aussi le DÉLAI entre le changement et son annulation, si l'historique le donne :
+  annulé en vingt minutes, c'est un problème visible immédiatement ; annulé trois jours
+  après, c'est quelque chose qui ne se voit qu'à l'usage — et ces deux histoires n'appellent
+  pas les mêmes tests.
+  
+  CE QU'IL RESTE À VÉRIFIER
+  Ce que l'annulation ne remet PAS en état : une migration de base déjà passée, un cache, un
+  message déjà envoyé, un fichier déjà écrit, un drapeau resté activé. Un revert de code ne
+  revient pas en arrière sur les effets déjà produits, et c'est là que se cachent les
+  incidents du lendemain.
+  
+  Puis, en une ou deux lignes, ce qu'il faudrait ajouter avant de retenter.
+  
+  CE QUE LE DIFF NE DIT PAS
+  Trois lignes : la cause réelle, connue seulement de qui a décidé ; ce qui s'est passé en
+  production ; si le changement d'origine était bon et mal minuté, ou mauvais.

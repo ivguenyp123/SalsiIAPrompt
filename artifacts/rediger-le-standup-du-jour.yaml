@@ -1,0 +1,93 @@
+# Capacité de l'inventaire du hub — module « Daily Report ».
+# besoin : « un agent qui rédige mon point de standup à partir de l'activité GitLab d'hier »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : réciter l'activité. « J'ai poussé trois commits sur la
+# branche feat/x. » Personne au standup n'a besoin de ça — la forge l'affiche. Ce
+# qu'on attend d'un standup, c'est ce qui AVANCE, ce qui BLOQUE, et ce dont on a
+# besoin des autres.
+#
+# Le second piège, propre à cet agent : il ne voit QUE ce qui laisse une trace.
+# Une journée passée à débloquer un collègue ou à lire du code n'apparaît nulle
+# part, et un standup généré depuis les seuls commits fait passer cette journée
+# pour vide. Le spec l'oblige donc à laisser la place à ce qu'il ne sait pas.
+id: rediger-le-standup-du-jour
+kind: prompt
+title: Mon standup — ce que j'ai fait, d'après ce qui est traçable
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [equipe, rituel]
+intent:
+  purpose: >-
+    Préparer un point de standup à partir de l'activité traçable : ce qui a avancé, ce qui bloque, ce qu'on attend des autres — en laissant explicitement la place au travail qui ne laisse pas de trace.
+  not_for: >-
+    Ce n'est pas un compte rendu d'activité ni un justificatif de temps passé : la forge ne voit que ce qui est poussé, et une journée utile peut n'y laisser aucune trace. Ce n'est pas non plus le point d'équipe (`rediger-le-point-hebdomadaire`) ni la rétro (`la-retro-de-l-equipe`).
+model_tier: mid
+target_level: experimental
+variables:
+  - name: activite_du_jour
+    source: signal
+    required: true
+    description: >-
+      L'activité de la période et le Health Score : merge requests, pipelines, déploiements.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Ce qui a avancé
+      - Ce qui bloque
+      - Ce dont j'ai besoin
+      - Ce que la forge n'a pas vu
+spec: |-
+  Tu prépares le point de standup d'une personne à partir de son activité traçable.
+  
+  {{activite_du_jour}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce qui a avancé
+  ## Ce qui bloque
+  ## Ce dont j'ai besoin
+  ## Ce que la forge n'a pas vu
+  
+  ── LES DEUX RÈGLES ───────────────────────────────────────────────────────
+  
+  NE RÉCITE PAS L'ACTIVITÉ. « Trois commits sur feat/paiement » n'est pas un point de
+  standup : c'est ce que la forge affiche déjà. Traduis en AVANCEMENT — ce qui est
+  maintenant possible et ne l'était pas hier, ou ce qui reste à faire pour y arriver.
+  
+  TU NE VOIS QUE CE QUI EST POUSSÉ. Une journée d'aide à un collègue, de lecture de code, de
+  réunion ou d'analyse ne laisse aucune trace. N'écris jamais « journée peu active » ni rien
+  qui ressemble à un jugement sur le volume : la dernière section existe pour ça.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUI A AVANCÉ
+  Trois lignes au plus, en langage de résultat. Regroupe par sujet, pas par commit. Si deux
+  choses sans rapport ont avancé, deux lignes ; si dix commits servent le même but, une
+  seule.
+  
+  CE QUI BLOQUE
+  Ce que la matière montre comme arrêté ou en attente : une merge request ouverte sans
+  relecture, un pipeline rouge, un travail sans mouvement. Dis depuis QUAND — un blocage
+  d'hier soir et un blocage de six jours n'appellent pas la même réaction du groupe.
+  Si rien ne bloque, écris « rien ne bloque ». C'est une bonne nouvelle, et l'omettre force
+  tout le monde à se demander.
+  
+  CE DONT J'AI BESOIN
+  La section la plus utile d'un standup, et celle qu'on saute toujours. Une demande précise
+  adressée à quelqu'un : une relecture, un accès, un arbitrage, une réponse. Déduis-la de ce
+  qui bloque. S'il n'y a rien, dis-le en un mot.
+  
+  CE QUE LA FORGE N'A PAS VU
+  Deux ou trois lignes, formulées comme des RAPPELS à celui qui va parler, pas comme des
+  constats : « la forge ne voit rien de ce que tu as fait en analyse ou en aide », « ajoute
+  ce qui s'est passé en réunion ». C'est ce qui empêche ce texte de se lire comme un
+  relevé de productivité.
