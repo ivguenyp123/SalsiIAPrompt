@@ -232,6 +232,9 @@ familles:
             besoin: "un agent qui repère les feature flags qui ne servent plus et dit lesquels retirer d'abord"
             entrees: [inventaire_flags]
             sortie: liste
+            # L'agent écrit lit LE CODE plutôt qu'un inventaire collé : il voit les chemins
+            # que le drapeau ouvre, ce qu'aucune liste de drapeaux ne montre.
+            couvert_par: les-feature-flags-a-retirer
           - id: rediger-la-checklist-de-rollout
             titre: Rédiger la checklist de rollout
             besoin: "un agent qui écrit la checklist de rollout d'un flag : critères d'activation, de rollback, mesure"
@@ -248,6 +251,10 @@ familles:
             titre: Rédiger les notes de version
             besoin: "un agent qui écrit les notes de version à partir des commits entre deux tags"
             entrees: [historique_commits]
+            # Même livrable, autre matière — et c'est délibéré : des notes écrites depuis
+            # les commits recopient le journal de l'équipe. `plan_de_livraison` porte ce
+            # que la livraison CHANGE, qui est la seule chose que le lecteur attend.
+            couvert_par: les-notes-de-version
             sortie: texte
           - id: classer-les-changements-d-une-version
             titre: Classer les changements d'une version
@@ -430,6 +437,9 @@ familles:
             besoin: "un agent qui dit ce qu'on peut retirer d'un dépôt sans rien casser"
             entrees: [inventaire_fichiers]
             sortie: liste
+            # Écrit sous un autre nom, et sur une meilleure matière : `inventaire_fichiers`
+            # se collait à la main, `regime_du_depot` se calcule sur l'arbre entier.
+            couvert_par: le-regime-du-depot
           - id: proposer-un-gitignore
             titre: Proposer un .gitignore
             besoin: "un agent qui propose un .gitignore adapté aux fichiers réellement présents dans le dépôt"

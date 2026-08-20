@@ -124,9 +124,47 @@ describe('l\'état d\'une entrée', () => {
     // Le sens qui compte : l'inventaire ne doit pas annoncer « déjà fait » pour quelque
     // chose qui n'existe pas. L'inverse — un fichier hors inventaire — est devenu normal
     // depuis qu'on peut demander et composer.
+    //
+    // On vérifie `par` et non `id` : une entrée peut être couverte par un agent qui porte
+    // un AUTRE nom, et c'est cet agent-là qui doit exister.
     const vus = confronter(TOUS, AU_REGISTRE);
     for (const p of vus.filter((x) => x.etat === 'au-registre')) {
-      assert.ok(AU_REGISTRE.includes(p.id), `${p.id} annoncé au registre et introuvable`);
+      assert.ok(AU_REGISTRE.includes(p.par), `${p.id} annoncé au registre via `
+        + `« ${p.par} » — introuvable`);
+    }
+  });
+
+  /* ── La couverture par un autre nom ────────────────────────────────────── */
+
+  test('`couvert_par` ne désigne jamais un artefact qui n\'existe pas', () => {
+    /*
+     * LE SEUL CHAMP MANUEL DE CETTE MÉCANIQUE, DONC LE SEUL QUI PUISSE MENTIR.
+     *
+     * Tout le reste de l'état est dérivé. `couvert_par` est écrit à la main, et un lien
+     * qui pointe vers un agent supprimé ou mal orthographié annoncerait « déjà fait » une
+     * capacité que personne n'a. C'est exactement le mensonge que cet écran existe pour
+     * empêcher, et il serait invisible sans ce test.
+     */
+    const morts = TOUS.filter((p) => p.couvert_par && !AU_REGISTRE.includes(p.couvert_par))
+      .map((p) => `${p.id} → ${p.couvert_par}`);
+    assert.deepEqual(morts, [], `ces liens de couverture ne mènent nulle part :\n  ${morts.join('\n  ')}`);
+  });
+
+  test('un lien de couverture ne se déguise pas en identifiant', () => {
+    // `couvert_par` dit « un AUTRE agent répond à ça ». Le pointer sur soi-même n'apporte
+    // rien et masquerait une entrée dont l'artefact a simplement le même nom.
+    for (const p of TOUS) {
+      if (p.couvert_par) assert.notEqual(p.couvert_par, p.id, `${p.id} se couvre lui-même`);
+    }
+  });
+
+  test('l\'écran sait TOUJOURS quel agent ouvrir', () => {
+    // « ça existe déjà » n'aide personne si on ne dit pas quoi ouvrir. `par` porte le nom,
+    // qu'il vienne de l'identifiant ou du lien de couverture.
+    const vus = confronter(TOUS, AU_REGISTRE);
+    for (const p of vus) {
+      if (p.etat === 'au-registre') assert.ok(p.par, `${p.id} : au registre sans dire par qui`);
+      else assert.equal(p.par, '', `${p.id} : à créer mais désigne un agent`);
     }
   });
 });
@@ -179,8 +217,11 @@ describe('les compteurs', () => {
      * « x sur 130 possibles », pas « x fichiers ».
      */
     const c = compter(confronter(TOUS, AU_REGISTRE));
-    const ids = new Set(TOUS.map((p) => p.id));
-    const attendus = AU_REGISTRE.filter((id) => ids.has(id)).length;
+    // Une capacité est faite quand un agent y répond — sous son nom, ou sous celui qu'un
+    // `couvert_par` désigne. Compter les seuls identifiants identiques sous-estimerait le
+    // travail réel, et c'est ce qui nous a fait croire quatre agents « à créer ».
+    const attendus = TOUS.filter((p) => AU_REGISTRE.includes(p.id)
+                                     || AU_REGISTRE.includes(p.couvert_par)).length;
 
     assert.equal(c.total, TOUS.length);
     assert.equal(c.faits, attendus);

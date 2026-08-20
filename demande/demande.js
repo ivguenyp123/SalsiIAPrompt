@@ -124,11 +124,22 @@ function rendreCatalogue() {
         el('small', { textContent: p.besoin }),
         el('span', { className: 'mod', textContent: `${p.icone} ${p.module}` })),
       el('span', { className: 'sp' }),
+      /*
+       * « Au registre » NE SUFFIT PAS QUAND L'AGENT PORTE UN AUTRE NOM.
+       *
+       * Une capacité peut être couverte par un agent qui ne s'appelle pas comme la
+       * question — `nettoyer-un-depot` est répondu par « Le régime du dépôt ». Dire
+       * seulement « ça existe » envoie alors quelqu'un chercher au Catalogue un nom qui
+       * n'y est pas, et il finira par redemander l'agent. L'infobulle nomme donc CELUI
+       * qu'il faut ouvrir.
+       */
       el('span', { className: `cat-etat ${p.etat}`,
                    textContent: p.etat === 'au-registre' ? 'au registre' : 'à créer',
-                   title: p.etat === 'au-registre'
-                     ? 'Cet agent existe déjà : tu peux l\'ouvrir au Catalogue.'
-                     : 'Personne ne l\'a encore demandé.' }));
+                   title: p.etat !== 'au-registre'
+                     ? 'Personne ne l\'a encore demandé.'
+                     : (p.par && p.par !== p.id
+                       ? `Déjà couvert au Catalogue par « ${p.par} ».`
+                       : 'Cet agent existe déjà : tu peux l\'ouvrir au Catalogue.') }));
     b.onclick = () => {
       $('besoin').value = p.besoin;
       $('besoin').focus();
