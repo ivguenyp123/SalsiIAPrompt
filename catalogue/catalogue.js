@@ -1415,6 +1415,21 @@ async function matiereAnalyseFichier(depot, { fichier = '' } = {}) {
  * Les fichiers supprimés sont écartés — il n'y a rien à lire — et comptés comme non lus,
  * plutôt que de disparaître : une branche qui supprime dix fichiers doit se voir.
  */
+/*
+ * La PREMIÈRE PHRASE d'une erreur de forge, et rien de plus.
+ *
+ * `explain()` rend un paragraphe fait pour être lu à l'écran — cause, ce que ce n'est pas,
+ * quoi faire. Dans une matière, ce paragraphe pousse le code hors du contexte du modèle
+ * pour une information qu'il ne peut pas exploiter. La première phrase nomme la cause,
+ * c'est tout ce dont la matière a besoin ; le paragraphe entier reste à l'écran.
+ */
+const raisonCourte = (e) => {
+  const dit = String(e?.message || e).split('\n')[0].trim();
+  const point = dit.search(/[.;]\s|\s—\s/);
+  const court = point > 20 ? dit.slice(0, point) : dit;
+  return court.slice(0, 110) || 'la forge a refusé de servir ce fichier';
+};
+
 async function matiereCodeBranche(depot, { branche = '' } = {}) {
   const defaut = await brancheDe(depot);
   const comparaison = await forge.comparer(depot, defaut, branche);
@@ -1428,9 +1443,16 @@ async function matiereCodeBranche(depot, { branche = '' } = {}) {
   const nonLus = [];
   const fichiers = [];
   for (const f of retenus) {
-    // Un fichier illisible ne fait pas échouer les autres : il est NOMMÉ dans la matière.
-    const lu = await forge.getFile(depot, f.chemin, branche).catch(() => null);
-    if (!lu) { nonLus.push(f.chemin); continue; }
+    // Même règle qu'à l'échelle du dépôt : il est NOMMÉ dans la matière, AVEC la raison.
+    let lu = null;
+    let pourquoi = '';
+    try {
+      lu = await forge.getFile(depot, f.chemin, branche);
+      if (!lu) pourquoi = 'absent de cette référence';
+    } catch (e) {
+      pourquoi = raisonCourte(e);
+    }
+    if (!lu) { nonLus.push({ chemin: f.chemin, pourquoi }); continue; }
     fichiers.push({ ...f, contenu: lu.content });
   }
 
@@ -1459,9 +1481,26 @@ async function matiereCodeDepot(depot, { dossier = '', branche = '' } = {}) {
   const nonLus = [];
   const fichiers = [];
   for (const chemin of retenus) {
-    // Un fichier illisible ne fait pas échouer les autres : il est NOMMÉ dans la matière.
-    const lu = await forge.getFile(depot, chemin, ref).catch(() => null);
-    if (!lu) { nonLus.push(chemin); continue; }
+    /*
+     * UN FICHIER QU'ON N'OBTIENT PAS NE FAIT PAS ÉCHOUER LES AUTRES — MAIS ON DIT POURQUOI.
+     *
+     * Le `.catch(() => null)` d'origine jetait la raison. Résultat vu sur un vrai dépôt :
+     * six fichiers de source annoncés « illisibles » alors que la forge avait juste refusé
+     * de les servir — la même lecture les avait tous eus une demi-heure plus tôt. La
+     * raison est ce qui distingue « relance, tu les auras » de « n'insiste pas ».
+     *
+     * `getFile` rend `null` sur un 404 : le fichier était dans l'arbre et n'est pas au
+     * bout du chemin. Ce n'est pas la même chose qu'un refus, et ça se dit autrement.
+     */
+    let lu = null;
+    let pourquoi = '';
+    try {
+      lu = await forge.getFile(depot, chemin, ref);
+      if (!lu) pourquoi = 'absent de cette référence';
+    } catch (e) {
+      pourquoi = raisonCourte(e);
+    }
+    if (!lu) { nonLus.push({ chemin, pourquoi }); continue; }
     fichiers.push({ chemin, contenu: lu.content });
   }
 

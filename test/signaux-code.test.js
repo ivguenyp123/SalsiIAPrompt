@@ -244,21 +244,46 @@ describe('le code qu\'une branche a changé', () => {
     assert.match(r.texte, /src\/conf\.js:1 +SECRET/);
   });
 
-  test('PLAFOND et ILLISIBLE sont deux raisons distinctes', () => {
+  test('PLAFOND et NON OBTENU sont deux raisons distinctes', () => {
     /*
      * Vu à l'écran : le rapport annonçait « 1 fichier NON LU — plafond de 20 » alors que
-     * le fichier était simplement illisible. Le lecteur en conclut qu'il suffit de relever
-     * le plafond — ce qui ne changerait rien.
+     * le plafond n'y était pour rien. Le lecteur en conclut qu'il suffit de le relever —
+     * ce qui ne changerait rien.
      */
     const r = surBranche([f('src/a.js', 'a\n')], { touches: 3, nonLus: ['assets/logo.png'] });
     assert.match(r.texte, /1 fichier\(s\) non lus — plafond de/);
-    assert.match(r.texte, /1 illisible\(s\), et ce n'est pas le plafond : assets\/logo\.png/);
+    assert.match(r.texte, /1 fichier\(s\) que la lecture N'A PAS PU OBTENIR/);
+    assert.match(r.texte, /assets\/logo\.png/);
   });
 
-  test('sans coupe ni illisible, aucune des deux lignes n\'apparaît', () => {
+  test('la RAISON du non-obtenu est rendue telle quelle, jamais devinée', () => {
+    /*
+     * Le mot décide du geste. « Illisible » fait renoncer ; « la forge a refusé » fait
+     * relancer. Six YAML parfaitement lisibles ont été annoncés illisibles sur un vrai
+     * dépôt parce que la raison avait été jetée par un `.catch(() => null)`.
+     */
+    const r = surBranche([f('src/a.js', 'a\n')], {
+      touches: 2, nonLus: [{ chemin: 'jobs/deploy.yaml', pourquoi: 'quota épuisé (403)' }] });
+    assert.match(r.texte, /· quota épuisé \(403\) : jobs\/deploy\.yaml/);
+    assert.ok(!/illisible/.test(r.texte), 'le mot qui fait renoncer à tort a disparu');
+  });
+
+  test('une cause commune groupe ses fichiers au lieu de se répéter', () => {
+    const r = surBranche([f('src/a.js', 'a\n')], { touches: 4, nonLus: [
+      { chemin: 'jobs/deploy.yaml', pourquoi: 'limite d\'appels atteinte' },
+      { chemin: 'jobs/final.yaml', pourquoi: 'limite d\'appels atteinte' },
+      { chemin: 'assets/logo.png', pourquoi: 'absent de cette référence' }] });
+    assert.match(r.texte,
+      /· limite d'appels atteinte : jobs\/deploy\.yaml, jobs\/final\.yaml/);
+    assert.match(r.texte, /· absent de cette référence : assets\/logo\.png/);
+    assert.equal((r.texte.match(/limite d'appels atteinte/g) || []).length, 1,
+                 'une cause, une fois — six copies noieraient le seul fait qui compte');
+  });
+
+  test('sans coupe ni fichier manquant, aucune des deux lignes n\'apparaît', () => {
     const r = surBranche([f('src/a.js', 'a\n')]);
     assert.ok(!/plafond de/.test(r.texte));
-    assert.ok(!/illisible/.test(r.texte));
+    assert.ok(!/N'A PAS PU OBTENIR/.test(r.texte));
   });
 
   test('un lot sans constat n\'est pas un lot sain, et le texte le dit', () => {
@@ -409,10 +434,37 @@ describe('la matière d\'un dépôt dit d\'abord ce qu\'elle n\'a pas montré', 
     assert.match(lu(['src/index.js']).texte, /aucun manifeste reconnu/);
   });
 
-  test('un fichier illisible est NOMMÉ, et ne se confond pas avec le plafond', () => {
+  test('un fichier non obtenu est NOMMÉ, et ne se confond pas avec le plafond', () => {
     const r = analyseDepot({ depot: DEPOT, arbre: ARBRE, fichiers: [], candidats: 10,
                              nonLus: ['src/casse.js'], maintenant: M });
-    assert.match(r.texte, /1 illisible\(s\), et ce n'est pas le plafond : src\/casse\.js/);
+    assert.match(r.texte, /1 fichier\(s\) que la lecture N'A PAS PU OBTENIR/);
+    assert.match(r.texte, /src\/casse\.js/);
+  });
+
+  test('« tous lus » ne se dit JAMAIS quand il en manque', () => {
+    /*
+     * LE RAPPORT QUI SE CONTREDISAIT DANS LE MÊME PARAGRAPHE.
+     *
+     * Vu sur un vrai dépôt : « 27 de source dans le périmètre, 21 lu(s) » en en-tête, puis
+     * « Tous les fichiers de source du périmètre ont été lus (21) » deux lignes plus bas.
+     * L'ancien `else` s'ouvrait dès que le PLAFOND n'avait rien coupé — comme si un plafond
+     * inatteint valait lecture complète. Des deux phrases, le modèle a suivi la rassurante.
+     */
+    const r = analyseDepot({ depot: DEPOT, arbre: ARBRE,
+                             fichiers: [{ chemin: 'src/index.js', contenu: 'a\n' }],
+                             candidats: 4, nonLus: ['a.js', 'b.js', 'c.js'], maintenant: M });
+    assert.ok(!/Tous les fichiers de source/.test(r.texte),
+              'aucune phrase ne doit contredire l\'en-tête');
+    assert.match(r.texte, /1 fichier\(s\) de source lus sur 4 du périmètre/);
+    assert.match(r.texte, /n'y est pour rien/);
+  });
+
+  test('« tous lus » se dit quand c\'est vrai, et alors seulement', () => {
+    const r = analyseDepot({ depot: DEPOT, arbre: ARBRE, candidats: 2, nonLus: [],
+                             fichiers: [{ chemin: 'package.json', contenu: '{}\n' },
+                                        { chemin: 'src/index.js', contenu: 'a\n' }],
+                             maintenant: M });
+    assert.match(r.texte, /Tous les fichiers de source du périmètre ont été lus \(2\)/);
   });
 
   test('le résumé dit la part lue, jamais un total rassurant', () => {

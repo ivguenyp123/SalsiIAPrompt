@@ -123,6 +123,34 @@ describe('les chiffres mesurés, montrés comme des chiffres', () => {
     assert.match(na, /score non calculable/);
     assert.ok(!/<b>0<\/b>/.test(na));
   });
+
+  /*
+   * ── UNE MATIÈRE SANS SCORE N'A PAS UN SCORE INCONNU ────────────────────────
+   *
+   * Vu sur deux rapports exportés d'un vrai dépôt — green coding et conception d'une
+   * branche : « undefinedpersonnes qui couvrent l'essentiel du code », puis un tableau
+   * « Les zones, de la plus fragile à la plus solide » de six lignes vides.
+   *
+   * Deux causes, et elles sont indépendantes. `score` valait `undefined`, or seul `null`
+   * ouvrait la branche « non calculable ». Et `zones` porte deux sens dans la plateforme :
+   * le bus factor par répertoire ici, la carte des répertoires dans `code_du_depot` — même
+   * nom, formes incompatibles. Le rapport faisait confiance au nom.
+   */
+  test('une matière sans score n\'affiche pas « undefined » en grand', () => {
+    const depot = { zones: [{ zone: 'jobs', fichiers: 15, source: 15 }],
+                    zonesTotal: 1, arbre: 40, lus: 27 };
+    const html = rapportHtml({ ...BASE, mesures: depot });
+    assert.ok(!/undefined/.test(html), 'aucun « undefined » ne part dans un fichier exporté');
+    assert.ok(!/couvrent l'essentiel du code/.test(html));
+  });
+
+  test('des « zones » d\'une autre forme ne remplissent pas le tableau du bus factor', () => {
+    const depot = { zones: [{ zone: 'jobs', fichiers: 15, source: 15 },
+                            { zone: 'config', fichiers: 4, source: 0 }] };
+    const html = rapportHtml({ ...BASE, mesures: depot });
+    assert.ok(!/Les zones, de la plus fragile/.test(html),
+              'un tableau qui ne sait pas lire sa matière ne s\'affiche pas');
+  });
 });
 
 /*
