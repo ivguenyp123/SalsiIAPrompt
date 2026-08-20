@@ -16,7 +16,8 @@ import assert from 'node:assert/strict';
 import { fichierSuspect, apercuDe, scannerSecrets, rapportSecrets, resumeSecrets,
          ecosysteme, verifierManifeste, inventaireDependances, resumeDependances,
          rapportConformite, resumeConformite, versionsMavenMouvantes,
-         POIDS_CIS, NON_VERIFIABLES, MOTIFS_SECRET } from '../lib/signaux-securite.js';
+         POIDS_CIS, NON_VERIFIABLES, MOTIFS_SECRET,
+         MAX_CONSTATS_LISTES } from '../lib/signaux-securite.js';
 import { sait, SIGNAUX } from '../lib/signaux-matiere.js';
 
 /*
@@ -131,6 +132,44 @@ describe('le rapport de secrets', () => {
     const r = avec([{ chemin: '.env', contenu: `k=${FAUX_AWS}` }]);
     assert.match(r.texte, /historique git/);
     assert.match(r.texte, /ne le révoque pas/);
+  });
+
+  /*
+   * Un `.tfstate` ou un `docker-compose` bavard déclenche des dizaines de constats sur la
+   * même ligne de motifs. La liste des dépendances plafonnait déjà ; celle des secrets
+   * non — elle sortait tout, et la matière partait entière dans le prompt.
+   *
+   * Ce qui est vérifié : on tronque la LISTE, jamais la MESURE, et on le DIT. Couper en
+   * silence ferait lire « 40 secrets » là où il y en a deux cents, et le plan d'action
+   * serait dimensionné pour rien.
+   */
+  test('la liste des constats est plafonnée, le compte reste complet, et la coupe est dite', () => {
+    const beaucoup = Array.from({ length: MAX_CONSTATS_LISTES + 17 },
+      (_, i) => `k${i}=${FAUX_AWS}`).join('\n');
+    const r = avec([{ chemin: 'infra/terraform.tfvars', contenu: beaucoup }]);
+
+    assert.equal(r.comptes.constats, MAX_CONSTATS_LISTES + 17, 'le COMPTE ne se tronque pas');
+    assert.match(r.texte, new RegExp(`${MAX_CONSTATS_LISTES + 17} constat\\(s\\)`));
+
+    const listees = r.texte.split('\n')
+      .filter((x) => x.includes('infra/terraform.tfvars:')).length;
+    assert.equal(listees, MAX_CONSTATS_LISTES, 'la LISTE, elle, s\'arrête au plafond');
+    assert.match(r.texte, /17 constat\(s\) de plus, non listés ici/);
+    assert.match(r.texte, /est complet/);
+
+    // Le rapport exporté suit la même règle : deux cents lignes ne se lisent pas non plus
+    // dans un HTML qu'on met en pièce jointe.
+    const table = r.presentation.tableaux.find((t) => t.titre === 'Où ils se trouvent');
+    assert.equal(table.lignes.length, MAX_CONSTATS_LISTES);
+    assert.match(table.note, new RegExp(`${MAX_CONSTATS_LISTES + 17} en tout`));
+  });
+
+  test('sous le plafond, rien n\'est annoncé comme coupé', () => {
+    // Une mention « … et 0 de plus » ferait douter d'un rapport pourtant complet.
+    const r = avec([{ chemin: '.env', contenu: `k=${FAUX_AWS}` }]);
+    assert.ok(!/non listés ici/.test(r.texte));
+    const table = r.presentation.tableaux.find((t) => t.titre === 'Où ils se trouvent');
+    assert.ok(!/en tout/.test(table.note));
   });
 
   test('la matière envoyée ne porte aucun secret entier', () => {
