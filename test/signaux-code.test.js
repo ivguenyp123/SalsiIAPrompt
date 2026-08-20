@@ -291,16 +291,34 @@ const ARBRE = [
 ];
 
 describe('la règle de choix des fichiers est écrite, pure et déterministe', () => {
-  test('manifestes, README et points d\'entrée passent devant', () => {
+  test('manifestes et points d\'entrée passent devant — la doc n\'est plus candidate', () => {
+    /*
+     * Le README y figurait, et passait même en deuxième. Sur un vrai dépôt de chaîne CI,
+     * deux README et un CONTRIBUTING de 526 lignes mangeaient le budget avant le premier
+     * job : « je veux juste le code ». La doc est donc écartée avec le reste de ce qui
+     * n'est pas du code — comptée, jamais lue.
+     */
     const { retenus } = fichiersARetenir(ARBRE, { max: 4 });
-    assert.deepEqual(retenus.slice(0, 3), ['package.json', 'README.md', 'src/index.js']);
+    assert.deepEqual(retenus.slice(0, 2), ['package.json', 'src/index.js']);
+    assert.ok(!retenus.some((c) => /\.md$/.test(c)), 'aucune documentation retenue');
   });
 
-  test('ce qui n\'est pas du code du projet est écarté — et compté à part', () => {
+  test('ce qui n\'est pas du code est écarté — et compté à part', () => {
     const r = fichiersARetenir(ARBRE, { max: 100 });
-    assert.ok(!r.retenus.some((c) => /node_modules|dist\/|\.png$/.test(c)),
-      'ni dépendance installée, ni sortie de build, ni binaire');
-    assert.equal(r.hors, 3, 'les trois écartés sont comptés, pas oubliés');
+    assert.ok(!r.retenus.some((c) => /node_modules|dist\/|\.png$|\.md$/.test(c)),
+      'ni dépendance installée, ni sortie de build, ni binaire, ni documentation');
+    // README.md, docs/archi.md, node_modules, dist, logo.png : cinq, comptés et non oubliés.
+    assert.equal(r.hors, 5, 'écarté n\'est pas ignoré : ça se compte');
+  });
+
+  test('les fichiers rituels d\'un dépôt ne sont pas du code non plus', () => {
+    // Présents dans tout dépôt, propres à aucun : les lire coûte le budget du vrai code.
+    const rituels = ['LICENSE', 'CHANGELOG.md', 'CODEOWNERS', 'CONTRIBUTING.md',
+                     '.gitlab/merge_request_templates/default.md', '.editorconfig',
+                     'Manifests/overlays/uat/kustomization.yaml'];
+    const r = fichiersARetenir([...rituels, 'src/a.js'], { max: 100 });
+    assert.deepEqual(r.retenus, ['src/a.js']);
+    assert.equal(r.hors, rituels.length);
   });
 
   test('deux lectures du même arbre retiennent les mêmes fichiers', () => {
