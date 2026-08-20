@@ -23,7 +23,7 @@ import { createHash } from 'node:crypto';
 import { lireCapacite } from '../lib/import-pack.js';
 import { versArtefact, refus, resteADecider, specDe, enteteDe, normaliserId,
          NIVEAU_IMPORTE, DOSSIER_IMPORTE, OUVERTURE, CLOTURE,
-         MAX_CORPS, enTitre } from '../lib/import-artefact.js';
+         MAX_CORPS, enTitre, ENTREE_LIBRE } from '../lib/import-artefact.js';
 import { lire as lireProvenance } from '../lib/provenance.js';
 import { verdict as verdictIsolement, preuvesPlateforme } from '../lib/executeur.js';
 import { lint, ERROR } from '../lint/index.js';
@@ -545,5 +545,46 @@ describe('refus, isolément', () => {
                       ecritures: ECRITURES });
     assert.ok(r.length > 0);
     assert.ok(r.every((x) => x.quoi && x.detail));
+  });
+});
+
+/* ── Le branchement de la matière ─────────────────────────────────────────── */
+
+describe('la matière se branche sur la plateforme — par décision, jamais par défaut', () => {
+  test('sans décision : `matiere`, collée à la main, et L027 le dit à raison', () => {
+    const { artefact } = faire();
+    assert.deepEqual(artefact.variables.map((v) => [v.name, v.source]),
+                     [[ENTREE_LIBRE, 'user']]);
+    assert.match(artefact.spec, /\{\{matiere\}\}\s*$/);
+    const codes = lint(artefact, CTX).findings.map((f) => f.code);
+    assert.ok(codes.includes('L027'), 'l\'avertissement décrit exactement la situation');
+  });
+
+  test('branchée sur un signal : le nom vient du vocabulaire, la source de l\'autorité', () => {
+    // « Cette méthode s'applique à un fichier » : l'humain la branche sur analyse_fichier.
+    // Le panneau de lancement saura la calculer, et L027 n'a plus rien à dire.
+    const { artefact } = faire({ ...DECISIONS, entree: 'analyse_fichier' });
+    assert.deepEqual(artefact.variables.map((v) => [v.name, v.source]),
+                     [['analyse_fichier', 'signal']]);
+    assert.match(artefact.spec, /\{\{analyse_fichier\}\}\s*$/);
+    const porte = lint(artefact, CTX);
+    assert.equal(porte.blocked, false);
+    assert.ok(!porte.findings.some((f) => f.code === 'L027'), 'plus d\'entrée inconnue');
+  });
+
+  test('branchée sur une lecture du dépôt : la source est `repo`, pas une saisie', () => {
+    const { artefact } = faire({ ...DECISIONS, entree: 'code' });
+    assert.deepEqual(artefact.variables.map((v) => [v.name, v.source]), [['code', 'repo']]);
+  });
+
+  test('un branchement hors vocabulaire REFUSE — un nom inventé promet une matière introuvable', () => {
+    const { artefact, refus: r } = faire({ ...DECISIONS, entree: 'super_donnees' });
+    assert.equal(artefact, null);
+    assert.ok(r.some((x) => x.bloquant && /super_donnees/.test(x.quoi)));
+  });
+
+  test('le branchement décidé se lit dans l\'en-tête de provenance', () => {
+    const { entete } = faire({ ...DECISIONS, entree: 'analyse_fichier' });
+    assert.match(entete, /entree\s+analyse_fichier/);
   });
 });

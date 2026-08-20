@@ -39,6 +39,7 @@ import { toYaml } from '../studio/to-yaml.js';
 import { provenanceDe, verdictAmont,
          IDENTIQUE, MODIFIE, DISPARU, NON_VERIFIABLE } from '../lib/import-suivi.js';
 import { STATUTS, DOSSIERS } from './parc.js';
+import { SOURCES_ENTREES } from '../lib/assemblage.js';
 import yaml from '../lib/yaml.js';
 
 const $ = (id) => document.getElementById(id);
@@ -357,6 +358,7 @@ function carteCapacite(c) {
   for (const def of CHAMPS.filter((x) => x.requis && !fiable(c.champs[x.nom].origine))) {
     bloc.append(controle(c, def, d));
   }
+  bloc.append(controleEntree(c, d));
   row.append(bloc);
 
   /*
@@ -458,6 +460,44 @@ function controle(c, def, d) {
   }
 
   box.append(champSaisie(c, def, d));
+  return box;
+}
+
+/*
+ * LE BRANCHEMENT DE LA MATIÈRE — toujours affiché, jamais requis.
+ *
+ * Par défaut, la matière d'un import se colle à la main (`matiere`, hors vocabulaire,
+ * et L027 le dit à raison). Mais si la méthode s'applique à quelque chose que la
+ * plateforme sait aller chercher — un fichier scanné, un diff, un rapport calculé —
+ * l'importeur peut la BRANCHER : c'est une décision humaine, listée dans l'en-tête de
+ * provenance comme les autres, et la frontière exacte de L027. Le vocabulaire vient de
+ * `SOURCES_ENTREES`, l'autorité unique — jamais d'une saisie.
+ */
+function controleEntree(c, d) {
+  const box = el('div', { className: 'champ' });
+  box.dataset.champ = 'entree';
+  box.append(el('label', { textContent: 'Sa matière — comment elle arrive' }));
+  box.append(el('p', { className: 'pourquoi',
+    textContent: 'Collée à la main, c\'est le défaut honnête : la plateforme ne devine '
+      + 'pas ce qu\'une méthode importée doit lire. Si elle s\'applique à quelque chose '
+      + 'que la plateforme sait calculer ou aller chercher, branche-la — le panneau de '
+      + 'lancement remplira la matière tout seul. C\'est toi qui décides ce branchement, '
+      + 'et l\'en-tête de provenance le dira.' }));
+
+  const s = el('select', { className: 'stsel large' });
+  s.append(el('option', { value: '',
+    textContent: 'collée à la main à chaque lancement (matiere)' }));
+  const GROUPES = [['signal', 'La plateforme la calcule'], ['repo', 'Lue dans le dépôt choisi']];
+  for (const [source, titre] of GROUPES) {
+    const g = el('optgroup', { label: titre });
+    for (const [nom, src] of Object.entries(SOURCES_ENTREES)) {
+      if (src === source) g.append(el('option', { value: nom, textContent: nom }));
+    }
+    s.append(g);
+  }
+  s.value = d.entree || '';
+  s.onchange = () => { d.entree = s.value; rendreVerdict(c); };
+  box.append(s);
   return box;
 }
 
