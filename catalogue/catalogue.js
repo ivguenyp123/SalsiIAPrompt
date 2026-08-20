@@ -914,15 +914,26 @@ async function depots() {
   return CACHE.depots;
 }
 
-async function arbre(depot) {
-  if (!CACHE.arbres.has(depot)) {
+/*
+ * L'arbre d'un dépôt, À UNE RÉFÉRENCE — et le cache porte la référence.
+ *
+ * Il ne prenait que le dépôt et cachait par dépôt : lire `main` puis une branche rendait
+ * DEUX FOIS l'arbre de `main`, sans que rien ne le dise. Le défaut ne se voyait pas tant
+ * qu'un seul appelant existait ; il est apparu le jour où `code_du_depot` a pu viser une
+ * autre branche, et il aurait rendu le code de `main` en annonçant celui de la branche —
+ * une réponse juste à une autre question, ce qui est pire qu'un refus.
+ */
+async function arbre(depot, ref = '') {
+  if (!ref) {
     if (!CACHE.branches.has(depot)) {
       const info = await forge.projectInfo(depot);
       CACHE.branches.set(depot, info.defaultBranch || 'main');
     }
-    CACHE.arbres.set(depot, await forge.listTree(depot, CACHE.branches.get(depot)));
+    ref = CACHE.branches.get(depot);
   }
-  return CACHE.arbres.get(depot);
+  const cle = `${depot}@${ref}`;
+  if (!CACHE.arbres.has(cle)) CACHE.arbres.set(cle, await forge.listTree(depot, ref));
+  return CACHE.arbres.get(cle);
 }
 
 /**
@@ -1439,9 +1450,10 @@ async function matiereCodeBranche(depot, { branche = '' } = {}) {
  * les mêmes fichiers, ce qui rend la matière contestable ; et la règle se relit dans un
  * test plutôt que dans un fichier de trois mille lignes qui parle au DOM.
  */
-async function matiereCodeDepot(depot, { dossier = '' } = {}) {
-  const ref = await brancheDe(depot);
-  const chemins = await arbre(depot);
+async function matiereCodeDepot(depot, { dossier = '', branche = '' } = {}) {
+  // Sans branche choisie, celle par défaut : ne rien choisir est une valeur, pas un trou.
+  const ref = branche || await brancheDe(depot);
+  const chemins = await arbre(depot, ref);
   const { retenus, candidats } = fichiersARetenir(chemins, { dossier });
 
   const nonLus = [];

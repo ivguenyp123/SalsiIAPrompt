@@ -28,12 +28,23 @@
 # `code_de_la_branche` portent trois noms parce que ce sont trois questions. Deux
 # questions, deux agents, la même matière.
 #
-# ── LA LIMITE DURE, ET ELLE EST PARTICULIÈRE À CET AGENT ────────────────────
+# ── LE DIFF N'EST PAS LE CODE, ET LE PREMIER ESSAI L'A PROUVÉ ──────────────
 #
-# Il voit les fichiers que la branche a CHANGÉS, pas le dépôt. Juger « la cohérence avec
-# le reste du code » est donc exactement ce qu'il ne peut pas faire — et c'est ce qu'un
-# lecteur attend le plus d'une analyse de conception. Le spec le lui interdit nommément,
-# et une section entière sert à dire ce qu'il aurait fallu voir pour trancher.
+# Sa première version lisait `code_de_la_branche` — ce que la branche a CHANGÉ. Lancée sur
+# une branche sans diff, elle a rendu quatre sections vides : « il n'y a rien à décrire,
+# aucune conception, aucune responsabilité ». Techniquement exact, et complètement à côté
+# de la demande, qui était « analyse le code de cette branche comme l'agent analyse un
+# fichier ».
+#
+# Deux questions, deux matières : `code_de_la_branche` répond à « qu'est-ce que ce travail
+# modifie », `code_du_depot` à « à quoi ressemble le code quand on est sur cette branche ».
+# La seconde a du contenu même quand la première n'a rien.
+#
+# ── LA LIMITE DURE ─────────────────────────────────────────────────────────
+#
+# Il voit une PART du dépôt : la carte des répertoires est complète, la lecture ne l'est
+# pas. Le spec le lui rappelle, le niveau « QUESTION » existe pour ça, et une section
+# entière sert à dire ce qu'il aurait fallu voir pour trancher.
 
 id: conception-d-une-branche
 kind: prompt
@@ -44,25 +55,32 @@ owner:
 tags: [code, qualite, revue]
 intent:
   purpose: >-
-    Lire le code qu'une branche a changé et dire comment il est FAIT : où vivent les
+    Lire le code d'une branche — pas son diff — et dire comment il est FAIT : où vivent les
     responsabilités, ce qui est couplé à quoi, ce qui se répète, ce qui ne se teste pas —
     et ce qui coûtera cher à défaire. La lecture de conception, pas la revue de sécurité.
   not_for: >-
     Ne pas utiliser comme revue de sécurité — c'est le métier de
     `analyser-le-code-d-une-branche`, qui a la matière scannée et les bonnes consignes.
     Ni comme verdict de fusion : `relire-une-mr` répond à « peut-on fusionner ». Ni comme
-    jugement sur la cohérence avec le dépôt : cet agent ne voit que les fichiers changés.
+    relecture d'un travail en cours : pour ce qu'une branche a CHANGÉ, l'agent est
+    `analyser-le-code-d-une-branche`.
 model_tier: mid
 target_level: experimental
 variables:
-  # LA MÊME matière que l'agent sécurité : le geste ne change pas, seule la question
-  # change. Deux lectures d'un même texte, et c'est exactement ce qu'on veut.
-  - name: code_de_la_branche
+  # LE CODE DE LA BRANCHE, PAS SON DIFF — et c'est toute la différence.
+  #
+  # Premier essai avec `code_de_la_branche`, qui lit ce qu'une branche a CHANGÉ. Lancé sur
+  # une branche sans diff, l'agent a rendu quatre sections vides et un « il n'y a rien à
+  # décrire » : réponse juste, à une autre question que celle posée. On veut le code tel
+  # qu'il est QUAND ON EST SUR CETTE BRANCHE — l'équivalent de l'analyse d'un fichier, à
+  # l'échelle d'un dépôt. C'est `code_du_depot`, avec son réglage de branche.
+  - name: code_du_depot
     source: signal
     required: true
     description: >-
-      Les fichiers que la branche modifie, lus sur cette branche, scannés puis caviardés.
-      Une partie seulement : le rapport dit ce qui n'a pas été lu.
+      La carte des répertoires, la pile détectée, le scan déterministe et le contenu des
+      fichiers retenus — lus SUR la branche choisie. Une partie seulement : la matière dit
+      ce qui n'a pas été lu.
 criteria:
   - target: output.contains_secret
     op: eq
@@ -79,10 +97,11 @@ spec: |-
   Tu lis le code d'une branche pour dire COMMENT IL EST FAIT — à quelqu'un qui devra
   vivre avec.
 
-  La matière ci-dessous est CALCULÉE : les fichiers ont été lus sur la branche, scannés,
-  et les secrets caviardés avant de t'arriver. Elle est PARTIELLE et elle le dit en tête.
+  La matière ci-dessous est CALCULÉE : la carte des répertoires porte sur l'arbre entier
+  de la branche, les fichiers retenus l'ont été par une règle écrite, le scan a tourné et
+  les secrets sont caviardés. Elle est PARTIELLE et elle le dit en tête.
 
-  {{code_de_la_branche}}
+  {{code_du_depot}}
 
   Rends exactement ces sections, avec ces titres :
 
@@ -156,11 +175,12 @@ spec: |-
 
   ── LES RÈGLES, ET LA PREMIÈRE PRIME SUR LES AUTRES ───────────────────────
 
-  - TU NE VOIS QUE LES FICHIERS CHANGÉS PAR CETTE BRANCHE, jamais le dépôt. Ne juge donc
-    JAMAIS la cohérence avec le reste du code, ne dis pas « ça devrait être dans la couche
-    service » sans savoir qu'elle existe, et une répétition ne devient une duplication
-    qu'une fois l'autre exemplaire VU. Ce qui relève de ce que tu ne vois pas devient un
-    « QUESTION », pas un constat.
+  - TU VOIS UNE PART DU DÉPÔT, PAS TOUT. La carte des répertoires porte sur l'arbre
+    entier — sers-t'en pour situer — mais seuls les fichiers RETENUS ont été lus, et la
+    matière dit combien ne l'ont pas été. Ne dis donc pas « ça devrait être dans la couche
+    service » quand tu vois ce répertoire sur la carte sans en avoir lu une ligne, et une
+    répétition ne devient une duplication qu'une fois l'autre exemplaire VU. Ce qui relève
+    de ce que tu n'as pas lu devient un « QUESTION », pas un constat.
   - NE REFAIS PAS LE TRAVAIL DE L'OUTILLAGE : indentation, nommage d'une variable locale,
     import inutilisé, ordre des clés, guillemets. Le linter le fait mieux et sans
     facture.

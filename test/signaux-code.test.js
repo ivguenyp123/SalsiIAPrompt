@@ -404,11 +404,19 @@ describe('la matière d\'un dépôt dit d\'abord ce qu\'elle n\'a pas montré', 
 });
 
 describe('le signal est déclaré, et son dossier est facultatif', () => {
-  test('`code_du_depot` se calcule, et son réglage n\'est pas requis', () => {
+  test('`code_du_depot` se calcule, et AUCUN de ses réglages n\'est requis', () => {
+    /*
+     * Deux réglages, et leur absence est une VALEUR : pas de branche = celle par défaut,
+     * pas de dossier = tout le dépôt. Les exiger bloquerait le cas le plus courant.
+     *
+     * `branche` est arrivé après coup, sur un vrai lancement : l'agent de conception,
+     * branché sur ce signal, lisait `main` alors qu'on lui demandait une autre branche —
+     * une réponse juste à une autre question, ce qui est pire qu'un refus.
+     */
     assert.equal(sait('code_du_depot'), true);
     const r = reglagesDe('code_du_depot');
-    assert.deepEqual(r.map((x) => x.nom), ['dossier']);
-    assert.equal(r[0].requis, false, 'tout le dépôt est une valeur, pas un manque');
+    assert.deepEqual(r.map((x) => x.nom), ['branche', 'dossier']);
+    assert.ok(r.every((x) => x.requis === false), 'aucun n\'est requis');
     assert.equal(reglagesComplets('code_du_depot', {}), true);
   });
 });
