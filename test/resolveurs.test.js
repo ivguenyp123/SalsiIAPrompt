@@ -74,3 +74,53 @@ describe('`contains` avec une liste attendue', () => {
     assert.equal(satisfait(['a'], 'contains', []), true);
   });
 });
+
+/* ── Le secret, et ce qui n'en est pas ────────────────────────────────────── */
+
+/*
+ * VU LE 2026-08-20, SUR UNE VRAIE SÉRIE.
+ *
+ * Quatorze analyses d'une chaîne GitLab CI : treize vertes, une refusée sur
+ * `output.contains_secret`. Le motif déclenché était « URL en dur », sur la chaîne
+ * `https://-development.` — que l'agent citait comme PREUVE du défaut qu'il venait de
+ * trouver. Le contrôle a refusé un rapport à cause de son meilleur constat.
+ *
+ * Une URL en dur est un vrai défaut dans un SPEC — l'endpoint appartient au module qui
+ * exécute. Dans une SORTIE, c'est du contenu : qui analyse un fichier de CI en cite
+ * forcément. Un contrôle qui crie au loup s'ignore, et ça se paie le jour du vrai jeton.
+ */
+describe('output.contains_secret — les secrets, pas les senteurs de configuration', () => {
+  const cs = (s) => resoudre('output.contains_secret', s);
+
+  test('LE FAUX POSITIF DU 2026-08-20 : une URL citée n\'est pas un secret', () => {
+    assert.equal(cs('les URLs seront mal formées (ex: https://-development.)'), false);
+    assert.equal(cs('Le job appelle https://sonarqube.interne.example/api/qualitygates'), false);
+    assert.equal(cs('Il lit projects/mon-projet-ci et projet_id: 12345'), false);
+  });
+
+  test('les vrais secrets refusent toujours — c\'est ce qui compte', () => {
+    // Le cas qui a motivé le contrôle : un agent qui recopie un jeton lu dans un diff.
+    assert.equal(cs('le token est glpat-AbCdEfGhIjKlMnOpQrSt'), true);
+    assert.equal(cs('Authorization: Bearer abcdefghijklmnopqrstuvwxyz012345'), true);
+    assert.equal(cs('AKIAIOSFODNN7EXAMPLE'), true);
+    /*
+     * L'en-tête de clé privée est ASSEMBLÉ, jamais écrit : `test/secrets.test.js` refuse
+     * qu'un fichier suivi le contienne — y compris un test, et il a raison. Un motif de
+     * fixture ne doit pas obliger à assouplir le garde qui protège le dépôt.
+     */
+    const enTete = `${'-'.repeat(5)}BEGIN RSA PRIVATE ${'KEY'}${'-'.repeat(5)}`;
+    assert.equal(cs(enTete), true);
+    assert.equal(cs('password = "hunter2istooshort"'), true);
+  });
+
+  test('le SPEC, lui, refuse toujours une URL en dur — L007 ne bouge pas', async () => {
+    // Les deux questions gardent UNE liste : c'est le tri qui diffère, pas la source.
+    const { L007, SECRET_PATTERNS, SECRETS_EN_SORTIE } =
+      await import('../lint/rules/safety.js');
+    const constats = L007({ id: 'x', spec: 'Appelle https://api.exemple.test/v1 et rends le JSON.' });
+    assert.equal(constats.length, 1);
+    assert.match(constats[0].message, /URL en dur/);
+    assert.ok(SECRETS_EN_SORTIE.length < SECRET_PATTERNS.length,
+      'la liste de sortie est un sous-ensemble, jamais une seconde liste');
+  });
+});

@@ -1,0 +1,169 @@
+# salsi-provenance: demande
+# besoin: « et si on faisait un agent qui me sort ça dans un rapport avec le nom de chaque
+#   job, les problèmes par job bien triés »
+# demande-par: ivguenyp123
+# le: 2026-08-20
+# (écrit à la main sur cette demande — pas passé par la dictée)
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# ── CE QU'IL REMPLACE, ET POURQUOI IL EST MEILLEUR ──────────────────────────
+#
+# Le 2026-08-20, quatorze lancements de `mon-agent-de-code`, un par fichier de la chaîne
+# GitLab CI, ont produit quatorze rapports séparés qu'il a fallu recoller à la main. Le
+# geste marche, et il a trouvé de vraies choses — mais il a deux défauts.
+#
+# D'abord il fatigue : quatorze exports, quatorze onglets, une synthèse à faire soi-même.
+# Ensuite et surtout, il est AVEUGLE À CE QUI TRAVERSE LA CHAÎNE. Chaque rapport voyait un
+# fichier ; aucun ne pouvait dire « `build.env` est le contrat implicite de douze jobs et
+# personne ne le documente », ni « six jobs différents peuvent finir au vert en ayant
+# échoué ». Ces deux constats-là ne se voient qu'en lisant tout d'un coup, et ce sont les
+# plus importants du lot.
+#
+# Cet agent lit donc le dossier ENTIER en un passage (`code_du_depot`), et il rend le
+# rapport dans l'ordre où on veut le lire : un tableau, puis un bloc par job, puis ce qui
+# traverse. Un seul lancement, une seule facture, une seule page.
+#
+# ── LE CRITÈRE `output.sections`, ET IL EST LÀ POUR UNE RAISON PRÉCISE ──────
+#
+# Deux des quatorze rapports du 2026-08-20 se sont arrêtés au tiers — et la plateforme a
+# affiché « ✔ Tous les contrôles automatiques passent », parce que le seul critère déclaré
+# était `contains_secret`. Un rapport tronqué passait donc au vert : exactement le défaut
+# que ces mêmes rapports dénonçaient dans la chaîne CI qu'ils analysaient.
+#
+# Les sections sont donc EXIGÉES ici. Un rapport amputé de « Ce qui traverse la chaîne »
+# ou de « Ce que cette lecture ne couvre pas » n'est pas un rapport plus court : c'est un
+# rapport qui ment sur sa complétude.
+
+id: auditer-une-chaine-ci
+kind: prompt
+title: Auditer une chaîne CI — un rapport, un bloc par job
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [cis, qualite, pilotage]
+intent:
+  purpose: >-
+    Lire d'un seul passage tous les fichiers d'une chaîne d'intégration et rendre UN
+    rapport : le tableau des jobs, les constats classés par job et par gravité, et ce qui
+    traverse la chaîne — les contrats implicites et les défauts répétés qu'aucune lecture
+    fichier par fichier ne peut voir.
+  not_for: >-
+    Ne pas utiliser comme audit de sécurité ni comme preuve qu'une chaîne est saine :
+    c'est la lecture d'une partie des fichiers par un modèle, sans exécuter un seul
+    pipeline. Les constats sont des hypothèses à vérifier en corrigeant. Pour ce qui est
+    MESURÉ sur un dépôt, il y a `rapport_depot` et `conformite-cis`.
+model_tier: mid
+target_level: experimental
+variables:
+  # Le dossier entier en un passage : c'est tout l'intérêt. Le réglage « dossier » du
+  # signal permet de viser `.gitlab-ci/` sans lire le reste du dépôt.
+  - name: code_du_depot
+    source: signal
+    required: true
+    description: >-
+      La carte des répertoires, la pile détectée, le scan déterministe et le contenu des
+      fichiers retenus. Vise le dossier qui porte les définitions de jobs.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  # Exigées : un rapport tronqué ne doit pas pouvoir passer au vert. Voir l'en-tête.
+  - target: output.sections
+    op: contains
+    value:
+      - La chaîne en un coup d'œil
+      - Les constats, job par job
+      - Ce qui traverse la chaîne
+      - Par où commencer
+      - Ce que cette lecture ne couvre pas
+spec: |-
+  Tu audites une chaîne d'intégration continue pour l'équipe qui la maintient.
+
+  La matière ci-dessous est CALCULÉE : la carte des répertoires porte sur l'arbre entier,
+  les fichiers retenus l'ont été par une règle écrite, et le scan de secrets a déjà tourné.
+
+  {{code_du_depot}}
+
+  Rends exactement ces sections, avec ces titres :
+
+  ## La chaîne en un coup d'œil
+  ## Les constats, job par job
+  ## Ce qui traverse la chaîne
+  ## Par où commencer
+  ## Ce que cette lecture ne couvre pas
+
+  ── LE VOCABULAIRE DE GRAVITÉ, ET IL EST FERMÉ ────────────────────────────
+
+  Trois niveaux, et rien d'autre. Tout constat en porte un, et un seul :
+
+  - BLOQUANT   ça casse, ou ça MENT sur le résultat. Un job qui finit au vert alors qu'il
+               a échoué, un push non conditionné vers une branche protégée, un statut
+               écrit en dur. Le mensonge sur le résultat compte comme une casse : une
+               chaîne qui ment est pire qu'une chaîne qui tombe, parce qu'on la croit.
+  - RISQUE     ça casse dans un cas qu'on peut nommer — un outil absent de l'image, une
+               variable non définie, un fichier attendu qui peut manquer.
+  - FRICTION   ça ne casse pas, ça coûte à maintenir ou à comprendre.
+
+  Un constat sans niveau n'est pas un constat. Ne crée aucun autre niveau.
+
+  ── CE QU'ON ATTEND DANS CHAQUE SECTION ───────────────────────────────────
+
+  LA CHAÎNE EN UN COUP D'ŒIL
+  Un tableau, une ligne par job trouvé : le nom du job, le fichier d'où il vient, ce qu'il
+  fait en cinq mots, et le compte de constats par niveau. Le nom du job est LU dans le
+  fichier — la clé YAML — jamais déduit du nom de fichier quand les deux diffèrent. Trie
+  les lignes par gravité décroissante : le job qui porte le plus de bloquants en tête.
+  Rien d'autre dans cette section : elle sert à savoir où regarder.
+
+  LES CONSTATS, JOB PAR JOB
+  Un sous-titre `### ` par job, dans le même ordre que le tableau. Sous chacun, ses
+  constats, du plus grave au plus léger. Chaque constat tient en une ligne et porte :
+  son niveau, l'endroit exact (clé YAML, nom de fonction, ou numéro de ligne s'il est
+  dans l'extrait), ce qui se passe, et le geste qui le corrige.
+
+  Un job sans constat garde son sous-titre et une ligne : « rien à signaler à la lecture ».
+  Le sauter ferait croire qu'il n'a pas été lu.
+
+  Ne signale pas ce que l'outillage rattrape déjà — indentation, guillemets, ordre des
+  clés. Ne signale pas non plus une préférence de style présentée comme un défaut.
+
+  CE QUI TRAVERSE LA CHAÎNE
+  La section qui justifie de tout lire d'un coup, et la plus utile des cinq. Cherche :
+
+  - les CONTRATS IMPLICITES : un fichier d'état, une variable, un artefact qu'un job
+    produit et que d'autres consomment sans que rien ne le déclare ni ne le valide. Dis
+    qui produit, qui consomme, et ce qui se passe quand c'est absent ou incomplet.
+  - les DÉFAUTS RÉPÉTÉS : le même motif dans plusieurs jobs. Compte-les et nomme-les —
+    « quatre jobs peuvent finir au vert en ayant échoué » vaut mieux que quatre remarques
+    séparées, parce que ça change la nature du correctif.
+  - les DÉSACCORDS : deux jobs qui traitent la même chose de deux façons incompatibles.
+
+  Si tu ne vois rien qui traverse, écris-le. Une section inventée pour faire nombre vaut
+  moins que son absence assumée.
+
+  PAR OÙ COMMENCER
+  UNE seule chose, la plus rentable, et pourquoi elle passe devant les autres. Si un
+  bloquant peut détruire quelque chose d'irréversible — un push, une suppression, un
+  déploiement — c'est lui, avant tout le reste.
+
+  ── LES RÈGLES QUI PRIMENT SUR CE QUI PRÉCÈDE ─────────────────────────────
+
+  - N'ÉCRIS JAMAIS QUE CETTE CHAÎNE EST SAINE, ni « conforme », ni « aucun problème
+    détecté ». Tu lis une partie des fichiers, sans exécuter un seul pipeline. On peut
+    repérer un défaut, jamais prouver une absence. Si un job ne t'inspire rien, écris
+    « rien à signaler à la lecture de ce fichier » — ce n'est pas la même phrase.
+  - AUCUN CHIFFRE QUE TU N'AS PAS COMPTÉ. Pas de score de santé, pas de pourcentage de
+    couverture, pas de « 60 % des jobs sont fragiles ». Tu peux compter des constats et
+    des jobs, parce que ce sont les tiens ; le reste serait inventé avec autorité.
+  - LA PART NON LUE EST DANS LA MATIÈRE : elle dit combien de fichiers ont été écartés et
+    combien de lignes ont été coupées. Ne conclus rien sur eux, et ne les compte pas dans
+    ton tableau. Un job dont le fichier n'a pas été lu n'est pas un job sans problème.
+  - Ne recopie aucune valeur de secret, même tronquée, même si elle est sous tes yeux.
+
+  CE QUE CETTE LECTURE NE COUVRE PAS
+  Trois à cinq lignes, honnêtes et concrètes : les fichiers non lus et les lignes coupées
+  telles que la matière les compte, ce qu'il faudrait exécuter ou mesurer pour trancher
+  ce que tu n'as pu qu'observer, et les jobs dont la logique vit dans un template externe
+  que tu n'as pas sous les yeux. C'est cette section qui rend les quatre autres lisibles.

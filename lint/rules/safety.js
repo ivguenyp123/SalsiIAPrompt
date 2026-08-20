@@ -21,6 +21,23 @@ function* walkStrings(node, path = '') {
  * `output.contains_secret` (la SORTIE ne doit pas en contenir). Deux listes finiraient
  * par diverger, et c'est la deuxième qui compte le jour où un agent recopie un jeton
  * qu'il a lu dans un diff.
+ *
+ * ── `sortie: false` — LA MÊME LISTE, DEUX QUESTIONS ─────────────────────────
+ *
+ * Trois motifs ne décrivent pas un secret : ce sont des SENTEURS DE CONFIGURATION. Une
+ * URL figée dans un `spec` est un vrai défaut — l'endpoint appartient au module qui
+ * exécute l'outil, pas au texte qui part vers le modèle. Dans la SORTIE d'un agent, une
+ * URL est du contenu ordinaire : qui analyse un fichier de CI en cite forcément.
+ *
+ * Vu en vrai le 2026-08-20. Quatorze analyses d'une chaîne GitLab CI : treize vertes, une
+ * refusée sur `output.contains_secret`. Le motif déclenché était « URL en dur », sur la
+ * chaîne `https://-development.` — que l'agent citait comme PREUVE du défaut qu'il venait
+ * de trouver (des URLs mal formées quand une variable manque). Le contrôle a donc refusé
+ * un rapport à cause de son meilleur constat.
+ *
+ * Un contrôle qui crie au loup est un contrôle qu'on apprend à ignorer, et ça se paie le
+ * jour du vrai jeton. On garde donc UNE liste — la divergence redoutée n'a pas lieu — et
+ * on marque ce qui ne s'applique pas à la sortie.
  */
 export const SECRET_PATTERNS = [
   { re: /-----BEGIN [A-Z ]*PRIVATE KEY-----/,                   label: 'clé privée' },
@@ -30,10 +47,19 @@ export const SECRET_PATTERNS = [
   { re: /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\./,         label: 'JWT' },
   { re: /\bBearer\s+[A-Za-z0-9._-]{20,}/i,                       label: 'jeton Bearer' },
   { re: /\b(?:api[_-]?key|secret|token|password|passwd|pwd)\s*[:=]\s*["']?[^\s"',]{8,}/i, label: 'secret affecté en clair' },
-  { re: /\bhttps?:\/\/[^\s"'<>)]+/i,                             label: 'URL en dur' },
-  { re: /\bprojects\/[a-z0-9-]{6,}\b/i,                          label: 'identifiant de projet en dur' },
-  { re: /\bproject[_-]?id\s*[:=]\s*["']?\d{4,}/i,                label: 'identifiant de projet en dur' }
+  { re: /\bhttps?:\/\/[^\s"'<>)]+/i,              label: 'URL en dur',                   sortie: false },
+  { re: /\bprojects\/[a-z0-9-]{6,}\b/i,           label: 'identifiant de projet en dur', sortie: false },
+  { re: /\bproject[_-]?id\s*[:=]\s*["']?\d{4,}/i, label: 'identifiant de projet en dur', sortie: false }
 ];
+
+/**
+ * Ceux qui s'appliquent à la SORTIE d'un agent — les secrets, et eux seuls.
+ *
+ * Le filtre vit ICI, avec la liste, et non chez l'appelant : c'est ce qui garantit qu'un
+ * motif ajouté demain soit classé au moment où on l'écrit, par quelqu'un qui sait s'il
+ * décrit un secret ou une senteur de configuration.
+ */
+export const SECRETS_EN_SORTIE = SECRET_PATTERNS.filter((p) => p.sortie !== false);
 
 /**
  * L007 — Aucun secret, URL ou identifiant de projet en dur. 🔴

@@ -22,7 +22,7 @@
  *
  * Module PUR : ni réseau, ni système de fichiers.
  */
-import { SECRET_PATTERNS } from '../lint/rules/safety.js';
+import { SECRETS_EN_SORTIE } from '../lint/rules/safety.js';
 
 /** Conventional Commits, en tête de message. Le corps est libre. */
 const CONVENTION = /^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([^)]+\))?!?: .{1,}$/;
@@ -95,8 +95,14 @@ function patchPlausible(texte) {
 export const RESOLVEURS = {
   'output.length': (sortie) => String(sortie).length,
 
+  /*
+   * Les SECRETS, pas les senteurs de configuration. Une URL en dur est un défaut dans un
+   * `spec` et un contenu ordinaire dans une sortie — le tri vit dans `safety.js`, avec la
+   * liste. Voir `SECRETS_EN_SORTIE` : le motif « URL en dur » a refusé un vrai rapport à
+   * cause de l'URL qu'il citait en preuve.
+   */
   'output.contains_secret': (sortie) =>
-    SECRET_PATTERNS.some(({ re }) => re.test(String(sortie))),
+    SECRETS_EN_SORTIE.some(({ re }) => re.test(String(sortie))),
 
   'output.is_valid_json': (sortie) => {
     // Un modèle encadre volontiers son JSON de ```json … ``` : le refuser pour ça
