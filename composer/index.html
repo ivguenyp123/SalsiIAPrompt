@@ -126,6 +126,46 @@
 
   #recherche{width:100%;font-size:13.5px;padding:11px 14px;margin-bottom:10px}
 
+  /* ── Le besoin dit en une phrase ──
+     Il passe DEVANT la recherche par mots, et il est plus gros : c'est le geste qu'on veut
+     voir en premier. La recherche reste, en dessous — quand on sait déjà ce qu'on cherche,
+     la décrire est une corvée. */
+  .besoin{margin-bottom:12px}
+  #besoin{width:100%;font-size:14px;padding:13px 15px;border-radius:12px;
+          border:1px solid rgba(167,139,250,.42);background:rgba(124,92,252,.09)}
+  #besoin:focus{border-color:rgba(167,139,250,.85);background:rgba(124,92,252,.14)}
+
+  .compris{margin-top:9px;padding:11px 13px;border-radius:11px;font-size:12.5px;
+           line-height:1.55;background:rgba(0,0,0,.26);border:1px solid var(--line)}
+  .compris .titre{font-size:10.5px;font-weight:800;text-transform:uppercase;
+                  letter-spacing:.06em;color:var(--tm);margin-bottom:7px}
+  .compris .puces{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+  /* Une matière retenue s'ENLÈVE — c'est ce qui fait la différence entre une lecture
+     qu'on subit et une empreinte qu'on corrige. */
+  .compris .puce{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;
+                 padding:5px 10px;border-radius:999px;font-family:var(--fm);
+                 background:rgba(124,92,252,.26);border:1px solid rgba(167,139,250,.55)}
+  .compris .puce b{font-weight:700}
+  .compris .puce .pourquoi{opacity:.6;font-size:10.5px}
+  .compris .puce .x{cursor:pointer;opacity:.55;font-weight:800}
+  .compris .puce .x:hover{opacity:1}
+  /* Les pistes ne ressemblent PAS à des matières retenues : elles se choisissent. */
+  .compris .piste{background:transparent;border-style:dashed;cursor:pointer}
+  .compris .piste:hover{background:rgba(124,92,252,.18)}
+  .compris .rate{color:var(--tm);font-size:11.5px;margin-top:6px}
+  .compris .rate b{color:#fbbf24;font-weight:700}
+  .compris .droit{margin-top:7px;font-size:11.5px;color:#fbbf24}
+
+  /* Le coût annoncé sur la carte : ce que l'agent réclamera en plus du sujet. */
+  .brique .enplus{font-size:10.5px;color:var(--tm);font-family:var(--fm);opacity:.8}
+
+  /* Le groupe des capacités qui ÉCRIVENT : séparé, jamais mélangé aux autres. */
+  .aecrire{margin:14px 0 8px;padding-top:11px;border-top:1px dashed rgba(251,191,36,.35);
+           font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;
+           color:#fbbf24}
+  .aecrire small{display:block;font-weight:500;text-transform:none;letter-spacing:0;
+                 color:var(--tm);margin-top:4px}
+
   /* ── La provenance : le filtre qui démêle ce qui était mélangé ──
      Une consigne déjà relue par un humain et un besoin de la plateforme que personne n'a
      jamais écrit sont deux matières différentes. Elles se lisaient à la file, et rien ne
@@ -150,8 +190,15 @@
   .brique b{display:block;font-size:13.5px;color:var(--tp);line-height:1.35}
   /* Trois lignes puis les points de suspension : assez pour juger, pas assez pour qu'une
      carte bavarde écrase ses voisines et casse l'alignement de la grille. */
+  /* `min-width:0` : sans lui, un enfant de colonne flex garde `min-width:auto` et refuse
+     de rétrécir sous la largeur de son contenu. Une consigne contenant `{{code_du_depot}}`
+     — un mot que rien ne coupe — débordait alors DANS LA CARTE VOISINE, et les deux textes
+     se superposaient. Le rognage à trois lignes ne pouvait rien y faire : il coupe en
+     hauteur, et le débordement était en largeur. */
+  .brique{min-width:0}
   .brique small{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;
-                overflow:hidden;font-size:11.5px;color:var(--tm);line-height:1.5}
+                overflow:hidden;font-size:11.5px;color:var(--tm);line-height:1.5;
+                min-width:0;overflow-wrap:anywhere}
   .brique .pied{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:auto;
                 padding-top:2px}
   .brique .poignee{color:var(--tm);font-size:13px;line-height:1.2;margin-left:auto}
@@ -294,7 +341,24 @@
   <div class="etabli">
     <section class="panneau matiere">
       <h2 id="titreMatiere">Briques validées <span class="n" id="nbriques">…</span></h2>
-      <input id="recherche" placeholder="chercher un morceau — « dora », « secret », « migration »…">
+
+      <!--
+        DIRE SON BESOIN, PLUTÔT QUE CHERCHER UN NOM.
+
+        La recherche par mots demande de connaître le registre : il faut deviner que ce
+        qu'on veut s'appelle « dora ». Ici on décrit ce qu'on a et ce qu'on veut, et la
+        plateforme rend LA MATIÈRE qu'elle a comprise — modifiable à la main, parce
+        qu'elle se trompera.
+
+        Elle ne rend jamais un paragraphe. Une empreinte se conteste ; une phrase bien
+        tournée se croit.
+      -->
+      <div class="besoin">
+        <input id="besoin" placeholder="décris ton besoin — « pourquoi mon pipeline casse », « les failles de mon dépôt »…">
+        <div id="compris" class="compris" hidden></div>
+      </div>
+
+      <input id="recherche" placeholder="ou cherche par mot — « dora », « secret », « migration »…">
       <div class="seg" id="provenances" hidden></div>
       <div class="fam" id="familles" hidden></div>
       <div class="cartes" id="briques"></div>

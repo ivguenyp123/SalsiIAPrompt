@@ -38,9 +38,11 @@ import { chemin as cheminMien, dossier as dossierMien, forker, etat as etatChain
 // `filtrer` seul reste utile : la recherche du composeur passe par le même moteur que
 // l'inventaire, pour que « dora » y trouve la même chose des deux côtés.
 import { filtrer } from '../lib/inventaire.js';
-import { morceauDepuisArtefact, consigneAssemblee,
+import { morceauDepuisArtefact, consigneAssemblee, SOURCES_ENTREES,
          assembler, cequilManque, besoinsDe, peutTourner } from '../lib/assemblage.js';
-import { sait as saitCalculer } from '../lib/signaux-matiere.js';
+import { sait as saitCalculer, SIGNAUX } from '../lib/signaux-matiere.js';
+import { lexique, comprendre, matieresRetenues } from '../lib/besoin.js';
+import { ficheDe, candidats, matieres as matieresDe } from '../lib/capacites.js';
 import yaml from '../lib/yaml.js';
 
 const session = requireSession('../app/login.html');
@@ -402,6 +404,187 @@ function forkerDepuis(artefact) {
 let origineFork = '';
 let dejaSauvee = false;   // l'identifiant est figé DÈS le fork, l'existence non
 
+/* ── Le routage par besoin ────────────────────────────────────────────────── */
+
+/**
+ * ══════════════════════════════════════════════════════════════════════════════
+ *  DIRE CE QU'ON VEUT, PLUTÔT QUE DEVINER COMMENT ÇA S'APPELLE
+ * ══════════════════════════════════════════════════════════════════════════════
+ *
+ * La recherche par mots suppose qu'on connaisse déjà le registre : il faut savoir que ce
+ * qu'on cherche s'appelle « dora ». À cent quarante capacités, ce n'est plus tenable, et
+ * ça produit le pire des résultats — quelqu'un ne trouve pas, donc en écrit une de plus.
+ *
+ * ── CE QUE CE ROUTAGE FAIT, ET LA LIGNE QU'IL NE FRANCHIT PAS ────────────────
+ *
+ * Une phrase devient une EMPREINTE DE BESOIN : des matières, un droit. Cette empreinte
+ * interroge `candidats()`, qui rend ce qui sait déjà faire le travail.
+ *
+ * Elle ne fabrique AUCUN texte. Si une phrase pouvait produire un artefact — un spec, des
+ * critères, des outils — le modèle écrirait la pièce gouvernée, et le lint, la porte et le
+ * pré-vol deviendraient des choses qu'on contourne en reformulant. Une phrase route ; un
+ * humain écrit.
+ *
+ * ── L'ÉCRAN REND L'EMPREINTE, PAS UNE PHRASE ────────────────────────────────
+ *
+ * Ce qu'on affiche est la liste des matières comprises, chacune avec les mots qui l'ont
+ * désignée, et chacune RETIRABLE. Plus ce qui n'a pas été compris. Une empreinte se
+ * conteste ; un paragraphe bien tourné se croit — et un routeur qui a lu deux mots sur
+ * trente aurait exactement la même tête qu'un routeur qui a tout compris.
+ */
+const LEX = lexique({ signaux: SIGNAUX, sources: SOURCES_ENTREES });
+
+const libelleDe = (e) => SIGNAUX[e]?.libelle || e;
+
+let besoinCompris = null;   // ce que la phrase a désigné, tel quel
+let besoinRetire = [];      // les matières que la personne a enlevées à la main
+
+/** Les matières effectivement retenues : comprises, moins celles qu'on a enlevées. */
+const besoinActif = () => (besoinCompris
+  ? matieresRetenues(besoinCompris).filter((e) => !besoinRetire.includes(e))
+  : []);
+
+function majBesoin() {
+  const phrase = $('besoin').value;
+  besoinCompris = phrase.trim() ? comprendre(phrase, LEX) : null;
+  besoinRetire = [];
+  rendreCompris();
+  rendreMatiere();
+}
+
+function rendreCompris() {
+  const zone = $('compris');
+  zone.textContent = '';
+  zone.hidden = !besoinCompris;
+  if (!besoinCompris) return;
+
+  const c = besoinCompris;
+  const actives = besoinActif();
+
+  if (actives.length) {
+    zone.append(el('div', { className: 'titre', textContent: 'Matière comprise' }));
+    const puces = el('div', { className: 'puces' });
+    for (const { entree, motifs } of c.entrees) {
+      if (besoinRetire.includes(entree)) continue;
+      const p = el('span', { className: 'puce' },
+        el('b', { textContent: libelleDe(entree) }),
+        // POURQUOI cette matière : sans les mots, l'écran a une autorité sans preuve.
+        el('span', { className: 'pourquoi', textContent: motifs.map((m) => `« ${m} »`).join(' ') }));
+      const x = el('span', { className: 'x', textContent: '✕', title: 'ce n\'est pas ça' });
+      x.onclick = () => { besoinRetire = [...besoinRetire, entree]; rendreCompris(); rendreMatiere(); };
+      p.append(x);
+      puces.append(p);
+    }
+    zone.append(puces);
+  } else if (c.pistes.length) {
+    /*
+     * ON DEMANDE, une seule fois, et seulement quand le mot ne tranche pas.
+     *
+     * « pipeline » désigne sept matières. Ni décider à sa place, ni répondre « rien
+     * trouvé » alors qu'on a sept pistes : on montre les sept et on laisse choisir.
+     */
+    zone.append(el('div', { className: 'titre',
+      textContent: `${c.pistes.length} matières possibles — laquelle ?` }));
+    const puces = el('div', { className: 'puces' });
+    /*
+     * Rangées par NOMBRE D'AGENTS QUI SAVENT LES LIRE — un compte, pas un score.
+     *
+     * L'ordre alphabétique mettait en tête une matière que deux agents lisent et reléguait
+     * en fin de ligne celle que quinze lisent. Proposer d'abord ce à quoi le registre sait
+     * répondre n'est pas une préférence : c'est la seule information qu'on ait.
+     */
+    const combien = new Map(matieresDe(BRIQUES.map(ficheDe)).map((m) => [m.entree, m.n]));
+    const rangees = [...c.pistes].sort((a, b) =>
+      (combien.get(b.entree) || 0) - (combien.get(a.entree) || 0)
+      || a.entree.localeCompare(b.entree));
+    for (const p of rangees) {
+      const b = el('span', { className: 'puce piste' },
+        el('b', { textContent: libelleDe(p.entree) }),
+        el('span', { className: 'pourquoi', textContent: `« ${p.mot} »` }));
+      b.onclick = () => {
+        // Choisir une piste la transforme en matière comprise. Le champ de texte n'est pas
+        // réécrit : personne n'aime voir sa phrase modifiée sous ses doigts.
+        besoinCompris = { ...c, entrees: [{ entree: p.entree, motifs: [p.mot] }], pistes: [] };
+        besoinRetire = [];
+        rendreCompris();
+        rendreMatiere();
+      };
+      puces.append(b);
+    }
+    zone.append(puces);
+  } else {
+    zone.append(el('div', { className: 'titre', textContent: 'Aucune matière reconnue' }));
+    zone.append(el('div', { className: 'rate' },
+      'Rien ici ne correspond au vocabulaire des matières que la plateforme sait fournir. ',
+      'Ce n\'est pas « il n\'y a rien pour toi » : choisis une matière dans la liste, ou ',
+      'reformule avec ce que tu as sous la main — un diff, un dépôt, une exécution de CI.'));
+  }
+
+  if (c.droit === 'write') {
+    zone.append(el('div', { className: 'droit',
+      textContent: `⚠ Cette phrase demande d'AGIR sur la forge (${c.motifsDroit
+        .map((m) => `« ${m} »`).join(', ')}). Les capacités qui en sont capables sont`
+        + ' montrées à part, plus bas.' }));
+  }
+
+  /*
+   * CE QUI N'A PAS ÉTÉ COMPRIS, TOUJOURS. C'est le seul rempart contre le routeur qui a
+   * l'air magique : sans cette ligne, on lit deux mots sur trente et l'écran est identique.
+   */
+  if (c.ignores.length) {
+    zone.append(el('div', { className: 'rate' },
+      el('b', { textContent: 'Pas compris : ' }),
+      c.ignores.map((m) => `« ${m} »`).join(', '),
+      ' — si l\'essentiel de ton besoin est là-dedans, ce qui suit passe à côté.'));
+  }
+}
+
+/**
+ * Ce qu'un candidat réclamera EN PLUS du sujet, par identifiant d'artefact.
+ *
+ * Sans cette information, « il répond à ta question » cache « et il te demandera trois
+ * autres choses » — qu'on découvre au lancement, quand il est trop tard pour changer
+ * d'avis. C'est un coût, et un coût s'annonce.
+ */
+const enPlus = new Map();
+
+/**
+ * Les capacités qui savent lire la matière demandée, séparées en deux groupes.
+ *
+ * Celles qui écrivent dans la forge ne sont JAMAIS mélangées aux autres, même quand la
+ * phrase demandait d'agir. Proposer silencieusement un agent qui ouvre une MR à quelqu'un
+ * qui voulait comprendre est exactement ce que la gouvernance ne doit pas laisser passer.
+ */
+function trierParBesoin(liste, cle) {
+  const entrees = besoinActif();
+  if (!entrees.length) return { lit: liste, ecrit: [] };
+
+  const fiches = liste.map((x) => ficheDe(cle(x)));
+  const parId = new Map(liste.map((x) => [cle(x).id, x]));
+  /*
+   * MODE SUJET, pas mode offre. Une phrase dit DE QUOI on parle, pas tout ce qu'on a sous
+   * la main. Exiger que l'agent ne lise QUE ça rendait zéro carte sur « les vulnérabilités
+   * de mon dépôt » — parce que le seul agent qui répond lit aussi le `stack`, lequel se lit
+   * tout seul. Ce qu'il réclamera en plus est un coût à annoncer, pas un motif d'exclusion.
+   */
+  const retenus = candidats(fiches, { entrees }, { couvertureTotale: false })
+    .map((c) => ({ c, x: parId.get(c.id) })).filter((o) => o.x);
+
+  enPlus.clear();
+  for (const o of retenus) enPlus.set(o.c.id, o.c.entreesEnPlus);
+
+  return { lit: retenus.filter((o) => o.c.droit === 'none').map((o) => o.x),
+           ecrit: retenus.filter((o) => o.c.droit !== 'none').map((o) => o.x) };
+}
+
+/** La ligne « il demandera aussi… » d'une carte, ou rien quand il n'y a rien à annoncer. */
+function ligneEnPlus(id) {
+  const sup = enPlus.get(id);
+  if (!sup?.length) return null;
+  return el('small', { className: 'enplus',
+    textContent: `demandera aussi : ${sup.map((e) => libelleDe(e)).join(', ')}` });
+}
+
 /* ── La bibliothèque ──────────────────────────────────────────────────────── */
 
 const plier = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -411,25 +594,36 @@ function rendreBriques() {
   zone.textContent = '';
   const q = plier($('recherche').value).split(/\s+/).filter(Boolean);
 
-  const vues = BRIQUES.filter((a) => {
+  const cherches = BRIQUES.filter((a) => {
     const foin = plier(`${a.title} ${a.intent?.purpose} ${a.id}`);
     return q.every((m) => foin.includes(m));
   });
 
+  // Le besoin filtre APRÈS la recherche : les deux se cumulent, aucun n'annule l'autre.
+  const { lit, ecrit } = trierParBesoin(cherches, (a) => a);
+  const vues = [...lit, ...ecrit];
+
   $('nbriques').textContent = `${vues.length}${vues.length !== BRIQUES.length ? ` / ${BRIQUES.length}` : ''}`;
 
   if (vues.length === 0) {
-    zone.append(el('div', { className: 'vide-toile', textContent: 'Aucun agent ne correspond.' }));
+    zone.append(el('div', { className: 'vide-toile',
+      textContent: besoinActif().length
+        ? 'Aucun agent validé ne sait lire cette matière. C\'est une réponse : il y a '
+        + 'quelque chose à écrire ici, et personne ne l\'a encore fait.'
+        : 'Aucun agent ne correspond.' }));
     return;
   }
 
-  for (const a of vues) {
+  const carte = (a) => {
     const n = el('div', { className: 'brique', draggable: true },
       el('span', { className: 'poignee', textContent: '⠿' }),
       el('span', {}, el('b', { textContent: a.title || a.id }),
                      el('small', { textContent: a.intent?.purpose || '' })),
       el('span', { className: 'sp' }),
       el('span', { className: 'plus', textContent: '＋', title: 'ajouter à la chaîne' }));
+
+    const sup = ligneEnPlus(a.id);
+    if (sup) n.append(sup);
 
     n.ondragstart = (e) => {
       n.classList.add('tire');
@@ -440,8 +634,31 @@ function rendreBriques() {
     // Le clic fait la même chose que le glisser : sur un écran tactile, et pour qui va
     // plus vite au clavier, un établi qui n'accepte QUE le glisser est inutilisable.
     n.onclick = () => ajouter(a.id);
-    zone.append(n);
+    return n;
+  };
+
+  for (const a of lit) zone.append(carte(a));
+  if (ecrit.length) {
+    zone.append(separateurEcriture(ecrit.length));
+    for (const a of ecrit) zone.append(carte(a));
   }
+}
+
+/**
+ * La barre qui sépare ce qui LIT de ce qui ÉCRIT dans la forge.
+ *
+ * Elle occupe toute la largeur de la grille, exprès : un séparateur qui se glisserait
+ * entre deux cartes d'une même ligne ne séparerait rien du tout.
+ */
+function separateurEcriture(n) {
+  const b = el('div', { className: 'aecrire',
+    textContent: `⚠ ${n} capacité(s) qui ÉCRIVENT dans la forge` });
+  b.style.gridColumn = '1 / -1';
+  b.append(el('small', { textContent:
+    'Elles savent lire la même matière, mais demandent en plus le droit de créer une '
+    + 'branche ou une merge request. Elles ne sont jamais mélangées aux autres, même '
+    + 'quand la demande parlait de corriger.' }));
+  return b;
 }
 
 /* ── La matière du mode agent ─────────────────────────────────────────────── */
@@ -575,7 +792,7 @@ function rendrePrompts() {
     boite.append(b);
   }
 
-  const vus = tous.filter((m) => {
+  const cherches = tous.filter((m) => {
     if (enAgent() && usageRetenu && coutDUsage(m.besoins).classe !== usageRetenu) return false;
     if (famille && !(m.tags || []).includes(famille)) return false;
     if (!q.trim()) return true;
@@ -583,14 +800,28 @@ function rendrePrompts() {
                       entrees: m.entrees }], { q }).length > 0;
   });
 
+  /*
+   * Le morceau porte `ref` — l'identifiant de l'artefact dont il vient. C'est par lui qu'on
+   * retrouve la fiche complète : un morceau n'a ni outils ni critères, donc son empreinte
+   * ne se calcule pas sur lui. Router sur une moitié de l'artefact rendrait un droit
+   * `none` pour tout le monde, et le groupe « qui écrivent » serait vide en permanence.
+   */
+  const { lit, ecrit } = trierParBesoin(cherches, (m) => PAR_ID.get(m.ref) || { id: m.ref });
+  const vus = [...lit, ...ecrit];
+
   $('nbriques').textContent = `${vus.length}${vus.length !== tous.length ? ` / ${tous.length}` : ''}`;
 
   if (vus.length === 0) {
-    zone.append(el('div', { className: 'vide-toile', textContent: 'Aucun morceau ne correspond.' }));
+    zone.append(el('div', { className: 'vide-toile',
+      textContent: besoinActif().length
+        ? 'Aucune consigne validée ne lit cette matière. C\'est une réponse : il y a '
+        + 'quelque chose à écrire ici, et personne ne l\'a encore fait.'
+        : 'Aucun morceau ne correspond.' }));
     return;
   }
 
   for (const m of vus) {
+    if (ecrit.length && m === ecrit[0]) zone.append(separateurEcriture(ecrit.length));
     const n = el('div', { className: 'brique', draggable: true },
       el('b', { textContent: m.titre }),
       el('small', { textContent: m.consigne }));
@@ -623,6 +854,10 @@ function rendrePrompts() {
     // La poignée ferme le pied : sur une carte, elle dit « ça se prend » sans occuper la
     // première ligne, où le titre a besoin de toute la largeur.
     pied.append(el('span', { className: 'poignee', textContent: '⠿' }));
+
+    // Ce qu'il réclamera EN PLUS du sujet demandé — annoncé sur la carte, pas au lancement.
+    const sup = ligneEnPlus(m.ref);
+    if (sup) n.append(sup);
 
     n.ondragstart = (e) => {
       n.classList.add('tire');
@@ -1015,6 +1250,17 @@ toile.ondrop = (e) => {
 };
 
 $('recherche').oninput = () => rendreMatiere();
+
+/*
+ * Le besoin se relit À CHAQUE FRAPPE, et c'est délibéré.
+ *
+ * Attendre la touche Entrée ferait taper une phrase entière avant de découvrir que deux
+ * mots sur trois n'ont rien accroché. En continu, on voit le vocabulaire de la plateforme
+ * répondre pendant qu'on écrit — c'est ce qui l'enseigne sans jamais l'imposer.
+ *
+ * Rien n'est appelé au dehors : le lexique est en mémoire, le rapprochement est du code.
+ */
+$('besoin').oninput = () => majBesoin();
 $('vider').onclick = () => {
   etapes = []; MORCEAUX = [];
   identite = { titre: '', purpose: '', notFor: '' };

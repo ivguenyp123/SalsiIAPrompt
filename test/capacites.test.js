@@ -175,6 +175,44 @@ describe('trouver les agents qui savent lire la matière disponible', () => {
   test('sans besoin exprimé, tout le monde est candidat — on ne devine pas', () => {
     assert.equal(candidats(TROIS, {}).length, 3);
   });
+
+  /* ── OFFRE ou SUJET : deux questions, et les confondre vide l'écran ──────── */
+
+  test('en mode SUJET, lire une seule des matières demandées suffit', () => {
+    /*
+     * Mesuré en navigateur : « les vulnérabilités de mon dépôt » rendait ZÉRO carte. Le
+     * seul agent qui répond lit `rapport_vulnerabilites` ET `stack` — et `stack` se lit
+     * tout seul dans le dépôt. L'écarter au motif qu'on ne l'a pas « offert » supprimait
+     * la bonne réponse à une question à laquelle le registre savait répondre.
+     */
+    const c = candidats(TROIS, { entrees: ['diff'] }, { couvertureTotale: false });
+    assert.deepEqual(c.map((x) => x.id).sort(), ['ecrit', 'lit-diff', 'lit-diff-et-plus']);
+  });
+
+  test('et ce qu\'il réclamera EN PLUS est rendu, pas caché', () => {
+    // Un coût s'annonce. « Il répond à ta question » qui cache « et il te demandera trois
+    // autres choses » se découvre au lancement, quand il est trop tard pour changer d'avis.
+    const c = candidats(TROIS, { entrees: ['diff'] }, { couvertureTotale: false });
+    const large = c.find((x) => x.id === 'lit-diff-et-plus');
+    assert.deepEqual(large.entreesEnPlus, ['story']);
+    assert.deepEqual(large.entreesSurLeSujet, ['diff']);
+    assert.deepEqual(c.find((x) => x.id === 'lit-diff').entreesEnPlus, []);
+  });
+
+  test('le mode OFFRE reste le défaut — ne pas pouvoir tourner reste éliminatoire', () => {
+    // Le panneau de lancement pose l'autre question : « voilà TOUT ce que j'ai ». Un agent
+    // qui réclame autre chose ne peut pas tourner, et le proposer serait un P003 annoncé.
+    assert.deepEqual(candidats(TROIS, { entrees: ['diff'] }).map((x) => x.id).sort(),
+                     ['ecrit', 'lit-diff']);
+  });
+
+  test('à sujet égal, celui qui demande le MOINS en plus passe devant', () => {
+    const c = candidats(TROIS, { entrees: ['diff'] }, { couvertureTotale: false });
+    assert.equal(c[0].id, 'lit-diff', 'aucun droit, rien à fournir en plus');
+    assert.ok(c.findIndex((x) => x.id === 'lit-diff-et-plus')
+              < c.findIndex((x) => x.id === 'ecrit'),
+              'demander une entrée de plus coûte moins cher que demander l\'écriture');
+  });
 });
 
 /* ══ SUR LE REGISTRE RÉEL ═════════════════════════════════════════════════════ */
