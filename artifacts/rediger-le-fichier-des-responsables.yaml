@@ -1,0 +1,109 @@
+# Capacité de l'inventaire du hub — module « Project Scaffolder ».
+# besoin : « un agent qui propose un fichier CODEOWNERS à partir de qui touche réellement à quoi »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE, ET IL EST GRAVE : un CODEOWNERS écrit depuis l'historique des
+# commits FIGE un bus factor de 1. La personne seule sur une zone en devient la
+# relectrice obligatoire, donc la seule à jamais la relire, donc la seule à jamais
+# la connaître. L'outil qui devait répartir la connaissance la verrouille.
+#
+# Le second piège : les commits disent qui a ÉCRIT, jamais qui COMPREND. Quelqu'un
+# qui relit tout depuis deux ans n'apparaît dans aucun de ces chiffres, et se
+# retrouve absent d'un fichier qui décide des relectures.
+id: rediger-le-fichier-des-responsables
+kind: prompt
+title: Le CODEOWNERS — d'après qui touche vraiment à quoi
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [equipe, revue]
+intent:
+  purpose: >-
+    Proposer un CODEOWNERS à partir de qui touche réellement à quoi — en désignant des ÉQUIPES plutôt que des personnes, et en signalant les zones où ce fichier figerait une connaissance déjà trop concentrée.
+  not_for: >-
+    Ce n'est pas une carte des compétences : les commits disent qui a écrit, jamais qui comprend ni qui relit. Et ça ne doit pas servir à figer un bus factor de 1 — les zones concernées sont signalées à part, avec ce qu'il faut faire avant.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: repartition_contributions
+    source: signal
+    required: true
+    description: >-
+      Qui contribue à quoi, par zone du dépôt, avec les répertoires non interrogés.
+  - name: inventaire_fichiers
+    source: repo
+    required: true
+    description: >-
+      La liste des fichiers suivis par git.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Ce que montrent les contributions
+      - Les zones à ne PAS verrouiller
+      - Le fichier
+      - Ce que ce fichier ne dit pas
+spec: |-
+  Tu proposes un fichier CODEOWNERS à partir de qui touche réellement à quoi.
+  
+  Les contributions :
+  {{repartition_contributions}}
+  
+  Les fichiers :
+  {{inventaire_fichiers}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que montrent les contributions
+  ## Les zones à ne PAS verrouiller
+  ## Le fichier
+  ## Ce que ce fichier ne dit pas
+  
+  ── LE DANGER, ET IL EST LA RAISON D'ÊTRE DE LA DEUXIÈME SECTION ──────────
+  
+  UN CODEOWNERS ÉCRIT DEPUIS L'HISTORIQUE FIGE LA CONCENTRATION QU'IL DÉCRIT. Là où une seule
+  personne a contribué, la désigner comme relectrice obligatoire la rend seule à relire, donc
+  seule à jamais connaître. Le fichier censé organiser la relecture verrouille la
+  connaissance.
+  
+  Ces zones-là ne vont donc PAS dans le fichier tel quel : elles vont dans la deuxième
+  section, avec ce qu'il faut faire avant.
+  
+  DÉSIGNE DES ÉQUIPES, PAS DES PERSONNES, partout où c'est possible. Une personne part, change
+  de projet, prend des vacances ; un groupe survit. Un CODEOWNERS nominatif devient faux au
+  premier mouvement et bloque les fusions en silence.
+  
+  AUCUN JUGEMENT SUR LES PERSONNES NOMMÉES. Les noms situent un fait, rien de plus.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE MONTRENT LES CONTRIBUTIONS
+  La photo : quelles zones ont plusieurs contributeurs réguliers, lesquelles n'en ont qu'un,
+  lesquelles n'en ont plus. Factuel.
+  
+  LES ZONES À NE PAS VERROUILLER
+  Celles où une seule personne apparaît. Pour chacune : dis pourquoi la mettre au CODEOWNERS
+  aggraverait la situation, et ce qui doit se passer avant — une deuxième personne qui a
+  livré un changement dessus, un binôme sur le prochain travail. Propose, en attendant, de
+  désigner une ÉQUIPE plutôt que la personne : le groupe s'organise, et la relecture ne
+  retombe pas mécaniquement sur la même.
+  
+  LE FICHIER
+  Le CODEOWNERS, en bloc de code, du plus général au plus précis — l'ordre compte, la
+  dernière règle qui correspond l'emporte. Une ligne de repli en tête pour tout le dépôt,
+  puis les zones. Un commentaire par ligne dit sur quoi elle s'appuie.
+  
+  Les zones de la deuxième section apparaissent en commentaire, désactivées, avec la raison.
+  Elles seront activées quand la condition sera remplie — et le commentaire dit laquelle.
+  
+  CE QUE CE FICHIER NE DIT PAS
+  Trois à cinq lignes : les commits disent qui a écrit, jamais qui comprend ni qui relit ;
+  un renommage massif gonfle un compteur sans connaissance derrière ; ce que la matière
+  annonce comme non interrogé ; et le fait qu'un CODEOWNERS bloque des fusions — il se relit
+  avec l'équipe avant d'être poussé, jamais après.

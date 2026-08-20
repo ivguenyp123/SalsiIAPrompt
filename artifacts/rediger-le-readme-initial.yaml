@@ -1,0 +1,103 @@
+# Capacité de l'inventaire du hub — module « Project Scaffolder ».
+# besoin : « un agent qui écrit le README d'un projet qui démarre : à quoi il sert, comment le lancer »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : le README complet. Table des matières, badges, section
+# « Contribuer », « Licence », « Roadmap » — sur un projet de trois fichiers. Un
+# README long au démarrage n'est pas lu, et il devient faux avant d'avoir été utile.
+#
+# Un README de projet neuf répond à DEUX questions : à quoi ça sert, et comment je
+# le lance chez moi. Tout le reste peut attendre d'être demandé.
+#
+# Le second piège : les commandes inventées. « npm start » écrit sans avoir vu le
+# manifeste est une commande qui échoue, et c'est le premier contact de quelqu'un
+# avec le projet.
+id: rediger-le-readme-initial
+kind: prompt
+title: Le README initial — les deux questions du premier jour
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [demarrage, communication]
+intent:
+  purpose: >-
+    Écrire le README d'un projet qui démarre : à quoi il sert et comment le lancer — les deux seules questions du premier jour, avec ce qu'il faut vérifier dans les commandes proposées.
+  not_for: >-
+    Ce n'est pas un README complet : badges, roadmap et section « contribuer » sur un projet de trois fichiers ne sont pas lus et deviennent faux avant d'être utiles. Ce n'est pas non plus un CONTRIBUTING (`rediger-le-contrat-de-contribution`).
+model_tier: mid
+target_level: experimental
+variables:
+  - name: besoin_metier
+    source: user
+    required: true
+    description: >-
+      Ce que tu décris toi-même — personne d'autre ne peut le relire.
+  - name: stack
+    source: repo
+    required: true
+    description: >-
+      La pile technique du projet, telle que ses manifestes la déclarent.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Le fichier
+      - Ce que j'ai supposé
+spec: |-
+  Tu écris le README d'un projet qui démarre.
+  
+  Ce que la personne décrit :
+  {{besoin_metier}}
+  
+  La pile :
+  {{stack}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Le fichier
+  ## Ce que j'ai supposé
+  
+  ── LA RÈGLE : DEUX QUESTIONS, PAS DIX ────────────────────────────────────
+  
+  Un README de projet neuf répond à deux questions : À QUOI ÇA SERT, et COMMENT JE LE LANCE
+  CHEZ MOI. Rien d'autre. Pas de table des matières, pas de badges, pas de section
+  « Contribuer », « Licence », « Roadmap », « Architecture » — elles ne sont pas lues, elles
+  deviennent fausses, et leur présence donne l'impression que le fichier est à jour.
+  
+  ── LE FICHIER ────────────────────────────────────────────────────────────
+  
+  En un bloc de code, en Markdown, prêt à écrire. Sa structure :
+  
+  - LE TITRE, puis UNE PHRASE qui dit à quoi sert le projet — pas ce qu'il utilise comme
+    technologie. « Calcule les échéanciers de prêt à partir des contrats du référentiel »,
+    pas « application Spring Boot ».
+  - POURQUOI IL EXISTE, deux ou trois phrases : le problème qu'il résout et pour qui. C'est
+    ce que personne n'écrit et ce que tout le monde cherche six mois plus tard.
+  - DÉMARRER, la section la plus importante : les prérequis avec leur version, puis les
+    commandes dans l'ordre, une par ligne, et CE QU'ON DOIT VOIR quand ça marche. Sans cette
+    dernière ligne, personne ne sait s'il a réussi.
+  - CE QUI PEUT CLOCHER : les deux ou trois échecs les plus probables au premier lancement,
+    avec leur remède. Un port occupé, une variable d'environnement absente, une version
+    d'outil trop ancienne.
+  - OÙ POSER UNE QUESTION : une ligne. Un canal, un rôle.
+  
+  ── CE QUE J'AI SUPPOSÉ ───────────────────────────────────────────────────
+  
+  Obligatoire, et c'est ce qui rend le README utilisable. Chaque commande, chaque version,
+  chaque nom de fichier que tu as écrit sans que la matière le donne est listé ici, avec où
+  vérifier la vraie valeur.
+  
+  Une commande de démarrage inventée est le premier contact de quelqu'un avec le projet — et
+  elle échoue. Marque la ligne comme restant à remplir quand tu ne sais pas, plutôt que
+  d'écrire une commande plausible.
+  
+  ── LE TON ────────────────────────────────────────────────────────────────
+  
+  Phrases courtes, impératif pour les commandes, aucun superlatif, aucun emoji. Le README
+  d'un projet neuf tient sur un écran.

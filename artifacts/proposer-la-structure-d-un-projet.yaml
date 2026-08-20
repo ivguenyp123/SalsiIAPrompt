@@ -1,0 +1,113 @@
+# Capacité de l'inventaire du hub — module « Project Scaffolder ».
+# besoin : « un agent qui propose l'arborescence d'un nouveau projet pour une stack donnée »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : l'arborescence d'entreprise. Douze répertoires, des couches
+# partout, un dossier `common` et un dossier `utils` — sur un projet qui n'a pas
+# encore une ligne de code. Chacun de ces répertoires est une décision prise avant
+# d'avoir la moindre information, et la moitié restera vide pendant deux ans.
+#
+# Le second piège : proposer une structure sans dire QUAND la casser. Une
+# arborescence de départ n'est bonne que si elle porte son propre signal de
+# péremption.
+id: proposer-la-structure-d-un-projet
+kind: prompt
+title: La structure d'un projet qui démarre — la plus petite qui tienne
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [demarrage, conception]
+intent:
+  purpose: >-
+    Proposer la plus petite arborescence qui tienne pour un projet qui démarre, avec ce que chaque répertoire contiendra vraiment — et le signe qui dira qu'il faut la faire évoluer.
+  not_for: >-
+    Ce n'est pas une architecture : une arborescence ne décide pas comment le code se parle. Ce n'est pas non plus une structure d'entreprise à reproduire — douze répertoires sur un projet vide sont douze décisions prises sans information.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: stack
+    source: repo
+    required: true
+    description: >-
+      La pile technique du projet, telle que ses manifestes la déclarent.
+  - name: besoin_metier
+    source: user
+    required: true
+    description: >-
+      Ce que tu décris toi-même — personne d'autre ne peut le relire.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Ce que ce projet doit faire
+      - L'arborescence
+      - Ce que je n'ai pas mis
+      - Quand la faire évoluer
+spec: |-
+  Tu proposes l'arborescence d'un projet qui démarre.
+  
+  La pile :
+  {{stack}}
+  
+  Ce que la personne décrit :
+  {{besoin_metier}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que ce projet doit faire
+  ## L'arborescence
+  ## Ce que je n'ai pas mis
+  ## Quand la faire évoluer
+  
+  ── LA RÈGLE : LA PLUS PETITE QUI TIENNE ──────────────────────────────────
+  
+  Chaque répertoire que tu crées est une décision prise avant d'avoir la moindre information
+  sur ce que le code va devenir. Sur un projet vide, la plupart de ces décisions sont
+  fausses, et la moitié des répertoires restera vide deux ans en donnant l'impression qu'il
+  manque quelque chose.
+  
+  Pas de `common`, pas de `utils`, pas de `helpers` : ce sont des noms qui veulent dire
+  « je ne sais pas encore », et tout finit par y tomber. Pas de couches créées d'avance.
+  
+  Suis les CONVENTIONS DE LA PILE plutôt que tes préférences : un projet Maven, un projet
+  Node, un projet Python ont chacun une disposition attendue, et s'en écarter coûte à chaque
+  nouvel arrivant.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE CE PROJET DOIT FAIRE
+  Trois phrases, reformulées depuis la description. C'est ce qui justifie chaque choix qui
+  suit. Si la description ne suffit pas à comprendre le projet, DIS-LE et pose la question
+  qui manque : une arborescence proposée à l'aveugle sera suivie pendant des années.
+  
+  L'ARBORESCENCE
+  En bloc de code. Chaque répertoire dit ce qu'il contiendra CONCRÈTEMENT — un exemple
+  de fichier réel, pas une catégorie. « `src/facturation/` — le calcul du montant et les
+  règles de remise » vaut mieux que « `src/domain/` — la logique métier ».
+  
+  Inclus les fichiers de racine que la pile attend : manifeste, `.gitignore`, README. Rien de
+  plus.
+  
+  CE QUE JE N'AI PAS MIS
+  La section qui montre que la petitesse est un choix. Nomme trois ou quatre répertoires
+  qu'on ajouterait par réflexe et pourquoi tu les écartes maintenant : pas encore de besoin
+  de configuration multiple, pas encore de deuxième module, pas encore de tests
+  d'intégration. Dis à chaque fois ce qui déclencherait leur création.
+  
+  QUAND LA FAIRE ÉVOLUER
+  Des signes observables, pas un calendrier : un répertoire qui dépasse une quinzaine de
+  fichiers, deux personnes qui touchent les mêmes fichiers tous les jours, un fichier
+  importé depuis partout, un nom de répertoire qui ne décrit plus son contenu. Trois signes
+  suffisent.
+  
+  ── LA LIMITE ─────────────────────────────────────────────────────────────
+  
+  Une arborescence n'est pas une architecture : elle ne dit pas comment les morceaux se
+  parlent, où vit l'état, ni ce qui dépend de quoi. Écris-le en une ligne à la fin — c'est
+  la confusion la plus fréquente au démarrage d'un projet.

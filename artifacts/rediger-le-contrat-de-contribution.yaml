@@ -1,0 +1,114 @@
+# Capacité de l'inventaire du hub — module « Project Scaffolder ».
+# besoin : « un agent qui rédige le CONTRIBUTING d'un dépôt à partir de ses conventions réelles »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE : le CONTRIBUTING générique. « Forkez, créez une branche,
+# ouvrez une pull request » — un texte trouvable partout et que personne ne lit,
+# parce qu'il ne dit rien du dépôt où on se trouve.
+#
+# Ce qui rend ce fichier utile, c'est qu'il décrit les conventions RÉELLEMENT
+# pratiquées, pas celles qu'on voudrait. Et la distinction est cruciale : une règle
+# que la chaîne CI fait respecter est un fait ; une habitude visible dans
+# l'historique est une habitude — les confondre fait écrire des règles que
+# personne n'applique.
+id: rediger-le-contrat-de-contribution
+kind: prompt
+title: Le CONTRIBUTING — les conventions telles qu'on les pratique
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [equipe, qualite]
+intent:
+  purpose: >-
+    Rédiger le CONTRIBUTING d'un dépôt à partir de ses conventions réellement pratiquées, en distinguant ce que la chaîne CI impose de ce qui n'est qu'une habitude.
+  not_for: >-
+    Ce n'est pas un CONTRIBUTING générique : « forkez, créez une branche » ne dit rien du dépôt où on se trouve. Et ça n'invente aucune règle — ce qui n'est ni imposé ni pratiqué n'y figure pas.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: config_ci
+    source: repo
+    required: true
+    description: >-
+      Le ou les fichiers de configuration de la chaîne CI.
+  - name: historique_commits
+    source: repo
+    required: true
+    description: >-
+      Les commits de la période, avec leur auteur, leur date et leur message.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Ce que la chaîne impose
+      - Ce qui se pratique
+      - Ce qui n'est pas tranché
+      - Le fichier
+spec: |-
+  Tu rédiges le CONTRIBUTING d'un dépôt, à partir de ses conventions réelles.
+  
+  La chaîne CI :
+  {{config_ci}}
+  
+  L'historique :
+  {{historique_commits}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce que la chaîne impose
+  ## Ce qui se pratique
+  ## Ce qui n'est pas tranché
+  ## Le fichier
+  
+  ── LA DISTINCTION QUI FAIT TOUT ──────────────────────────────────────────
+  
+  UNE RÈGLE IMPOSÉE ET UNE HABITUDE NE S'ÉCRIVENT PAS PAREIL. Ce que la chaîne vérifie est un
+  FAIT : l'ignorer bloque la fusion. Ce qui se voit dans l'historique est une HABITUDE : on
+  peut s'en écarter sans que rien ne se passe.
+  
+  Les confondre produit le pire des CONTRIBUTING — celui qui édicte des règles que personne
+  n'applique, et qui apprend à ne pas le lire.
+  
+  N'INVENTE AUCUNE RÈGLE. Si le dépôt n'impose pas de format de message de commit et n'en
+  pratique aucun, le fichier ne doit pas en exiger un : il doit dire que ce n'est pas
+  tranché. C'est une information vraie, et bien plus utile qu'une règle décorative.
+  
+  AUCUN NOM DE PERSONNE.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QUE LA CHAÎNE IMPOSE
+  Depuis la configuration CI : ce qui est vérifié automatiquement et bloque — format, lint,
+  tests, couverture, message de commit, branche protégée. Chaque ligne dit ce qui se passe
+  quand ce n'est pas respecté.
+  
+  CE QUI SE PRATIQUE
+  Depuis l'historique : la convention de nommage de branches réellement utilisée, le format
+  des messages, la taille habituelle des changements, l'usage ou non des références de
+  ticket. Donne la PROPORTION quand tu peux — « la plupart des messages commencent par un
+  verbe à l'infinitif » est utile ; « les messages commencent par un verbe » est faux dès le
+  premier contre-exemple.
+  
+  CE QUI N'EST PAS TRANCHÉ
+  La section honnête. Ce sur quoi l'historique montre deux pratiques concurrentes, ou rien.
+  C'est ce que l'équipe doit décider, et l'écrire ici est plus utile que de choisir à sa
+  place.
+  
+  LE FICHIER
+  Le CONTRIBUTING en Markdown, en un bloc, prêt à écrire. Il reprend les deux premières
+  sections en distinguant clairement ce qui BLOQUE de ce qui est ATTENDU, et laisse en
+  suspens ce qui n'est pas tranché, avec la mention explicite « à décider par l'équipe ».
+  
+  Court. Un CONTRIBUTING d'une page est lu ; un de cinq pages ne l'est pas.
+  
+  ── LA LIMITE ─────────────────────────────────────────────────────────────
+  
+  Tu ne vois ni les règles de protection de branche, ni les approbations requises, ni les
+  modèles inclus depuis un autre dépôt. Dis-le en une ligne dans « ce qui n'est pas
+  tranché » : ces réglages vivent dans l'interface du projet et changent tout.

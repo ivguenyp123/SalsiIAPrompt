@@ -1,0 +1,97 @@
+# Capacité de l'inventaire du hub — module « Project Scaffolder ».
+# besoin : « un agent qui propose les jobs de CI minimaux d'un projet qui démarre, sans sur-outiller »
+# demandé par ivguenyp123, le 2026-08-20.
+#
+# Le linter l'a laissé passer : sa FORME est vérifiée. Aucun cas d'or n'a été joué —
+# ce qu'il fait vraiment reste à mesurer au banc d'essai.
+#
+# LE PIÈGE DU GENRE, ET IL EST DANS LE MOT « MINIMAL » : ajouter quand même. Un
+# scan de sécurité « ça ne coûte rien », une couverture « tant qu'on y est ». Sur
+# un projet qui démarre, chaque job ajouté est un job qui échouera un jour pour une
+# raison qui n'intéresse personne, et qu'on finira par désactiver — en emportant
+# les deux qui servaient.
+#
+# Le second piège : le silence sur l'ordre d'ajout. Dire quels jobs viendront
+# ENSUITE, et à quel signe, vaut autant que la liste initiale.
+id: proposer-les-jobs-de-ci-d-un-nouveau-projet
+kind: prompt
+title: La CI d'un projet qui démarre — trois jobs, pas douze
+owner:
+  person: ivguenyp123
+  scope: Plateforme
+tags: [ci, demarrage]
+intent:
+  purpose: >-
+    Proposer les trois ou quatre jobs de CI qu'un projet qui démarre a réellement besoin, avec ce que chacun protège — et l'ordre dans lequel ajouter les suivants, plus tard.
+  not_for: >-
+    Ce n'est pas une chaîne complète (`generer-un-gitlab-ci` écrit le fichier) ni un audit (`auditer-une-chaine-ci`). Et ce n'est pas une liste de bonnes pratiques : sur un projet neuf, un job de trop est un job qu'on désactivera, en emportant les autres.
+model_tier: mid
+target_level: experimental
+variables:
+  - name: stack
+    source: repo
+    required: true
+    description: >-
+      La pile technique du projet, telle que ses manifestes la déclarent.
+criteria:
+  - target: output.contains_secret
+    op: eq
+    value: false
+  - target: output.sections
+    op: contains
+    value:
+      - Ce qu'il faut dès le premier jour
+      - Ce que chacun protège
+      - Ce qui vient plus tard, et à quel signe
+      - Ce qui n'arrivera peut-être jamais
+spec: |-
+  Tu proposes les jobs de CI d'un projet qui démarre.
+  
+  La pile :
+  {{stack}}
+  
+  Rends exactement ces sections, avec ces titres :
+  
+  ## Ce qu'il faut dès le premier jour
+  ## Ce que chacun protège
+  ## Ce qui vient plus tard, et à quel signe
+  ## Ce qui n'arrivera peut-être jamais
+  
+  ── LA RÈGLE ──────────────────────────────────────────────────────────────
+  
+  TROIS OU QUATRE JOBS. Pas plus. Chaque job supplémentaire est un job qui échouera un jour
+  pour une raison qui n'intéresse personne — une version d'outil, un faux positif — et qu'on
+  désactivera dans l'urgence. Le problème n'est pas le job désactivé : c'est qu'on prend
+  l'habitude de désactiver, et le jour où le job qui compte casse, on fait pareil.
+  
+  Un projet qui démarre a besoin de savoir DEUX choses : est-ce que ça construit, est-ce que
+  ça passe les tests. Le reste se justifie ou ne se met pas.
+  
+  ── CE QU'ON ATTEND ───────────────────────────────────────────────────────
+  
+  CE QU'IL FAUT DÈS LE PREMIER JOUR
+  La liste, trois ou quatre, adaptée à la pile. Pour chacun : son nom, sa commande en une
+  ligne, sur quoi il se déclenche. Rien de plus — le fichier complet est le métier de
+  `generer-un-gitlab-ci`.
+  
+  CE QUE CHACUN PROTÈGE
+  Une phrase par job : ce qui passerait en production sans lui. Un job dont tu ne peux pas
+  écrire cette phrase n'a pas sa place dans la liste — enlève-le.
+  
+  CE QUI VIENT PLUS TARD, ET À QUEL SIGNE
+  La section qui rend le minimalisme tenable. Deux ou trois jobs à ajouter, chacun avec le
+  SIGNE qui déclenchera son ajout : le premier bug de dépendance vulnérable, la première
+  régression qu'un test aurait attrapée, le premier déploiement manuel raté, le troisième
+  développeur. Pas de calendrier — un signe.
+  
+  CE QUI N'ARRIVERA PEUT-ÊTRE JAMAIS
+  Nomme deux ou trois contrôles qu'on ajoute par réflexe et qui, sur ce projet, pourraient
+  ne jamais servir : pas d'utilisateurs externes, pas de dépendances tierces, durée de vie
+  courte, environnement isolé. Le dire libère de la culpabilité de ne pas les avoir mis, et
+  c'est ce qui empêche qu'ils reviennent par la porte de derrière.
+  
+  ── LA LIMITE ─────────────────────────────────────────────────────────────
+  
+  Tu ne connais ni les contraintes de conformité du contexte, ni les agents d'exécution
+  disponibles, ni les outils imposés. Dis-le en une ligne : certaines de ces décisions ne
+  t'appartiennent pas.
